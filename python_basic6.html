@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Python Tuples — Visual Guide</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f14;
+    --card: #1c2030;
+    --border: #2a2f42;
+    --accent: #fbbf24;
+    --accent2: #38bdf8;
+    --accent3: #a3e635;
+    --accent4: #f87171;
+    --text: #e8eaf0;
+    --muted: #7b82a0;
+    --code-bg: #0a0c10;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: 'Syne', sans-serif; overflow-x: hidden; }
+
+  header { padding: 60px 40px 40px; text-align: center; position: relative; overflow: hidden; }
+  header::before { content: ''; position: absolute; top: -80px; left: 50%; transform: translateX(-50%); width: 600px; height: 300px; background: radial-gradient(ellipse, rgba(251,191,36,0.12) 0%, transparent 70%); pointer-events: none; }
+  .header-badge { display: inline-block; background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.3); color: var(--accent); font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 4px 14px; border-radius: 20px; letter-spacing: 2px; margin-bottom: 20px; animation: fadeSlideDown 0.6s ease both; }
+  h1 { font-size: clamp(42px, 7vw, 80px); font-weight: 800; line-height: 1; animation: fadeSlideDown 0.7s 0.1s ease both; }
+  h1 span { color: var(--accent); }
+  .subtitle { color: var(--muted); font-size: 16px; margin-top: 14px; font-family: 'JetBrains Mono', monospace; animation: fadeSlideDown 0.7s 0.2s ease both; }
+
+  /* immutability badge in header */
+  .immutable-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(251,191,36,0.07); border: 1px solid rgba(251,191,36,0.2); border-radius: 12px; padding: 10px 20px; margin-top: 20px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted); animation: fadeSlideDown 0.7s 0.3s ease both; }
+  .immutable-badge span { color: var(--accent); font-weight: 700; }
+
+  section { max-width: 720px; margin: 0 auto; padding: 0 30px 80px; }
+  .section-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 3px; color: var(--accent); text-transform: uppercase; margin-bottom: 12px; }
+  .section-title { font-size: 32px; font-weight: 800; margin-bottom: 36px; }
+
+  .card-stack { display: flex; flex-direction: column; gap: 20px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; opacity: 0; transform: translateY(20px); transition: border-color 0.3s; }
+  .card:hover { border-color: var(--accent); }
+  .card.visible { animation: cardIn 0.5s ease forwards; }
+
+  .card-header { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.02); }
+  .card-icon { width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; }
+  .card-name { font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 700; color: var(--accent2); }
+  .card-desc { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .card-num-badge { margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); background: rgba(255,255,255,0.04); padding: 2px 8px; border-radius: 4px; }
+  .card-body { padding: 18px 20px; }
+
+  /* CODE — every .line is display:block, guaranteed one per row */
+  .code-block { background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; font-family: 'JetBrains Mono', monospace; font-size: 13px; position: relative; overflow-x: auto; }
+  .code-block::before { content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%; background: var(--accent); opacity: 0.4; }
+
+  .line { display: block; line-height: 2; }
+  .line.blank { display: block; height: 0.6em; }
+
+  .kw  { color: #ff79c6; }
+  .fn  { color: #50fa7b; }
+  .str { color: #f1fa8c; }
+  .num { color: #bd93f9; }
+  .cm  { color: var(--muted); font-style: italic; }
+  .va  { color: var(--accent); }
+  .op  { color: var(--accent4); }
+
+  /* DEMO */
+  .demo-area { margin-top: 14px; background: var(--code-bg); border-radius: 10px; border: 1px solid var(--border); overflow: hidden; }
+  .demo-bar { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.02); }
+  .demo-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); letter-spacing: 1px; }
+  .run-btn { background: var(--accent); color: var(--bg); border: none; border-radius: 6px; padding: 4px 14px; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; cursor: pointer; transition: opacity 0.2s, transform 0.15s; letter-spacing: 1px; }
+  .run-btn:hover { opacity: 0.85; transform: scale(0.97); }
+  .demo-code { padding: 14px 16px; font-family: 'JetBrains Mono', monospace; font-size: 13px; }
+  .demo-output { padding: 10px 14px; border-top: 1px dashed var(--border); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--accent3); min-height: 36px; }
+  .out-prefix { color: var(--muted); margin-right: 8px; }
+
+  /* Tuple items — diamond shape via border-radius */
+  .anim-list { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; min-height: 44px; align-items: center; }
+  .aitem { background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.35); border-radius: 4px; padding: 5px 14px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--accent); transform: scale(0); animation: popIn 0.35s ease forwards; position: relative; }
+  .aitem .idx-label { display: block; font-size: 9px; color: var(--muted); margin-bottom: 1px; }
+  .aitem.hl { background: rgba(56,189,248,0.18); border-color: var(--accent2); color: var(--accent2); }
+  .aitem.neg { background: rgba(248,113,113,0.12); border-color: var(--accent4); color: var(--accent4); }
+
+  /* lock icon on immutable cards */
+  .lock-pill { display: inline-flex; align-items: center; gap: 4px; background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); border-radius: 6px; padding: 2px 8px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--accent4); margin-top: 10px; }
+
+  /* vis items for creation cards */
+  .vis-list { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  .vbox { background: rgba(251,191,36,0.07); border: 1px solid rgba(251,191,36,0.25); border-radius: 4px; padding: 6px 14px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--accent); animation: popIn 0.4s ease both; display: flex; flex-direction: column; align-items: center; gap: 1px; }
+  .vbox .idx { font-size: 9px; color: var(--muted); }
+
+  .bg-decor { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; overflow: hidden; }
+  .bg-bracket { position: absolute; font-family: 'JetBrains Mono', monospace; color: rgba(251,191,36,0.025); font-size: 200px; font-weight: 700; animation: float linear infinite; user-select: none; }
+  main { position: relative; z-index: 1; }
+  .divider { height: 1px; background: linear-gradient(90deg, transparent, var(--border), transparent); margin: 60px 0; }
+  footer { text-align: center; padding: 40px; color: var(--muted); font-family: 'JetBrains Mono', monospace; font-size: 12px; border-top: 1px solid var(--border); }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  @keyframes fadeSlideDown { from { opacity:0; transform:translateY(-20px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes cardIn { to { opacity:1; transform:translateY(0); } }
+  @keyframes popIn { 0%{transform:scale(0) rotate(-3deg);opacity:0;} 70%{transform:scale(1.08);} 100%{transform:scale(1);opacity:1;} }
+  @keyframes float { 0%{transform:translateY(100vh);opacity:0;} 10%{opacity:1;} 90%{opacity:1;} 100%{transform:translateY(-200px) rotate(20deg);opacity:0;} }
+</style>
+</head>
+<body>
+<div class="bg-decor" id="bgDecor"></div>
+<main>
+
+<header>
+  <div class="header-badge">PYTHON 3 · DATA STRUCTURES</div>
+  <h1>Python <span>Tuples</span></h1>
+  <p class="subtitle"># ordered · immutable · allow duplicates · zero-indexed</p>
+  <div style="display:flex;justify-content:center;margin-top:18px;animation:fadeSlideDown 0.7s 0.3s ease both;opacity:0">
+    <div class="immutable-badge">🔒 <span>immutable</span> — once created, a tuple cannot be changed</div>
+  </div>
+</header>
+
+<!-- ═══ SECTION 1: CREATION ═══ -->
+<section id="creation">
+  <div class="section-label">01 — creation</div>
+  <div class="section-title">Ways to Create a Tuple</div>
+  <div class="card-stack">
+
+    <div class="card" data-delay="0">
+      <div class="card-header">
+        <div class="card-icon" style="background:rgba(251,191,36,0.1)">( )</div>
+        <div><div class="card-name">( ) Parentheses</div><div class="card-desc">Most readable way — the comma is what makes a tuple, not the parens</div></div>
+        <div class="card-num-badge">01</div>
+      </div>
+      <div class="card-body">
+        <div class="code-block">
+          <span class="line"><span class="cm"># Standard tuple</span></span>
+          <span class="line"><span class="va">colors</span> = (<span class="str">'red'</span>, <span class="str">'green'</span>, <span class="str">'blue'</span>)</span>
+          <span class="line blank"></span>
+          <span class="line"><span class="cm"># Mixed types allowed</span></span>
+          <span class="line"><span class="va">mixed</span> = (<span class="num">42</span>, <span class="str">'hello'</span>, <span class="kw">True</span>, <span class="num">3.14</span>)</span>
+          <span class="line blank"></span>
+          <span class="line"><span class="cm"># Empty tuple</span></span>
+          <span class="line"><span class="va">empty</span> = ()</span>
+          <span class="line blank"></span>
+          <span class="line"><span class="cm"># Nested tuple</span></span>
+          <span class="line"><span class="va">nested</span> = ((<span class="num">1</span>, <span class="num">2</span>), (<span class="num">3</span>, <span class="num">4</span>))</span>
+        </div>
+        <div class="vis-list" id="vis1"></div>
+      </div>
+    </div>
+
+    <div class="card" data-delay="1">
+      <div class="card-header">
+        <div class="card-icon" style="background:rgba(56,189,248,0.1)">⚠️</div>
+        <div><div class="card-name">Single-element Tuple</div><div class="card-desc">You MUST add a trailing comma — otherwise it's just a value in parens</div></div>
+        <div class="card-num-badge">02</div>
+      </div>
+      <div class="card-body">
+        <div class="code-block">
+          <span class="line"><span class="cm"># This is NOT a tuple — it's just the number 42</span></span>
+          <span class="line"><span class="va">not_tuple</span> = (<span class="num">42</span>)</span>
+          <span class="line"><span class="kw">print</span>(<span class="fn">type</span>(<span class="va">not_tuple</span>))</span>
+          <span class="line"><span class="cm"># → &lt;class 'int'&gt;</span></span>
+          <span class="line blank"></span>
+          <span class="line"><span class="cm"># THIS is a tuple — notice the trailing comma</span></span>
+          <span class="line"><span class="va">one_tuple</span> = (<span class="num">42</span>,)</span>
+          <span class="line"><span class="kw">print</span>(<span class="fn">type</span>(<span class="va">one_tuple</span>))</span>
+          <span class="line"><span class="cm"># → &lt;class 'tuple'&gt;</span></span>
+        </div>
+        <div class="vis-list" id="vis2"></div>
+      </div>
+    </div>
+
+    <div class="card" data-delay="2">
+      <div class="card-header">
+        <div class="card-icon" style="background:rgba(163,230,53,0.1)">🏗️</div>
+        <div><div class="card-name">tuple() Constructor</div><div class="card-desc">Convert any iterable into a tuple</div></div>
+        <div class="card-num-badge">03</div>
+      </div>
+      <div class="card-body">
+        <div class="code-block">
+          <span class="line"><span class="cm"># From a list</span></span>
+          <span class="line"><span class="va">from_list</span> = <span class="fn">tuple</span>([<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>])</span>
+          <span class="line"><span class="cm"># → (1, 2, 3)</span></span>
+          <span class="line blank"></span>
+          <span class="line"><span class="cm"># From a string</span></span>
+          <span class="line"><span class="va">from_str</span> = <span class="fn">tuple</span>(<span class="str">'hello'</span>)</span>
+          <span class="line"><span class="cm"># → ('h', 'e', 'l', 'l', 'o')</span></span>
+          <span class="line blank"></span>
+          <span class="line"><span class="cm"># From a range</span></span>
+          <span class="line"><span class="va">from_range</span> = <span class="fn">tuple</span>(<span class="fn">range</span>(<span class="num">1</span>, <span class="num">6</span>))</span>
+          <span class="line"><span class="cm"># → (1, 2, 3, 4, 5)</span></span>
+        </div>
+        <div class="vis-list" id="vis3"></div>
+      </div>
+    </div>
+
+    <div class="card" data-delay="3">
+      <div class="card-header">
+        <div class="card-icon" style="background:rgba(248,113,113,0.1)">📦</div>
+        <div><div class="card-name">Packing &amp; Unpacking</div><div class="card-desc">Assign multiple values at once — Python's most elegant feature</div></div>
+        <div class="card-num-badge">04</div>
+      </div>
+      <div class="card-body">
+        <div class="code-block">
+          <span class="line"><span class="cm"># Packing — no parens needed</span></span>
+          <span class="line"><span class="va">point</span> = <span class="num">10</span>, <span class="num">20</span>, <span class="num">30</span></span>
+          <span class="line"><span class="cm"># → (10, 20, 30)</span></span>
+          <span class="line blank"></span>
+          <span class="line"><span class="cm"># Unpacking — assign each value to a variable</span></span>
+          <span class="line"><span class="va">x</span>, <span class="va">y</span>, <span class="va">z</span> = <span class="va">point</span></span>
+          <span class="line"><span class="kw">print</span>(<span class="va">x</span>, <span class="va">y</span>, <span class="va">z</span>)</span>
+          <span class="line"><span class="cm"># → 10 20 30</span></span>
+          <span class="line blank"></span>
+          <span class="line"><span class="cm"># Swap two variables in one line</span></span>
+          <span class="line"><span class="va">a</span>, <span class="va">b</span> = <span class="num">1</span>, <span class="num">2</span></span>
+          <span class="line"><span class="va">a</span>, <span class="va">b</span> = <span class="va">b</span>, <span class="va">a</span></span>
+          <span class="line"><span class="cm"># → a=2, b=1</span></span>
+        </div>
+        <div class="vis-list" id="vis4"></div>
+      </div>
+    </div>
+
+    <div class="card" data-delay="4">
+      <div class="card-header">
+        <div class="card-icon" style="background:rgba(251,191,36,0.1)">✳️</div>
+        <div><div class="card-name">Star Unpacking</div><div class="card-desc">Capture the "rest" of a tuple with * operator</div></div>
+        <div class="card-num-badge">05</div>
+      </div>
+      <div class="card-body">
+        <div class="code-block">
+          <span class="line"><span class="va">t</span> = (<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>, <span class="num">4</span>, <span class="num">5</span>)</span>
+          <span class="line blank"></span>
+          <span class="line"><span class="cm"># First item, rest goes into a list</span></span>
+          <span class="line"><span class="va">first</span>, <span class="op">*</span><span class="va">rest</span> = <span class="va">t</span></span>
+          <span class="line"><span class="kw">print</span>(<span class="va">first</span>)</span>
+          <span class="line"><span class="cm"># → 1</span></span>
+          <span class="line"><span class="kw">print</span>(<span class="va">rest</span>)</span>
+          <span class="line"><span class="cm"># → [2, 3, 4, 5]</span></span>
+          <span class="line blank"></span>
+          <span class="line"><span class="cm"># First, middle, and last</span></span>
+          <span class="line"><span class="va">head</span>, <span class="op">*</span><span class="va">mid</span>, <span class="va">tail</span> = <span class="va">t</span></span>
+          <span class="line"><span class="cm"># → head=1  mid=[2,3,4]  tail=5</span></span>
+        </div>
+        <div class="vis-list" id="vis5"></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ═══ SECTION 2: INDEXING ═══ -->
+<section id="indexing">
+  <div class="section-label">02 — access</div>
+  <div class="section-title">Indexing &amp; Slicing</div>
+  <div class="card-stack">
+
+    <div class="card" data-delay="0">
+      <div class="card-header">
+        <div class="card-icon" style="background:rgba(251,191,36,0.1)">🎯</div>
+        <div><div class="card-name">Index Access</div><div class="card-desc">Access individual items by position — positive and negative</div></div>
+      </div>
+      <div class="card-body">
+        <div class="demo-area">
+          <div class="demo-bar"><span class="demo-label">LIVE DEMO</span><button class="run-btn" onclick="runIndex()">▶ RUN</button></div>
+          <div class="demo-code">
+            <span class="line"><span class="va">t</span> = (<span class="str">'a'</span>, <span class="str">'b'</span>, <span class="str">'c'</span>, <span class="str">'d'</span>, <span class="str">'e'</span>)</span>
+            <span class="line blank"></span>
+            <span class="line"><span class="cm"># Positive index — from the front</span></span>
+            <span class="line"><span class="kw">print</span>(<span class="va">t</span>[<span class="num">0</span>])</span>
+            <span class="line"><span class="cm"># → 'a'</span></span>
+            <span class="line blank"></span>
+            <span class="line"><span class="cm"># Negative index — from the back</span></span>
+            <span class="line"><span class="kw">print</span>(<span class="va">t</span>[<span class="op">-</span><span class="num">1</span>])</span>
+            <span class="line"><span class="cm"># → 'e'</span></span>
+          </div>
+          <div class="demo-output"><span class="out-prefix">&gt;&gt;&gt;</span><span id="res-index">click ▶ RUN</span></div>
+          <div class="anim-list" id="al-index"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" data-delay="1">
+      <div class="card-header">
+        <div class="card-icon" style="background:rgba(56,189,248,0.1)">✂️</div>
+        <div><div class="card-name">Slicing</div><div class="card-desc">Extract a sub-tuple with [start : stop : step]</div></div>
+      </div>
+      <div class="card-body">
+        <div class="demo-area">
+          <div class="demo-bar"><span class="demo-label">LIVE DEMO</span><button class="run-btn" onclick="runSlice()">▶ RUN</button></div>
+          <div class="demo-code">
+            <span class="line"><span class="va">t</span> = (<span class="num">0</span>, <span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>, <span class="num">4</span>, <span class="num">5</span>)</span>
+            <span class="line blank"></span>
+            <span class="line"><span class="cm"># Items at index 1, 2, 3</span></span>
+            <span class="line"><span class="kw">print</span>(<span class="va">t</span>[<span class="num">1</span>:<span class="num">4</span>])</span>
+            <span class="line"><span class="cm"># → (1, 2, 3)</span></span>
+            <span class="line blank"></span>
+            <span class="line"><span class="cm"># Every second item</span></span>
+            <span class="line"><span class="kw">print</span>(<span class="va">t</span>[::<span class="num">2</span>])</span>
+            <span class="line"><span class="cm"># → (0, 2, 4)</span></span>
+            <span class="line blank"></span>
+            <span class="line"><span class="cm"># Reversed</span></span>
+            <span class="line"><span class="kw">print</span>(<span class="va">t</span>[::<span class="op">-</span><span class="num">1</span>])</span>
+            <span class="line"><span class="cm"># → (5, 4, 3, 2, 1, 0)</span></span>
+          </div>
+          <div class="demo-output"><span class="out-prefix">&gt;&gt;&gt;</span><span id="res-slice">click ▶ RUN</span></div>
+          <div class="anim-list" id="al-slice"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ═══ SECTION 3: METHODS ═══ -->
+<section id="methods">
+  <div class="section-label">03 — methods</div>
+  <div class="section-title">Tuple Methods &amp; Operations</div>
+  <div style="margin-bottom:24px">
+    <div class="lock-pill">🔒 Tuples only have 2 built-in methods — because they are immutable, they cannot be modified</div>
+  </div>
+  <div class="card-stack">
+
+    <!-- COUNT -->
+    <div class="card" data-delay="0">
+      <div class="card-header">
+        <div class="card-icon" style="background:rgba(251,191,36,0.1)">🧮</div>
+        <div><div class="card-name">.count(x)</div><div class="card-desc">Count how many times a value appears in the tuple</div></div>
+      </div>
+      <div class="card-body">
+        <div class="demo-area">
+          <div class="demo-bar"><span class="demo-label">LIVE DEMO</span><button class="run-btn" onclick="runCount()">▶ RUN</button></div>
+          <div class="demo-code">
+            <span class="line"><span class="va">t</span> = (<span class="num">1</span>, <span class="num">2</span>, <span class="num">2</span>, <span class="num">3</span>, <span class="num">2</span>, <span class="num">4</span>, <span class="num">2</span>)</span>
+            <span class="line"><span class="va">n</span> = <span class="va">t</span>.<span class="fn">count</span>(<span class="num">2</span>)</span>
+            <span class="line"><span class="cm"># → 4</span></span>
+            <span class="line"><span class="kw">print</span>(<span class="va">n</span>)</span>
+          </div>
+          <div class="demo-output"><span class="out-prefix">&gt;&gt;&gt;</span><span id="res-count">click ▶ RUN</span></div>
+          <div class="anim-list" id="al-count"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- INDEX -->
+    <div class="card" data-delay="1">
+      <div class="card-header">
+        <div class="card-icon" style="background:rgba(56,189,248,0.1)">🔍</div>
+        <div><div class="card-name">.index(x)</div><div class="card-desc">Return the index of the first occurrence of a value</div></div>
+      </div>
+      <div class="card-body">
+        <div class="demo-area">
+          <div class="demo-bar"><span class="demo-label">LIVE DEMO</span><button class="run-btn" onclick="runIndexMethod()">▶ RUN</button></div>
+          <div class="demo-code">
+            <span class="line"><span class="va">t</span> = (<span class="str">'cat'</span>, <span class="str">'dog'</span>, <span class="str">'bird'</span>, <span class="str">'dog'</span>)</span>
+            <span class="line"><span class="va">pos</span> = <span class="va">t</span>.<span class="fn">index</span>(<span class="str">'dog'</span>)</span>
+            <span class="line"><span class="cm"># → 1  (first occurrence only)</span></span>
+            <span class="line"><span class="kw">print</span>(<span class="va">pos</span>)</span>
+          </div>
+          <div class="demo-output"><span class="out-prefix">&gt;&gt;&gt;</span><span id="res-indexmethod">click ▶ RUN</span></div>
+          <div class="anim-list" id="al-indexmethod"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONCATENATE -->
+    <div class="card" data-delay="2">
+      <div class="card-header">
+        <div class="card-icon" style="background:rgba(163,230,53,0.1)">➕</div>
+        <div><div class="card-name">Concatenation with +</div><div class="card-desc">Combine two tuples into a new tuple — originals unchanged</div></div>
+      </div>
+      <div class="card-body">
+        <div class="demo-area">
+          <div class="demo-bar"><span class="demo-label">LIVE DEMO</span><button class="run-btn" onclick="runConcat()">▶ RUN</button></div>
+          <div class="demo-code">
+            <span class="line"><span class="va">a</span> = (<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>)</span>
+            <span class="line"><span class="va">b</span> = (<span class="num">4</span>, <span class="num">5</span>, <span class="num">6</span>)</span>
+            <span class="line"><span class="va">result</span> = <span class="va">a</span> <span class="op">+</span> <span class="va">b</span></span>
+            <span class="line"><span class="kw">print</span>(<span class="va">result</span>)</span>
+            <span class="line"><span class="cm"># → (1, 2, 3, 4, 5, 6)</span></span>
+          </div>
+          <div class="demo-output"><span class="out-prefix">&gt;&gt;&gt;</span><span id="res-concat">click ▶ RUN</span></div>
+          <div class="anim-list" id="al-concat"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- REPEAT -->
+    <div class="card" data-delay="3">
+      <div class="card-header">
+        <div class="card-icon" style="background:rgba(248,113,113,0.1)">✖️</div>
+        <div><div class="card-name">Repetition with *</div><div class="card-desc">Repeat a tuple n times to create a new tuple</div></div>
+      </div>
+      <div class="card-body">
+        <div class="demo-area">
+          <div class="demo-bar"><span class="demo-label">LIVE DEMO</span><button class="run-btn" onclick="runRepeat()">▶ RUN</button></div>
+          <div class="demo-code">
+            <span class="line"><span class="va">t</span> = (<span class="num">1</span>, <span class="num">2</span>)</span>
+            <span class="line"><span class="va">result</span> = <span class="va">t</span> <span class="op">*</span> <span class="num">3</span></span>
+            <span class="line"><span class="kw">print</span>(<span class="va">result</span>)</span>
+            <span class="line"><span class="cm"># → (1, 2, 1, 2, 1, 2)</span></span>
+          </div>
+          <div class="demo-output"><span class="out-prefix">&gt;&gt;&gt;</span><span id="res-repeat">click ▶ RUN</span></div>
+          <div class="anim-list" id="al-repeat"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- IN OPERATOR -->
+    <div class="card" data-delay="4">
+      <div class="card-header">
+        <div class="card-icon" style="background:rgba(251,191,36,0.1)">🔎</div>
+        <div><div class="card-name">in / not in</div><div class="card-desc">Check if a value exists inside a tuple</div></div>
+      </div>
+      <div class="card-body">
+        <div class="demo-area">
+          <div class="demo-bar"><span class="demo-label">LIVE DEMO</span><button class="run-btn" onclick="runIn()">▶ RUN</button></div>
+          <div class="demo-code">
+            <span class="line"><span class="va">t</span> = (<span class="str">'apple'</span>, <span class="str">'banana'</span>, <span class="str">'cherry'</span>)</span>
+            <span class="line blank"></span>
+            <span class="line"><span class="kw">print</span>(<span class="str">'banana'</span> <span class="kw">in</span> <span class="va">t</span>)</span>
+            <span class="line"><span class="cm"># → True</span></span>
+            <span class="line blank"></span>
+            <span class="line"><span class="kw">print</span>(<span class="str">'mango'</span> <span class="kw">not in</span> <span class="va">t</span>)</span>
+            <span class="line"><span class="cm"># → True</span></span>
+          </div>
+          <div class="demo-output"><span class="out-prefix">&gt;&gt;&gt;</span><span id="res-in">click ▶ RUN</span></div>
+          <div class="anim-list" id="al-in"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BUILTINS -->
+    <div class="card" data-delay="5">
+      <div class="card-header">
+        <div class="card-icon" style="background:rgba(56,189,248,0.1)">📊</div>
+        <div><div class="card-name">Built-in Functions</div><div class="card-desc">len · min · max · sum · sorted</div></div>
+      </div>
+      <div class="card-body">
+        <div class="demo-area">
+          <div class="demo-bar"><span class="demo-label">LIVE DEMO</span><button class="run-btn" onclick="runBuiltins()">▶ RUN</button></div>
+          <div class="demo-code">
+            <span class="line"><span class="va">t</span> = (<span class="num">3</span>, <span class="num">1</span>, <span class="num">4</span>, <span class="num">1</span>, <span class="num">5</span>, <span class="num">9</span>)</span>
+            <span class="line blank"></span>
+            <span class="line"><span class="cm"># → 6</span></span>
+            <span class="line"><span class="kw">print</span>(<span class="fn">len</span>(<span class="va">t</span>))</span>
+            <span class="line"><span class="cm"># → 1</span></span>
+            <span class="line"><span class="kw">print</span>(<span class="fn">min</span>(<span class="va">t</span>))</span>
+            <span class="line"><span class="cm"># → 9</span></span>
+            <span class="line"><span class="kw">print</span>(<span class="fn">max</span>(<span class="va">t</span>))</span>
+            <span class="line"><span class="cm"># → 23</span></span>
+            <span class="line"><span class="kw">print</span>(<span class="fn">sum</span>(<span class="va">t</span>))</span>
+            <span class="line"><span class="cm"># returns a sorted list (not a tuple)</span></span>
+            <span class="line"><span class="kw">print</span>(<span class="fn">sorted</span>(<span class="va">t</span>))</span>
+          </div>
+          <div class="demo-output"><span class="out-prefix">&gt;&gt;&gt;</span><span id="res-builtins">click ▶ RUN</span></div>
+          <div class="anim-list" id="al-builtins"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- IMMUTABILITY -->
+    <div class="card" data-delay="6">
+      <div class="card-header">
+        <div class="card-icon" style="background:rgba(248,113,113,0.1)">🔒</div>
+        <div><div class="card-name">Immutability in Action</div><div class="card-desc">You cannot change a tuple — but you can work around it</div></div>
+      </div>
+      <div class="card-body">
+        <div class="demo-area">
+          <div class="demo-bar"><span class="demo-label">LIVE DEMO</span><button class="run-btn" onclick="runImmutable()">▶ RUN</button></div>
+          <div class="demo-code">
+            <span class="line"><span class="va">t</span> = (<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>)</span>
+            <span class="line blank"></span>
+            <span class="line"><span class="cm"># This would raise a TypeError:</span></span>
+            <span class="line"><span class="cm"># t[0] = 99  → TypeError!</span></span>
+            <span class="line blank"></span>
+            <span class="line"><span class="cm"># Workaround: convert to list, edit, convert back</span></span>
+            <span class="line"><span class="va">lst</span> = <span class="fn">list</span>(<span class="va">t</span>)</span>
+            <span class="line"><span class="va">lst</span>[<span class="num">0</span>] = <span class="num">99</span></span>
+            <span class="line"><span class="va">t</span> = <span class="fn">tuple</span>(<span class="va">lst</span>)</span>
+            <span class="line"><span class="kw">print</span>(<span class="va">t</span>)</span>
+            <span class="line"><span class="cm"># → (99, 2, 3)</span></span>
+          </div>
+          <div class="demo-output"><span class="out-prefix">&gt;&gt;&gt;</span><span id="res-immutable">click ▶ RUN</span></div>
+          <div class="anim-list" id="al-immutable"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NAMED TUPLE -->
+    <div class="card" data-delay="7">
+      <div class="card-header">
+        <div class="card-icon" style="background:rgba(163,230,53,0.1)">🏷️</div>
+        <div><div class="card-name">namedtuple</div><div class="card-desc">Tuples with named fields — access by name or index</div></div>
+      </div>
+      <div class="card-body">
+        <div class="demo-area">
+          <div class="demo-bar"><span class="demo-label">LIVE DEMO</span><button class="run-btn" onclick="runNamed()">▶ RUN</button></div>
+          <div class="demo-code">
+            <span class="line"><span class="kw">from</span> collections <span class="kw">import</span> namedtuple</span>
+            <span class="line blank"></span>
+            <span class="line"><span class="cm"># Define a namedtuple type</span></span>
+            <span class="line">Point = <span class="fn">namedtuple</span>(<span class="str">'Point'</span>, [<span class="str">'x'</span>, <span class="str">'y'</span>, <span class="str">'z'</span>])</span>
+            <span class="line blank"></span>
+            <span class="line"><span class="cm"># Create an instance</span></span>
+            <span class="line"><span class="va">p</span> = Point(<span class="num">10</span>, <span class="num">20</span>, <span class="num">30</span>)</span>
+            <span class="line blank"></span>
+            <span class="line"><span class="cm"># Access by name</span></span>
+            <span class="line"><span class="kw">print</span>(<span class="va">p</span>.x, <span class="va">p</span>.y, <span class="va">p</span>.z)</span>
+            <span class="line"><span class="cm"># → 10 20 30</span></span>
+            <span class="line blank"></span>
+            <span class="line"><span class="cm"># Access by index still works</span></span>
+            <span class="line"><span class="kw">print</span>(<span class="va">p</span>[<span class="num">0</span>])</span>
+            <span class="line"><span class="cm"># → 10</span></span>
+          </div>
+          <div class="demo-output"><span class="out-prefix">&gt;&gt;&gt;</span><span id="res-named">click ▶ RUN</span></div>
+          <div class="anim-list" id="al-named"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+</main>
+<footer><span style="color:var(--accent)">python</span> · tuples reference guide · built with ❤️ and code</footer>
+
+<script>
+// ── Background decor ──
+const bg = document.getElementById('bgDecor');
+const chars = ['(',')',',','→','*','≠'];
+function spawnBracket() {
+  const el = document.createElement('div');
+  el.className = 'bg-bracket';
+  el.textContent = chars[Math.floor(Math.random()*chars.length)];
+  el.style.left = Math.random()*90+'%';
+  el.style.animationDuration = (18+Math.random()*20)+'s';
+  el.style.animationDelay = (Math.random()*5)+'s';
+  bg.appendChild(el);
+  setTimeout(()=>el.remove(), 40000);
+}
+setInterval(spawnBracket, 3000);
+spawnBracket(); spawnBracket(); spawnBracket();
+
+// ── Scroll reveal ──
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      const delay = parseInt(e.target.dataset.delay||0)*100;
+      setTimeout(()=>e.target.classList.add('visible'), delay);
+    }
+  });
+}, { threshold: 0.1 });
+document.querySelectorAll('.card').forEach(el=>observer.observe(el));
+
+// ── Creation visuals ──
+function buildVis(id, items, color='var(--accent)') {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = '';
+  items.forEach((item, i) => {
+    const box = document.createElement('div');
+    box.className = 'vbox';
+    box.style.animationDelay = (i*80)+'ms';
+    box.style.borderColor = color;
+    box.style.color = color;
+    box.innerHTML = `<span class="idx">[${i}]</span>${item}`;
+    el.appendChild(box);
+  });
+}
+setTimeout(() => {
+  buildVis('vis1', ['red','green','blue']);
+  buildVis('vis2', ['42',], 'var(--accent4)');
+  buildVis('vis3', ['1','2','3','4','5'], 'var(--accent2)');
+  buildVis('vis4', ['10','20','30'], 'var(--accent3)');
+  buildVis('vis5', ['1','2','3','4','5']);
+}, 600);
+
+// ── Animated tuple items ──
+function renderTuple(id, items, hlIdx=-1, hlSet=null) {
+  const c = document.getElementById(id);
+  c.innerHTML = '';
+  items.forEach((item, i) => {
+    const d = document.createElement('div');
+    let cls = 'aitem';
+    if (hlIdx >= 0 && i === hlIdx) cls += ' hl';
+    if (hlSet && hlSet.has(i)) cls += ' hl';
+    d.className = cls;
+    d.style.animationDelay = (i*60)+'ms';
+    d.innerHTML = `<span class="idx-label">[${i}]</span>${item}`;
+    c.appendChild(d);
+  });
+}
+
+function runIndex() {
+  const t = ['a','b','c','d','e'];
+  document.getElementById('res-index').textContent = `t[0] → '${t[0]}'   t[-1] → '${t[t.length-1]}'`;
+  renderTuple('al-index', t, 0);
+}
+
+function runSlice() {
+  const t = [0,1,2,3,4,5];
+  const sliced = t.slice(1,4);
+  document.getElementById('res-slice').textContent = `t[1:4] → (${sliced.join(', ')})`;
+  renderTuple('al-slice', t, -1, new Set([1,2,3]));
+}
+
+function runCount() {
+  const t = [1,2,2,3,2,4,2];
+  const n = t.filter(x=>x===2).length;
+  document.getElementById('res-count').textContent = `count(2) → ${n}`;
+  const c = document.getElementById('al-count');
+  c.innerHTML = '';
+  t.forEach((item,i)=>{
+    const d = document.createElement('div');
+    d.className = 'aitem'+(item===2?' hl':'');
+    d.style.animationDelay = (i*60)+'ms';
+    d.innerHTML = `<span class="idx-label">[${i}]</span>${item}`;
+    c.appendChild(d);
+  });
+}
+
+function runIndexMethod() {
+  const t = ['cat','dog','bird','dog'];
+  const pos = t.indexOf('dog');
+  document.getElementById('res-indexmethod').textContent = `index('dog') → ${pos}`;
+  renderTuple('al-indexmethod', t, pos);
+}
+
+function runConcat() {
+  const a = [1,2,3], b = [4,5,6];
+  const result = [...a,...b];
+  document.getElementById('res-concat').textContent = `(${result.join(', ')})`;
+  renderTuple('al-concat', result.map(String));
+}
+
+function runRepeat() {
+  const t = [1,2];
+  const result = [...t,...t,...t];
+  document.getElementById('res-repeat').textContent = `(${result.join(', ')})`;
+  renderTuple('al-repeat', result.map(String));
+}
+
+function runIn() {
+  const t = ['apple','banana','cherry'];
+  document.getElementById('res-in').textContent = `'banana' in t → True   'mango' not in t → True`;
+  renderTuple('al-in', t, 1);
+}
+
+function runBuiltins() {
+  const t = [3,1,4,1,5,9];
+  document.getElementById('res-builtins').textContent =
+    `len=${t.length}  min=${Math.min(...t)}  max=${Math.max(...t)}  sum=${t.reduce((a,b)=>a+b,0)}`;
+  renderTuple('al-builtins', [...t].sort((a,b)=>a-b).map(String));
+}
+
+function runImmutable() {
+  const t = [1,2,3];
+  t[0] = 99;
+  document.getElementById('res-immutable').textContent = `(${t.join(', ')})`;
+  renderTuple('al-immutable', t.map(String), 0);
+}
+
+function runNamed() {
+  document.getElementById('res-named').textContent = `p.x=10  p.y=20  p.z=30  p[0]=10`;
+  const c = document.getElementById('al-named');
+  c.innerHTML = '';
+  [['x','10'],['y','20'],['z','30']].forEach(([name,val],i)=>{
+    const d = document.createElement('div');
+    d.className = 'aitem hl';
+    d.style.animationDelay = (i*80)+'ms';
+    d.innerHTML = `<span class="idx-label">.${name}</span>${val}`;
+    c.appendChild(d);
+  });
+}
+</script>
+</body>
+</html>
