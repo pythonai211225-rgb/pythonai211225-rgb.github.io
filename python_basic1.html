@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Python Input & Print</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Unbounded:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:      #fdf6e3;
+    --paper:   #fffbf0;
+    --ink:     #2d2013;
+    --muted:   #9c8866;
+    --border:  #e8dcc8;
+    --amber:   #d97706;
+    --red:     #c0392b;
+    --green:   #2d6a4f;
+    --blue:    #1e4d8c;
+    --teal:    #0f766e;
+    --term-bg: #1a1209;
+    --term-fg: #f0d080;
+    --term-dim:#8a6c30;
+    --term-gr: #4ade80;
+    --term-bl: #60a5fa;
+    --term-rd: #f87171;
+    --shadow:  rgba(45,32,19,.12);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Space Mono', monospace;
+    overflow-x: hidden;
+  }
+
+  /* ── NOISE TEXTURE OVERLAY ── */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 999;
+    opacity: .5;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--term-bg);
+    padding: 64px 40px 56px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    border-bottom: 4px solid var(--amber);
+  }
+
+  /* scanlines */
+  header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(255,255,255,.015) 2px,
+      rgba(255,255,255,.015) 4px
+    );
+    pointer-events: none;
+  }
+
+  .term-blink {
+    display: inline-block;
+    width: 14px; height: 26px;
+    background: var(--term-fg);
+    vertical-align: middle;
+    margin-left: 4px;
+    animation: blink .9s step-end infinite;
+  }
+
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .header-prompt {
+    font-size: .8rem;
+    color: var(--term-dim);
+    letter-spacing: .12em;
+    margin-bottom: 18px;
+    animation: fadeIn .5s ease both;
+  }
+
+  .header-prompt span { color: var(--term-gr); }
+
+  h1 {
+    font-family: 'Unbounded', sans-serif;
+    font-size: clamp(1.8rem, 5vw, 3.8rem);
+    font-weight: 900;
+    color: var(--term-fg);
+    line-height: 1.1;
+    letter-spacing: -.02em;
+    animation: fadeIn .6s .1s ease both;
+  }
+
+  h1 .accent { color: var(--amber); }
+
+  .header-sub {
+    margin-top: 16px;
+    color: var(--term-dim);
+    font-size: .85rem;
+    animation: fadeIn .6s .2s ease both;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── MAIN ── */
+  main {
+    max-width: 1060px;
+    margin: 0 auto;
+    padding: 72px 28px 100px;
+    display: flex;
+    flex-direction: column;
+    gap: 80px;
+  }
+
+  /* ── SECTION ── */
+  .sec-tag {
+    font-size: .68rem;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  .sec-title {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 10px;
+    line-height: 1.2;
+  }
+
+  .sec-desc {
+    color: var(--muted);
+    font-size: .85rem;
+    line-height: 1.9;
+    max-width: 580px;
+    margin-bottom: 30px;
+  }
+
+  /* ── CODE BLOCK ── */
+  .code-card {
+    background: var(--term-bg);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 8px 32px var(--shadow), 0 2px 8px var(--shadow);
+    border: 1px solid #2e2010;
+  }
+
+  .code-topbar {
+    display: flex;
+    align-items: center;
+    padding: 10px 16px;
+    background: #110e06;
+    border-bottom: 1px solid #2e2010;
+    gap: 8px;
+  }
+
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .dr { background: #ff5f57; }
+  .dy { background: #ffbd2e; }
+  .dg { background: #28ca41; }
+
+  .fname {
+    margin-left: 8px;
+    font-size: .72rem;
+    color: var(--term-dim);
+    letter-spacing: .06em;
+  }
+
+  pre {
+    padding: 28px 32px;
+    overflow-x: auto;
+    font-size: .88rem;
+    line-height: 2;
+    color: var(--term-fg);
+  }
+
+  /* syntax */
+  .kw  { color: #fb923c; font-weight: 700; }
+  .fn  { color: #facc15; }
+  .str { color: #86efac; }
+  .num { color: #f87171; }
+  .cmt { color: #4b3c1e; font-style: italic; }
+  .var { color: #93c5fd; }
+  .op  { color: #e2e8f0; }
+  .pmt { color: #d8b4fe; }   /* prompt string inside input() */
+
+  /* ── ANATOMY CARDS ── */
+  .anatomy {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 18px;
+  }
+
+  .acard {
+    background: var(--paper);
+    border: 2px solid var(--border);
+    border-radius: 14px;
+    padding: 26px 24px;
+    position: relative;
+    transition: box-shadow .2s, transform .2s;
+    overflow: hidden;
+  }
+
+  .acard:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px var(--shadow);
+  }
+
+  .acard-num {
+    position: absolute;
+    top: -14px; right: 16px;
+    font-family: 'Unbounded', sans-serif;
+    font-size: 3.5rem;
+    font-weight: 900;
+    opacity: .06;
+    line-height: 1;
+    color: var(--ink);
+  }
+
+  .acard-icon {
+    font-size: 1.8rem;
+    margin-bottom: 12px;
+    display: block;
+    animation: floatY 3s ease-in-out infinite;
+  }
+
+  .acard:nth-child(2) .acard-icon { animation-delay: .6s; }
+  .acard:nth-child(3) .acard-icon { animation-delay: 1.2s; }
+
+  @keyframes floatY {
+    0%,100% { transform: translateY(0); }
+    50%      { transform: translateY(-5px); }
+  }
+
+  .acard h3 {
+    font-family: 'Unbounded', sans-serif;
+    font-size: .9rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+    color: var(--ink);
+  }
+
+  .acard p {
+    font-size: .8rem;
+    color: var(--muted);
+    line-height: 1.8;
+  }
+
+  .acard .pill {
+    display: inline-block;
+    margin-top: 12px;
+    padding: 3px 12px;
+    border-radius: 99px;
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: .05em;
+  }
+
+  .pill-amber  { background: rgba(217,119,6,.12);  color: var(--amber); border: 1px solid rgba(217,119,6,.3); }
+  .pill-green  { background: rgba(45,106,79,.12);  color: var(--green); border: 1px solid rgba(45,106,79,.3); }
+  .pill-blue   { background: rgba(30,77,140,.12);  color: var(--blue);  border: 1px solid rgba(30,77,140,.3); }
+
+  /* ── LIVE TERMINAL ── */
+  .terminal-wrap {
+    background: var(--term-bg);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 12px 40px rgba(0,0,0,.3);
+    border: 1px solid #2e2010;
+  }
+
+  .term-titlebar {
+    background: #110e06;
+    border-bottom: 1px solid #2e2010;
+    display: flex;
+    align-items: center;
+    padding: 10px 16px;
+    gap: 8px;
+  }
+
+  .term-title {
+    margin-left: 8px;
+    font-size: .72rem;
+    color: var(--term-dim);
+  }
+
+  .term-body {
+    padding: 28px 32px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    align-items: start;
+  }
+
+  @media (max-width: 640px) { .term-body { grid-template-columns: 1fr; } }
+
+  .term-label {
+    font-size: .68rem;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--term-dim);
+    margin-bottom: 14px;
+  }
+
+  .input-row {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .field-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .field-label {
+    font-size: .72rem;
+    color: var(--term-dim);
+  }
+
+  .term-input {
+    background: #0d0a04;
+    border: 1px solid #3a2c10;
+    border-radius: 7px;
+    padding: 10px 14px;
+    font-family: 'Space Mono', monospace;
+    font-size: .85rem;
+    color: var(--term-fg);
+    outline: none;
+    transition: border-color .2s;
+    width: 100%;
+  }
+
+  .term-input:focus {
+    border-color: var(--amber);
+    box-shadow: 0 0 0 3px rgba(217,119,6,.15);
+  }
+
+  .run-btn {
+    background: var(--amber);
+    color: #1a0e00;
+    border: none;
+    border-radius: 8px;
+    padding: 11px 22px;
+    font-family: 'Unbounded', sans-serif;
+    font-size: .78rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .2s, transform .15s;
+    letter-spacing: .04em;
+    margin-top: 6px;
+  }
+
+  .run-btn:hover  { background: #f59e0b; transform: translateY(-2px); }
+  .run-btn:active { transform: translateY(0); }
+
+  .output-panel {
+    background: #0d0a04;
+    border: 1px solid #3a2c10;
+    border-radius: 10px;
+    padding: 20px 22px;
+    min-height: 180px;
+    font-size: .85rem;
+    line-height: 1.9;
+    color: var(--term-fg);
+  }
+
+  .out-line { opacity: 0; transform: translateX(-6px); transition: none; }
+  .out-line.show {
+    opacity: 1; transform: translateX(0);
+    transition: opacity .25s ease, transform .25s ease;
+  }
+
+  .out-prompt { color: var(--term-dim); }
+  .out-input  { color: var(--term-bl); }
+  .out-result { color: var(--term-gr); }
+  .out-error  { color: var(--term-rd); }
+
+  /* ── TYPE CONVERSION VISUAL ── */
+  .conversion-flow {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin: 28px 0;
+  }
+
+  .conv-box {
+    background: var(--paper);
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 22px;
+    text-align: center;
+    min-width: 120px;
+  }
+
+  .conv-type {
+    font-size: .65rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 5px;
+  }
+
+  .conv-val {
+    font-size: 1.1rem;
+    font-weight: 700;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .conv-arrow {
+    font-size: 1.6rem;
+    color: var(--amber);
+    padding: 0 10px;
+    animation: arrowPulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes arrowPulse {
+    0%,100% { opacity: .5; transform: scaleX(1); }
+    50%      { opacity: 1;  transform: scaleX(1.2); }
+  }
+
+  .conv-fn {
+    font-size: .72rem;
+    color: var(--muted);
+    text-align: center;
+    padding: 0 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .conv-fn code {
+    font-family: 'Space Mono', monospace;
+    background: var(--border);
+    padding: 2px 8px;
+    border-radius: 4px;
+    color: var(--amber);
+    font-size: .8rem;
+  }
+
+  /* ── F-STRING TABLE ── */
+  .fstring-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+  }
+
+  .fcard {
+    background: var(--paper);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 18px;
+    transition: all .2s;
+    cursor: default;
+  }
+
+  .fcard:hover {
+    border-color: var(--amber);
+    box-shadow: 0 6px 20px var(--shadow);
+    transform: translateY(-3px);
+  }
+
+  .fcard-code {
+    font-size: .82rem;
+    color: var(--amber);
+    font-weight: 700;
+    margin-bottom: 8px;
+    word-break: break-all;
+  }
+
+  .fcard-out {
+    font-size: .78rem;
+    color: var(--green);
+    margin-bottom: 8px;
+  }
+
+  .fcard-desc {
+    font-size: .75rem;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  /* ── GOTCHAS ── */
+  .gotcha-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .gotcha {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 16px;
+    align-items: start;
+    background: var(--paper);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 22px;
+    border-left: 4px solid var(--red);
+    transition: transform .2s;
+  }
+
+  .gotcha:hover { transform: translateX(4px); }
+
+  .gotcha.tip  { border-left-color: var(--green); }
+  .gotcha.warn { border-left-color: var(--amber); }
+
+  .gotcha-icon { font-size: 1.4rem; margin-top: 2px; }
+  .gotcha-title {
+    font-weight: 700;
+    font-size: .88rem;
+    margin-bottom: 5px;
+    color: var(--ink);
+  }
+  .gotcha-body { font-size: .8rem; color: var(--muted); line-height: 1.7; }
+
+  /* ── SCROLL REVEAL ── */
+  .reveal {
+    opacity: 0;
+    transform: translateY(28px);
+    transition: opacity .55s ease, transform .55s ease;
+  }
+  .reveal.visible { opacity: 1; transform: translateY(0); }
+
+  /* ── FOOTER ── */
+  footer {
+    background: var(--term-bg);
+    border-top: 3px solid var(--amber);
+    text-align: center;
+    padding: 32px;
+    font-size: .75rem;
+    color: var(--term-dim);
+    letter-spacing: .08em;
+  }
+
+  footer span { color: var(--term-fg); }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="header-prompt"><span>$</span> python3 interact.py</div>
+  <h1><span class="accent">input</span>() · int() · <span class="accent">print</span>(f"...") · <span class="accent">pprint</span>()<span class="term-blink"></span></h1>
+  <p class="header-sub">Getting data in, converting it, and sending it back out</p>
+</header>
+
+<main>
+
+  <!-- ══ SECTION 1 — THE THREE FUNCTIONS ══ -->
+  <section class="reveal">
+    <p class="sec-tag">// section 01</p>
+    <h2 class="sec-title">The three essentials</h2>
+    <p class="sec-desc">These three functions form the core of interactive Python programs. Together they handle the full cycle: receive → process → display.</p>
+
+    <div class="anatomy">
+      <div class="acard">
+        <span class="acard-num">1</span>
+        <span class="acard-icon">⌨️</span>
+        <h3>input()</h3>
+        <p>Pauses the program and waits for the user to type something. Always returns a <strong>string</strong>, no matter what they type — even numbers come back as text.</p>
+        <span class="pill pill-amber">returns str</span>
+      </div>
+      <div class="acard">
+        <span class="acard-num">2</span>
+        <span class="acard-icon">🔢</span>
+        <h3>int(input(...))</h3>
+        <p>Wraps <code>input()</code> inside <code>int()</code> to convert the string immediately into a whole number. You can also use <code>float()</code> for decimals.</p>
+        <span class="pill pill-blue">str → int</span>
+      </div>
+      <div class="acard">
+        <span class="acard-num">3</span>
+        <span class="acard-icon">🖨️</span>
+        <h3>print(f"...")</h3>
+        <p>Displays output to the screen. The <strong>f-string</strong> prefix lets you embed variables directly inside the text using <code>{curly braces}</code>.</p>
+        <span class="pill pill-green">outputs text</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ SECTION 2 — CODE EXAMPLE ══ -->
+  <section class="reveal">
+    <p class="sec-tag">// section 02</p>
+    <h2 class="sec-title">Putting it together</h2>
+    <p class="sec-desc">A simple program that asks for your name and age, then greets you with a calculation.</p>
+
+    <div class="code-card">
+      <div class="code-topbar">
+        <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+        <span class="fname">greet.py</span>
+      </div>
+      <pre>
+<span class="cmt"># ── Step 1: get a string ──────────────────────────</span>
+<span class="var">name</span> <span class="op">=</span> <span class="fn">input</span>(<span class="pmt">"What is your name? "</span>)
+
+<span class="cmt"># ── Step 2: get a number ──────────────────────────</span>
+<span class="var">age</span> <span class="op">=</span> <span class="fn">int</span>(<span class="fn">input</span>(<span class="pmt">"How old are you? "</span>))
+
+<span class="cmt"># ── Step 3: calculate ─────────────────────────────</span>
+<span class="var">birth_year</span> <span class="op">=</span> <span class="num">2026</span> <span class="op">-</span> <span class="var">age</span>
+
+<span class="cmt"># ── Step 4: print with f-string ───────────────────</span>
+<span class="fn">print</span>(<span class="fn">f</span><span class="str">"Hello, </span><span class="op">{</span><span class="var">name</span><span class="op">}</span><span class="str">! You were born around </span><span class="op">{</span><span class="var">birth_year</span><span class="op">}</span><span class="str">."</span>)
+<span class="fn">print</span>(<span class="fn">f</span><span class="str">"In 10 years you'll be </span><span class="op">{</span><span class="var">age</span> <span class="op">+</span> <span class="num">10</span><span class="op">}</span><span class="str"> years old."</span>)
+      </pre>
+    </div>
+  </section>
+
+  <!-- ══ SECTION 3 — LIVE TERMINAL ══ -->
+  <section class="reveal">
+    <p class="sec-tag">// section 03</p>
+    <h2 class="sec-title">Try it live</h2>
+    <p class="sec-desc">Enter a name and age below — see exactly what the program would print.</p>
+
+    <div class="terminal-wrap">
+      <div class="term-titlebar">
+        <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+        <span class="term-title">interactive terminal — greet.py</span>
+      </div>
+      <div class="term-body">
+        <div class="input-row">
+          <div class="term-label">// your inputs</div>
+          <div class="field-wrap">
+            <label class="field-label">name (string)</label>
+            <input class="term-input" id="inName" type="text" value="Maya" placeholder="e.g. Maya">
+          </div>
+          <div class="field-wrap">
+            <label class="field-label">age (integer)</label>
+            <input class="term-input" id="inAge" type="number" value="17" min="1" max="120" placeholder="e.g. 17">
+          </div>
+          <button class="run-btn" onclick="runProgram()">▶ Run Program</button>
+        </div>
+
+        <div>
+          <div class="term-label">// output</div>
+          <div class="output-panel" id="outputPanel">
+            <div class="out-line out-prompt">$ python3 greet.py</div>
+            <div class="out-line" id="ol1"></div>
+            <div class="out-line" id="ol2"></div>
+            <div class="out-line" id="ol3"></div>
+            <div class="out-line" id="ol4"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ SECTION 4 — TYPE CONVERSION ══ -->
+  <section class="reveal">
+    <p class="sec-tag">// section 04</p>
+    <h2 class="sec-title">Why int(input()) ?</h2>
+    <p class="sec-desc"><code>input()</code> <strong>always</strong> returns a string — even if the user types <code>42</code>. You must convert it before doing math.</p>
+
+    <div class="conversion-flow">
+      <div class="conv-box">
+        <div class="conv-type">user types</div>
+        <div class="conv-val" style="color:var(--amber)">"42"</div>
+      </div>
+      <div class="conv-fn">
+        <div class="conv-arrow">→</div>
+        <code>input()</code>
+      </div>
+      <div class="conv-box">
+        <div class="conv-type">type: str</div>
+        <div class="conv-val" style="color:var(--term-rd)">"42"</div>
+      </div>
+      <div class="conv-fn">
+        <div class="conv-arrow">→</div>
+        <code>int()</code>
+      </div>
+      <div class="conv-box" style="border-color:var(--amber)">
+        <div class="conv-type">type: int</div>
+        <div class="conv-val" style="color:var(--term-gr)">42</div>
+      </div>
+      <div class="conv-fn">
+        <div class="conv-arrow">→</div>
+        <span style="font-size:.75rem;color:var(--muted)">math works!</span>
+      </div>
+      <div class="conv-box" style="border-color:var(--green)">
+        <div class="conv-type">42 + 8 =</div>
+        <div class="conv-val" style="color:var(--term-gr)">50</div>
+      </div>
+    </div>
+
+    <div class="code-card">
+      <div class="code-topbar">
+        <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+        <span class="fname">type_demo.py</span>
+      </div>
+      <pre>
+<span class="var">a</span> <span class="op">=</span> <span class="fn">input</span>(<span class="pmt">"Enter a number: "</span>)    <span class="cmt"># user types 5</span>
+<span class="fn">print</span>(<span class="fn">type</span>(<span class="var">a</span>))                   <span class="cmt"># &lt;class 'str'&gt;  ← it's a string!</span>
+<span class="fn">print</span>(<span class="var">a</span> <span class="op">+</span> <span class="var">a</span>)                    <span class="cmt"># "55"  (string joining, not math)</span>
+
+<span class="var">b</span> <span class="op">=</span> <span class="fn">int</span>(<span class="fn">input</span>(<span class="pmt">"Enter a number: "</span>))  <span class="cmt"># user types 5</span>
+<span class="fn">print</span>(<span class="fn">type</span>(<span class="var">b</span>))                   <span class="cmt"># &lt;class 'int'&gt;  ← now it's a number</span>
+<span class="fn">print</span>(<span class="var">b</span> <span class="op">+</span> <span class="var">b</span>)                    <span class="cmt"># 10  (real addition ✓)</span>
+
+<span class="cmt"># Other conversions:</span>
+<span class="var">c</span> <span class="op">=</span> <span class="fn">float</span>(<span class="fn">input</span>(<span class="pmt">"Decimal? "</span>))     <span class="cmt"># "3.14" → 3.14</span>
+<span class="var">d</span> <span class="op">=</span> <span class="fn">str</span>(<span class="num">42</span>)                     <span class="cmt"># number → "42"</span>
+      </pre>
+    </div>
+  </section>
+
+  <!-- ══ SECTION 5 — F-STRINGS ══ -->
+  <section class="reveal">
+    <p class="sec-tag">// section 05</p>
+    <h2 class="sec-title">f-string superpowers</h2>
+    <p class="sec-desc">f-strings (formatted string literals) let you embed any Python expression — not just variables — directly inside a string.</p>
+
+    <div class="fstring-grid">
+      <div class="fcard">
+        <div class="fcard-code">f"Hello, {name}!"</div>
+        <div class="fcard-out">→ "Hello, Maya!"</div>
+        <div class="fcard-desc">Embed a variable directly.</div>
+      </div>
+      <div class="fcard">
+        <div class="fcard-code">f"Age: {age + 1}"</div>
+        <div class="fcard-out">→ "Age: 18"</div>
+        <div class="fcard-desc">Expressions work inside <code>{}</code>.</div>
+      </div>
+      <div class="fcard">
+        <div class="fcard-code">f"Pi ≈ {3.14159:.2f}"</div>
+        <div class="fcard-out">→ "Pi ≈ 3.14"</div>
+        <div class="fcard-desc"><code>:.2f</code> rounds to 2 decimal places.</div>
+      </div>
+      <div class="fcard">
+        <div class="fcard-code">f"{name.upper()}"</div>
+        <div class="fcard-out">→ "MAYA"</div>
+        <div class="fcard-desc">Call methods right inside <code>{}</code>.</div>
+      </div>
+      <div class="fcard">
+        <div class="fcard-code">f"{'yes' if x else 'no'}"</div>
+        <div class="fcard-out">→ "yes" or "no"</div>
+        <div class="fcard-desc">Ternary expressions inside f-strings.</div>
+      </div>
+      <div class="fcard">
+        <div class="fcard-code">f"Score: {score:&gt;6}"</div>
+        <div class="fcard-out">→ "Score:     78"</div>
+        <div class="fcard-desc"><code>:&gt;6</code> right-aligns in 6 chars.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ SECTION 6 — GOTCHAS ══ -->
+  <section class="reveal">
+    <p class="sec-tag">// section 06</p>
+    <h2 class="sec-title">Common mistakes & tips</h2>
+
+    <div class="gotcha-list">
+      <div class="gotcha">
+        <div class="gotcha-icon">💥</div>
+        <div>
+          <div class="gotcha-title">ValueError: invalid literal for int()</div>
+          <div class="gotcha-body">If the user types something that isn't a number (like <code>"hello"</code> or <code>"3.5"</code>), <code>int()</code> will crash. Use <code>float()</code> for decimals, or wrap in a <code>try / except</code> block to handle bad input gracefully.</div>
+        </div>
+      </div>
+      <div class="gotcha warn">
+        <div class="gotcha-icon">⚠️</div>
+        <div>
+          <div class="gotcha-title">Forgetting to convert — "5" + "3" = "53"</div>
+          <div class="gotcha-body">String addition is <em>concatenation</em>. If you skip <code>int()</code>, adding two inputs gives you joined text, not a sum. Always check your types when math seems wrong.</div>
+        </div>
+      </div>
+      <div class="gotcha tip">
+        <div class="gotcha-icon">💡</div>
+        <div>
+          <div class="gotcha-title">Add a space at the end of your prompt</div>
+          <div class="gotcha-body">Write <code>input("Enter name: ")</code> — notice the space before the closing quote. Without it, the cursor appears right after the colon: <code>Enter name:█</code>. The space makes it readable.</div>
+        </div>
+      </div>
+      <div class="gotcha tip">
+        <div class="gotcha-icon">✨</div>
+        <div>
+          <div class="gotcha-title">print() has handy extras</div>
+          <div class="gotcha-body"><code>print("a", "b", sep="-")</code> → <code>a-b</code>. Use <code>end=""</code> to stop the automatic newline: <code>print("loading", end="...")</code>. These make output much more flexible.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ══ SECTION 7 — PPRINT ══ -->
+  <section class="reveal">
+    <p class="sec-tag">// section 07</p>
+    <h2 class="sec-title">pprint — pretty printer</h2>
+    <p class="sec-desc"><code>pprint</code> stands for <strong>pretty-print</strong>. It's a built-in module that formats complex data structures — like nested lists and dicts — in a clean, readable way. Regular <code>print()</code> squashes everything onto one line; <code>pprint()</code> makes it breathe.</p>
+
+    <div class="code-card">
+      <div class="code-topbar">
+        <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+        <span class="fname">pretty.py</span>
+      </div>
+      <pre>
+<span class="kw">from</span> <span class="var">pprint</span> <span class="kw">import</span> <span class="fn">pprint</span>   <span class="cmt"># import it first!</span>
+
+<span class="var">students</span> <span class="op">=</span> [
+    {<span class="str">"name"</span>: <span class="str">"Maya"</span>,  <span class="str">"grade"</span>: <span class="str">"A"</span>, <span class="str">"scores"</span>: [<span class="num">95</span>, <span class="num">88</span>, <span class="num">92</span>]},
+    {<span class="str">"name"</span>: <span class="str">"Lior"</span>,  <span class="str">"grade"</span>: <span class="str">"B"</span>, <span class="str">"scores"</span>: [<span class="num">78</span>, <span class="num">82</span>, <span class="num">80</span>]},
+    {<span class="str">"name"</span>: <span class="str">"Chen"</span>,  <span class="str">"grade"</span>: <span class="str">"A"</span>, <span class="str">"scores"</span>: [<span class="num">91</span>, <span class="num">94</span>, <span class="num">97</span>]},
+]
+
+<span class="cmt"># Regular print — hard to read:</span>
+<span class="fn">print</span>(<span class="var">students</span>)
+<span class="cmt"># [{'name': 'Maya', 'grade': 'A', 'scores': [95, 88, 92]}, {'name': 'Lior' ...</span>
+
+<span class="cmt"># pprint — structured and clear:</span>
+<span class="fn">pprint</span>(<span class="var">students</span>)
+<span class="cmt"># [{'grade': 'A', 'name': 'Maya', 'scores': [95, 88, 92]},</span>
+<span class="cmt">#  {'grade': 'B', 'name': 'Lior', 'scores': [78, 82, 80]},</span>
+<span class="cmt">#  {'grade': 'A', 'name': 'Chen', 'scores': [91, 94, 97]}]</span>
+
+<span class="cmt"># Control indentation:</span>
+<span class="fn">pprint</span>(<span class="var">students</span>, <span class="var">indent</span><span class="op">=</span><span class="num">4</span>)
+
+<span class="cmt"># Limit line width (default is 80):</span>
+<span class="fn">pprint</span>(<span class="var">students</span>, <span class="var">width</span><span class="op">=</span><span class="num">40</span>)
+
+<span class="cmt"># Limit depth of nested structures:</span>
+<span class="fn">pprint</span>(<span class="var">students</span>, <span class="var">depth</span><span class="op">=</span><span class="num">1</span>)    <span class="cmt"># shows [{...}, {...}, {...}]</span>
+      </pre>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:24px;">
+      <div class="code-card">
+        <div class="code-topbar">
+          <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+          <span class="fname">print() output</span>
+        </div>
+        <pre style="font-size:.78rem;line-height:1.7;color:#f87171;">[{'grade': 'A', 'name': 'Maya',
+'scores': [95, 88, 92]}, {'grade':
+'B', 'name': 'Lior', 'scores': [78,
+82, 80]}, {'grade': 'A', 'name':
+'Chen', 'scores': [91, 94, 97]}]</pre>
+      </div>
+      <div class="code-card">
+        <div class="code-topbar">
+          <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+          <span class="fname">pprint() output ✓</span>
+        </div>
+        <pre style="font-size:.78rem;line-height:1.7;color:#4ade80;">[{'grade': 'A',
+  'name': 'Maya',
+  'scores': [95, 88, 92]},
+ {'grade': 'B',
+  'name': 'Lior',
+  'scores': [78, 82, 80]},
+ {'grade': 'A',
+  'name': 'Chen',
+  'scores': [91, 94, 97]}]</pre>
+      </div>
+    </div>
+
+    <div class="fstring-grid" style="margin-top:24px;">
+      <div class="fcard">
+        <div class="fcard-code">pprint(data)</div>
+        <div class="fcard-out">default — width=80, indent=1</div>
+        <div class="fcard-desc">Basic pretty print. Wraps lines at 80 chars automatically.</div>
+      </div>
+      <div class="fcard">
+        <div class="fcard-code">pprint(data, indent=4)</div>
+        <div class="fcard-out">4-space indentation</div>
+        <div class="fcard-desc">Increases the indent level for each nested layer.</div>
+      </div>
+      <div class="fcard">
+        <div class="fcard-code">pprint(data, width=40)</div>
+        <div class="fcard-out">narrower line wrapping</div>
+        <div class="fcard-desc">Forces earlier line breaks. Useful for narrow terminals.</div>
+      </div>
+      <div class="fcard">
+        <div class="fcard-code">pprint(data, depth=1)</div>
+        <div class="fcard-out">[{...}, {...}]</div>
+        <div class="fcard-desc">Hides deeper nesting with <code>...</code>. Great for huge structures.</div>
+      </div>
+      <div class="fcard">
+        <div class="fcard-code">pprint(data, sort_dicts=False)</div>
+        <div class="fcard-out">keeps insertion order</div>
+        <div class="fcard-desc">By default dicts are sorted alphabetically. Use <code>False</code> to preserve order (Python 3.8+).</div>
+      </div>
+      <div class="fcard">
+        <div class="fcard-code">from pprint import pformat</div>
+        <div class="fcard-out">returns a string</div>
+        <div class="fcard-desc"><code>pformat()</code> works like <code>pprint()</code> but returns the formatted string instead of printing it.</div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  python i/o reference &nbsp;·&nbsp; <span>input()</span> · <span>int()</span> · <span>print(f"...")</span> · <span>pprint()</span>
+</footer>
+
+<script>
+  // ── SCROLL REVEAL ──
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }
+    });
+  }, { threshold: 0.07 });
+  document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
+
+  // ── LIVE TERMINAL ──
+  function runProgram() {
+    const name = document.getElementById('inName').value.trim() || 'World';
+    const rawAge = document.getElementById('inAge').value.trim();
+    const age = parseInt(rawAge);
+
+    const lines = [
+      { id: 'ol1', cls: 'out-prompt', text: `What is your name? ` },
+      { id: 'ol2', cls: 'out-input',  text: `→ "${name}"` },
+      null,
+      null,
+    ];
+
+    if (isNaN(age) || rawAge === '') {
+      lines[2] = { id: 'ol3', cls: 'out-error', text: `ValueError: invalid literal for int() — "${rawAge}" is not a number!` };
+      lines[3] = { id: 'ol4', cls: '', text: '' };
+    } else {
+      const birthYear = 2026 - age;
+      const futurAge = age + 10;
+      lines[2] = { id: 'ol3', cls: 'out-result', text: `Hello, ${name}! You were born around ${birthYear}.` };
+      lines[3] = { id: 'ol4', cls: 'out-result', text: `In 10 years you'll be ${futurAge} years old.` };
+    }
+
+    // reset
+    lines.forEach(l => {
+      if (!l) return;
+      const el = document.getElementById(l.id);
+      el.className = 'out-line';
+      el.textContent = '';
+    });
+
+    // stagger in
+    lines.forEach((l, i) => {
+      if (!l) return;
+      setTimeout(() => {
+        const el = document.getElementById(l.id);
+        el.textContent = l.text;
+        el.className = `out-line ${l.cls}`;
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => el.classList.add('show'));
+        });
+      }, i * 220);
+    });
+  }
+
+  // run on load
+  runProgram();
+
+  // live update on input change
+  document.getElementById('inName').addEventListener('input', runProgram);
+  document.getElementById('inAge').addEventListener('input', runProgram);
+</script>
+</body>
+</html>
