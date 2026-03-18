@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Python Conditions — if / elif / match</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --panel: #111118;
+    --border: #1e1e2e;
+    --blue: #5bc4f5;
+    --green: #7defa1;
+    --yellow: #f9e060;
+    --orange: #ff8c42;
+    --pink: #f472b6;
+    --purple: #c084fc;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --code-bg: #0d0d16;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    overflow-x: hidden;
+    cursor: default;
+  }
+
+  /* ─── BACKGROUND GRID ─── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(91,196,245,.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(91,196,245,.04) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ─── HEADER ─── */
+  header {
+    position: relative;
+    z-index: 2;
+    text-align: center;
+    padding: 80px 20px 60px;
+    overflow: hidden;
+  }
+
+  .hero-glow {
+    position: absolute;
+    width: 600px; height: 600px;
+    top: -200px; left: 50%;
+    transform: translateX(-50%);
+    background: radial-gradient(circle, rgba(91,196,245,.18) 0%, transparent 70%);
+    animation: pulse 4s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  @keyframes pulse {
+    0%,100% { opacity: .6; transform: translateX(-50%) scale(1); }
+    50%      { opacity: 1;  transform: translateX(-50%) scale(1.12); }
+  }
+
+  .badge {
+    display: inline-block;
+    background: rgba(91,196,245,.12);
+    border: 1px solid rgba(91,196,245,.3);
+    color: var(--blue);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: .75rem;
+    letter-spacing: .12em;
+    padding: 4px 14px;
+    border-radius: 20px;
+    margin-bottom: 24px;
+    animation: fadeDown .6s ease both;
+  }
+
+  h1 {
+    font-size: clamp(2.4rem, 6vw, 5rem);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -.02em;
+    animation: fadeDown .7s .1s ease both;
+  }
+
+  h1 .kw  { color: var(--blue); }
+  h1 .op  { color: var(--yellow); }
+  h1 .fn  { color: var(--green); }
+
+  .subtitle {
+    margin-top: 16px;
+    color: var(--muted);
+    font-size: 1.1rem;
+    animation: fadeDown .7s .2s ease both;
+  }
+
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ─── LAYOUT ─── */
+  main {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 24px 100px;
+    display: flex;
+    flex-direction: column;
+    gap: 72px;
+  }
+
+  /* ─── SECTION TITLE ─── */
+  .sec-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: .7rem;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+
+  .sec-title {
+    font-size: 1.9rem;
+    font-weight: 800;
+    margin-bottom: 8px;
+  }
+
+  .sec-desc {
+    color: var(--muted);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 600px;
+    margin-bottom: 32px;
+  }
+
+  /* ─── CODE BLOCK ─── */
+  .code-wrap {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .code-bar {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(255,255,255,.02);
+  }
+
+  .dot {
+    width: 11px; height: 11px;
+    border-radius: 50%;
+  }
+  .dot-r { background: #ff5f57; }
+  .dot-y { background: #ffbd2e; }
+  .dot-g { background: #28ca41; }
+
+  .code-filename {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: .75rem;
+    color: var(--muted);
+    margin-left: 8px;
+  }
+
+  pre {
+    padding: 28px;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: .9rem;
+    line-height: 1.8;
+    tab-size: 4;
+  }
+
+  /* ─── SYNTAX COLOURS ─── */
+  .kw  { color: var(--blue); font-weight: 700; }
+  .str { color: var(--green); }
+  .num { color: var(--orange); }
+  .cmt { color: #445566; font-style: italic; }
+  .fn  { color: var(--yellow); }
+  .op  { color: var(--pink); }
+  .var { color: var(--text); }
+  .mt  { color: var(--purple); }
+
+  /* ─── FLOW DIAGRAM ─── */
+  .diagram-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+  }
+
+  .flow-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 24px;
+    position: relative;
+    overflow: hidden;
+    transition: transform .25s, border-color .25s;
+  }
+
+  .flow-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(91,196,245,.35);
+  }
+
+  .flow-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: 16px 16px 0 0;
+  }
+
+  .flow-card.blue::before  { background: var(--blue); }
+  .flow-card.green::before { background: var(--green); }
+  .flow-card.orange::before{ background: var(--orange); }
+  .flow-card.purple::before{ background: var(--purple); }
+
+  .flow-icon {
+    font-size: 2rem;
+    margin-bottom: 14px;
+    display: block;
+    animation: floatIcon 3s ease-in-out infinite;
+  }
+
+  @keyframes floatIcon {
+    0%,100% { transform: translateY(0); }
+    50%      { transform: translateY(-6px); }
+  }
+
+  .flow-card:nth-child(2) .flow-icon { animation-delay: .5s; }
+  .flow-card:nth-child(3) .flow-icon { animation-delay: 1s; }
+  .flow-card:nth-child(4) .flow-icon { animation-delay: 1.5s; }
+
+  .flow-card h3 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .flow-card p {
+    font-size: .88rem;
+    color: var(--muted);
+    line-height: 1.65;
+  }
+
+  /* ─── INTERACTIVE DEMO ─── */
+  .demo-box {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    align-items: start;
+  }
+
+  @media (max-width: 680px) {
+    .demo-box { grid-template-columns: 1fr; }
+  }
+
+  .demo-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: .7rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+
+  .slider-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .score-display {
+    font-size: 4rem;
+    font-weight: 800;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--blue);
+    transition: color .3s;
+    line-height: 1;
+  }
+
+  input[type=range] {
+    width: 100%;
+    -webkit-appearance: none;
+    height: 6px;
+    border-radius: 6px;
+    background: var(--border);
+    outline: none;
+    cursor: pointer;
+  }
+
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: var(--blue);
+    cursor: pointer;
+    transition: transform .15s;
+    box-shadow: 0 0 10px rgba(91,196,245,.5);
+  }
+
+  input[type=range]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+  }
+
+  .result-panel {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    min-height: 140px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .result-branch {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: .85rem;
+    color: var(--muted);
+    transition: color .3s;
+  }
+
+  .result-branch.active {
+    color: var(--green);
+    font-weight: 700;
+    font-size: 1rem;
+  }
+
+  .result-branch.active::before {
+    content: '▶ ';
+    color: var(--green);
+  }
+
+  .grade-badge {
+    display: inline-block;
+    padding: 6px 18px;
+    border-radius: 99px;
+    font-weight: 800;
+    font-size: 1.1rem;
+    letter-spacing: .04em;
+    transition: all .3s;
+    margin-top: 8px;
+  }
+
+  /* ─── MATCH CASE TABLE ─── */
+  .match-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
+    margin-top: 24px;
+  }
+
+  .match-card {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    transition: all .25s;
+    cursor: default;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .match-card:hover {
+    border-color: rgba(192,132,252,.4);
+    transform: scale(1.03);
+  }
+
+  .match-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 50% 0%, rgba(192,132,252,.08), transparent 60%);
+    opacity: 0;
+    transition: opacity .3s;
+  }
+
+  .match-card:hover::after { opacity: 1; }
+
+  .match-pattern {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: .85rem;
+    color: var(--purple);
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+
+  .match-result {
+    font-size: .82rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  /* ─── COMPARISON TABLE ─── */
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .9rem;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .compare-table th {
+    background: rgba(91,196,245,.08);
+    color: var(--blue);
+    padding: 14px 20px;
+    text-align: left;
+    border: 1px solid var(--border);
+    font-size: .75rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+  }
+
+  .compare-table td {
+    padding: 12px 20px;
+    border: 1px solid var(--border);
+    color: var(--text);
+    vertical-align: top;
+  }
+
+  .compare-table tr:nth-child(even) td {
+    background: rgba(255,255,255,.02);
+  }
+
+  .compare-table tr:hover td {
+    background: rgba(91,196,245,.04);
+  }
+
+  .tag {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 6px;
+    font-size: .7rem;
+    font-weight: 700;
+  }
+
+  .tag-blue   { background: rgba(91,196,245,.15); color: var(--blue); }
+  .tag-green  { background: rgba(125,239,161,.15); color: var(--green); }
+  .tag-orange { background: rgba(255,140,66,.15);  color: var(--orange); }
+  .tag-purple { background: rgba(192,132,252,.15); color: var(--purple); }
+
+  /* ─── ANIMATED FLOW CHART ─── */
+  .flowchart-svg {
+    width: 100%;
+    max-width: 700px;
+    margin: 0 auto;
+    display: block;
+  }
+
+  .flow-arrow {
+    stroke-dasharray: 200;
+    stroke-dashoffset: 200;
+    animation: drawLine 1s ease forwards;
+  }
+
+  .flow-arrow:nth-child(2) { animation-delay: .3s; }
+  .flow-arrow:nth-child(3) { animation-delay: .6s; }
+  .flow-arrow:nth-child(4) { animation-delay: .9s; }
+  .flow-arrow:nth-child(5) { animation-delay: 1.2s; }
+  .flow-arrow:nth-child(6) { animation-delay: 1.5s; }
+
+  @keyframes drawLine {
+    to { stroke-dashoffset: 0; }
+  }
+
+  .flow-box {
+    opacity: 0;
+    animation: popIn .4s ease forwards;
+  }
+
+  .flow-box:nth-child(1)  { animation-delay: .1s; }
+  .flow-box:nth-child(7)  { animation-delay: .4s; }
+  .flow-box:nth-child(8)  { animation-delay: .7s; }
+  .flow-box:nth-child(9)  { animation-delay: 1s; }
+  .flow-box:nth-child(10) { animation-delay: 1.3s; }
+  .flow-box:nth-child(11) { animation-delay: 1.6s; }
+
+  @keyframes popIn {
+    from { opacity: 0; transform: scale(.85); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+
+  /* ─── FOOTER ─── */
+  footer {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--muted);
+    font-size: .8rem;
+    font-family: 'JetBrains Mono', monospace;
+    border-top: 1px solid var(--border);
+  }
+
+  /* ─── SCROLL REVEAL ─── */
+  .reveal {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity .6s ease, transform .6s ease;
+  }
+
+  .reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* ─── TYPING CURSOR ─── */
+  .cursor {
+    display: inline-block;
+    width: 2px;
+    height: 1.1em;
+    background: var(--blue);
+    margin-left: 2px;
+    vertical-align: middle;
+    animation: blink .8s step-end infinite;
+  }
+
+  @keyframes blink {
+    50% { opacity: 0; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="hero-glow"></div>
+  <div class="badge">python 3.10+</div>
+  <h1>
+    <span class="kw">if</span> <span class="op">/</span>
+    <span class="kw">elif</span> <span class="op">/</span>
+    <span class="fn">match</span>
+  </h1>
+  <p class="subtitle">Mastering conditional logic in Python<span class="cursor"></span></p>
+</header>
+
+<main>
+
+  <!-- ══════════════ SECTION 1 — IF / ELIF / ELSE ══════════════ -->
+  <section class="reveal">
+    <p class="sec-label">// section 01</p>
+    <h2 class="sec-title">if / elif / else</h2>
+    <p class="sec-desc">The classic conditional chain. Python evaluates each condition top-to-bottom and executes the first block that is <code style="color:var(--green)">True</code>. The optional <code style="color:var(--blue)">else</code> catches everything else.</p>
+
+    <div class="code-wrap">
+      <div class="code-bar">
+        <span class="dot dot-r"></span>
+        <span class="dot dot-y"></span>
+        <span class="dot dot-g"></span>
+        <span class="code-filename">grades.py</span>
+      </div>
+      <pre>
+<span class="var">score</span> <span class="op">=</span> <span class="num">78</span>
+
+<span class="kw">if</span> <span class="var">score</span> <span class="op">>=</span> <span class="num">90</span><span class="op">:</span>
+    <span class="fn">print</span>(<span class="str">"🏆 Grade: A — Excellent!"</span>)
+
+<span class="kw">elif</span> <span class="var">score</span> <span class="op">>=</span> <span class="num">80</span><span class="op">:</span>
+    <span class="fn">print</span>(<span class="str">"🎯 Grade: B — Good job!"</span>)
+
+<span class="kw">elif</span> <span class="var">score</span> <span class="op">>=</span> <span class="num">70</span><span class="op">:</span>
+    <span class="fn">print</span>(<span class="str">"📘 Grade: C — Keep going!"</span>)   <span class="cmt"># ← this runs (78 >= 70)</span>
+
+<span class="kw">elif</span> <span class="var">score</span> <span class="op">>=</span> <span class="num">60</span><span class="op">:</span>
+    <span class="fn">print</span>(<span class="str">"⚠️  Grade: D — Study more!"</span>)
+
+<span class="kw">else</span><span class="op">:</span>
+    <span class="fn">print</span>(<span class="str">"❌ Grade: F — Please retry."</span>)
+      </pre>
+    </div>
+  </section>
+
+  <!-- ══════════════ SECTION 2 — FLOW DIAGRAM ══════════════ -->
+  <section class="reveal">
+    <p class="sec-label">// section 02</p>
+    <h2 class="sec-title">How the chain flows</h2>
+    <p class="sec-desc">Each condition is tested in order. As soon as one is <code style="color:var(--green)">True</code>, the rest are skipped entirely.</p>
+
+    <svg class="flowchart-svg" viewBox="0 0 700 440" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- start -->
+      <g class="flow-box">
+        <rect x="270" y="10" width="160" height="44" rx="22" fill="#1e2a3a" stroke="#5bc4f5" stroke-width="1.5"/>
+        <text x="350" y="37" text-anchor="middle" fill="#5bc4f5" font-family="JetBrains Mono" font-size="13" font-weight="700">score = 78</text>
+      </g>
+
+      <!-- arrow down -->
+      <line class="flow-arrow" x1="350" y1="54" x2="350" y2="90" stroke="#445566" stroke-width="2" marker-end="url(#arr)"/>
+
+      <!-- if box -->
+      <g class="flow-box">
+        <polygon points="350,90 430,122 350,154 270,122" fill="#0d1520" stroke="#f9e060" stroke-width="1.5"/>
+        <text x="350" y="117" text-anchor="middle" fill="#f9e060" font-family="JetBrains Mono" font-size="11">score</text>
+        <text x="350" y="133" text-anchor="middle" fill="#f9e060" font-family="JetBrains Mono" font-size="11">>= 90?</text>
+      </g>
+
+      <!-- if YES -->
+      <line class="flow-arrow" x1="430" y1="122" x2="580" y2="122" stroke="#7defa1" stroke-width="2" marker-end="url(#arr)"/>
+      <text x="500" y="114" text-anchor="middle" fill="#7defa1" font-family="JetBrains Mono" font-size="11">YES</text>
+      <g class="flow-box">
+        <rect x="580" y="104" width="100" height="36" rx="8" fill="#0d2016" stroke="#7defa1" stroke-width="1.5"/>
+        <text x="630" y="127" text-anchor="middle" fill="#7defa1" font-family="JetBrains Mono" font-size="11">Grade: A</text>
+      </g>
+
+      <!-- if NO -->
+      <line class="flow-arrow" x1="350" y1="154" x2="350" y2="195" stroke="#ff5555" stroke-width="2" marker-end="url(#arr)"/>
+      <text x="360" y="181" fill="#ff5555" font-family="JetBrains Mono" font-size="11">NO</text>
+
+      <!-- elif 1 -->
+      <g class="flow-box">
+        <polygon points="350,195 430,227 350,259 270,227" fill="#0d1520" stroke="#f9e060" stroke-width="1.5"/>
+        <text x="350" y="222" text-anchor="middle" fill="#f9e060" font-family="JetBrains Mono" font-size="11">score</text>
+        <text x="350" y="238" text-anchor="middle" fill="#f9e060" font-family="JetBrains Mono" font-size="11">>= 80?</text>
+      </g>
+
+      <line class="flow-arrow" x1="430" y1="227" x2="580" y2="227" stroke="#7defa1" stroke-width="2" marker-end="url(#arr)"/>
+      <text x="500" y="219" text-anchor="middle" fill="#7defa1" font-family="JetBrains Mono" font-size="11">YES</text>
+      <g class="flow-box">
+        <rect x="580" y="209" width="100" height="36" rx="8" fill="#0d2016" stroke="#7defa1" stroke-width="1.5"/>
+        <text x="630" y="232" text-anchor="middle" fill="#7defa1" font-family="JetBrains Mono" font-size="11">Grade: B</text>
+      </g>
+
+      <line class="flow-arrow" x1="350" y1="259" x2="350" y2="300" stroke="#ff5555" stroke-width="2" marker-end="url(#arr)"/>
+      <text x="360" y="285" fill="#ff5555" font-family="JetBrains Mono" font-size="11">NO</text>
+
+      <!-- elif 2 -->
+      <g class="flow-box">
+        <polygon points="350,300 430,332 350,364 270,332" fill="#16141e" stroke="#c084fc" stroke-width="2"/>
+        <text x="350" y="327" text-anchor="middle" fill="#c084fc" font-family="JetBrains Mono" font-size="11">score</text>
+        <text x="350" y="343" text-anchor="middle" fill="#c084fc" font-family="JetBrains Mono" font-size="11">>= 70?</text>
+      </g>
+
+      <line class="flow-arrow" x1="430" y1="332" x2="580" y2="332" stroke="#7defa1" stroke-width="2.5" marker-end="url(#arr)"/>
+      <text x="500" y="324" text-anchor="middle" fill="#7defa1" font-family="JetBrains Mono" font-size="11" font-weight="700">YES ★</text>
+      <g class="flow-box">
+        <rect x="580" y="314" width="100" height="36" rx="8" fill="#1a2a1a" stroke="#7defa1" stroke-width="2"/>
+        <text x="630" y="337" text-anchor="middle" fill="#7defa1" font-family="JetBrains Mono" font-size="13" font-weight="700">Grade: C</text>
+      </g>
+
+      <line class="flow-arrow" x1="350" y1="364" x2="350" y2="400" stroke="#ff5555" stroke-width="2" marker-end="url(#arr)"/>
+
+      <!-- else -->
+      <g class="flow-box">
+        <rect x="270" y="400" width="160" height="36" rx="8" fill="#1a1020" stroke="#ff8c42" stroke-width="1.5"/>
+        <text x="350" y="422" text-anchor="middle" fill="#ff8c42" font-family="JetBrains Mono" font-size="12">else → Grade: F</text>
+      </g>
+
+      <defs>
+        <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="#445566"/>
+        </marker>
+      </defs>
+    </svg>
+  </section>
+
+  <!-- ══════════════ SECTION 3 — INTERACTIVE DEMO ══════════════ -->
+  <section class="reveal">
+    <p class="sec-label">// section 03</p>
+    <h2 class="sec-title">Live Grade Calculator</h2>
+    <p class="sec-desc">Drag the slider to change the score and watch which branch activates in real time.</p>
+
+    <div class="demo-box">
+      <div class="slider-wrap">
+        <div class="demo-label">score value</div>
+        <div class="score-display" id="scoreNum">78</div>
+        <input type="range" min="0" max="100" value="78" id="scoreSlider" oninput="updateGrade(this.value)">
+        <div style="display:flex;justify-content:space-between;font-size:.75rem;color:var(--muted);font-family:'JetBrains Mono',monospace">
+          <span>0</span><span>50</span><span>100</span>
+        </div>
+      </div>
+
+      <div>
+        <div class="demo-label">branch evaluation</div>
+        <div class="result-panel" id="resultPanel">
+          <div class="result-branch" id="b90">if score &gt;= 90</div>
+          <div class="result-branch" id="b80">elif score &gt;= 80</div>
+          <div class="result-branch" id="b70">elif score &gt;= 70</div>
+          <div class="result-branch" id="b60">elif score &gt;= 60</div>
+          <div class="result-branch" id="belse">else</div>
+          <span class="grade-badge" id="gradeBadge">C — Keep going! 📘</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════ SECTION 4 — MATCH CASE ══════════════ -->
+  <section class="reveal">
+    <p class="sec-label">// section 04</p>
+    <h2 class="sec-title">match / case <span style="font-size:1rem;color:var(--muted);font-weight:400">(Python 3.10+)</span></h2>
+    <p class="sec-desc">The <code style="color:var(--purple)">match</code> statement is Python's structural pattern matching. It goes far beyond a simple switch — it can match shapes, types, sequences, and more.</p>
+
+    <div class="code-wrap">
+      <div class="code-bar">
+        <span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>
+        <span class="code-filename">http_status.py</span>
+      </div>
+      <pre>
+<span class="kw">def</span> <span class="fn">handle_status</span>(<span class="var">status</span>):
+    <span class="mt">match</span> <span class="var">status</span><span class="op">:</span>
+
+        <span class="mt">case</span> <span class="num">200</span><span class="op">:</span>
+            <span class="kw">return</span> <span class="str">"✅ OK — Request succeeded"</span>
+
+        <span class="mt">case</span> <span class="num">301</span> <span class="op">|</span> <span class="num">302</span><span class="op">:</span>         <span class="cmt"># OR patterns</span>
+            <span class="kw">return</span> <span class="str">"🔀 Redirect"</span>
+
+        <span class="mt">case</span> <span class="num">404</span><span class="op">:</span>
+            <span class="kw">return</span> <span class="str">"🔍 Not Found"</span>
+
+        <span class="mt">case</span> <span class="num">500</span><span class="op">:</span>
+            <span class="kw">return</span> <span class="str">"💥 Server Error"</span>
+
+        <span class="mt">case</span> <span class="var">code</span> <span class="kw">if</span> <span class="num">400</span> <span class="op"><=</span> <span class="var">code</span> <span class="op"><</span> <span class="num">500</span><span class="op">:</span>   <span class="cmt"># guard clause</span>
+            <span class="kw">return</span> <span class="fn">f</span><span class="str">"⚠️ Client error {code}"</span>
+
+        <span class="mt">case</span> <span class="var">_</span><span class="op">:</span>                   <span class="cmt"># wildcard — matches anything</span>
+            <span class="kw">return</span> <span class="str">"❓ Unknown status"</span>
+      </pre>
+    </div>
+
+    <div class="match-grid">
+      <div class="match-card">
+        <div class="match-pattern">case 200:</div>
+        <div class="match-result">Exact value match. Simple and fast.</div>
+      </div>
+      <div class="match-card">
+        <div class="match-pattern">case 301 | 302:</div>
+        <div class="match-result">OR patterns using <code style="color:var(--pink)">|</code>. Match multiple values.</div>
+      </div>
+      <div class="match-card">
+        <div class="match-pattern">case code if ...:</div>
+        <div class="match-result">Guard clause — adds an extra condition with <code style="color:var(--blue)">if</code>.</div>
+      </div>
+      <div class="match-card">
+        <div class="match-pattern">case _:</div>
+        <div class="match-result">Wildcard — always matches. The <code style="color:var(--blue)">else</code> equivalent.</div>
+      </div>
+      <div class="match-card">
+        <div class="match-pattern">case (x, y):</div>
+        <div class="match-result">Sequence patterns — unpack tuples and lists.</div>
+      </div>
+      <div class="match-card">
+        <div class="match-pattern">case Point(x=0):</div>
+        <div class="match-result">Class patterns — match object attributes by type.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════ SECTION 6 — COMPARISON ══════════════ -->
+  <section class="reveal">
+    <p class="sec-label">// section 06</p>
+    <h2 class="sec-title">if/elif vs match/case</h2>
+    <p class="sec-desc">Which one should you use? Here's a quick reference.</p>
+
+    <div class="code-wrap">
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th>Feature</th>
+            <th>if / elif / else</th>
+            <th>match / case</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Python version</td>
+            <td><span class="tag tag-green">all versions</span></td>
+            <td><span class="tag tag-purple">3.10+</span></td>
+          </tr>
+          <tr>
+            <td>Complex conditions</td>
+            <td><span class="tag tag-green">✓ excellent</span></td>
+            <td><span class="tag tag-orange">via guard clauses</span></td>
+          </tr>
+          <tr>
+            <td>Pattern matching</td>
+            <td><span class="tag tag-orange">limited</span></td>
+            <td><span class="tag tag-green">✓ built-in</span></td>
+          </tr>
+          <tr>
+            <td>Structural matching</td>
+            <td>❌ no</td>
+            <td><span class="tag tag-green">✓ classes, lists, dicts</span></td>
+          </tr>
+          <tr>
+            <td>Readability (many branches)</td>
+            <td><span class="tag tag-orange">can get messy</span></td>
+            <td><span class="tag tag-green">✓ very clean</span></td>
+          </tr>
+          <tr>
+            <td>Best for</td>
+            <td>Range checks, booleans, general logic</td>
+            <td>Dispatch tables, ASTs, commands, states</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ══════════════ SECTION 7 — QUICK TIPS ══════════════ -->
+  <section class="reveal">
+    <p class="sec-label">// section 07</p>
+    <h2 class="sec-title">Quick-fire tips</h2>
+
+    <div class="diagram-grid">
+      <div class="flow-card blue">
+        <span class="flow-icon">⚡</span>
+        <h3>Short-circuit evaluation</h3>
+        <p>Python stops evaluating <code>and</code> / <code>or</code> as soon as the result is known. Use this to guard against errors: <code style="color:var(--green)">if x and x.value > 0</code>.</p>
+      </div>
+      <div class="flow-card green">
+        <span class="flow-icon">🔑</span>
+        <h3>Truthiness</h3>
+        <p>Empty lists, strings, dicts, <code>0</code>, and <code>None</code> are all <code style="color:var(--orange)">False</code>. You don't need <code>== []</code> — just write <code style="color:var(--blue)">if my_list:</code>.</p>
+      </div>
+      <div class="flow-card orange">
+        <span class="flow-icon">🎯</span>
+        <h3>Ternary expression</h3>
+        <p>One-liner conditions: <code style="color:var(--yellow)">label = "pass" if score >= 60 else "fail"</code>. Great for simple assignments.</p>
+      </div>
+      <div class="flow-card purple">
+        <span class="flow-icon">🧩</span>
+        <h3>match is not switch</h3>
+        <p>Unlike C/Java switch, <code style="color:var(--purple)">match</code> has no fall-through. Each case is independent. No <code>break</code> needed!</p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  built with ❤️ &nbsp;·&nbsp; python conditions reference &nbsp;·&nbsp; <span style="color:var(--blue)">if / elif / match</span>
+</footer>
+
+<script>
+  // ─── SCROLL REVEAL ───
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        observer.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.08 });
+
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+  // ─── GRADE CALCULATOR ───
+  const grades = [
+    { id: 'b90', min: 90, label: 'A — Excellent! 🏆', color: '#7defa1', bg: 'rgba(125,239,161,.15)' },
+    { id: 'b80', min: 80, label: 'B — Good job! 🎯',  color: '#5bc4f5', bg: 'rgba(91,196,245,.15)' },
+    { id: 'b70', min: 70, label: 'C — Keep going! 📘', color: '#f9e060', bg: 'rgba(249,224,96,.15)' },
+    { id: 'b60', min: 60, label: 'D — Study more! ⚠️', color: '#ff8c42', bg: 'rgba(255,140,66,.15)' },
+    { id: 'belse', min: -1, label: 'F — Please retry. ❌', color: '#f472b6', bg: 'rgba(244,114,182,.15)' },
+  ];
+
+  function updateGrade(val) {
+    val = parseInt(val);
+    document.getElementById('scoreNum').textContent = val;
+
+    let active = grades[grades.length - 1];
+    for (const g of grades) {
+      if (val >= g.min) { active = g; break; }
+    }
+
+    grades.forEach(g => {
+      const el = document.getElementById(g.id);
+      el.className = 'result-branch' + (g === active ? ' active' : '');
+    });
+
+    const badge = document.getElementById('gradeBadge');
+    badge.textContent = active.label;
+    badge.style.background = active.bg;
+    badge.style.color = active.color;
+    badge.style.border = `1px solid ${active.color}40`;
+
+    document.getElementById('scoreNum').style.color = active.color;
+  }
+
+  updateGrade(78);
+</script>
+</body>
+</html>
