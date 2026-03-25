@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Python Lessons — By Topic</title>
+  <style>
+    :root {
+      --bg:       #0a0e1a;
+      --card-bg:  #111827;
+      --border:   #1e293b;
+      --text:     #e2e8f0;
+      --muted:    #94a3b8;
+      --c1: #6366f1;   /* Flow Charts   — indigo  */
+      --c2: #22d3ee;   /* Conditions    — cyan    */
+      --c3: #f59e0b;   /* Loops         — amber   */
+      --c4: #10b981;   /* Strings       — emerald */
+      --c5: #f43f5e;   /* Lists         — rose    */
+      --c6: #3b82f6;   /* Sets          — blue    */
+      --c7: #a855f7;   /* Functions     — purple  */
+      --c8: #fb923c;   /* Tuples        — orange  */
+      --c9: #ef4444;   /* Errors        — red     */
+      --c10:#14b8a6;   /* Dictionaries  — teal    */
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      overflow-x: hidden;
+    }
+
+    /* ── Scroll progress bar ── */
+    #progress {
+      position: fixed;
+      top: 0; left: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--c1), var(--c2), var(--c4));
+      z-index: 200;
+      transition: width .1s;
+    }
+
+    /* ── Starfield ── */
+    #stars {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* ── Floating code decorations ── */
+    .deco {
+      position: fixed;
+      font-family: monospace;
+      font-size: .75rem;
+      opacity: .07;
+      pointer-events: none;
+      z-index: 1;
+      color: #fff;
+      white-space: nowrap;
+      animation: floatCode 20s linear infinite;
+    }
+    @keyframes floatCode {
+      from { transform: translateY(100vh); }
+      to   { transform: translateY(-120px); }
+    }
+
+    /* ── HEADER ── */
+    header {
+      position: relative;
+      z-index: 2;
+      text-align: center;
+      padding: 80px 20px 60px;
+    }
+
+    .header-icon {
+      font-size: 4rem;
+      display: block;
+      animation: float 3s ease-in-out infinite;
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50%       { transform: translateY(-14px); }
+    }
+
+    header h1 {
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--c1), var(--c2), var(--c4));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      background-size: 200%;
+      margin: 16px 0 8px;
+      animation: gradientShift 6s ease infinite;
+    }
+    @keyframes gradientShift {
+      0%   { background-position: 0% 50%; }
+      50%  { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    header p {
+      color: var(--muted);
+      font-size: 1.05rem;
+      letter-spacing: .05em;
+    }
+
+    .stats-row {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin-top: 28px;
+      flex-wrap: wrap;
+    }
+
+    .stat-pill {
+      background: rgba(99,102,241,.15);
+      border: 1px solid rgba(99,102,241,.3);
+      border-radius: 999px;
+      padding: 8px 22px;
+      font-size: .88rem;
+      color: var(--c2);
+      animation: pulse 2.5s ease-in-out infinite;
+    }
+    .stat-pill:nth-child(2) { animation-delay: .4s; }
+    .stat-pill:nth-child(3) { animation-delay: .8s; }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(34,211,238,.2); }
+      50%       { box-shadow: 0 0 16px 4px rgba(34,211,238,.25); }
+    }
+
+    /* ── Sticky topic nav ── */
+    .topic-nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(10,14,26,.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0.6rem 1.5rem;
+      display: flex;
+      gap: 0.5rem;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .topic-nav::-webkit-scrollbar { display: none; }
+
+    .nav-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.3rem 0.9rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      font-size: 0.75rem;
+      cursor: pointer;
+      text-decoration: none;
+      white-space: nowrap;
+      transition: all .2s;
+    }
+    .nav-pill:hover {
+      border-color: var(--pill-color);
+      color: var(--pill-color);
+      background: color-mix(in srgb, var(--pill-color) 10%, transparent);
+    }
+
+    /* ── MAIN ── */
+    main {
+      position: relative;
+      z-index: 2;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 20px 80px;
+    }
+
+    /* ── Phase title ── */
+    .phase-title {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin: 56px 0 28px;
+      font-size: 1.35rem;
+      font-weight: 700;
+    }
+    .phase-title .badge {
+      width: 38px; height: 38px;
+      border-radius: 50%;
+      display: grid; place-items: center;
+      font-size: 1.1rem;
+      flex-shrink: 0;
+    }
+    .phase-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── Card grid ── */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 22px 24px;
+      text-decoration: none;
+      color: inherit;
+      position: relative;
+      overflow: hidden;
+      transition: transform .25s, box-shadow .25s, border-color .25s;
+      opacity: 0;
+      transform: translateY(30px);
+      animation: cardIn .5s ease forwards;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      border-radius: 16px 16px 0 0;
+      background: var(--phase-color, var(--c1));
+    }
+
+    .card:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 20px 48px rgba(0,0,0,.5);
+      border-color: var(--phase-color, var(--c1));
+    }
+
+    @keyframes cardIn {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .card-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .card-icon {
+      font-size: 1.6rem;
+      line-height: 1;
+      flex-shrink: 0;
+      animation: spin360 8s linear infinite;
+      color: var(--phase-color, var(--c1));
+    }
+    .card-icon.still { animation: none; }
+
+    @keyframes spin360 {
+      0%   { transform: rotate(0deg)   scale(1); }
+      50%  { transform: rotate(180deg) scale(1.15); }
+      100% { transform: rotate(360deg) scale(1); }
+    }
+
+    .card-date {
+      font-size: .72rem;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      padding: 2px 10px;
+      border-radius: 999px;
+      margin-bottom: 4px;
+      display: inline-block;
+      background: color-mix(in srgb, var(--phase-color, var(--c1)) 15%, transparent);
+      color: var(--phase-color, var(--c1));
+    }
+
+    .card h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+
+    .topic-list {
+      list-style: none;
+      margin-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      flex: 1;
+    }
+    .topic-list li {
+      font-size: .875rem;
+      color: var(--muted);
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .topic-list li::before {
+      content: '▸';
+      font-size: .7rem;
+      flex-shrink: 0;
+      opacity: .6;
+      color: var(--phase-color, var(--c1));
+    }
+
+    .card-link {
+      margin-top: 18px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+      font-size: .78rem;
+      color: var(--phase-color, var(--c1));
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      letter-spacing: .04em;
+      opacity: .8;
+      transition: gap .2s, opacity .2s;
+    }
+    .card:hover .card-link { gap: 12px; opacity: 1; }
+
+    /* ── Color themes per phase ── */
+    .p1 { --phase-color: var(--c1); }
+    .p1 .card:hover { box-shadow: 0 20px 48px rgba(99,102,241,.25); }
+
+    .p2 { --phase-color: var(--c2); }
+    .p2 .card:hover { box-shadow: 0 20px 48px rgba(34,211,238,.25); }
+
+    .p3 { --phase-color: var(--c3); }
+    .p3 .card:hover { box-shadow: 0 20px 48px rgba(245,158,11,.25); }
+
+    .p4 { --phase-color: var(--c4); }
+    .p4 .card:hover { box-shadow: 0 20px 48px rgba(16,185,129,.25); }
+
+    .p5 { --phase-color: var(--c5); }
+    .p5 .card:hover { box-shadow: 0 20px 48px rgba(244,63,94,.25); }
+
+    .p6 { --phase-color: var(--c6); }
+    .p6 .card:hover { box-shadow: 0 20px 48px rgba(59,130,246,.25); }
+
+    .p7 { --phase-color: var(--c7); }
+    .p7 .card:hover { box-shadow: 0 20px 48px rgba(168,85,247,.25); }
+
+    .p8 { --phase-color: var(--c8); }
+    .p8 .card:hover { box-shadow: 0 20px 48px rgba(251,146,60,.25); }
+
+    .p9 { --phase-color: var(--c9); }
+    .p9 .card:hover { box-shadow: 0 20px 48px rgba(239,68,68,.25); }
+
+    .p10 { --phase-color: var(--c10); }
+    .p10 .card:hover { box-shadow: 0 20px 48px rgba(20,184,166,.25); }
+
+    /* ── Footer ── */
+    footer {
+      position: relative;
+      z-index: 2;
+      text-align: center;
+      padding: 32px;
+      color: var(--muted);
+      font-size: .85rem;
+      border-top: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+
+<div id="progress"></div>
+<canvas id="stars"></canvas>
+
+<!-- Floating code decorations -->
+<div class="deco" style="left:4%;  animation-delay:0s">  for i in range(10):</div>
+<div class="deco" style="left:18%; animation-delay:5s">  while True: break</div>
+<div class="deco" style="left:35%; animation-delay:10s"> def get_lucky(n): return random.sample(...)</div>
+<div class="deco" style="left:55%; animation-delay:3s">  sorted(grades, reverse=True)</div>
+<div class="deco" style="left:72%; animation-delay:14s"> match case: print("hello")</div>
+<div class="deco" style="left:88%; animation-delay:7s">  {k: v for k, v in items}</div>
+
+<header>
+  <span class="header-icon">🐍</span>
+  <h1>Python Lessons</h1>
+  <p>All lessons organised by topic — click a card to open the GitHub repo</p>
+  <div class="stats-row">
+    <div class="stat-pill">📅 22 Lessons</div>
+    <div class="stat-pill">📚 10 Topics</div>
+    <div class="stat-pill">⭐ Dec 2025 → Mar 2026</div>
+  </div>
+</header>
+
+<!-- Topic nav -->
+<nav class="topic-nav" id="topicNav"></nav>
+
+<main id="main"></main>
+
+<footer>
+  🐍 Python Basics Course &nbsp;|&nbsp; 22 Lessons &nbsp;|&nbsp; <a href="https://github.com/pythonai211225-rgb" target="_blank" style="color:var(--c2);text-decoration:none">@pythonai211225-rgb</a>
+</footer>
+
+<script>
+/* ─── DATA ─────────────────────────────────────────────────────── */
+const topics = [
+  {
+    num: 1, id: "flowcharts", phaseClass: "p1",
+    icon: "🗺️", color: "var(--c1)",
+    title: "Flow Charts",
+    desc: "Thinking visually before coding",
+    lessons: [
+      {
+        date: "28 Dec 2025", icon: "📊", iconStill: true,
+        repo: "https://github.com/pythonai211225-rgb/28.12.2025",
+        title: "Flow Chart Basics",
+        items: ["Start / Stop symbols", "Condition diamond", "Input / Output diagrams"]
+      },
+      {
+        date: "04 Jan 2026", icon: "🔀", iconStill: true,
+        repo: "https://github.com/pythonai211225-rgb/04.01.2026",
+        title: "Conditions in Diagrams",
+        items: ["Operations flowchart", "if / else / elif chart", "and / or logic paths"]
+      }
+    ]
+  },
+  {
+    num: 2, id: "conditions", phaseClass: "p2",
+    icon: "🔀", color: "var(--c2)",
+    title: "Conditions",
+    desc: "if · elif · else · match · case",
+    lessons: [
+      {
+        date: "14 Jan 2026", icon: "⌨️",
+        repo: "https://github.com/pythonai211225-rgb/14.01.2026",
+        title: "First Python Programs",
+        items: ["print & input", "Arithmetic (add.py)", "if / else in Python", "FizzBuzz · min / max loops"]
+      },
+      {
+        date: "04 Feb 2026", icon: "🔊",
+        repo: "https://github.com/pythonai211225-rgb/04.02.2026",
+        title: "match / case & Boolean",
+        items: ["match time of day", "match case patterns", "Boolean logic", "Strings intro"]
+      }
+    ]
+  },
+  {
+    num: 3, id: "loops", phaseClass: "p3",
+    icon: "🔁", color: "var(--c3)",
+    title: "Loops",
+    desc: "while · for · range · break · continue",
+    lessons: [
+      {
+        date: "07 Jan 2026", icon: "🔁",
+        repo: "https://github.com/pythonai211225-rgb/07.01.2026",
+        title: "Loops & Modulus",
+        items: ["Loop flowchart (while)", "Modulus operator %", "Loop patterns diagram"]
+      },
+      {
+        date: "11 Jan 2026", icon: "📊",
+        repo: "https://github.com/pythonai211225-rgb/11.01.2026",
+        title: "Loop Memory & if",
+        items: ["Memory diagrams", "Accumulator pattern", "Loops + if combined"]
+      },
+      {
+        date: "19 Jan 2026", icon: "📐",
+        repo: "https://github.com/pythonai211225-rgb/19.01.2026",
+        title: "Loops Review",
+        items: ["Homework exercises", "Geometry problems", "Loop problem-solving"]
+      },
+      {
+        date: "21 Jan 2026", icon: "🎬",
+        repo: "https://github.com/pythonai211225-rgb/21.01.2026",
+        title: "Nested Loops",
+        items: ["Nested loop diagrams", "Python nested loops", "Diagonal patterns", "if/else inside loops"]
+      },
+      {
+        date: "25 Jan 2026", icon: "⭐",
+        repo: "https://github.com/pythonai211225-rgb/25_01_2026",
+        title: "Loops Practice",
+        items: ["Nested loops code", "Variable swap", "Prime number checker", "Homework solutions"]
+      },
+      {
+        date: "28 Jan 2026", icon: "🏀",
+        repo: "https://github.com/pythonai211225-rgb/28_01_2026",
+        title: "while True & for/range",
+        items: ["while True pattern", "break statement", "continue statement", "for + range()"]
+      },
+      {
+        date: "01 Feb 2026", icon: "🃏",
+        repo: "https://github.com/pythonai211225-rgb/01.02.2026",
+        title: "range & random",
+        items: ["range() extended", "random module", "Cards game (WAR)", "Rock Paper Scissors"]
+      }
+    ]
+  },
+  {
+    num: 4, id: "strings", phaseClass: "p4",
+    icon: "🔤", color: "var(--c4)",
+    title: "Strings",
+    desc: "methods · slicing · f-strings · regex",
+    lessons: [
+      {
+        date: "08 Feb 2026", icon: "📝",
+        repo: "https://github.com/pythonai211225-rgb/08_02_2026",
+        title: "Strings Deep Dive",
+        items: ["String methods (upper, split…)", "f-strings & printf format", "regex basics (re module)", "Lists intro + palindrome"]
+      }
+    ]
+  },
+  {
+    num: 5, id: "lists", phaseClass: "p5",
+    icon: "📋", color: "var(--c5)",
+    title: "Lists",
+    desc: "append · slicing · sort · comprehension",
+    lessons: [
+      {
+        date: "11 Feb 2026", icon: "🛠️",
+        repo: "https://github.com/pythonai211225-rgb/11.02.2026",
+        title: "Lists Deep Dive",
+        items: ["append · remove · pop · insert", "List shortcuts & tricks", "all() and any()", "List iteration patterns"]
+      },
+      {
+        date: "15 Feb 2026", icon: "🗳️",
+        repo: "https://github.com/pythonai211225-rgb/15.02.2026",
+        title: "sorted() & Sets Intro",
+        items: ["sorted() with key", "Reverse sorting", "Sets introduction", "Bonus: time module"]
+      }
+    ]
+  },
+  {
+    num: 6, id: "sets", phaseClass: "p6",
+    icon: "🔵", color: "var(--c6)",
+    title: "Sets",
+    desc: "unique · union · intersection · difference",
+    lessons: [
+      {
+        date: "18 Feb 2026", icon: "🔢",
+        repo: "https://github.com/pythonai211225-rgb/18_02_2026",
+        title: "Sets Deep Dive",
+        items: ["add · remove · discard", "Union |  Intersection &", "Difference -  Symmetric ^", "Sets with datetime"]
+      }
+    ]
+  },
+  {
+    num: 7, id: "functions", phaseClass: "p7",
+    icon: "🧩", color: "var(--c7)",
+    title: "Functions",
+    desc: "def · return · parameters · scope",
+    lessons: [
+      {
+        date: "22 Feb 2026", icon: "⚙️",
+        repo: "https://github.com/pythonai211225-rgb/22.02.2026",
+        title: "Functions Intro",
+        items: ["def & return", "Parameters vs arguments", "Default values", "Scope & local/global"]
+      },
+      {
+        date: "25 Feb 2026", icon: "🌍",
+        repo: "https://github.com/pythonai211225-rgb/25.02.2026",
+        title: "Functions + Projects",
+        items: ["Advanced function patterns", "RPS full solution", "Guess the capital game", "pygame bonus project"]
+      }
+    ]
+  },
+  {
+    num: 8, id: "tuples", phaseClass: "p8",
+    icon: "📦", color: "var(--c8)",
+    title: "Tuples",
+    desc: "immutable · packing · unpacking",
+    lessons: [
+      {
+        date: "08 Mar 2026", icon: "🎰",
+        repo: "https://github.com/pythonai211225-rgb/08.03.2026",
+        title: "Tuples & Error Intro",
+        items: ["Tuple basics & immutability", "Packing / unpacking", "Error types overview", "RPS pygame (full game)"]
+      }
+    ]
+  },
+  {
+    num: 9, id: "errors", phaseClass: "p9",
+    icon: "🛡️", color: "var(--c9)",
+    title: "Errors & Try/Except",
+    desc: "try · except · else · finally · raise",
+    lessons: [
+      {
+        date: "11 Mar 2026", icon: "🔐",
+        repo: "https://github.com/pythonai211225-rgb/11.03.2026",
+        title: "Error Handling",
+        items: ["try / except / finally", "Catching specific errors", "Raising exceptions", "Dictionaries intro"]
+      }
+    ]
+  },
+  {
+    num: 10, id: "dicts", phaseClass: "p10",
+    icon: "🗂️", color: "var(--c10)",
+    title: "Dictionaries",
+    desc: "key-value · get · update · comprehension",
+    lessons: [
+      {
+        date: "15 Mar 2026", icon: "🗂️",
+        repo: "https://github.com/pythonai211225-rgb/15.03.2026",
+        title: "Dictionaries Deep Dive",
+        items: ["for duet with zip()", "dict advanced methods", "Nested dicts & exercises"]
+      },
+      {
+        date: "18 Mar 2026", icon: "🔐",
+        repo: "https://github.com/pythonai211225-rgb/18.03.2026",
+        title: "Practice & Review",
+        items: ["N-th biggest unique number", "Safe code sequence", "Casino Slot Machine 🎰"]
+      },
+      {
+        date: "25 Mar 2026", icon: "✨", iconStill: true,
+        repo: "https://github.com/pythonai211225-rgb/25.03.2026",
+        title: "Latest Lesson ✦",
+        items: ["Today's exercises", "New content"]
+      }
+    ]
+  }
+];
+
+/* ─── BUILD NAV ─────────────────────────────────────────────────── */
+const nav = document.getElementById('topicNav');
+topics.forEach(t => {
+  const a = document.createElement('a');
+  a.href = '#' + t.id;
+  a.className = 'nav-pill';
+  a.style.setProperty('--pill-color', t.color);
+  a.textContent = t.icon + ' ' + t.title;
+  nav.appendChild(a);
+});
+
+/* ─── BUILD SECTIONS ────────────────────────────────────────────── */
+const main = document.getElementById('main');
+
+topics.forEach(topic => {
+  const section = document.createElement('section');
+  section.id = topic.id;
+  section.className = topic.phaseClass;
+  section.style.scrollMarginTop = '3.5rem';
+
+  // Phase title
+  const colorVar = topic.color;
+  section.innerHTML = `
+    <div class="phase-title">
+      <span class="badge" style="background:color-mix(in srgb,${colorVar} 18%,transparent);color:${colorVar}">${topic.num}</span>
+      <span style="color:${colorVar}">${topic.icon} ${topic.title}</span>
+      <span style="font-size:.8rem;font-weight:400;color:var(--muted);margin-left:4px">— ${topic.desc}</span>
+    </div>
+  `;
+
+  const grid = document.createElement('div');
+  grid.className = 'card-grid';
+
+  topic.lessons.forEach((lesson, i) => {
+    const a = document.createElement('a');
+    a.href = lesson.repo;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.className = 'card';
+    a.style.animationDelay = (i * 0.09) + 's';
+    a.style.animationPlayState = 'paused';
+
+    a.innerHTML = `
+      <div class="card-header">
+        <span class="card-icon${lesson.iconStill ? ' still' : ''}">${lesson.icon}</span>
+        <div>
+          <span class="card-date">${lesson.date}</span>
+          <h3>${lesson.title}</h3>
+        </div>
+      </div>
+      <ul class="topic-list">
+        ${lesson.items.map(item => `<li>${item}</li>`).join('')}
+      </ul>
+      <div class="card-link">Open on GitHub <span>→</span></div>
+    `;
+
+    grid.appendChild(a);
+  });
+
+  section.appendChild(grid);
+  main.appendChild(section);
+});
+
+/* ─── SCROLL PROGRESS BAR ──────────────────────────────────────── */
+window.addEventListener('scroll', () => {
+  const pct = window.scrollY / (document.body.scrollHeight - window.innerHeight) * 100;
+  document.getElementById('progress').style.width = pct + '%';
+});
+
+/* ─── STARFIELD ─────────────────────────────────────────────────── */
+(function () {
+  const canvas = document.getElementById('stars');
+  const ctx = canvas.getContext('2d');
+  let W, H, stars = [];
+
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  function initStars(n) {
+    stars = [];
+    for (let i = 0; i < n; i++) {
+      stars.push({
+        x: Math.random() * W, y: Math.random() * H,
+        r: Math.random() * 1.4 + 0.3,
+        a: Math.random(),
+        da: (Math.random() * 0.004 + 0.001) * (Math.random() < .5 ? 1 : -1),
+        vx: (Math.random() - .5) * 0.12,
+        vy: (Math.random() - .5) * 0.12,
+      });
+    }
+  }
+  function tick() {
+    ctx.clearRect(0, 0, W, H);
+    stars.forEach(s => {
+      s.x = (s.x + s.vx + W) % W;
+      s.y = (s.y + s.vy + H) % H;
+      s.a += s.da;
+      if (s.a > 1 || s.a < 0) s.da *= -1;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(148,163,184,${s.a})`;
+      ctx.fill();
+    });
+    requestAnimationFrame(tick);
+  }
+  window.addEventListener('resize', () => { resize(); initStars(180); });
+  resize(); initStars(180); tick();
+})();
+
+/* ─── INTERSECTION OBSERVER — animate cards on scroll ──────────── */
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) e.target.style.animationPlayState = 'running';
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('.card').forEach(card => observer.observe(card));
+</script>
+</body>
+</html>
