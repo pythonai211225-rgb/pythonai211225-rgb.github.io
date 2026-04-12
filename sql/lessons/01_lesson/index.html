@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SQL Introdcution - Commands Practice</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='white'/><text x='32' y='45' text-anchor='middle' font-family='Arial, sans-serif' font-size='42' font-weight='700' fill='%23facc15'>db</text></svg>">
+  <style>
+    :root {
+      --bg-soft: #ffffff;
+      --green-1: #0f5a2e;
+      --green-2: #1f8f4e;
+      --green-3: #dbf6e5;
+      --mint: #e6fff2;
+      --text: #14281d;
+      --muted: #426654;
+      --border: #aadfbd;
+      --code-bg: #0b2517;
+      --code-text: #d2ffe3;
+      --accent-a: #ddfbe7;
+      --accent-b: #f2ffe6;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Trebuchet MS", "Lucida Sans", "Segoe UI", sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at 15% 10%, #e7fff0 0%, transparent 35%),
+                  radial-gradient(circle at 85% 18%, #f6ffe8 0%, transparent 36%),
+                  linear-gradient(180deg, #f4fff6 0%, #ffffff 45%, #edfff4 100%);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      width: 240px;
+      height: 240px;
+      z-index: -1;
+      border-radius: 999px;
+      filter: blur(2px);
+      opacity: 0.35;
+      animation: blobMove 8s ease-in-out infinite alternate;
+    }
+
+    body::before {
+      background: #bff0d0;
+      top: -30px;
+      left: -40px;
+    }
+
+    body::after {
+      background: #dfffc8;
+      bottom: -40px;
+      right: -40px;
+      animation-delay: 1.4s;
+    }
+
+    .wrap {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .side-nav {
+      position: sticky;
+      top: 14px;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 8px 22px rgba(18, 102, 55, 0.1);
+      padding: 12px;
+    }
+
+    .side-title {
+      margin: 0 0 8px;
+      font-size: 0.9rem;
+      color: var(--green-1);
+      font-weight: 700;
+    }
+
+    .topic-link {
+      display: block;
+      width: 100%;
+      text-align: left;
+      border: 1px solid transparent;
+      border-radius: 9px;
+      padding: 8px 10px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.89rem;
+      text-transform: lowercase;
+      margin-bottom: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .topic-link:hover {
+      background: #f0fff4;
+      color: var(--green-1);
+      border-color: var(--border);
+    }
+
+    .topic-link.active {
+      background: #e8faee;
+      color: var(--green-1);
+      border-color: var(--green-2);
+      font-weight: 700;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, var(--bg-soft) 0%, var(--accent-a) 55%, var(--accent-b) 100%);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow: 0 12px 30px rgba(24, 110, 58, 0.12);
+      margin-bottom: 22px;
+      animation: riseIn 0.75s ease both;
+    }
+
+    h1, h2, h3 {
+      margin-top: 0;
+      color: var(--green-1);
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 8px;
+      letter-spacing: 0.2px;
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      background: var(--green-3);
+      color: var(--green-1);
+      border: 1px solid var(--border);
+      margin-bottom: 10px;
+    }
+
+    .card {
+      background: var(--bg-soft);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 16px;
+      box-shadow: 0 7px 22px rgba(18, 102, 55, 0.08);
+      animation: riseIn 0.65s ease both;
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    .topic-panel {
+      display: none;
+    }
+
+    .topic-panel.active {
+      display: block;
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 13px 28px rgba(18, 102, 55, 0.15);
+    }
+
+    .step-title {
+      margin: 0 0 8px;
+      color: var(--green-1);
+      font-size: 1.15rem;
+    }
+
+    .code {
+      background: var(--code-bg);
+      color: var(--code-text);
+      border-radius: 10px;
+      border: 1px solid #2f5a3d;
+      padding: 14px;
+      overflow-x: auto;
+      margin: 10px 0 12px;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.94rem;
+      white-space: pre;
+    }
+
+    .note {
+      background: var(--mint);
+      border-left: 4px solid var(--green-2);
+      padding: 10px 12px;
+      color: var(--muted);
+      margin: 8px 0 10px;
+      border-radius: 6px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      font-size: 0.93rem;
+    }
+
+    th, td {
+      border-bottom: 1px solid #e6f6ea;
+      padding: 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #e9fbe8;
+      color: #1a5f2e;
+    }
+
+    .result-title {
+      margin: 12px 0 6px;
+      color: var(--green-1);
+      font-size: 0.96rem;
+      font-weight: 700;
+    }
+
+    .big-result {
+      font-size: 1.5rem;
+      margin: 8px 0 10px;
+      color: var(--green-1);
+      font-weight: 800;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .homework {
+      background: linear-gradient(135deg, #ffffff 0%, #e5fcea 100%);
+      border: 2px solid var(--green-2);
+      border-radius: 16px;
+      padding: 20px;
+      margin-top: 22px;
+      animation: riseIn 0.8s ease both;
+    }
+
+    .homework h2 {
+      margin-bottom: 10px;
+    }
+
+    .homework ol {
+      margin-top: 8px;
+      padding-left: 20px;
+    }
+
+    .nav-back {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--green-2);
+      background: #e9fbe8;
+      color: var(--green-1);
+      text-decoration: none;
+      font-weight: 700;
+      transition: all 0.2s ease;
+      width: 100%;
+      text-align: center;
+    }
+
+    .nav-back:hover {
+      background: #d8f7df;
+      transform: translateY(-1px);
+    }
+
+    .footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.86rem;
+      padding: 10px 0 16px;
+    }
+
+    .card:nth-of-type(1) { animation-delay: 0.05s; }
+    .card:nth-of-type(2) { animation-delay: 0.1s; }
+    .card:nth-of-type(3) { animation-delay: 0.15s; }
+    .card:nth-of-type(4) { animation-delay: 0.2s; }
+    .card:nth-of-type(5) { animation-delay: 0.25s; }
+    .card:nth-of-type(6) { animation-delay: 0.3s; }
+    .card:nth-of-type(7) { animation-delay: 0.35s; }
+
+    @keyframes riseIn {
+      from {
+        opacity: 0;
+        transform: translateY(12px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes blobMove {
+      from {
+        transform: translate(0, 0) scale(1);
+      }
+      to {
+        transform: translate(24px, 18px) scale(1.06);
+      }
+    }
+
+    @media (max-width: 760px) {
+      .wrap {
+        padding: 14px;
+      }
+
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .side-nav {
+        position: static;
+      }
+
+      h1 {
+        font-size: 1.6rem;
+      }
+
+      .code {
+        font-size: 0.86rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <span class="tag">SQL Commands We Did Today</span>
+      <h1>SQL Introduction Practice</h1>
+      <p>This page summarizes all the commands from class, explains each step, and shows how the <strong>COMPANY</strong> table looks after every operation</p>
+    </section>
+
+    <div class="layout">
+      <aside class="side-nav" aria-label="Topic navigation">
+        <h2 class="side-title">Topics</h2>
+        <button class="topic-link active" data-target="topic-1">1) Create Table</button>
+        <button class="topic-link" data-target="topic-2">2) Insert Single</button>
+        <button class="topic-link" data-target="topic-3">3) Insert Batch</button>
+        <button class="topic-link" data-target="topic-4-1">4.1) SELECT *</button>
+        <button class="topic-link" data-target="topic-4-2">4.2) SELECT columns</button>
+        <button class="topic-link" data-target="topic-4-3">4.3) SELECT WHERE</button>
+        <button class="topic-link" data-target="topic-4-4">4.4) SELECT cols + LIKE</button>
+        <button class="topic-link" data-target="topic-4-5">4.5) SELECT with WHERE</button>
+        <button class="topic-link" data-target="topic-4-7">4.6) SELECT nested</button>
+        <button class="topic-link" data-target="topic-5-1">5.1) Update succeed</button>
+        <button class="topic-link" data-target="topic-5-2">5.2) Update failed</button>
+        <button class="topic-link" data-target="topic-6-1">6.1) DELETE by ID</button>
+        <button class="topic-link" data-target="topic-6-2">6.2) DELETE by name</button>
+        <button class="topic-link" data-target="topic-7">7) Drop Table</button>
+        <button class="topic-link" data-target="topic-8">Homework</button>
+        <a class="nav-back" href="../../index.html">← back to sql module</a>
+      </aside>
+
+      <main>
+
+    <section class="card topic-panel active" id="topic-1">
+      <h2 class="step-title">1) Create Table</h2>
+      <div class="code">CREATE TABLE COMPANY(
+    ID INT PRIMARY KEY NOT NULL,
+    NAME TEXT UNIQUE NOT NULL,
+    AGE INT NOT NULL,
+    ADDRESS CHAR(50),
+    SALARY REAL
+);</div>
+      <div class="big-result">Result:</div>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th><th>NAME</th><th>AGE</th><th>ADDRESS</th><th>SALARY</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <p class="note">Explanation: This creates a table named <strong>COMPANY</strong> with rules:<br>
+      ID must be unique and not null<br>
+      NAME must be unique and not null<br>
+      AGE is required<br>
+      ADDRESS is optional text<br>
+      SALARY is a real number</p>
+    </section>
+
+    <section class="card topic-panel" id="topic-2">
+      <h2 class="step-title">2) Insert Single Row</h2>
+      <div class="code">INSERT INTO COMPANY (ID,NAME,AGE,ADDRESS,SALARY)
+VALUES (1, 'Paul', 32, 'California', 20000.00 );</div>
+      <div class="big-result">Result:</div>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th><th>NAME</th><th>AGE</th><th>ADDRESS</th><th>SALARY</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td>Paul</td><td>32</td><td>California</td><td>20000.00</td></tr>
+        </tbody>
+      </table>
+      <p class="note">Explanation: Adds one row for Paul.</p>
+    </section>
+
+    <section class="card topic-panel" id="topic-3">
+      <h2 class="step-title">3) Insert Batch</h2>
+      <div class="code">INSERT INTO COMPANY (ID,NAME,AGE,ADDRESS,SALARY)
+VALUES (1, 'Paul', 32, 'California', 20000.00 ),
+ (2, 'Allen', 25, 'Texas', 15000.00 ),
+ (3, 'Teddy', 23, 'Norway', 20000.00 ),
+ (4, 'Mark', 25, 'Rich-Mond ', 65000.00 ),
+ (5, 'David', 27, 'Texas', 85000.00 ),
+ (6, 'Kim', 22, 'South-Hall', 45000.00 ),
+ (7, 'James', 24, 'Houston', 10000.00 );</div>
+   <div class="big-result">Result:</div>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th><th>NAME</th><th>AGE</th><th>ADDRESS</th><th>SALARY</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td>Paul</td><td>32</td><td>California</td><td>20000.00</td></tr>
+          <tr><td>2</td><td>Allen</td><td>25</td><td>Texas</td><td>15000.00</td></tr>
+          <tr><td>3</td><td>Teddy</td><td>23</td><td>Norway</td><td>20000.00</td></tr>
+          <tr><td>4</td><td>Mark</td><td>25</td><td>Rich-Mond</td><td>65000.00</td></tr>
+          <tr><td>5</td><td>David</td><td>27</td><td>Texas</td><td>85000.00</td></tr>
+          <tr><td>6</td><td>Kim</td><td>22</td><td>South-Hall</td><td>45000.00</td></tr>
+          <tr><td>7</td><td>James</td><td>24</td><td>Houston</td><td>10000.00</td></tr>
+        </tbody>
+      </table>
+      <p class="note">Explanation: This command inserts multiple rows at once. If you already inserted Paul in step 2, inserting ID=1 again will fail because ID is a PRIMARY KEY. Usually you either skip step 2 or remove the duplicate row from this batch.</p>
+    </section>
+
+    <section class="card topic-panel" id="topic-4-1">
+      <h2 class="step-title">4.1) SELECT *</h2>
+      <div class="code">SELECT * FROM COMPANY;</div>
+      <div class="big-result">Result:</div>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th><th>NAME</th><th>AGE</th><th>ADDRESS</th><th>SALARY</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td>Paul</td><td>32</td><td>California</td><td>20000.00</td></tr>
+          <tr><td>2</td><td>Allen</td><td>25</td><td>Texas</td><td>15000.00</td></tr>
+          <tr><td>3</td><td>Teddy</td><td>23</td><td>Norway</td><td>20000.00</td></tr>
+          <tr><td>4</td><td>Mark</td><td>25</td><td>Rich-Mond</td><td>65000.00</td></tr>
+          <tr><td>5</td><td>David</td><td>27</td><td>Texas</td><td>85000.00</td></tr>
+          <tr><td>6</td><td>Kim</td><td>22</td><td>South-Hall</td><td>45000.00</td></tr>
+          <tr><td>7</td><td>James</td><td>24</td><td>Houston</td><td>10000.00</td></tr>
+        </tbody>
+      </table>
+      <p class="note">Explanation: Returns all columns from all rows in COMPANY</p>
+    </section>
+
+    <section class="card topic-panel" id="topic-4-2">
+      <h2 class="step-title">4.2) SELECT &lt;columns&gt;</h2>
+      <div class="code">SELECT ID, NAME
+FROM COMPANY;</div>
+      <div class="big-result">Result:</div>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th><th>NAME</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td>Paul</td></tr>
+          <tr><td>2</td><td>Allen</td></tr>
+          <tr><td>3</td><td>Teddy</td></tr>
+          <tr><td>4</td><td>Mark</td></tr>
+          <tr><td>5</td><td>David</td></tr>
+          <tr><td>6</td><td>Kim</td></tr>
+          <tr><td>7</td><td>James</td></tr>
+        </tbody>
+      </table>
+      <p class="note">Explanation: Returns only the selected columns (ID and NAME)</p>
+    </section>
+
+    <section class="card topic-panel" id="topic-4-3">
+      <h2 class="step-title">4.3) SELECT WHERE</h2>
+      <div class="code">SELECT NAME, SALARY
+FROM COMPANY
+WHERE SALARY > 40000;</div>
+      <div class="big-result">Result:</div>
+      <table>
+        <thead>
+          <tr>
+            <th>NAME</th><th>SALARY</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Mark</td><td>65000.00</td></tr>
+          <tr><td>David</td><td>85000.00</td></tr>
+          <tr><td>Kim</td><td>45000.00</td></tr>
+        </tbody>
+      </table>
+      <p class="note">Explanation: Filters rows first, then returns only NAME and SALARY</p>
+    </section>
+
+    <section class="card topic-panel" id="topic-4-4">
+      <h2 class="step-title">4.4) SELECT columns + LIKE</h2>
+      <div class="code">SELECT NAME, AGE, ADDRESS
+FROM COMPANY
+WHERE ADDRESS LIKE 'T%';</div>
+      <div class="big-result">Result:</div>
+      <table>
+        <thead>
+          <tr>
+            <th>NAME</th><th>AGE</th><th>ADDRESS</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Allen</td><td>25</td><td>Texas</td></tr>
+          <tr><td>David</td><td>27</td><td>Texas</td></tr>
+        </tbody>
+      </table>
+      <p class="note">Explanation: Uses LIKE with selected columns only</p>
+    </section>
+
+    <section class="card topic-panel" id="topic-4-5">
+      <h2 class="step-title">4.5) SELECT with WHERE</h2>
+      <div class="code">SELECT *
+FROM COMPANY
+WHERE SALARY > 20000 AND AGE < 30;</div>
+      <div class="big-result">Result:</div>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th><th>NAME</th><th>AGE</th><th>ADDRESS</th><th>SALARY</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>4</td><td>Mark</td><td>25</td><td>Rich-Mond</td><td>65000.00</td></tr>
+          <tr><td>5</td><td>David</td><td>27</td><td>Texas</td><td>85000.00</td></tr>
+          <tr><td>6</td><td>Kim</td><td>22</td><td>South-Hall</td><td>45000.00</td></tr>
+        </tbody>
+      </table>
+      <p class="note">Explanation: Rows where salary is above 20000 and age is below 30</p>
+    </section>
+
+    <section class="card topic-panel" id="topic-4-7">
+      <h2 class="step-title">4.6) SELECT nested query</h2>
+      <div class="code">SELECT *
+FROM COMPANY
+WHERE SALARY > (
+  SELECT AVG(SALARY) FROM COMPANY
+);</div>
+      <div class="big-result">Result:</div>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th><th>NAME</th><th>AGE</th><th>ADDRESS</th><th>SALARY</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>4</td><td>Mark</td><td>25</td><td>Rich-Mond</td><td>65000.00</td></tr>
+          <tr><td>5</td><td>David</td><td>27</td><td>Texas</td><td>85000.00</td></tr>
+          <tr><td>6</td><td>Kim</td><td>22</td><td>South-Hall</td><td>45000.00</td></tr>
+        </tbody>
+      </table>
+      <p class="note">Explanation: Rows where salary is higher than the average salary of all employees</p>
+    </section>
+
+    <section class="card topic-panel" id="topic-5-1">
+      <h2 class="step-title">5.1) Update succeed</h2>
+      <div class="code">UPDATE COMPANY
+SET ADDRESS='New York'
+WHERE ID = 2;</div>
+      <div class="big-result">Result:</div>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th><th>NAME</th><th>AGE</th><th>ADDRESS</th><th>SALARY</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>2</td><td>Allen</td><td>25</td><td>New York</td><td>15000.00</td></tr>
+        </tbody>
+      </table>
+      <p class="note">Explanation: ID 2 exists, so one row is updated successfully.</p>
+    </section>
+
+    <section class="card topic-panel" id="topic-5-2">
+      <h2 class="step-title">5.2) Update failed</h2>
+      <div class="code">UPDATE COMPANY
+SET ADDRESS='New York'
+WHERE ID = 22;</div>
+      <div class="big-result">Result:</div>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th><th>NAME</th><th>AGE</th><th>ADDRESS</th><th>SALARY</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td colspan="5">No visible change (ID 22 does not exist in this data).</td></tr>
+        </tbody>
+      </table>
+      <p class="note">Explanation: ID 22 is not in the table, so 0 rows are updated.</p>
+    </section>
+
+    <section class="card topic-panel" id="topic-6-1">
+      <h2 class="step-title">6.1) DELETE by ID</h2>
+      <div class="code">DELETE FROM COMPANY
+WHERE ID = 7;</div>
+      <div class="big-result">Result:</div>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th><th>NAME</th><th>AGE</th><th>ADDRESS</th><th>SALARY</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td>Paul</td><td>32</td><td>California</td><td>20000.00</td></tr>
+          <tr><td>2</td><td>Allen</td><td>25</td><td>Texas</td><td>15000.00</td></tr>
+          <tr><td>3</td><td>Teddy</td><td>23</td><td>Norway</td><td>20000.00</td></tr>
+          <tr><td>4</td><td>Mark</td><td>25</td><td>Rich-Mond</td><td>65000.00</td></tr>
+          <tr><td>5</td><td>David</td><td>27</td><td>Texas</td><td>85000.00</td></tr>
+          <tr><td>6</td><td>Kim</td><td>22</td><td>South-Hall</td><td>45000.00</td></tr>
+        </tbody>
+      </table>
+      <p class="note">Explanation: Deletes one row by exact ID (ID = 7).</p>
+    </section>
+
+    <section class="card topic-panel" id="topic-6-2">
+      <h2 class="step-title">6.2) DELETE by name</h2>
+      <div class="code">DELETE FROM COMPANY
+WHERE NAME = 'James';</div>
+      <div class="big-result">Result:</div>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th><th>NAME</th><th>AGE</th><th>ADDRESS</th><th>SALARY</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td>Paul</td><td>32</td><td>California</td><td>20000.00</td></tr>
+          <tr><td>2</td><td>Allen</td><td>25</td><td>Texas</td><td>15000.00</td></tr>
+          <tr><td>3</td><td>Teddy</td><td>23</td><td>Norway</td><td>20000.00</td></tr>
+          <tr><td>4</td><td>Mark</td><td>25</td><td>Rich-Mond</td><td>65000.00</td></tr>
+          <tr><td>5</td><td>David</td><td>27</td><td>Texas</td><td>85000.00</td></tr>
+          <tr><td>6</td><td>Kim</td><td>22</td><td>South-Hall</td><td>45000.00</td></tr>
+        </tbody>
+      </table>
+      <p class="note">Explanation: Deletes row(s) where NAME matches exactly 'James'.</p>
+    </section>
+
+    <section class="card topic-panel" id="topic-7">
+      <h2 class="step-title">7) Drop Table</h2>
+      <div class="code">DROP TABLE COMPANY;</div>
+      <div class="big-result">Result:</div>
+      <table>
+        <thead>
+          <tr>
+            <th>COMPANY</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>(table no longer exists)</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="note">Explanation: Removes the table structure and all rows permanently.</p>
+    </section>
+
+    <a id="homework"></a>
+    <section class="homework topic-panel" id="topic-8">
+      <h2>Homework Exercise</h2>
+      <ol>
+        <li>Create a new table called <strong>STUDENTS</strong> with columns and constraints:<br>
+          <strong>ID INT PRIMARY KEY</strong>, <strong>NAME TEXT NOT NULL</strong>, AGE, CITY, <strong>GRADE REAL NOT NULL</strong>.</li>
+        <li>Create exactly <strong>4</strong> students that appear in the table below</li>
+        <li>Question 3 - write these SELECT queries:<br>
+          1) select query to display all students and all columns<br>
+          2) select query to show all students only name and grade<br>
+          3) select query to show all students who got grade above 90<br>
+          4) select all students where their name starts with M<br>
+          5) show the avg grade, max, min<br>
+          6) show all students who got above avg
+        </li>
+        <li>Change Liam grade to 90</li>
+        <li>Delete all students where city starts with "N"</li>
+        <li>Delete all students with grade 88</li>
+        <li>Finally drop the table</li>
+      </ol>
+      <div class="big-result">Result:</div>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th><th>NAME</th><th>AGE</th><th>CITY</th><th>GRADE</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td>Noa</td><td>15</td><td>Tel Aviv</td><td>92.5</td></tr>
+          <tr><td>2</td><td>Liam</td><td>16</td><td>Haifa</td><td>88.0</td></tr>
+          <tr><td>3</td><td>Maya</td><td>15</td><td>Netanya</td><td>95.0</td></tr>
+          <tr><td>4</td><td>Omer</td><td>17</td><td>Jerusalem</td><td>81.5</td></tr>
+        </tbody>
+      </table>
+      <p><strong>Submit:</strong> your SQL script as text file .sql</p>
+      <p><strong>Submission email:</strong> pythonai211225+sql1@gmail.com</p>
+    </section>
+
+      </main>
+    </div>
+
+  </div>
+
+  <script>
+    const links = document.querySelectorAll('.topic-link');
+    const panels = document.querySelectorAll('.topic-panel');
+
+    function showTopic(id) {
+      panels.forEach((panel) => {
+        panel.classList.toggle('active', panel.id === id);
+      });
+
+      links.forEach((link) => {
+        link.classList.toggle('active', link.dataset.target === id);
+      });
+    }
+
+    links.forEach((link) => {
+      link.addEventListener('click', () => {
+        const targetId = link.dataset.target;
+        showTopic(targetId);
+        if (targetId === 'topic-8') {
+          location.hash = 'homework';
+        } else {
+          location.hash = targetId;
+        }
+      });
+    });
+
+    function applyHashTopic() {
+      const hash = location.hash.replace('#', '');
+      if (!hash) return;
+
+      if (hash === 'homework') {
+        showTopic('topic-8');
+        return;
+      }
+
+      const exists = document.getElementById(hash);
+      if (exists && exists.classList.contains('topic-panel')) {
+        showTopic(hash);
+      }
+    }
+
+    applyHashTopic();
+    window.addEventListener('hashchange', applyHashTopic);
+  </script>
+</body>
+</html>

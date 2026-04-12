@@ -3,99 +3,857 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>SQL for Beginners — Lesson 1</title>
-  <link rel="stylesheet" href="style.css"/>
+  <title>SQL Course — Home</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='white'/><text x='32' y='45' text-anchor='middle' font-family='Arial, sans-serif' font-size='42' font-weight='700' fill='%23facc15'>db</text></svg>">
+  <style>
+    :root {
+      --bg:       #050d1a;
+      --card-bg:  #0d1b2e;
+      --border:   #1a2f4a;
+      --text:     #e2e8f0;
+      --muted:    #7fa8c9;
+      --sql-blue: #3b82f6;
+      --sql-cyan: #06b6d4;
+      --sql-teal: #14b8a6;
+      --sql-green:#10b981;
+      --sql-amber:#f59e0b;
+      --sql-violet:#8b5cf6;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Scroll progress ── */
+    #progress {
+      position: fixed;
+      top: 0; left: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #06b6d4, #3b82f6, #8b5cf6, #14b8a6);
+      background-size: 300%;
+      z-index: 200;
+      width: 0;
+      transition: width .1s;
+      animation: progressShimmer 3s linear infinite;
+    }
+    @keyframes progressShimmer {
+      0%   { background-position: 0% 50%; }
+      100% { background-position: 300% 50%; }
+    }
+
+    /* ── Starfield ── */
+    #stars {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* ── Floating SQL decorations ── */
+    .deco {
+      position: fixed;
+      font-family: 'Courier New', monospace;
+      font-size: .72rem;
+      opacity: .065;
+      pointer-events: none;
+      z-index: 1;
+      color: #06b6d4;
+      white-space: nowrap;
+      animation: floatSQL var(--dur, 24s) linear infinite;
+    }
+    @keyframes floatSQL {
+      from { transform: translateY(110vh); }
+      to   { transform: translateY(-140px); }
+    }
+
+    /* ── Grid background lines ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      background-image:
+        linear-gradient(rgba(6,182,212,.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(6,182,212,.03) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+    }
+
+    /* ── HEADER ── */
+    header {
+      position: relative;
+      z-index: 2;
+      text-align: center;
+      padding: 100px 20px 70px;
+    }
+
+    .header-icon-wrap {
+      position: relative;
+      display: inline-block;
+      margin-bottom: 24px;
+    }
+
+    .header-icon {
+      font-size: 5rem;
+      display: block;
+      animation: float 3.5s ease-in-out infinite;
+      filter: drop-shadow(0 0 24px rgba(6,182,212,.5));
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0) scale(1); }
+      50%       { transform: translateY(-16px) scale(1.06); }
+    }
+
+    .orbit-ring {
+      position: absolute;
+      top: 50%; left: 50%;
+      width: 110px; height: 110px;
+      margin: -55px 0 0 -55px;
+      border: 1.5px dashed rgba(6,182,212,.3);
+      border-radius: 50%;
+      animation: spinRing 12s linear infinite;
+    }
+    @keyframes spinRing {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+    .orbit-dot {
+      position: absolute;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #06b6d4;
+      top: -4px; left: 50%;
+      margin-left: -4px;
+      box-shadow: 0 0 8px #06b6d4;
+    }
+
+    header h1 {
+      font-size: clamp(2.4rem, 5.5vw, 4.2rem);
+      font-weight: 900;
+      background: linear-gradient(135deg, #06b6d4, #3b82f6, #8b5cf6, #14b8a6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      background-size: 300%;
+      margin-bottom: 14px;
+      animation: gradShift 8s ease infinite;
+      letter-spacing: -.02em;
+    }
+    @keyframes gradShift {
+      0%   { background-position: 0% 50%; }
+      50%  { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    .header-sub {
+      font-family: 'Courier New', monospace;
+      font-size: .95rem;
+      color: var(--sql-cyan);
+      opacity: .8;
+      letter-spacing: .08em;
+      margin-bottom: 32px;
+    }
+    .header-sub .kw { color: #8b5cf6; }
+    .header-sub .str { color: #10b981; }
+
+    .stats-row {
+      display: flex;
+      justify-content: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .stat-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(6,182,212,.1);
+      border: 1px solid rgba(6,182,212,.25);
+      border-radius: 999px;
+      padding: 8px 20px;
+      font-size: .85rem;
+      color: var(--sql-cyan);
+      animation: pillPulse 3s ease-in-out infinite;
+      transition: background .2s, border-color .2s;
+    }
+    .stat-pill:hover {
+      background: rgba(6,182,212,.18);
+      border-color: rgba(6,182,212,.5);
+    }
+    .stat-pill:nth-child(2) { animation-delay: .5s; color: #8b5cf6; background: rgba(139,92,246,.1); border-color: rgba(139,92,246,.25); }
+    .stat-pill:nth-child(3) { animation-delay: 1s; color: #10b981; background: rgba(16,185,129,.1); border-color: rgba(16,185,129,.25); }
+    @keyframes pillPulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(6,182,212,.15); }
+      50%      { box-shadow: 0 0 16px 4px rgba(6,182,212,.2); }
+    }
+
+    /* ── VIDEO SECTION ── */
+    .video-section {
+      position: relative;
+      z-index: 2;
+      max-width: 430px;
+      margin: 10px auto 0;
+      padding: 0 24px;
+    }
+
+    .video-wrapper {
+      position: relative;
+      border-radius: 20px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: #000;
+      box-shadow:
+        0 0 0 1px rgba(6,182,212,.15),
+        0 32px 80px rgba(0,0,0,.6),
+        0 0 60px rgba(6,182,212,.08);
+      transition: box-shadow .3s, transform .3s;
+    }
+    .video-wrapper:hover {
+      box-shadow:
+        0 0 0 1px rgba(6,182,212,.35),
+        0 40px 100px rgba(0,0,0,.7),
+        0 0 80px rgba(6,182,212,.14);
+      transform: translateY(-4px);
+    }
+
+    /* top glow stripe */
+    .video-wrapper::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #06b6d4, #3b82f6, #8b5cf6, #14b8a6);
+      background-size: 300%;
+      animation: progressShimmer 4s linear infinite;
+      z-index: 2;
+    }
+
+    .video-wrapper video {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 20px;
+    }
+
+    .video-caption {
+      text-align: center;
+      margin-top: 14px;
+      font-size: .8rem;
+      color: var(--muted);
+      letter-spacing: .06em;
+    }
+    .video-caption span {
+      color: var(--sql-cyan);
+      font-family: 'Courier New', monospace;
+    }
+
+    /* ── SECTION DIVIDER ── */
+    .section-divider {
+      position: relative;
+      z-index: 2;
+      max-width: 1100px;
+      margin: 20px auto 0;
+      padding: 0 24px;
+    }
+
+    .section-heading {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 32px;
+      padding-top: 60px;
+    }
+    .section-heading::before {
+      content: '';
+      width: 4px;
+      height: 36px;
+      border-radius: 4px;
+      background: var(--accent-color, var(--sql-cyan));
+      box-shadow: 0 0 12px var(--accent-color, var(--sql-cyan));
+    }
+    .section-heading h2 {
+      font-size: 1.6rem;
+      font-weight: 800;
+      background: linear-gradient(90deg, var(--accent-color, var(--sql-cyan)), color-mix(in srgb, var(--accent-color, var(--sql-cyan)) 50%, white));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .section-heading .sh-badge {
+      font-size: .72rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--accent-color, var(--sql-cyan));
+      background: color-mix(in srgb, var(--accent-color, var(--sql-cyan)) 12%, transparent);
+      border: 1px solid color-mix(in srgb, var(--accent-color, var(--sql-cyan)) 30%, transparent);
+      border-radius: 999px;
+      padding: 3px 12px;
+    }
+    .section-heading::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, var(--border) 60%, transparent);
+    }
+
+    /* ── SLIDES GRID ── */
+    .slides-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 22px;
+      margin-bottom: 16px;
+    }
+
+    /* ── SLIDE CARD ── */
+    .slide-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 28px 26px 24px;
+      text-decoration: none;
+      color: inherit;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      opacity: 0;
+      transform: translateY(40px);
+      animation: cardIn .6s ease forwards;
+      transition: transform .3s, box-shadow .3s, border-color .3s;
+    }
+
+    .slide-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      border-radius: 20px 20px 0 0;
+      background: var(--c);
+    }
+
+    .slide-card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 80% 20%, color-mix(in srgb, var(--c) 8%, transparent), transparent 60%);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity .3s;
+    }
+
+    .slide-card:hover::after { opacity: 1; }
+
+    .slide-card:hover {
+      transform: translateY(-10px) scale(1.01);
+      border-color: var(--c);
+      box-shadow: 0 28px 60px color-mix(in srgb, var(--c) 22%, transparent),
+                  0 0 0 1px color-mix(in srgb, var(--c) 20%, transparent);
+    }
+
+    @keyframes cardIn {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .slide-num {
+      position: absolute;
+      top: 20px; right: 22px;
+      font-family: 'Courier New', monospace;
+      font-size: .7rem;
+      color: color-mix(in srgb, var(--c) 50%, transparent);
+      font-weight: 700;
+      letter-spacing: .12em;
+    }
+
+    .slide-icon {
+      font-size: 2.8rem;
+      line-height: 1;
+      margin-bottom: 20px;
+      display: inline-block;
+      animation: breathe 4s ease-in-out infinite;
+      filter: drop-shadow(0 0 10px rgba(6,182,212,.3));
+    }
+    @keyframes breathe {
+      0%,100% { transform: scale(1) rotate(0deg); }
+      50%      { transform: scale(1.12) rotate(-3deg); }
+    }
+
+    .slide-tag {
+      font-size: .67rem;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--c);
+      background: color-mix(in srgb, var(--c) 12%, transparent);
+      border: 1px solid color-mix(in srgb, var(--c) 28%, transparent);
+      border-radius: 999px;
+      padding: 3px 11px;
+      display: inline-block;
+      margin-bottom: 12px;
+    }
+
+    .slide-card h2 {
+      font-size: 1.18rem;
+      font-weight: 700;
+      line-height: 1.35;
+      margin-bottom: 8px;
+    }
+
+    .slide-card p {
+      font-size: .875rem;
+      color: var(--muted);
+      line-height: 1.6;
+      flex: 1;
+    }
+
+    .slide-arrow {
+      margin-top: 22px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+      font-size: .8rem;
+      color: var(--c);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      letter-spacing: .04em;
+      opacity: .75;
+      transition: gap .2s, opacity .2s;
+    }
+    .slide-card:hover .slide-arrow { gap: 14px; opacity: 1; }
+    .slide-arrow .arrow { font-size: 1rem; transition: transform .2s; }
+    .slide-card:hover .slide-arrow .arrow { transform: translateX(4px); }
+
+    /* ── LESSONS ── */
+    .lessons-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 22px;
+    }
+
+    .lesson-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 26px 26px 22px;
+      text-decoration: none;
+      color: inherit;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      opacity: 0;
+      transform: translateY(40px) rotateX(8deg);
+      animation: lessonIn .65s ease forwards;
+      transition: transform .3s, box-shadow .3s, border-color .3s;
+    }
+
+    @keyframes lessonIn {
+      to { opacity: 1; transform: translateY(0) rotateX(0deg); }
+    }
+
+    .lesson-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      border-radius: 20px 20px 0 0;
+      background: linear-gradient(90deg, var(--lc, var(--sql-cyan)), color-mix(in srgb, var(--lc, var(--sql-cyan)) 60%, transparent));
+    }
+
+    .lesson-card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 20% 80%, color-mix(in srgb, var(--lc, var(--sql-cyan)) 6%, transparent), transparent 55%);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity .3s;
+    }
+    .lesson-card:hover::after { opacity: 1; }
+
+    .lesson-card:hover {
+      transform: translateY(-8px);
+      border-color: color-mix(in srgb, var(--lc, var(--sql-cyan)) 60%, transparent);
+      box-shadow: 0 24px 56px color-mix(in srgb, var(--lc, var(--sql-cyan)) 18%, transparent);
+    }
+
+    .lesson-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .lesson-num-badge {
+      width: 44px; height: 44px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      font-weight: 900;
+      font-size: 1.1rem;
+      font-family: 'Courier New', monospace;
+      background: color-mix(in srgb, var(--lc, var(--sql-cyan)) 15%, transparent);
+      color: var(--lc, var(--sql-cyan));
+      border: 1px solid color-mix(in srgb, var(--lc, var(--sql-cyan)) 25%, transparent);
+      flex-shrink: 0;
+      animation: numGlow 3s ease-in-out infinite;
+    }
+    @keyframes numGlow {
+      0%,100% { box-shadow: 0 0 0 0 transparent; }
+      50%      { box-shadow: 0 0 14px color-mix(in srgb, var(--lc, var(--sql-cyan)) 30%, transparent); }
+    }
+
+    .lesson-meta {
+      flex: 1;
+    }
+
+    .lesson-date {
+      font-size: .7rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--lc, var(--sql-cyan));
+      background: color-mix(in srgb, var(--lc, var(--sql-cyan)) 12%, transparent);
+      border: 1px solid color-mix(in srgb, var(--lc, var(--sql-cyan)) 25%, transparent);
+      border-radius: 999px;
+      padding: 3px 11px;
+      display: inline-block;
+      margin-bottom: 6px;
+    }
+
+    .lesson-card h3 {
+      font-size: 1.08rem;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+
+    /* SQL chip tags */
+    .sql-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin: 14px 0 0;
+      flex: 1;
+    }
+    .sql-chip {
+      font-family: 'Courier New', monospace;
+      font-size: .72rem;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: rgba(6,182,212,.08);
+      border: 1px solid rgba(6,182,212,.2);
+      color: var(--sql-cyan);
+      letter-spacing: .04em;
+      transition: background .2s, border-color .2s, color .2s, transform .15s;
+    }
+    .sql-chip:hover {
+      background: rgba(6,182,212,.18);
+      border-color: rgba(6,182,212,.5);
+      transform: translateY(-2px);
+    }
+    .sql-chip.kw { color: #c084fc; background: rgba(192,132,252,.08); border-color: rgba(192,132,252,.2); }
+    .sql-chip.kw:hover { background: rgba(192,132,252,.18); border-color: rgba(192,132,252,.5); }
+    .sql-chip.fn { color: #34d399; background: rgba(52,211,153,.08); border-color: rgba(52,211,153,.2); }
+    .sql-chip.fn:hover { background: rgba(52,211,153,.18); border-color: rgba(52,211,153,.5); }
+    .sql-chip.tool { color: #fb923c; background: rgba(251,146,60,.08); border-color: rgba(251,146,60,.2); }
+    .sql-chip.tool:hover { background: rgba(251,146,60,.18); border-color: rgba(251,146,60,.5); }
+
+    .lesson-link {
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+      font-size: .8rem;
+      color: var(--lc, var(--sql-cyan));
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      letter-spacing: .04em;
+      opacity: .75;
+      transition: gap .2s, opacity .2s;
+    }
+    .lesson-card:hover .lesson-link { gap: 12px; opacity: 1; }
+    .lesson-link .arr { transition: transform .2s; }
+    .lesson-card:hover .lesson-link .arr { transform: translateX(4px); }
+
+    /* ── FOOTER ── */
+    footer {
+      position: relative;
+      z-index: 2;
+      text-align: center;
+      padding: 36px 28px;
+      color: var(--muted);
+      font-size: .82rem;
+      border-top: 1px solid var(--border);
+      margin-top: 80px;
+    }
+    footer a {
+      color: var(--sql-cyan);
+      text-decoration: none;
+      transition: color .2s;
+    }
+    footer a:hover { color: #fff; }
+
+    .footer-sql {
+      font-family: 'Courier New', monospace;
+      font-size: .78rem;
+      margin-top: 10px;
+      opacity: .45;
+    }
+    .footer-sql .kw { color: #8b5cf6; }
+    .footer-sql .str { color: #10b981; }
+    .footer-sql .fn { color: #06b6d4; }
+
+    /* ── Scan-line effect on hover for lesson cards ── */
+    .lesson-card:hover .lesson-num-badge {
+      animation: scanGlow .4s ease;
+    }
+    @keyframes scanGlow {
+      0%   { filter: brightness(1); }
+      50%  { filter: brightness(1.5); }
+      100% { filter: brightness(1); }
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 600px) {
+      .slides-grid, .lessons-grid { grid-template-columns: 1fr; }
+      header { padding: 70px 16px 50px; }
+    }
+  </style>
 </head>
 <body>
 
-<div class="progress-bar" id="progress"></div>
+<div id="progress"></div>
+<canvas id="stars"></canvas>
 
-<nav class="top-nav">
-  <span class="brand">SQL Lesson 01</span>
-  <a href="01-what-is-sql.html"        class="nav-item"><span class="n">1</span>What is SQL?</a>
-  <a href="02-why-sql-not-files.html"  class="nav-item"><span class="n">2</span>Why not files?</a>
-  <a href="03-what-is-rdbms.html"      class="nav-item"><span class="n">3</span>RDBMS</a>
-  <a href="04-what-is-nosql.html"      class="nav-item"><span class="n">4</span>NoSQL</a>
-  <a href="05-famous-engines.html"     class="nav-item"><span class="n">5</span>Engines</a>
-  <a href="06-sqlite-install.html"     class="nav-item"><span class="n">6</span>Install SQLite</a>
-  <a href="07-first-create-table.html" class="nav-item"><span class="n">7</span>CREATE TABLE</a>
-</nav>
+<!-- Floating SQL decorations -->
+<div class="deco" style="left:3%;  --dur:26s; animation-delay:0s">SELECT * FROM students WHERE grade = 'A';</div>
+<div class="deco" style="left:16%; --dur:22s; animation-delay:7s">CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT);</div>
+<div class="deco" style="left:31%; --dur:30s; animation-delay:13s">INSERT INTO orders (product, qty) VALUES ('SQL Book', 1);</div>
+<div class="deco" style="left:48%; --dur:24s; animation-delay:4s">UPDATE employees SET salary = salary * 1.1 WHERE dept = 'eng';</div>
+<div class="deco" style="left:63%; --dur:28s; animation-delay:18s">DELETE FROM sessions WHERE expires_at &lt; NOW();</div>
+<div class="deco" style="left:78%; --dur:20s; animation-delay:9s">SELECT COUNT(*), AVG(score) FROM results GROUP BY topic;</div>
+<div class="deco" style="left:90%; --dur:32s; animation-delay:2s">DROP TABLE IF EXISTS temp_cache;</div>
 
-<main>
-  <div class="hero">
-    <div class="hero-tag">Beginner · 7 Topics · No prior knowledge needed</div>
-    <h1>Learn SQL<br><em>from the ground up</em></h1>
-    <p class="lead">SQL is the language that powers almost every app you use — from Instagram to your bank. This lesson takes you from zero to writing your first real database table</p>
-    <div class="hero-pills">
-      <span class="pill">🗃️ What databases are</span>
-      <span class="pill">⚡ Why they're faster than files</span>
-      <span class="pill">🔧 How to install SQLite</span>
-      <span class="pill">📝 Your first CREATE TABLE</span>
-    </div>
+<!-- ── HEADER ── -->
+<header>
+  <h1>SQL Module</h1>
+  <p class="header-sub">
+    <span class="kw">SELECT</span> * <span class="kw">FROM</span> knowledge
+    <span class="kw">WHERE</span> topic = <span class="str">'databases'</span>;
+  </p>
+  <div class="stats-row">
+    <div class="stat-pill">🗂️ 1 Slide Deck</div>
+    <div class="stat-pill">📅 1 Lesson</div>
+    <div class="stat-pill">⚡ More coming soon</div>
+  </div>
+</header>
+
+<!-- ══════════════ VIDEO ══════════════ -->
+<div class="video-section">
+  <div class="video-wrapper">
+    <video id="sqlIntroVideo" autoplay muted loop playsinline>
+      <source src="SQL_Animation_Video_Generation.mp4" type="video/mp4">
+    </video>
   </div>
 
-  <div class="section visible">
-    <div class="section-label">All topics</div>
-    <h2>What you'll learn</h2>
-    <div class="topic-grid">
+</div>
 
-      <a href="01-what-is-sql.html" class="topic-card">
-        <div class="tc-num">Topic 1</div>
-        <div class="tc-icon">🗣️</div>
-        <h3>What is SQL?</h3>
-        <p>The language that lets you talk to a database — ask it questions, add data, change things, remove things</p>
-      </a>
-
-      <a href="02-why-sql-not-files.html" class="topic-card">
-        <div class="tc-num">Topic 2</div>
-        <div class="tc-icon">📂</div>
-        <h3>Why not just files or Excel?</h3>
-        <p>What breaks when you use spreadsheets at scale, and why databases were invented to fix it</p>
-      </a>
-
-      <a href="03-what-is-rdbms.html" class="topic-card">
-        <div class="tc-num">Topic 3</div>
-        <div class="tc-icon">🔗</div>
-        <h3>What is an RDBMS?</h3>
-        <p>Relational Database Management Systems — the software that actually stores and manages your tables</p>
-      </a>
-
-      <a href="04-what-is-nosql.html" class="topic-card">
-        <div class="tc-num">Topic 4</div>
-        <div class="tc-icon">🌐</div>
-        <h3>What is NoSQL?</h3>
-        <p>The alternative family of databases — documents, key-value stores, graphs — and when to choose them</p>
-      </a>
-
-      <a href="05-famous-engines.html" class="topic-card">
-        <div class="tc-num">Topic 5</div>
-        <div class="tc-icon">⚙️</div>
-        <h3>Famous SQL Engines</h3>
-        <p>PostgreSQL, MySQL, SQLite, SQL Server, Oracle — a plain-English tour of the big five</p>
-      </a>
-
-      <a href="06-sqlite-install.html" class="topic-card">
-        <div class="tc-num">Topic 6</div>
-        <div class="tc-icon">💾</div>
-        <h3>Install SQLite</h3>
-        <p>Download, install, and run your first SQL command in under five minutes</p>
-      </a>
-
-      <a href="07-first-create-table.html" class="topic-card">
-        <div class="tc-num">Topic 7</div>
-        <div class="tc-icon">📋</div>
-        <h3>Your First CREATE TABLE</h3>
-        <p>Design a real database table with types, constraints, and actual sample data</p>
-      </a>
-
-    </div>
+<!-- ══════════════ SLIDES ══════════════ -->
+<div class="section-divider">
+  <div class="section-heading" style="--accent-color: var(--sql-cyan)">
+    <h2>Slide Decks</h2>
+    <span class="sh-badge">Presentations</span>
   </div>
 
-  <div class="lesson-nav" style="justify-content:flex-end">
-    <a href="01-what-is-sql.html" class="nav-btn primary">Start Topic 1 →</a>
-  </div>
-</main>
+  <div class="slides-grid">
 
-<script src="app.js"></script>
+    <a class="slide-card" href="01_introduction/index.html"
+       style="--c: #06b6d4; animation-delay: .08s">
+      <span class="slide-num">SLIDE 01</span>
+      <span class="slide-icon">🗃️</span>
+      <span class="slide-tag">Introduction</span>
+      <h2>SQL Introduction</h2>
+      <p>What databases are, why they exist, how SQL talks to them — and your first real table.</p>
+      <div class="slide-arrow">Open slide deck <span class="arrow">→</span></div>
+    </a>
+
+  </div>
+</div>
+
+<!-- ══════════════ LESSONS ══════════════ -->
+<div class="section-divider">
+  <div class="section-heading" style="--accent-color: var(--sql-violet)">
+    <h2>Lessons</h2>
+    <span class="sh-badge" style="color:var(--sql-violet);background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.28)">By Date</span>
+  </div>
+
+  <div class="lessons-grid">
+
+    <a class="lesson-card" href="lessons/01_lesson/index.html"
+       style="--lc: #06b6d4; animation-delay: .12s">
+      <div class="lesson-header">
+        <div class="lesson-num-badge">01</div>
+        <div class="lesson-meta">
+          <span class="lesson-date">Apr 12, 2025</span>
+          <h3>SQL Introduction</h3>
+        </div>
+      </div>
+      <div class="sql-chips">
+        <span class="sql-chip">What is SQL?</span>
+        <span class="sql-chip tool">Install SQLite</span>
+        <span class="sql-chip tool">DB Browser</span>
+        <span class="sql-chip kw">CREATE TABLE</span>
+        <span class="sql-chip kw">DROP TABLE</span>
+        <span class="sql-chip fn">SELECT</span>
+        <span class="sql-chip fn">INSERT</span>
+        <span class="sql-chip fn">UPDATE</span>
+        <span class="sql-chip fn">DELETE</span>
+      </div>
+      <div class="lesson-link">Open lesson <span class="arr">→</span></div>
+    </a>
+
+  </div>
+</div>
+
+<!-- ── FOOTER ── -->
+<footer>
+  🗄️ SQL Course &nbsp;|&nbsp; Built with curiosity &amp; caffeine
+  <div class="footer-sql">
+    <span class="fn">SELECT</span> joy <span class="fn">FROM</span> learning
+    <span class="fn">WHERE</span> subject = <span class="str">'SQL'</span>
+    <span class="fn">ORDER BY</span> fun <span class="fn">DESC</span>;
+  </div>
+</footer>
+
+<script>
+/* ── Scroll progress ── */
+window.addEventListener('scroll', () => {
+  const pct = window.scrollY / (document.body.scrollHeight - window.innerHeight) * 100;
+  document.getElementById('progress').style.width = (pct || 0) + '%';
+});
+
+/* ── Starfield ── */
+(function () {
+  const canvas = document.getElementById('stars');
+  const ctx    = canvas.getContext('2d');
+  let W, H, stars = [];
+
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+
+  function initStars(n) {
+    stars = [];
+    for (let i = 0; i < n; i++) {
+      // mix of white and cyan-tinted stars
+      const isCyan = Math.random() < 0.25;
+      stars.push({
+        x:  Math.random() * W,
+        y:  Math.random() * H,
+        r:  Math.random() * 1.5 + 0.2,
+        a:  Math.random(),
+        da: (Math.random() * 0.004 + 0.001) * (Math.random() < .5 ? 1 : -1),
+        vx: (Math.random() - .5) * 0.1,
+        vy: (Math.random() - .5) * 0.1,
+        cyan: isCyan,
+      });
+    }
+  }
+
+  function tick() {
+    ctx.clearRect(0, 0, W, H);
+    stars.forEach(s => {
+      s.x = (s.x + s.vx + W) % W;
+      s.y = (s.y + s.vy + H) % H;
+      s.a += s.da;
+      if (s.a > 1 || s.a < 0) s.da *= -1;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = s.cyan
+        ? `rgba(6,182,212,${s.a * 0.7})`
+        : `rgba(148,163,184,${s.a})`;
+      ctx.fill();
+    });
+    requestAnimationFrame(tick);
+  }
+
+  window.addEventListener('resize', () => { resize(); initStars(200); });
+  resize(); initStars(200); tick();
+})();
+
+/* ── Animate cards on scroll ── */
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animationPlayState = 'running';
+      observer.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.08 });
+
+document.querySelectorAll('.slide-card, .lesson-card').forEach(card => {
+  card.style.animationPlayState = 'paused';
+  observer.observe(card);
+});
+
+/* ── SQL chip shimmer on lesson card hover ── */
+document.querySelectorAll('.lesson-card').forEach(card => {
+  card.addEventListener('mouseenter', () => {
+    const chips = card.querySelectorAll('.sql-chip');
+    chips.forEach((chip, i) => {
+      chip.style.transition = `background .2s ${i * 40}ms, border-color .2s ${i * 40}ms, transform .15s ${i * 35}ms`;
+    });
+  });
+});
+
+/* ── Video sound only on first visit ── */
+(function () {
+  const video = document.getElementById('sqlIntroVideo');
+  if (!video) return;
+
+  const key = 'sql_intro_video_sound_done';
+  const firstVisit = !localStorage.getItem(key);
+
+  if (!firstVisit) {
+    video.muted = true;
+    video.play().catch(() => {});
+    return;
+  }
+
+  // First visit: try to play with sound.
+  video.muted = false;
+  video.volume = 1;
+
+  video.play().then(() => {
+    localStorage.setItem(key, '1');
+  }).catch(() => {
+    // If browser blocks autoplay with sound, keep muted for now
+    // and allow one user interaction to start with sound.
+    video.muted = true;
+    video.play().catch(() => {});
+
+    const unlockWithSound = () => {
+      video.muted = false;
+      video.volume = 1;
+      video.play().then(() => {
+        localStorage.setItem(key, '1');
+      }).catch(() => {});
+    };
+
+    window.addEventListener('pointerdown', unlockWithSound, { once: true });
+    window.addEventListener('keydown', unlockWithSound, { once: true });
+  });
+})();
+</script>
 </body>
 </html>
