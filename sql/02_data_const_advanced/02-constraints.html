@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SQLite Constraints — Lesson 2</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='white'/><text x='32' y='45' text-anchor='middle' font-family='Arial, sans-serif' font-size='42' font-weight='700' fill='%232dd4bf'>db</text></svg>">
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    /* ── constraint colour skins ─────────────── */
+    .ph-hero-nn h1 em { color: var(--green); }
+    .ph-hero-uq h1 em { color: var(--accent); }
+    .ph-hero-pk h1 em { color: var(--yellow); }
+    .ph-hero-fk h1 em { color: var(--orange); }
+    .ph-hero-ck h1 em { color: var(--purple); }
+    .ph-hero-df h1 em { color: var(--teal); }
+
+    /* ── demo pair (ok / bad side-by-side) ────── */
+    .demo-pair {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin: 16px 0;
+    }
+    @media(max-width:660px) { .demo-pair { grid-template-columns: 1fr; } }
+    .demo-ok, .demo-bad { border-radius: 10px; overflow: hidden; }
+    .demo-ok  .demo-label { background: rgba(63,185,80,.15);  color: var(--green); padding: 6px 14px; font-size: .7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; border-bottom: 1px solid rgba(63,185,80,.2); }
+    .demo-bad .demo-label { background: rgba(248,81,73,.15);  color: var(--red);   padding: 6px 14px; font-size: .7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; border-bottom: 1px solid rgba(248,81,73,.2); }
+    .demo-ok  pre { background: rgba(63,185,80,.04);  border: 1px solid rgba(63,185,80,.25);  border-radius: 0 0 10px 10px; margin: 0; }
+    .demo-bad pre { background: rgba(248,81,73,.04);  border: 1px solid rgba(248,81,73,.25);  border-radius: 0 0 10px 10px; margin: 0; }
+
+    /* ── keyword badge ───────────────────────── */
+    .kbadge {
+      display: inline-block;
+      font-family: 'Consolas', monospace;
+      font-size: .83rem;
+      font-weight: 700;
+      padding: 3px 14px;
+      border-radius: 6px;
+      margin: 0 4px 10px 0;
+    }
+    .kb-green  { background: rgba(63,185,80,.12);  color: var(--green);  border: 1px solid rgba(63,185,80,.3); }
+    .kb-blue   { background: rgba(88,166,255,.12); color: var(--accent); border: 1px solid rgba(88,166,255,.3); }
+    .kb-yellow { background: rgba(210,153,34,.12); color: var(--yellow); border: 1px solid rgba(210,153,34,.3); }
+    .kb-orange { background: rgba(240,136,62,.12); color: var(--orange); border: 1px solid rgba(240,136,62,.3); }
+    .kb-purple { background: rgba(188,140,255,.12);color: var(--purple); border: 1px solid rgba(188,140,255,.3); }
+    .kb-teal   { background: rgba(45,212,191,.12); color: var(--teal);   border: 1px solid rgba(45,212,191,.3); }
+
+    /* ── check pass / fail grid ──────────────── */
+    .check-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+      gap: 10px;
+      margin: 16px 0;
+    }
+    .ci {
+      border-radius: 10px;
+      padding: 12px 10px;
+      text-align: center;
+      font-family: 'Consolas', monospace;
+      font-size: .8rem;
+      opacity: 0;
+    }
+    .ci.show { animation: popIn .4s forwards; }
+    .ci-pass { background: rgba(63,185,80,.1);  border: 1px solid rgba(63,185,80,.3);  color: var(--green); }
+    .ci-fail { background: rgba(248,81,73,.1);  border: 1px solid rgba(248,81,73,.3);  color: var(--red); }
+    .ci .ci-val { font-size: 1.1rem; font-weight: 800; margin-bottom: 4px; }
+    .ci .ci-verdict { font-size: .66rem; margin-top: 4px; letter-spacing: .06em; }
+
+    /* ── FK diagram ──────────────────────────── */
+    .fk-diagram {
+      display: flex;
+      align-items: flex-start;
+      gap: 20px;
+      flex-wrap: wrap;
+      padding: 20px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      margin: 16px 0;
+    }
+    .fk-table { border-radius: 10px; overflow: hidden; border: 1px solid var(--border); min-width: 150px; }
+    .fk-th  { padding: 7px 14px; font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; border-bottom: 1px solid var(--border); }
+    .fk-row { padding: 7px 14px; font-family: 'Consolas', monospace; font-size: .79rem; border-bottom: 1px solid var(--border); }
+    .fk-row:last-child { border-bottom: none; }
+    .fk-pk  { color: var(--yellow); }
+    .fk-fk  { color: var(--orange); }
+    .fk-arrow { font-size: 1.8rem; color: var(--orange); align-self: center; animation: pulse 2s infinite; }
+
+    /* ── default compare ─────────────────────── */
+    .default-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+    @media(max-width:600px) { .default-compare { grid-template-columns: 1fr; } }
+    .dc-box { border-radius: 12px; overflow: hidden; }
+    .dc-label { padding: 6px 14px; font-size: .7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; }
+    .dc-without .dc-label { background: rgba(210,153,34,.14); color: var(--yellow); border-bottom: 1px solid rgba(210,153,34,.2); }
+    .dc-without pre { background: rgba(210,153,34,.04); border: 1px solid rgba(210,153,34,.2); border-radius: 0 0 12px 12px; margin: 0; }
+    .dc-with    .dc-label { background: rgba(45,212,191,.14); color: var(--teal);   border-bottom: 1px solid rgba(45,212,191,.2); }
+    .dc-with    pre { background: rgba(45,212,191,.04); border: 1px solid rgba(45,212,191,.2); border-radius: 0 0 12px 12px; margin: 0; }
+
+    /* ── big final schema box ────────────────── */
+    .mega-schema {
+      background: #010409;
+      border: 2px solid var(--teal);
+      border-radius: 14px;
+      overflow: hidden;
+      margin: 20px 0;
+      box-shadow: 0 0 32px rgba(45,212,191,.1);
+    }
+    .mega-header {
+      padding: 9px 18px;
+      background: rgba(45,212,191,.08);
+      border-bottom: 1px solid rgba(45,212,191,.22);
+      font-size: .72rem;
+      font-weight: 800;
+      color: var(--teal);
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+    .mega-schema pre { background: transparent; border: none; border-radius: 0; margin: 0; }
+
+    /* wiggle / bounce for icons */
+    .icon-bounce { display: inline-block; animation: bounce 2.2s ease-in-out infinite; }
+    .icon-wiggle { display: inline-block; animation: wiggle 3s ease-in-out infinite; }
+    @keyframes bounce {
+      0%,100% { transform: translateY(0); }
+      50% { transform: translateY(-7px); }
+    }
+  </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">← Home</a>
+  <span class="brand">Data Types &amp; Constraints</span>
+  <a href="01-data-types.html"  class="nav-item"><span class="n">1</span>Data Types</a>
+  <a href="02-constraints.html" class="nav-item active"><span class="n">2</span>Constraints</a>
+</nav>
+
+<div class="page-layout">
+
+  <!-- ══ SIDEBAR ══════════════════════════════ -->
+  <aside class="sidebar">
+    <div class="sidebar-label">Constraints</div>
+
+    <button class="sn-item" data-target="nn">
+      <span class="sn-icon">🚫</span>
+      <span class="sn-label">NOT NULL</span>
+      <span class="sn-num">1</span>
+    </button>
+    <button class="sn-item" data-target="uq">
+      <span class="sn-icon">💠</span>
+      <span class="sn-label">UNIQUE</span>
+      <span class="sn-num">2</span>
+    </button>
+    <button class="sn-item" data-target="pk">
+      <span class="sn-icon">🔑</span>
+      <span class="sn-label">PRIMARY KEY</span>
+      <span class="sn-num">3</span>
+    </button>
+    <button class="sn-item" data-target="fk">
+      <span class="sn-icon">🔗</span>
+      <span class="sn-label">FOREIGN KEY</span>
+      <span class="sn-num">4</span>
+    </button>
+    <button class="sn-item" data-target="ck">
+      <span class="sn-icon">✅</span>
+      <span class="sn-label">CHECK</span>
+      <span class="sn-num">5</span>
+    </button>
+    <button class="sn-item" data-target="df">
+      <span class="sn-icon">🎯</span>
+      <span class="sn-label">DEFAULT</span>
+      <span class="sn-num">6</span>
+    </button>
+  </aside>
+
+  <!-- ══ CONTENT ══════════════════════════════ -->
+  <main class="content-area">
+
+    <!-- ─────────────────────────────────────────
+         PANEL 1 · NOT NULL
+    ──────────────────────────────────────────── -->
+    <div class="panel ph-hero-nn" id="panel-nn">
+      <div class="panel-hero" style="border-color:rgba(63,185,80,.2)">
+        <div class="ph-eyebrow">
+          <span class="ph-num">Constraint 1 of 6</span>
+          <span class="kbadge kb-green" style="margin:0">NOT NULL</span>
+        </div>
+        <h1><span class="icon-bounce">🚫</span> <em>NOT NULL</em></h1>
+        <p class="ph-desc">The simplest constraint — <strong>this column must always have a value</strong>. If you insert or update a row without providing this column, SQLite refuses with an error.</p>
+        <div class="ph-pills">
+          <span class="ph-pill" style="border-color:rgba(63,185,80,.3);color:var(--green)">Required field</span>
+          <span class="ph-pill">No NULL allowed</span>
+          <span class="ph-pill">Column-level only</span>
+          <span class="ph-pill">Pair with DEFAULT</span>
+        </div>
+      </div>
+
+      <div class="ps">
+        <div class="ps-label">What it does</div>
+        <h2>Rejects any INSERT or UPDATE that leaves this column empty</h2>
+
+        <div class="demo-pair">
+          <div class="demo-ok">
+            <div class="demo-label">✓ Valid — all required fields given</div>
+            <pre><span class="line"><span class="kw">INSERT INTO</span> <span class="tbl">users</span></span>
+<span class="line">  (<span class="col">name</span>, <span class="col">email</span>)</span>
+<span class="line"><span class="kw">VALUES</span></span>
+<span class="line">  (<span class="str">'Alice'</span>, <span class="str">'a@x.com'</span>);</span>
+<span class="line"><span class="cm">-- ✓ both provided</span></span></pre>
+          </div>
+          <div class="demo-bad">
+            <div class="demo-label">✗ Fails — email NOT NULL</div>
+            <pre><span class="line"><span class="kw">INSERT INTO</span> <span class="tbl">users</span></span>
+<span class="line">  (<span class="col">name</span>)</span>
+<span class="line"><span class="kw">VALUES</span></span>
+<span class="line">  (<span class="str">'Alice'</span>);</span>
+<span class="line"><span class="cm">-- Error: NOT NULL failed: users.email</span></span></pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="ps">
+        <div class="ps-label">Full example</div>
+        <h2>Mark every required column</h2>
+        <div class="code-wrap">
+          <button class="copy-btn">copy</button>
+          <pre><span class="line"><span class="kw">CREATE TABLE</span> <span class="tbl">employees</span> (</span>
+<span class="line">  <span class="col">id</span>          <span class="type">INTEGER</span>  <span class="con">PRIMARY KEY</span>,</span>
+<span class="line">  <span class="col">first_name</span>  <span class="type">TEXT</span>     <span class="con">NOT NULL</span>,    <span class="cm">-- required</span></span>
+<span class="line">  <span class="col">last_name</span>   <span class="type">TEXT</span>     <span class="con">NOT NULL</span>,    <span class="cm">-- required</span></span>
+<span class="line">  <span class="col">department</span>  <span class="type">TEXT</span>     <span class="con">NOT NULL</span>,    <span class="cm">-- required</span></span>
+<span class="line">  <span class="col">salary</span>      <span class="type">INTEGER</span>  <span class="con">NOT NULL</span>,    <span class="cm">-- required</span></span>
+<span class="line">  <span class="col">middle_name</span> <span class="type">TEXT</span>,                  <span class="cm">-- optional</span></span>
+<span class="line">  <span class="col">notes</span>       <span class="type">TEXT</span>                   <span class="cm">-- optional</span></span>
+<span class="line">);</span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- ✓ Works</span></span>
+<span class="line"><span class="kw">INSERT INTO</span> <span class="tbl">employees</span></span>
+<span class="line">  (<span class="col">first_name</span>, <span class="col">last_name</span>, <span class="col">department</span>, <span class="col">salary</span>)</span>
+<span class="line"><span class="kw">VALUES</span> (<span class="str">'Sarah'</span>, <span class="str">'Connor'</span>, <span class="str">'Engineering'</span>, <span class="num">7500000</span>);</span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- ✗ Fails — salary is NOT NULL</span></span>
+<span class="line"><span class="kw">INSERT INTO</span> <span class="tbl">employees</span></span>
+<span class="line">  (<span class="col">first_name</span>, <span class="col">last_name</span>, <span class="col">department</span>)</span>
+<span class="line"><span class="kw">VALUES</span> (<span class="str">'John'</span>, <span class="str">'Doe'</span>, <span class="str">'Sales'</span>);</span>
+<span class="line"><span class="cm">-- Error: NOT NULL constraint failed: employees.salary</span></span></pre>
+        </div>
+
+        <div class="callout callout-green">
+          <strong>Rule of thumb:</strong> If a row doesn't make sense without this column, add <code>NOT NULL</code>. If it's optional metadata (bio, phone, nickname), leave it nullable. When unsure, prefer NOT NULL — it's easier to loosen than to clean up NULLs in production.
+        </div>
+
+        <div class="callout callout-teal" style="margin-top:8px">
+          <strong>NOT NULL + DEFAULT:</strong> The best combo. <code>NOT NULL DEFAULT 'draft'</code> means "required, but if you don't provide it, use this fallback". You skip the column in INSERT and still never get NULL.
+        </div>
+      </div>
+
+      <div class="panel-footer-nav">
+        <button class="nav-btn disabled" id="btn-prev">← Previous</button>
+        <div class="pf-center" id="pf-dots"></div>
+        <button class="nav-btn primary" id="btn-next">Next →</button>
+      </div>
+    </div>
+
+    <!-- ─────────────────────────────────────────
+         PANEL 2 · UNIQUE
+    ──────────────────────────────────────────── -->
+    <div class="panel ph-hero-uq" id="panel-uq">
+      <div class="panel-hero" style="border-color:rgba(88,166,255,.2)">
+        <div class="ph-eyebrow">
+          <span class="ph-num">Constraint 2 of 6</span>
+          <span class="kbadge kb-blue" style="margin:0">UNIQUE</span>
+        </div>
+        <h1><span class="icon-wiggle">💠</span> <em>UNIQUE</em></h1>
+        <p class="ph-desc">No two rows can have the same value in this column. Perfect for email addresses, usernames, product codes — anything that should only appear once. Multiple NULLs are still allowed.</p>
+        <div class="ph-pills">
+          <span class="ph-pill" style="border-color:rgba(88,166,255,.3);color:var(--accent)">No duplicates</span>
+          <span class="ph-pill">NULLs exempt</span>
+          <span class="ph-pill">Single or multi-column</span>
+          <span class="ph-pill">Indexed automatically</span>
+        </div>
+      </div>
+
+      <div class="ps">
+        <div class="ps-label">Single column</div>
+        <h2>Every email and username must be different</h2>
+        <div class="code-wrap">
+          <button class="copy-btn">copy</button>
+          <pre><span class="line"><span class="kw">CREATE TABLE</span> <span class="tbl">users</span> (</span>
+<span class="line">  <span class="col">id</span>       <span class="type">INTEGER</span> <span class="con">PRIMARY KEY</span>,</span>
+<span class="line">  <span class="col">username</span> <span class="type">TEXT</span>    <span class="con">NOT NULL UNIQUE</span>,  <span class="cm">-- unique!</span></span>
+<span class="line">  <span class="col">email</span>    <span class="type">TEXT</span>    <span class="con">NOT NULL UNIQUE</span>,  <span class="cm">-- unique!</span></span>
+<span class="line">  <span class="col">phone</span>    <span class="type">TEXT</span>    <span class="con">UNIQUE</span>            <span class="cm">-- unique if given, NULLs ok</span></span>
+<span class="line">);</span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- ✓ First user</span></span>
+<span class="line"><span class="kw">INSERT INTO</span> <span class="tbl">users</span> (<span class="col">username</span>, <span class="col">email</span>)</span>
+<span class="line"><span class="kw">VALUES</span> (<span class="str">'alice99'</span>, <span class="str">'alice@mail.com'</span>);</span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- ✗ Duplicate email!</span></span>
+<span class="line"><span class="kw">INSERT INTO</span> <span class="tbl">users</span> (<span class="col">username</span>, <span class="col">email</span>)</span>
+<span class="line"><span class="kw">VALUES</span> (<span class="str">'alice_x'</span>, <span class="str">'alice@mail.com'</span>);</span>
+<span class="line"><span class="cm">-- Error: UNIQUE constraint failed: users.email</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- ✓ Two users with no phone — NULL ≠ NULL so both allowed</span></span>
+<span class="line"><span class="kw">INSERT INTO</span> <span class="tbl">users</span> (<span class="col">username</span>, <span class="col">email</span>) <span class="kw">VALUES</span></span>
+<span class="line">  (<span class="str">'bob'</span>,   <span class="str">'bob@mail.com'</span>),</span>
+<span class="line">  (<span class="str">'carol'</span>, <span class="str">'carol@mail.com'</span>);</span>
+<span class="line"><span class="cm">-- ✓ Both phone = NULL — fine!</span></span></pre>
+        </div>
+      </div>
+
+      <div class="ps">
+        <div class="ps-label">Multi-column UNIQUE</div>
+        <h2>Make a pair of columns unique together</h2>
+        <p>A student can enrol in the same course only once. Either column alone can repeat — only the <em>combination</em> must be unique:</p>
+        <div class="code-wrap">
+          <button class="copy-btn">copy</button>
+          <pre><span class="line"><span class="kw">CREATE TABLE</span> <span class="tbl">enrolments</span> (</span>
+<span class="line">  <span class="col">student_id</span> <span class="type">INTEGER</span> <span class="con">NOT NULL</span>,</span>
+<span class="line">  <span class="col">course_id</span>  <span class="type">INTEGER</span> <span class="con">NOT NULL</span>,</span>
+<span class="line">  <span class="col">enrolled</span>   <span class="type">TEXT</span>,</span>
+<span class="line">  <span class="con">UNIQUE</span> (<span class="col">student_id</span>, <span class="col">course_id</span>)  <span class="cm">-- pair is unique</span></span>
+<span class="line">);</span>
+<span class="line"></span>
+<span class="line"><span class="kw">INSERT INTO</span> <span class="tbl">enrolments</span> <span class="kw">VALUES</span></span>
+<span class="line">  (<span class="num">1</span>, <span class="num">101</span>, <span class="str">'2024-09-01'</span>),  <span class="cm">-- ✓ Alice in SQL</span></span>
+<span class="line">  (<span class="num">1</span>, <span class="num">102</span>, <span class="str">'2024-09-01'</span>),  <span class="cm">-- ✓ Alice in Python (same student, diff course)</span></span>
+<span class="line">  (<span class="num">2</span>, <span class="num">101</span>, <span class="str">'2024-09-02'</span>);  <span class="cm">-- ✓ Bob in SQL (diff student, same course)</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- ✗ Alice already enrolled in SQL!</span></span>
+<span class="line"><span class="kw">INSERT INTO</span> <span class="tbl">enrolments</span> <span class="kw">VALUES</span></span>
+<span class="line">  (<span class="num">1</span>, <span class="num">101</span>, <span class="str">'2024-11-01'</span>);</span>
+<span class="line"><span class="cm">-- Error: UNIQUE constraint failed: enrolments.student_id, enrolments.course_id</span></span></pre>
+        </div>
+
+        <div class="callout callout-blue">
+          <strong>Performance bonus:</strong> UNIQUE creates an index automatically — so queries filtering by that column are fast, even without a manual <code>CREATE INDEX</code>.
+        </div>
+      </div>
+
+      <div class="panel-footer-nav">
+        <button class="nav-btn" id="btn-prev">← Previous</button>
+        <div class="pf-center" id="pf-dots"></div>
+        <button class="nav-btn primary" id="btn-next">Next →</button>
+      </div>
+    </div>
+
+    <!-- ─────────────────────────────────────────
+         PANEL 3 · PRIMARY KEY
+    ──────────────────────────────────────────── -->
+    <div class="panel ph-hero-pk" id="panel-pk">
+      <div class="panel-hero" style="border-color:rgba(210,153,34,.2)">
+        <div class="ph-eyebrow">
+          <span class="ph-num">Constraint 3 of 6</span>
+          <span class="kbadge kb-yellow" style="margin:0">PRIMARY KEY</span>
+        </div>
+        <h1><span class="icon-bounce">🔑</span> <em>PRIMARY KEY</em></h1>
+        <p class="ph-desc">Every row needs a way to be uniquely identified — that's the primary key. Think of it as a passport number: every person has exactly one, no two people share the same, and it never changes.</p>
+        <div class="ph-pills">
+          <span class="ph-pill" style="border-color:rgba(210,153,34,.3);color:var(--yellow)">Uniquely identifies a row</span>
+          <span class="ph-pill">Cannot be NULL</span>
+          <span class="ph-pill">Implicit UNIQUE + index</span>
+          <span class="ph-pill">One per table</span>
+        </div>
+      </div>
+
+      <!-- What is it / why -->
+      <div class="ps">
+        <div class="ps-label">What is it and why does it matter?</div>
+        <h2>The address of a row — how you find it later</h2>
+        <p>Without a primary key, how would you update or delete <em>one specific row</em>? If two users are both named "Alice", <code>WHERE name = 'Alice'</code> hits both. A primary key gives every row an unambiguous address — you always know exactly which row you're talking about.</p>
+
+        <div class="compare">
+          <div class="compare-col col-bad">
+            <h4>Without PRIMARY KEY</h4>
+            <ul>
+              <li>Two "Alice" rows — which one do you update?</li>
+              <li>DELETE hits all matching rows</li>
+              <li>No fast lookup by row identity</li>
+              <li>Can't reliably reference from other tables</li>
+            </ul>
+          </div>
+          <div class="compare-col col-good">
+            <h4>With PRIMARY KEY</h4>
+            <ul>
+              <li>Every row has a unique, stable id</li>
+              <li>UPDATE / DELETE by id is always exact</li>
+              <li>Automatic index — fast lookups</li>
+              <li>Other tables can safely reference it</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="callout callout-yellow">
+          <strong>Rules:</strong> A PRIMARY KEY is always <strong style="color:var(--text)">UNIQUE</strong> and always <strong style="color:var(--text)">NOT NULL</strong> — SQLite enforces both automatically. You only need one per table.
+        </div>
+      </div>
+
+      <!-- INTEGER PRIMARY KEY = rowid alias -->
+      <div class="ps">
+        <div class="ps-label">SQLite special behaviour</div>
+        <h2>INTEGER PRIMARY KEY — the rowid alias trick</h2>
+        <p>SQLite internally numbers every row with a hidden 64-bit integer called the <strong>rowid</strong>. When you declare a column as <code>INTEGER PRIMARY KEY</code>, that column becomes an <em>alias</em> for the rowid. This means:</p>
+        <ul style="list-style:none;display:flex;flex-direction:column;gap:8px;margin:12px 0 16px;font-size:.88rem;color:var(--muted)">
+          <li style="display:flex;gap:10px"><span style="color:var(--yellow);font-weight:800;flex-shrink:0">→</span> If you <strong style="color:var(--text)">omit</strong> the id column in INSERT, SQLite picks the next available integer automatically</li>
+          <li style="display:flex;gap:10px"><span style="color:var(--yellow);font-weight:800;flex-shrink:0">→</span> This is <strong style="color:var(--text)">not the same as AUTOINCREMENT</strong> — it reuses deleted IDs (explained below)</li>
+          <li style="display:flex;gap:10px"><span style="color:var(--yellow);font-weight:800;flex-shrink:0">→</span> If you <strong style="color:var(--text)">supply</strong> the id, SQLite uses that value (and fails if it already exists)</li>
+        </ul>
+
+        <div class="code-wrap">
+          <button class="copy-btn">copy</button>
+          <pre><span class="line"><span class="kw">CREATE TABLE</span> <span class="tbl">orders</span> (</span>
+<span class="line">  <span class="col">id</span>          <span class="type">INTEGER</span> <span class="con">PRIMARY KEY</span>,  <span class="cm">-- alias for rowid; auto-assigned when omitted</span></span>
+<span class="line">  <span class="col">customer</span>    <span class="type">TEXT</span>    <span class="con">NOT NULL</span>,</span>
+<span class="line">  <span class="col">total_pence</span> <span class="type">INTEGER</span> <span class="con">NOT NULL</span></span>
+<span class="line">);</span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- Omit id — SQLite assigns the next available rowid</span></span>
+<span class="line"><span class="kw">INSERT INTO</span> <span class="tbl">orders</span> (<span class="col">customer</span>, <span class="col">total_pence</span>) <span class="kw">VALUES</span></span>
+<span class="line">  (<span class="str">'Alice'</span>, <span class="num">1499</span>),   <span class="cm">-- gets id = 1</span></span>
+<span class="line">  (<span class="str">'Bob'</span>,   <span class="num">2250</span>),   <span class="cm">-- gets id = 2</span></span>
+<span class="line">  (<span class="str">'Carol'</span>, <span class="num">899</span>);    <span class="cm">-- gets id = 3</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- Check the last assigned id</span></span>
+<span class="line"><span class="kw">SELECT</span> <span class="fn">last_insert_rowid</span>();  <span class="cm">-- → 3</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- Supply id manually — fine if it doesn't exist yet</span></span>
+<span class="line"><span class="kw">INSERT INTO</span> <span class="tbl">orders</span> (<span class="col">id</span>, <span class="col">customer</span>, <span class="col">total_pence</span>)</span>
+<span class="line"><span class="kw">VALUES</span> (<span class="num">99</span>, <span class="str">'Zara'</span>, <span class="num">5000</span>);  <span class="cm">-- ✓ id = 99</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- ✗ Duplicate PK — always fails</span></span>
+<span class="line"><span class="kw">INSERT INTO</span> <span class="tbl">orders</span> (<span class="col">id</span>, <span class="col">customer</span>, <span class="col">total_pence</span>)</span>
+<span class="line"><span class="kw">VALUES</span> (<span class="num">1</span>, <span class="str">'Hacker'</span>, <span class="num">0</span>);</span>
+<span class="line"><span class="cm">-- Error: UNIQUE constraint failed: orders.id</span></span></pre>
+        </div>
+      </div>
+
+      <!-- AUTOINCREMENT -->
+      <div class="ps">
+        <div class="ps-label">When you need guaranteed monotonic IDs</div>
+        <h2>AUTOINCREMENT — the explicit keyword</h2>
+        <p>Adding the <code>AUTOINCREMENT</code> keyword changes one thing: <strong>deleted IDs are never reused</strong>. SQLite tracks the highest ID ever used in a special internal table (<code>sqlite_sequence</code>) and always goes higher.</p>
+
+        <div class="code-wrap">
+          <button class="copy-btn">copy</button>
+          <pre><span class="line"><span class="cm">-- With AUTOINCREMENT: IDs only ever go up, never reused</span></span>
+<span class="line"><span class="kw">CREATE TABLE</span> <span class="tbl">audit_log</span> (</span>
+<span class="line">  <span class="col">id</span>         <span class="type">INTEGER</span> <span class="con">PRIMARY KEY AUTOINCREMENT</span>, <span class="cm">-- strict monotonic</span></span>
+<span class="line">  <span class="col">action</span>     <span class="type">TEXT</span>    <span class="con">NOT NULL</span>,</span>
+<span class="line">  <span class="col">user_id</span>    <span class="type">INTEGER</span> <span class="con">NOT NULL</span>,</span>
+<span class="line">  <span class="col">happened</span>   <span class="type">TEXT</span>    <span class="con">NOT NULL DEFAULT</span> (<span class="fn">datetime</span>(<span class="str">'now'</span>))</span>
+<span class="line">);</span>
+<span class="line"></span>
+<span class="line"><span class="kw">INSERT INTO</span> <span class="tbl">audit_log</span> (<span class="col">action</span>, <span class="col">user_id</span>) <span class="kw">VALUES</span></span>
+<span class="line">  (<span class="str">'login'</span>,  <span class="num">5</span>),  <span class="cm">-- id = 1</span></span>
+<span class="line">  (<span class="str">'update'</span>, <span class="num">5</span>),  <span class="cm">-- id = 2</span></span>
+<span class="line">  (<span class="str">'logout'</span>, <span class="num">5</span>);  <span class="cm">-- id = 3</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- Delete id = 2</span></span>
+<span class="line"><span class="kw">DELETE FROM</span> <span class="tbl">audit_log</span> <span class="kw">WHERE</span> <span class="col">id</span> = <span class="num">2</span>;</span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- Next insert gets id = 4, NOT 2 (2 is gone forever)</span></span>
+<span class="line"><span class="kw">INSERT INTO</span> <span class="tbl">audit_log</span> (<span class="col">action</span>, <span class="col">user_id</span>)</span>
+<span class="line"><span class="kw">VALUES</span> (<span class="str">'login'</span>, <span class="num">7</span>);  <span class="cm">-- id = 4</span></span></pre>
+        </div>
+
+        <div class="compare" style="margin-top:16px">
+          <div class="compare-col" style="background:rgba(88,166,255,.04)">
+            <h4 style="color:var(--accent)">INTEGER PRIMARY KEY</h4>
+            <ul style="list-style:none">
+              <li style="padding:6px 0;border-bottom:1px solid var(--border);font-size:.83rem;color:var(--muted);display:flex;gap:8px"><span style="color:var(--green)">✓</span> Auto-assigns next available rowid</li>
+              <li style="padding:6px 0;border-bottom:1px solid var(--border);font-size:.83rem;color:var(--muted);display:flex;gap:8px"><span style="color:var(--yellow)">~</span> Deleted IDs <em>can</em> be reused</li>
+              <li style="padding:6px 0;border-bottom:1px solid var(--border);font-size:.83rem;color:var(--muted);display:flex;gap:8px"><span style="color:var(--green)">✓</span> Faster — no extra table lookup</li>
+              <li style="padding:6px 0;font-size:.83rem;color:var(--muted);display:flex;gap:8px"><span style="color:var(--teal)">→</span> Good for 99% of apps</li>
+            </ul>
+          </div>
+          <div class="compare-col" style="background:rgba(188,140,255,.04)">
+            <h4 style="color:var(--purple)">INTEGER PRIMARY KEY AUTOINCREMENT</h4>
+            <ul style="list-style:none">
+              <li style="padding:6px 0;border-bottom:1px solid var(--border);font-size:.83rem;color:var(--muted);display:flex;gap:8px"><span style="color:var(--green)">✓</span> Auto-assigns, strictly monotonic</li>
+              <li style="padding:6px 0;border-bottom:1px solid var(--border);font-size:.83rem;color:var(--muted);display:flex;gap:8px"><span style="color:var(--green)">✓</span> Deleted IDs are <em>never</em> reused</li>
+              <li style="padding:6px 0;border-bottom:1px solid var(--border);font-size:.83rem;color:var(--muted);display:flex;gap:8px"><span style="color:var(--yellow)">~</span> Slightly slower (sqlite_sequence lookup)</li>
+              <li style="padding:6px 0;font-size:.83rem;color:var(--muted);display:flex;gap:8px"><span style="color:var(--teal)">→</span> Use for audit logs, event streams</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Composite PK -->
+      <div class="ps">
+        <div class="ps-label">When one column isn't enough</div>
+        <h2>Composite PRIMARY KEY — two columns together</h2>
+        <p>When no single column uniquely identifies a row, declare the key across multiple columns. Common in junction tables (many-to-many relationships):</p>
+        <div class="code-wrap">
+          <button class="copy-btn">copy</button>
+          <pre><span class="line"><span class="cm">-- A user can have a tag only once</span></span>
+<span class="line"><span class="cm">-- user_id=1, tag='admin' is a unique combination</span></span>
+<span class="line"><span class="kw">CREATE TABLE</span> <span class="tbl">user_tags</span> (</span>
+<span class="line">  <span class="col">user_id</span>  <span class="type">INTEGER</span> <span class="con">NOT NULL</span>,</span>
+<span class="line">  <span class="col">tag</span>      <span class="type">TEXT</span>    <span class="con">NOT NULL</span>,</span>
+<span class="line">  <span class="col">added_at</span> <span class="type">TEXT</span>    <span class="con">DEFAULT</span> (<span class="fn">date</span>(<span class="str">'now'</span>)),</span>
+<span class="line">  <span class="con">PRIMARY KEY</span> (<span class="col">user_id</span>, <span class="col">tag</span>)  <span class="cm">-- the PAIR is the key</span></span>
+<span class="line">);</span>
+<span class="line"></span>
+<span class="line"><span class="kw">INSERT INTO</span> <span class="tbl">user_tags</span> (<span class="col">user_id</span>, <span class="col">tag</span>) <span class="kw">VALUES</span></span>
+<span class="line">  (<span class="num">1</span>, <span class="str">'admin'</span>),       <span class="cm">-- ✓</span></span>
+<span class="line">  (<span class="num">1</span>, <span class="str">'developer'</span>),   <span class="cm">-- ✓ same user, different tag</span></span>
+<span class="line">  (<span class="num">2</span>, <span class="str">'admin'</span>);        <span class="cm">-- ✓ different user, same tag</span></span>
+<span class="line"></span>
+<span class="line"><span class="kw">INSERT INTO</span> <span class="tbl">user_tags</span> (<span class="col">user_id</span>, <span class="col">tag</span>)</span>
+<span class="line"><span class="kw">VALUES</span> (<span class="num">1</span>, <span class="str">'admin'</span>);    <span class="cm">-- ✗ (1, 'admin') already exists!</span>
+<span class="line"><span class="cm">-- Error: UNIQUE constraint failed: user_tags.user_id, user_tags.tag</span></span></pre>
+        </div>
+
+        <div class="callout callout-yellow">
+          <strong>Note:</strong> Composite PKs cannot use the rowid alias trick, so IDs are <em>not</em> auto-assigned. You must always supply both columns explicitly.
+        </div>
+      </div>
+
+      <div class="panel-footer-nav">
+        <button class="nav-btn" id="btn-prev">← Previous</button>
+        <div class="pf-center" id="pf-dots"></div>
+        <button class="nav-btn primary" id="btn-next">Next →</button>
+      </div>
+    </div>
+
+    <!-- ─────────────────────────────────────────
+         PANEL 4 · FOREIGN KEY
+    ──────────────────────────────────────────── -->
+    <div class="panel ph-hero-fk" id="panel-fk">
+      <div class="panel-hero" style="border-color:rgba(240,136,62,.2)">
+        <div class="ph-eyebrow">
+          <span class="ph-num">Constraint 4 of 6</span>
+          <span class="kbadge kb-orange" style="margin:0">FOREIGN KEY</span>
+        </div>
+        <h1><span class="icon-wiggle">🔗</span> <em>FOREIGN KEY</em></h1>
+        <p class="ph-desc">The constraint that <strong>connects tables together</strong>. A foreign key says "this value must exist in another table". It prevents orphan records — orders without customers, comments without posts.</p>
+        <div class="ph-pills">
+          <span class="ph-pill" style="border-color:rgba(240,136,62,.3);color:var(--orange)">Referential integrity</span>
+          <span class="ph-pill" style="border-color:rgba(248,81,73,.3);color:var(--red)">OFF by default!</span>
+          <span class="ph-pill">PRAGMA foreign_keys = ON</span>
+          <span class="ph-pill">ON DELETE CASCADE</span>
+        </div>
+      </div>
+
+      <div class="ps">
+        <div class="ps-label">Visual diagram</div>
+        <h2>customer_id in orders must point to a real customer</h2>
+
+        <div class="fk-diagram">
+          <div class="fk-table">
+            <div class="fk-th" style="background:rgba(210,153,34,.12);color:var(--yellow)">customers</div>
+            <div class="fk-row"><span class="fk-pk">🔑 id</span></div>
+            <div class="fk-row" style="color:var(--muted)">name</div>
+            <div class="fk-row" style="color:var(--muted)">email</div>
+          </div>
+          <div class="fk-arrow">→</div>
+          <div class="fk-table">
+            <div class="fk-th" style="background:rgba(240,136,62,.12);color:var(--orange)">orders</div>
+            <div class="fk-row"><span class="fk-pk">🔑 id</span></div>
+            <div class="fk-row"><span class="fk-fk">🔗 customer_id</span></div>
+            <div class="fk-row" style="color:var(--muted)">total</div>
+          </div>
+          <div style="align-self:center;font-size:.8rem;color:var(--muted);max-width:160px">
+            <span style="color:var(--orange)">customer_id</span> must match a real <span style="color:var(--yellow)">id</span> in customers
+          </div>
+        </div>
+      </div>
+
+      <div class="ps">
+        <div class="ps-label">Basic usage</div>
+        <h2>Always enable PRAGMA foreign_keys first!</h2>
+        <div class="code-wrap">
+          <button class="copy-btn">copy</button>
+          <pre><span class="line"><span class="cm">-- ⚠️  Run this at the START of every connection</span></span>
+<span class="line"><span class="kw">PRAGMA</span> foreign_keys = <span class="kw">ON</span>;</span>
+<span class="line"></span>
+<span class="line"><span class="kw">CREATE TABLE</span> <span class="tbl">customers</span> (</span>
+<span class="line">  <span class="col">id</span>    <span class="type">INTEGER</span> <span class="con">PRIMARY KEY</span>,</span>
+<span class="line">  <span class="col">name</span>  <span class="type">TEXT</span>    <span class="con">NOT NULL</span>,</span>
+<span class="line">  <span class="col">email</span> <span class="type">TEXT</span>    <span class="con">NOT NULL UNIQUE</span></span>
+<span class="line">);</span>
+<span class="line"></span>
+<span class="line"><span class="kw">CREATE TABLE</span> <span class="tbl">orders</span> (</span>
+<span class="line">  <span class="col">id</span>          <span class="type">INTEGER</span> <span class="con">PRIMARY KEY</span>,</span>
+<span class="line">  <span class="col">customer_id</span> <span class="type">INTEGER</span> <span class="con">NOT NULL</span>,</span>
+<span class="line">  <span class="col">product</span>     <span class="type">TEXT</span>    <span class="con">NOT NULL</span>,</span>
+<span class="line">  <span class="col">total_pence</span> <span class="type">INTEGER</span> <span class="con">NOT NULL</span>,</span>
+<span class="line">  <span class="con">FOREIGN KEY</span> (<span class="col">customer_id</span>) <span class="con">REFERENCES</span> <span class="tbl">customers</span>(<span class="col">id</span>)</span>
+<span class="line">);</span>
+<span class="line"></span>
+<span class="line"><span class="kw">INSERT INTO</span> <span class="tbl">customers</span> (<span class="col">name</span>, <span class="col">email</span>)</span>
+<span class="line"><span class="kw">VALUES</span> (<span class="str">'Alice'</span>, <span class="str">'alice@shop.com'</span>);  <span class="cm">-- id = 1</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- ✓ customer 1 exists</span></span>
+<span class="line"><span class="kw">INSERT INTO</span> <span class="tbl">orders</span> (<span class="col">customer_id</span>, <span class="col">product</span>, <span class="col">total_pence</span>)</span>
+<span class="line"><span class="kw">VALUES</span> (<span class="num">1</span>, <span class="str">'Laptop'</span>, <span class="num">89999</span>);</span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- ✗ customer 999 doesn't exist!</span></span>
+<span class="line"><span class="kw">INSERT INTO</span> <span class="tbl">orders</span> (<span class="col">customer_id</span>, <span class="col">product</span>, <span class="col">total_pence</span>)</span>
+<span class="line"><span class="kw">VALUES</span> (<span class="num">999</span>, <span class="str">'Keyboard'</span>, <span class="num">4999</span>);</span>
+<span class="line"><span class="cm">-- Error: FOREIGN KEY constraint failed</span></span></pre>
+        </div>
+
+        <div class="callout callout-pink">
+          <strong>🔴 SQLite quirk — FK is OFF by default!</strong> For backwards-compatibility, SQLite ships with foreign key enforcement <em>disabled</em>. You MUST run <code>PRAGMA foreign_keys = ON;</code> at every connection start. Put it in your app's database initialization.
+        </div>
+      </div>
+
+      <div class="ps">
+        <div class="ps-label">Cascade actions</div>
+        <h2>Control what happens when the parent row changes</h2>
+        <div class="code-wrap">
+          <button class="copy-btn">copy</button>
+          <pre><span class="line"><span class="cm">-- ON DELETE CASCADE: delete parent → delete all children</span></span>
+<span class="line"><span class="kw">CREATE TABLE</span> <span class="tbl">orders</span> (</span>
+<span class="line">  <span class="col">id</span>          <span class="type">INTEGER</span> <span class="con">PRIMARY KEY</span>,</span>
+<span class="line">  <span class="col">customer_id</span> <span class="type">INTEGER</span> <span class="con">NOT NULL</span>,</span>
+<span class="line">  <span class="col">product</span>     <span class="type">TEXT</span>,</span>
+<span class="line">  <span class="con">FOREIGN KEY</span> (<span class="col">customer_id</span>) <span class="con">REFERENCES</span> <span class="tbl">customers</span>(<span class="col">id</span>)</span>
+<span class="line">    <span class="con">ON DELETE CASCADE</span>    <span class="cm">-- auto-delete orders when customer is deleted</span></span>
+<span class="line">    <span class="con">ON UPDATE CASCADE</span>    <span class="cm">-- auto-update FK if customer id changes</span></span>
+<span class="line">);</span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- ON DELETE RESTRICT: prevent deleting if child rows exist</span></span>
+<span class="line"><span class="con">FOREIGN KEY</span> (<span class="col">customer_id</span>) <span class="con">REFERENCES</span> <span class="tbl">customers</span>(<span class="col">id</span>)</span>
+<span class="line">  <span class="con">ON DELETE RESTRICT</span>    <span class="cm">-- error if you try to delete a customer who has orders</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- ON DELETE SET NULL: orphan rows point to NULL instead</span></span>
+<span class="line"><span class="con">FOREIGN KEY</span> (<span class="col">customer_id</span>) <span class="con">REFERENCES</span> <span class="tbl">customers</span>(<span class="col">id</span>)</span>
+<span class="line">  <span class="con">ON DELETE SET NULL</span>    <span class="cm">-- order stays, customer_id becomes NULL</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- Deleting a customer cascades to all their orders</span></span>
+<span class="line"><span class="kw">DELETE FROM</span> <span class="tbl">customers</span> <span class="kw">WHERE</span> <span class="col">id</span> = <span class="num">1</span>;</span>
+<span class="line"><span class="cm">-- All orders with customer_id = 1 are also deleted!</span></span></pre>
+        </div>
+      </div>
+
+      <div class="panel-footer-nav">
+        <button class="nav-btn" id="btn-prev">← Previous</button>
+        <div class="pf-center" id="pf-dots"></div>
+        <button class="nav-btn primary" id="btn-next">Next →</button>
+      </div>
+    </div>
+
+    <!-- ─────────────────────────────────────────
+         PANEL 5 · CHECK
+    ──────────────────────────────────────────── -->
+    <div class="panel ph-hero-ck" id="panel-ck">
+      <div class="panel-hero" style="border-color:rgba(188,140,255,.2)">
+        <div class="ph-eyebrow">
+          <span class="ph-num">Constraint 5 of 6</span>
+          <span class="kbadge kb-purple" style="margin:0">CHECK</span>
+        </div>
+        <h1><span class="icon-wiggle">✅</span> <em>CHECK</em></h1>
+        <p class="ph-desc">Write any boolean expression — the database enforces it. Prices must be positive. Ratings must be 1–5. Status must be one word from a list. This is where constraints get creative.</p>
+        <div class="ph-pills">
+          <span class="ph-pill" style="border-color:rgba(188,140,255,.3);color:var(--purple)">Any boolean expression</span>
+          <span class="ph-pill">Column or table level</span>
+          <span class="ph-pill">Ranges, enums, cross-column</span>
+          <span class="ph-pill">Row rejected if FALSE</span>
+        </div>
+      </div>
+
+      <div class="ps">
+        <div class="ps-label">Column-level CHECK</div>
+        <h2>Ranges, allowed values, and custom logic</h2>
+        <div class="code-wrap">
+          <button class="copy-btn">copy</button>
+          <pre><span class="line"><span class="kw">CREATE TABLE</span> <span class="tbl">products</span> (</span>
+<span class="line">  <span class="col">id</span>          <span class="type">INTEGER</span> <span class="con">PRIMARY KEY</span>,</span>
+<span class="line">  <span class="col">name</span>        <span class="type">TEXT</span>    <span class="con">NOT NULL</span>,</span>
+<span class="line">  <span class="col">price_pence</span> <span class="type">INTEGER</span> <span class="con">NOT NULL</span></span>
+<span class="line">                       <span class="con">CHECK</span> (<span class="col">price_pence</span> >= <span class="num">0</span>),         <span class="cm">-- no negatives</span></span>
+<span class="line">  <span class="col">discount</span>    <span class="type">INTEGER</span> <span class="con">DEFAULT 0</span></span>
+<span class="line">                       <span class="con">CHECK</span> (<span class="col">discount</span> <span class="kw">BETWEEN</span> <span class="num">0</span> <span class="kw">AND</span> <span class="num">100</span>), <span class="cm">-- 0–100 %</span></span>
+<span class="line">  <span class="col">status</span>      <span class="type">TEXT</span>    <span class="con">NOT NULL</span></span>
+<span class="line">                       <span class="con">CHECK</span> (<span class="col">status</span> <span class="kw">IN</span></span>
+<span class="line">                         (<span class="str">'draft'</span>, <span class="str">'active'</span>, <span class="str">'archived'</span>)),  <span class="cm">-- enum!</span></span>
+<span class="line">  <span class="col">rating</span>      <span class="type">REAL</span></span>
+<span class="line">                       <span class="con">CHECK</span> (<span class="col">rating</span> <span class="kw">IS NULL</span>              <span class="cm">-- nullable</span></span>
+<span class="line">                          <span class="kw">OR</span> (<span class="col">rating</span> >= <span class="num">1</span> <span class="kw">AND</span> <span class="col">rating</span> <= <span class="num">5</span>)) <span class="cm">-- 1–5 range</span></span>
+<span class="line">);</span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- ✓ Valid</span></span>
+<span class="line"><span class="kw">INSERT INTO</span> <span class="tbl">products</span> (<span class="col">name</span>, <span class="col">price_pence</span>, <span class="col">status</span>, <span class="col">rating</span>)</span>
+<span class="line"><span class="kw">VALUES</span> (<span class="str">'Cool Hat'</span>, <span class="num">2499</span>, <span class="str">'active'</span>, <span class="num">4.5</span>);</span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- ✗ Negative price</span></span>
+<span class="line"><span class="kw">INSERT INTO</span> <span class="tbl">products</span> (<span class="col">name</span>, <span class="col">price_pence</span>, <span class="col">status</span>)</span>
+<span class="line"><span class="kw">VALUES</span> (<span class="str">'Free Stuff'</span>, <span class="num">-1</span>, <span class="str">'active'</span>);</span>
+<span class="line"><span class="cm">-- Error: CHECK constraint failed: price_pence >= 0</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- ✗ Invalid status</span></span>
+<span class="line"><span class="kw">INSERT INTO</span> <span class="tbl">products</span> (<span class="col">name</span>, <span class="col">price_pence</span>, <span class="col">status</span>)</span>
+<span class="line"><span class="kw">VALUES</span> (<span class="str">'Widget'</span>, <span class="num">999</span>, <span class="str">'for_sale'</span>);</span>
+<span class="line"><span class="cm">-- Error: CHECK constraint failed</span></span></pre>
+        </div>
+      </div>
+
+      <div class="ps">
+        <div class="ps-label">Rating validation — pass / fail</div>
+        <h2>CHECK (rating BETWEEN 1 AND 5)</h2>
+        <div class="check-grid">
+          <div class="ci ci-pass"><div class="ci-val">1</div><div>rating</div><div class="ci-verdict">✓ PASS</div></div>
+          <div class="ci ci-pass"><div class="ci-val">2.5</div><div>rating</div><div class="ci-verdict">✓ PASS</div></div>
+          <div class="ci ci-pass"><div class="ci-val">4</div><div>rating</div><div class="ci-verdict">✓ PASS</div></div>
+          <div class="ci ci-pass"><div class="ci-val">5</div><div>rating</div><div class="ci-verdict">✓ PASS</div></div>
+          <div class="ci ci-fail"><div class="ci-val">0</div><div>rating</div><div class="ci-verdict">✗ FAIL</div></div>
+          <div class="ci ci-fail"><div class="ci-val">6</div><div>rating</div><div class="ci-verdict">✗ FAIL</div></div>
+          <div class="ci ci-fail"><div class="ci-val">-1</div><div>rating</div><div class="ci-verdict">✗ FAIL</div></div>
+          <div class="ci ci-pass"><div class="ci-val">NULL</div><div>rating</div><div class="ci-verdict">✓ PASS (allowed)</div></div>
+        </div>
+      </div>
+
+      <div class="ps">
+        <div class="ps-label">Table-level CHECK (multi-column)</div>
+        <h2>Constraints that compare two columns</h2>
+        <div class="code-wrap">
+          <button class="copy-btn">copy</button>
+          <pre><span class="line"><span class="kw">CREATE TABLE</span> <span class="tbl">events</span> (</span>
+<span class="line">  <span class="col">id</span>           <span class="type">INTEGER</span> <span class="con">PRIMARY KEY</span>,</span>
+<span class="line">  <span class="col">title</span>        <span class="type">TEXT</span>    <span class="con">NOT NULL</span>,</span>
+<span class="line">  <span class="col">start_date</span>   <span class="type">TEXT</span>    <span class="con">NOT NULL</span>,</span>
+<span class="line">  <span class="col">end_date</span>     <span class="type">TEXT</span>    <span class="con">NOT NULL</span>,</span>
+<span class="line">  <span class="col">capacity</span>     <span class="type">INTEGER</span> <span class="con">NOT NULL CHECK</span> (<span class="col">capacity</span> > <span class="num">0</span>),</span>
+<span class="line">  <span class="col">tickets_sold</span> <span class="type">INTEGER</span> <span class="con">DEFAULT 0</span>,</span>
+<span class="line">  <span class="cm">-- table-level: end must be after start</span></span>
+<span class="line">  <span class="con">CHECK</span> (<span class="col">end_date</span> > <span class="col">start_date</span>),</span>
+<span class="line">  <span class="cm">-- table-level: can't oversell</span></span>
+<span class="line">  <span class="con">CHECK</span> (<span class="col">tickets_sold</span> <= <span class="col">capacity</span>)</span>
+<span class="line">);</span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- ✗ end before start</span></span>
+<span class="line"><span class="kw">INSERT INTO</span> <span class="tbl">events</span> (<span class="col">title</span>,<span class="col">start_date</span>,<span class="col">end_date</span>,<span class="col">capacity</span>)</span>
+<span class="line"><span class="kw">VALUES</span> (<span class="str">'Conf'</span>, <span class="str">'2024-12-10'</span>, <span class="str">'2024-12-09'</span>, <span class="num">200</span>);</span>
+<span class="line"><span class="cm">-- Error: CHECK constraint failed: end_date > start_date</span></span></pre>
+        </div>
+      </div>
+
+      <div class="panel-footer-nav">
+        <button class="nav-btn" id="btn-prev">← Previous</button>
+        <div class="pf-center" id="pf-dots"></div>
+        <button class="nav-btn primary" id="btn-next">Next →</button>
+      </div>
+    </div>
+
+    <!-- ─────────────────────────────────────────
+         PANEL 6 · DEFAULT
+    ──────────────────────────────────────────── -->
+    <div class="panel ph-hero-df" id="panel-df">
+      <div class="panel-hero" style="border-color:rgba(45,212,191,.2)">
+        <div class="ph-eyebrow">
+          <span class="ph-num">Constraint 6 of 6</span>
+          <span class="kbadge kb-teal" style="margin:0">DEFAULT</span>
+        </div>
+        <h1><span class="icon-bounce">🎯</span> <em>DEFAULT</em></h1>
+        <p class="ph-desc">A fallback value when INSERT doesn't provide one. Literals like <code>0</code> or <code>'draft'</code>, or computed expressions like <code>datetime('now')</code> — evaluated at insert time.</p>
+        <div class="ph-pills">
+          <span class="ph-pill" style="border-color:rgba(45,212,191,.3);color:var(--teal)">Literal or expression</span>
+          <span class="ph-pill">Evaluated at insert time</span>
+          <span class="ph-pill">Wrap expressions in ()</span>
+          <span class="ph-pill">Combine with NOT NULL</span>
+        </div>
+      </div>
+
+      <div class="ps">
+        <div class="ps-label">Why DEFAULT matters</div>
+        <h2>Skip optional columns and still never get NULL</h2>
+
+        <div class="default-compare">
+          <div class="dc-box dc-without">
+            <div class="dc-label">Without DEFAULT — verbose</div>
+            <pre><span class="line"><span class="kw">INSERT INTO</span> <span class="tbl">posts</span></span>
+<span class="line">  (<span class="col">title</span>, <span class="col">body</span>,</span>
+<span class="line">   <span class="col">status</span>, <span class="col">views</span>,</span>
+<span class="line">   <span class="col">pinned</span>, <span class="col">created_at</span>)</span>
+<span class="line"><span class="kw">VALUES</span></span>
+<span class="line">  (<span class="str">'Hello'</span>, <span class="str">'World'</span>,</span>
+<span class="line">   <span class="str">'draft'</span>, <span class="num">0</span>,</span>
+<span class="line">   <span class="num">0</span>, <span class="str">'2024-06-01 10:00'</span>);</span></pre>
+          </div>
+          <div class="dc-box dc-with">
+            <div class="dc-label">With DEFAULT — clean</div>
+            <pre><span class="line"><span class="kw">INSERT INTO</span> <span class="tbl">posts</span></span>
+<span class="line">  (<span class="col">title</span>, <span class="col">body</span>)</span>
+<span class="line"><span class="kw">VALUES</span></span>
+<span class="line">  (<span class="str">'Hello'</span>, <span class="str">'World'</span>);</span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- status, views, pinned,</span></span>
+<span class="line"><span class="cm">-- created_at all filled</span></span>
+<span class="line"><span class="cm">-- in automatically ✓</span></span></pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="ps">
+        <div class="ps-label">Full example</div>
+        <h2>Literals, booleans, and timestamp expressions</h2>
+        <div class="code-wrap">
+          <button class="copy-btn">copy</button>
+          <pre><span class="line"><span class="kw">CREATE TABLE</span> <span class="tbl">posts</span> (</span>
+<span class="line">  <span class="col">id</span>         <span class="type">INTEGER</span> <span class="con">PRIMARY KEY</span>,</span>
+<span class="line">  <span class="col">title</span>      <span class="type">TEXT</span>    <span class="con">NOT NULL</span>,</span>
+<span class="line">  <span class="col">body</span>       <span class="type">TEXT</span>    <span class="con">NOT NULL</span>,</span>
+<span class="line">  <span class="col">status</span>     <span class="type">TEXT</span>    <span class="con">NOT NULL DEFAULT</span> <span class="str">'draft'</span>,           <span class="cm">-- literal string</span></span>
+<span class="line">  <span class="col">views</span>      <span class="type">INTEGER</span> <span class="con">NOT NULL DEFAULT</span> <span class="num">0</span>,                 <span class="cm">-- literal 0</span></span>
+<span class="line">  <span class="col">is_pinned</span>  <span class="type">BOOLEAN</span> <span class="con">NOT NULL DEFAULT FALSE</span>,             <span class="cm">-- FALSE = 0</span></span>
+<span class="line">  <span class="col">created_at</span> <span class="type">TEXT</span>    <span class="con">NOT NULL DEFAULT</span> (<span class="fn">datetime</span>(<span class="str">'now'</span>)),  <span class="cm">-- expression!</span></span>
+<span class="line">  <span class="col">updated_at</span> <span class="type">TEXT</span>    <span class="con">NOT NULL DEFAULT</span> (<span class="fn">datetime</span>(<span class="str">'now'</span>))   <span class="cm">-- expression!</span></span>
+<span class="line">);</span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- Minimal INSERT — only required fields</span></span>
+<span class="line"><span class="kw">INSERT INTO</span> <span class="tbl">posts</span> (<span class="col">title</span>, <span class="col">body</span>)</span>
+<span class="line"><span class="kw">VALUES</span> (<span class="str">'My First Post'</span>, <span class="str">'Hello world!'</span>);</span>
+<span class="line"></span>
+<span class="line"><span class="kw">SELECT</span> * <span class="kw">FROM</span> <span class="tbl">posts</span>;</span>
+<span class="line"><span class="cm">-- id:1  title:'My First Post'  body:'Hello world!'</span></span>
+<span class="line"><span class="cm">-- status:'draft'  views:0  is_pinned:0</span></span>
+<span class="line"><span class="cm">-- created_at:'2024-06-01 09:30:00'</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- Publish — update status and timestamp</span></span>
+<span class="line"><span class="kw">UPDATE</span> <span class="tbl">posts</span></span>
+<span class="line"><span class="kw">SET</span>   <span class="col">status</span>     = <span class="str">'published'</span>,</span>
+<span class="line">      <span class="col">updated_at</span> = <span class="fn">datetime</span>(<span class="str">'now'</span>)</span>
+<span class="line"><span class="kw">WHERE</span> <span class="col">id</span> = <span class="num">1</span>;</span></pre>
+        </div>
+
+        <div class="callout callout-teal">
+          <strong>Syntax reminder:</strong> Wrap <em>expressions</em> in parentheses: <code>DEFAULT (datetime('now'))</code>. Plain literals don't need them: <code>DEFAULT 0</code>, <code>DEFAULT 'draft'</code>, <code>DEFAULT TRUE</code>.
+        </div>
+      </div>
+
+      <div class="ps">
+        <div class="ps-label">All 6 constraints — putting it together</div>
+        <h2>A production-ready schema</h2>
+
+        <div class="mega-schema">
+          <div class="mega-header">📦 e-commerce schema — all 6 constraints at once</div>
+          <div class="code-wrap" style="margin:0">
+            <button class="copy-btn">copy</button>
+            <pre><span class="line"><span class="kw">PRAGMA</span> foreign_keys = <span class="kw">ON</span>;  <span class="cm">-- always!</span></span>
+<span class="line"></span>
+<span class="line"><span class="kw">CREATE TABLE</span> <span class="tbl">customers</span> (</span>
+<span class="line">  <span class="col">id</span>        <span class="type">INTEGER</span> <span class="con">PRIMARY KEY</span>,              <span class="cm">-- 🔑 PK</span></span>
+<span class="line">  <span class="col">name</span>      <span class="type">TEXT</span>    <span class="con">NOT NULL</span>,                 <span class="cm">-- 🚫 required</span></span>
+<span class="line">  <span class="col">email</span>     <span class="type">TEXT</span>    <span class="con">NOT NULL UNIQUE</span>,          <span class="cm">-- 🚫💠 required + unique</span></span>
+<span class="line">  <span class="col">tier</span>      <span class="type">TEXT</span>    <span class="con">NOT NULL DEFAULT</span> <span class="str">'free'</span>   <span class="cm">-- 🎯 default</span></span>
+<span class="line">                     <span class="con">CHECK</span> (<span class="col">tier</span> <span class="kw">IN</span>           <span class="cm">-- ✅ enum</span></span>
+<span class="line">                       (<span class="str">'free'</span>,<span class="str">'pro'</span>,<span class="str">'enterprise'</span>)),</span>
+<span class="line">  <span class="col">credit</span>    <span class="type">INTEGER</span> <span class="con">NOT NULL DEFAULT 0</span>        <span class="cm">-- 🎯 default</span></span>
+<span class="line">                     <span class="con">CHECK</span> (<span class="col">credit</span> >= <span class="num">0</span>),      <span class="cm">-- ✅ no negative</span></span>
+<span class="line">  <span class="col">joined_at</span> <span class="type">TEXT</span>    <span class="con">NOT NULL DEFAULT</span> (<span class="fn">date</span>(<span class="str">'now'</span>)) <span class="cm">-- 🎯 auto date</span></span>
+<span class="line">);</span>
+<span class="line"></span>
+<span class="line"><span class="kw">CREATE TABLE</span> <span class="tbl">orders</span> (</span>
+<span class="line">  <span class="col">id</span>          <span class="type">INTEGER</span> <span class="con">PRIMARY KEY</span>,</span>
+<span class="line">  <span class="col">customer_id</span> <span class="type">INTEGER</span> <span class="con">NOT NULL</span>,</span>
+<span class="line">  <span class="col">status</span>      <span class="type">TEXT</span>    <span class="con">NOT NULL DEFAULT</span> <span class="str">'pending'</span> <span class="cm">-- 🎯</span></span>
+<span class="line">                       <span class="con">CHECK</span> (<span class="col">status</span> <span class="kw">IN</span>         <span class="cm">-- ✅</span></span>
+<span class="line">                         (<span class="str">'pending'</span>,<span class="str">'paid'</span>,<span class="str">'shipped'</span>,<span class="str">'delivered'</span>,<span class="str">'cancelled'</span>)),</span>
+<span class="line">  <span class="col">total_pence</span> <span class="type">INTEGER</span> <span class="con">NOT NULL CHECK</span> (<span class="col">total_pence</span> > <span class="num">0</span>), <span class="cm">-- ✅</span></span>
+<span class="line">  <span class="col">placed_at</span>   <span class="type">TEXT</span>    <span class="con">NOT NULL DEFAULT</span> (<span class="fn">datetime</span>(<span class="str">'now'</span>)),<span class="cm">-- 🎯</span></span>
+<span class="line">  <span class="con">FOREIGN KEY</span> (<span class="col">customer_id</span>) <span class="con">REFERENCES</span> <span class="tbl">customers</span>(<span class="col">id</span>) <span class="cm">-- 🔗</span></span>
+<span class="line">    <span class="con">ON DELETE RESTRICT</span></span>
+<span class="line">);</span></pre>
+          </div>
+        </div>
+
+        <div class="callout callout-teal">
+          <strong>🎉 With these constraints</strong> it is impossible to insert a negative credit balance, an order for a missing customer, a duplicate email, an invalid tier, or a negative total — all without a single line of application validation code.
+        </div>
+      </div>
+
+      <div class="panel-footer-nav">
+        <button class="nav-btn" id="btn-prev">← Previous</button>
+        <div class="pf-center" id="pf-dots"></div>
+        <a href="index.html" class="nav-btn primary">✓ Lesson Complete!</a>
+      </div>
+    </div>
+
+  </main><!-- .content-area -->
+</div><!-- .page-layout -->
+
+<script src="app.js"></script>
+<script>
+  const PANELS = ['nn','uq','pk','fk','ck','df'];
+  const NAV_LABELS = {
+    nn: 'NOT NULL', uq: 'UNIQUE', pk: 'PRIMARY KEY',
+    fk: 'FOREIGN KEY', ck: 'CHECK', df: 'DEFAULT'
+  };
+
+  let current = 0;
+
+  function buildDots() {
+    document.querySelectorAll('#pf-dots').forEach(wrap => {
+      wrap.innerHTML = '';
+      PANELS.forEach((_, i) => {
+        const d = document.createElement('div');
+        d.className = 'pf-dot' + (i === current ? ' active' : '');
+        d.onclick = () => show(i);
+        d.title = NAV_LABELS[PANELS[i]];
+        d.style.cursor = 'pointer';
+        wrap.appendChild(d);
+      });
+    });
+  }
+
+  function show(idx) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.sn-item').forEach(b => b.classList.remove('active'));
+
+    const id = PANELS[idx];
+    document.getElementById('panel-' + id).classList.add('active');
+    document.querySelectorAll('.sn-item')[idx].classList.add('active');
+    current = idx;
+
+    const panel = document.getElementById('panel-' + id);
+    const prev = panel.querySelector('#btn-prev');
+    const next = panel.querySelector('#btn-next');
+
+    if (prev) {
+      prev.classList.toggle('disabled', idx === 0);
+      prev.onclick = idx > 0 ? () => show(idx - 1) : null;
+      prev.textContent = idx > 0 ? '← ' + NAV_LABELS[PANELS[idx - 1]] : '← Previous';
+    }
+    if (next && next.tagName === 'BUTTON') {
+      if (idx < PANELS.length - 1) {
+        next.textContent = NAV_LABELS[PANELS[idx + 1]] + ' →';
+        next.onclick = () => show(idx + 1);
+      }
+    }
+
+    buildDots();
+    animatePanel(panel);
+    document.querySelector('.content-area').scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function animatePanel(panel) {
+    panel.querySelectorAll('pre .line').forEach(l => l.classList.remove('show'));
+    setTimeout(() => {
+      panel.querySelectorAll('pre').forEach(pre => {
+        pre.querySelectorAll('.line').forEach((l, i) =>
+          setTimeout(() => l.classList.add('show'), i * 42 + 80));
+      });
+      panel.querySelectorAll('table.dt tbody tr').forEach((r, i) => {
+        r.classList.remove('show');
+        setTimeout(() => r.classList.add('show'), i * 100 + 150);
+      });
+      panel.querySelectorAll('.ci').forEach((c, i) => {
+        c.classList.remove('show');
+        setTimeout(() => c.classList.add('show'), i * 80 + 150);
+      });
+    }, 50);
+  }
+
+  document.querySelectorAll('.sn-item').forEach((btn, i) => {
+    btn.addEventListener('click', () => show(i));
+  });
+
+  show(0);
+</script>
+</body>
+</html>

@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SQLite Data Types — Lesson 2</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='white'/><text x='32' y='45' text-anchor='middle' font-family='Arial, sans-serif' font-size='42' font-weight='700' fill='%232dd4bf'>db</text></svg>">
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">← Home</a>
+  <span class="brand">Data Types &amp; Constraints</span>
+  <a href="01-data-types.html"  class="nav-item active"><span class="n">1</span>Data Types</a>
+  <a href="02-constraints.html" class="nav-item"><span class="n">2</span>Constraints</a>
+</nav>
+
+<div class="page-layout">
+
+  <!-- ══ SIDEBAR ══════════════════════════════ -->
+  <aside class="sidebar">
+    <div class="sidebar-label">Data Types</div>
+
+    <button class="sn-item" data-target="affinity">
+      <span class="sn-icon">🎯</span>
+      <span class="sn-label">Type Affinity</span>
+      <span class="sn-num">1</span>
+    </button>
+
+    <div class="sidebar-divider"></div>
+
+    <button class="sn-item" data-target="null">
+      <span class="sn-icon">∅</span>
+      <span class="sn-label">NULL</span>
+      <span class="sn-num">2</span>
+    </button>
+    <button class="sn-item" data-target="integer">
+      <span class="sn-icon">🔢</span>
+      <span class="sn-label">INTEGER</span>
+      <span class="sn-num">3</span>
+    </button>
+    <button class="sn-item" data-target="real">
+      <span class="sn-icon">📐</span>
+      <span class="sn-label">REAL</span>
+      <span class="sn-num">4</span>
+    </button>
+    <button class="sn-item" data-target="text">
+      <span class="sn-icon">💬</span>
+      <span class="sn-label">TEXT</span>
+      <span class="sn-num">5</span>
+    </button>
+    <button class="sn-item" data-target="blob">
+      <span class="sn-icon">📦</span>
+      <span class="sn-label">BLOB</span>
+      <span class="sn-num">6</span>
+    </button>
+    <button class="sn-item" data-target="numeric">
+      <span class="sn-icon">🔀</span>
+      <span class="sn-label">NUMERIC</span>
+      <span class="sn-num">7</span>
+    </button>
+  </aside>
+
+  <!-- ══ CONTENT ══════════════════════════════ -->
+  <main class="content-area">
+
+    <!-- ─────────────────────────────────────────
+         PANEL 1 · TYPE AFFINITY & STRICT MODE
+    ──────────────────────────────────────────── -->
+    <div class="panel" id="panel-affinity">
+      <div class="panel-hero">
+        <div class="ph-eyebrow">
+          <span class="ph-num">Topic 1 of 7</span>
+          <span class="affinity-badge aff-numeric" style="margin-left:0;animation:none">Intro</span>
+        </div>
+        <h1>Type Affinity<br>&amp; <em>Strict Mode</em></h1>
+        <p class="ph-desc">SQLite's type system is unlike any other database. Before diving into individual types, understand the rules that govern how SQLite decides what to store — and how to switch on strict typing when you need it.</p>
+        <div class="ph-pills">
+          <span class="ph-pill">5 storage classes</span>
+          <span class="ph-pill">Dynamic typing by default</span>
+          <span class="ph-pill">STRICT mode available</span>
+          <span class="ph-pill">typeof() to inspect</span>
+        </div>
+      </div>
+
+      <!-- Dynamic vs Strict -->
+      <div class="ps">
+        <div class="ps-label">The core difference</div>
+        <h2>SQLite is dynamically typed — by default</h2>
+        <p>In PostgreSQL or MySQL, the column type is a hard rule — insert the wrong type and you get an error. SQLite is different: <strong>the value itself carries its type</strong>, not the column. The column declaration is a <em>hint</em> called affinity.</p>
+
+        <div class="compare" style="margin-top:16px">
+          <div class="compare-col col-bad">
+            <h4>MySQL / PostgreSQL</h4>
+            <ul>
+              <li>Column type is enforced strictly</li>
+              <li>Wrong type → immediate error</li>
+              <li>VARCHAR(50) rejects strings &gt; 50 chars</li>
+              <li>No implicit conversion</li>
+            </ul>
+          </div>
+          <div class="compare-col col-good">
+            <h4>SQLite (default)</h4>
+            <ul>
+              <li>Column type is a hint (affinity)</li>
+              <li>SQLite converts when possible</li>
+              <li>VARCHAR(999999) = just TEXT</li>
+              <li>typeof('42') can be 'integer'</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5 Storage Classes -->
+      <div class="ps">
+        <div class="ps-label">Storage classes</div>
+        <h2>Only 5 types exist on disk</h2>
+        <p>No matter what you write in <code>CREATE TABLE</code>, every value lands in one of exactly five storage classes:</p>
+
+        <div class="fact-row" style="grid-template-columns:repeat(auto-fill,minmax(140px,1fr))">
+          <div class="fact" style="border-color:rgba(125,133,144,.3)">
+            <div class="big" style="color:var(--muted)">∅</div>
+            <p style="font-weight:700;color:var(--muted)">NULL</p>
+            <p>No value</p>
+          </div>
+          <div class="fact" style="border-color:rgba(188,140,255,.3)">
+            <div class="big" style="color:var(--purple)">🔢</div>
+            <p style="font-weight:700;color:var(--purple)">INTEGER</p>
+            <p>1–8 byte whole number</p>
+          </div>
+          <div class="fact" style="border-color:rgba(240,136,62,.3)">
+            <div class="big" style="color:var(--orange)">📐</div>
+            <p style="font-weight:700;color:var(--orange)">REAL</p>
+            <p>64-bit float</p>
+          </div>
+          <div class="fact" style="border-color:rgba(88,166,255,.3)">
+            <div class="big" style="color:var(--accent)">💬</div>
+            <p style="font-weight:700;color:var(--accent)">TEXT</p>
+            <p>UTF-8 string</p>
+          </div>
+          <div class="fact" style="border-color:rgba(45,212,191,.3)">
+            <div class="big" style="color:var(--teal)">📦</div>
+            <p style="font-weight:700;color:var(--teal)">BLOB</p>
+            <p>Raw bytes</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Affinity Rules -->
+      <div class="ps">
+        <div class="ps-label">Affinity rules — applied in order</div>
+        <h2>How SQLite picks the affinity for a column</h2>
+        <p>SQLite looks at the declared type name and applies these 5 rules <strong>in this exact order</strong>. First match wins:</p>
+
+        <div class="aff-table-wrap">
+          <table class="aff-table">
+            <thead>
+              <tr>
+                <th>Rule</th><th>If declared type contains…</th><th>Affinity</th><th>Examples</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="color:var(--text);font-weight:700">1</td>
+                <td>"INT"</td>
+                <td><span class="affinity-badge aff-integer" style="animation:none;margin:0">INTEGER</span></td>
+                <td>INT, INTEGER, TINYINT, BIGINT, <span style="color:var(--purple)">BOOLEAN</span></td>
+              </tr>
+              <tr>
+                <td style="color:var(--text);font-weight:700">2</td>
+                <td>"CHAR" / "CLOB" / "TEXT"</td>
+                <td><span class="affinity-badge aff-text" style="animation:none;margin:0">TEXT</span></td>
+                <td>TEXT, VARCHAR(n), CHAR(n), NVARCHAR, CLOB</td>
+              </tr>
+              <tr>
+                <td style="color:var(--text);font-weight:700">3</td>
+                <td>"BLOB" or empty</td>
+                <td><span class="affinity-badge aff-none" style="animation:none;margin:0">NONE</span></td>
+                <td>BLOB, (no type declared)</td>
+              </tr>
+              <tr>
+                <td style="color:var(--text);font-weight:700">4</td>
+                <td>"REAL" / "FLOA" / "DOUB"</td>
+                <td><span class="affinity-badge aff-real" style="animation:none;margin:0">REAL</span></td>
+                <td>REAL, FLOAT, DOUBLE, DOUBLE PRECISION</td>
+              </tr>
+              <tr>
+                <td style="color:var(--text);font-weight:700">5</td>
+                <td>anything else</td>
+                <td><span class="affinity-badge aff-numeric" style="animation:none;margin:0">NUMERIC</span></td>
+                <td>NUMERIC, DECIMAL, NUMBER, DATE, DATETIME</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout callout-teal">
+          <strong>typeof() — always know what SQLite stored:</strong><br>
+          <code>SELECT typeof(42)</code> → <code>'integer'</code> &nbsp;|&nbsp;
+          <code>SELECT typeof('hi')</code> → <code>'text'</code> &nbsp;|&nbsp;
+          <code>SELECT typeof(3.14)</code> → <code>'real'</code> &nbsp;|&nbsp;
+          <code>SELECT typeof(NULL)</code> → <code>'null'</code>
+        </div>
+
+        <div class="code-wrap" style="margin-top:16px">
+          <button class="copy-btn">copy</button>
+          <pre><span class="line"><span class="cm">-- See what affinity each column has</span></span>
+<span class="line"><span class="kw">CREATE TABLE</span> <span class="tbl">test</span> (</span>
+<span class="line">  a <span class="type">INT</span>,        <span class="cm">-- INTEGER affinity (contains "INT")</span></span>
+<span class="line">  b <span class="type">VARCHAR</span>,    <span class="cm">-- TEXT affinity (contains "CHAR")</span></span>
+<span class="line">  c <span class="type">BLOB</span>,       <span class="cm">-- NONE affinity</span></span>
+<span class="line">  d <span class="type">FLOAT</span>,      <span class="cm">-- REAL affinity (contains "FLOA")</span></span>
+<span class="line">  e <span class="type">DECIMAL</span>,    <span class="cm">-- NUMERIC affinity (none of the above)</span></span>
+<span class="line">  f <span class="type">BOOLEAN</span>,    <span class="cm">-- INTEGER affinity! (contains "INT"... wait, no)</span></span>
+<span class="line">  <span class="cm">-- BOOLEAN → rule 5 (catch-all) → NUMERIC affinity</span></span>
+<span class="line">  <span class="cm">-- but values are still stored as 0/1 integers</span></span>
+<span class="line">);</span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- Check what was actually stored</span></span>
+<span class="line"><span class="kw">INSERT INTO</span> <span class="tbl">test</span> <span class="kw">VALUES</span> (<span class="str">'42'</span>, <span class="num">100</span>, <span class="num">1</span>, <span class="str">'3.14'</span>, <span class="str">'99'</span>, <span class="kw">TRUE</span>);</span>
+<span class="line"><span class="kw">SELECT</span> <span class="fn">typeof</span>(a), <span class="fn">typeof</span>(b), <span class="fn">typeof</span>(c),</span>
+<span class="line">       <span class="fn">typeof</span>(d), <span class="fn">typeof</span>(e), <span class="fn">typeof</span>(f) <span class="kw">FROM</span> <span class="tbl">test</span>;</span>
+<span class="line"><span class="cm">-- integer | integer | integer | real | integer | integer</span></span></pre>
+        </div>
+      </div>
+
+      <!-- STRICT Mode -->
+      <div class="ps">
+        <div class="ps-label">SQLite 3.37+ feature</div>
+        <h2>STRICT mode — opt-in hard typing</h2>
+        <p>Added in SQLite 3.37.0 (2021). Append <code>STRICT</code> to your <code>CREATE TABLE</code> to turn on strict type enforcement — just like MySQL or PostgreSQL.</p>
+
+        <div class="grid-2">
+          <div>
+            <div class="callout callout-yellow" style="margin-bottom:14px">
+              <strong>Regular table</strong> — flexible, permissive
+            </div>
+            <div class="code-wrap">
+              <pre><span class="line"><span class="kw">CREATE TABLE</span> <span class="tbl">flexible</span> (</span>
+<span class="line">  <span class="col">id</span>   <span class="type">INTEGER</span>,</span>
+<span class="line">  <span class="col">name</span> <span class="type">TEXT</span></span>
+<span class="line">); <span class="cm">-- default</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- ✓ Allowed — SQLite converts</span></span>
+<span class="line"><span class="kw">INSERT INTO</span> <span class="tbl">flexible</span></span>
+<span class="line"><span class="kw">VALUES</span> (<span class="str">'5'</span>, <span class="num">42</span>);</span>
+<span class="line"><span class="cm">-- id='5'→integer, name=42→'42'</span></span></pre>
+            </div>
+          </div>
+          <div>
+            <div class="callout callout-green" style="margin-bottom:14px">
+              <strong>STRICT table</strong> — enforced like other DBs
+            </div>
+            <div class="code-wrap">
+              <pre><span class="line"><span class="kw">CREATE TABLE</span> <span class="tbl">strict_t</span> (</span>
+<span class="line">  <span class="col">id</span>   <span class="type">INTEGER</span>,</span>
+<span class="line">  <span class="col">name</span> <span class="type">TEXT</span></span>
+<span class="line">) <span class="con">STRICT</span>;</span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- ✗ Fails — wrong type!</span></span>
+<span class="line"><span class="kw">INSERT INTO</span> <span class="tbl">strict_t</span></span>
+<span class="line"><span class="kw">VALUES</span> (<span class="str">'5'</span>, <span class="num">42</span>);</span>
+<span class="line"><span class="cm">-- Error: cannot store TEXT in INTEGER</span></span></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-purple" style="margin-top:8px">
+          <strong>STRICT allowed types:</strong> INT, INTEGER, REAL, TEXT, BLOB, ANY. That's it — no FLOAT, no VARCHAR, no BOOLEAN. Use <code>ANY</code> for a column that truly accepts any type.
+        </div>
+
+        <div class="code-wrap">
+          <button class="copy-btn">copy</button>
+          <pre><span class="line"><span class="cm">-- STRICT mode with ANY column</span></span>
+<span class="line"><span class="kw">CREATE TABLE</span> <span class="tbl">events</span> (</span>
+<span class="line">  <span class="col">id</span>        <span class="type">INTEGER</span>  <span class="con">PRIMARY KEY</span>,</span>
+<span class="line">  <span class="col">name</span>      <span class="type">TEXT</span>     <span class="con">NOT NULL</span>,</span>
+<span class="line">  <span class="col">payload</span>   <span class="type">ANY</span>,     <span class="cm">-- accepts anything</span></span>
+<span class="line">  <span class="col">score</span>     <span class="type">REAL</span>,</span>
+<span class="line">  <span class="col">raw</span>       <span class="type">BLOB</span></span>
+<span class="line">) <span class="con">STRICT</span>;   <span class="cm">-- type errors become hard errors</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- ✓ Fine — correct types</span></span>
+<span class="line"><span class="kw">INSERT INTO</span> <span class="tbl">events</span> (<span class="col">id</span>, <span class="col">name</span>, <span class="col">score</span>)</span>
+<span class="line"><span class="kw">VALUES</span> (<span class="num">1</span>, <span class="str">'login'</span>, <span class="num">9.5</span>);</span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- ✗ Fails — score must be REAL</span></span>
+<span class="line"><span class="kw">INSERT INTO</span> <span class="tbl">events</span> (<span class="col">id</span>, <span class="col">name</span>, <span class="col">score</span>)</span>
+<span class="line"><span class="kw">VALUES</span> (<span class="num">2</span>, <span class="str">'logout'</span>, <span class="str">'fast'</span>);</span>
+<span class="line"><span class="cm">-- Error: cannot store TEXT in REAL column score</span></span></pre>
+        </div>
+      </div>
+
+      <div class="panel-footer-nav">
+        <button class="nav-btn disabled" id="btn-prev">← Previous</button>
+        <div class="pf-center" id="pf-dots"></div>
+        <button class="nav-btn primary" id="btn-next">Next →</button>
+      </div>
+    </div>
+
+    <!-- ─────────────────────────────────────────
+         PANEL 2 · NULL
+    ──────────────────────────────────────────── -->
+    <div class="panel" id="panel-null">
+      <div class="panel-hero">
+        <div class="ph-eyebrow">
+          <span class="ph-num">Storage Class 1 of 5</span>
+          <span class="affinity-badge aff-none" style="margin-left:0;animation:none">NONE affinity</span>
+        </div>
+        <h1><em>∅</em> NULL</h1>
+        <p class="ph-desc">The absence of any value. Not zero. Not an empty string. Literally nothing. Every column is nullable by default unless you say <code>NOT NULL</code>.</p>
+        <div class="ph-pills">
+          <span class="ph-pill">0 bytes on disk</span>
+          <span class="ph-pill">Use IS NULL (not = NULL)</span>
+          <span class="ph-pill">NULL ≠ NULL</span>
+          <span class="ph-pill">COALESCE() for fallback</span>
+        </div>
+      </div>
+
+      <div class="ps">
+        <div class="ps-label">What NULL is</div>
+        <h2>NULL means "we don't know" — not zero, not empty</h2>
+        <p>Think of NULL as a question mark in your data. A user's phone number might be NULL because we don't have it yet. An order's delivery date might be NULL because it hasn't been delivered. NULL is the honest way to say "this information is missing."</p>
+
+        <div class="table-wrap">
+          <table class="dt">
+            <thead><tr><th>id</th><th>name</th><th>phone <span class="ct">nullable</span></th><th>bio <span class="ct">nullable</span></th></tr></thead>
+            <tbody>
+              <tr><td class="v-int">1</td><td class="v-str">'Alice'</td><td class="v-str">'+44 7911 123456'</td><td class="v-null">NULL</td></tr>
+              <tr><td class="v-int">2</td><td class="v-str">'Bob'</td><td class="v-null">NULL</td><td class="v-str">'Developer at...'</td></tr>
+              <tr><td class="v-int">3</td><td class="v-str">'Zara'</td><td class="v-null">NULL</td><td class="v-null">NULL</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="ps">
+        <div class="ps-label">Working with NULL</div>
+        <h2>Always use IS NULL — never = NULL</h2>
+
+        <div class="code-wrap">
+          <button class="copy-btn">copy</button>
+          <pre><span class="line"><span class="kw">CREATE TABLE</span> <span class="tbl">users</span> (</span>
+<span class="line">  <span class="col">id</span>      <span class="type">INTEGER</span> <span class="con">PRIMARY KEY</span>,</span>
+<span class="line">  <span class="col">name</span>    <span class="type">TEXT</span>    <span class="con">NOT NULL</span>,</span>
+<span class="line">  <span class="col">phone</span>   <span class="type">TEXT</span>,      <span class="cm">-- nullable</span></span>
+<span class="line">  <span class="col">bio</span>     <span class="type">TEXT</span>       <span class="cm">-- nullable</span></span>
+<span class="line">);</span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- ✓ phone is optional — not supplied → NULL</span></span>
+<span class="line"><span class="kw">INSERT INTO</span> <span class="tbl">users</span> (<span class="col">name</span>) <span class="kw">VALUES</span> (<span class="str">'Alice'</span>);</span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- ✓ Find users with no phone</span></span>
+<span class="line"><span class="kw">SELECT</span> <span class="col">name</span> <span class="kw">FROM</span> <span class="tbl">users</span> <span class="kw">WHERE</span> <span class="col">phone</span> <span class="kw">IS NULL</span>;</span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- ✗ WRONG — always returns nothing! NULL ≠ NULL</span></span>
+<span class="line"><span class="kw">SELECT</span> <span class="col">name</span> <span class="kw">FROM</span> <span class="tbl">users</span> <span class="kw">WHERE</span> <span class="col">phone</span> = <span class="kw">NULL</span>;</span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- ✓ Find users who DO have a phone</span></span>
+<span class="line"><span class="kw">SELECT</span> <span class="col">name</span> <span class="kw">FROM</span> <span class="tbl">users</span> <span class="kw">WHERE</span> <span class="col">phone</span> <span class="kw">IS NOT NULL</span>;</span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- COALESCE: use fallback when NULL</span></span>
+<span class="line"><span class="kw">SELECT</span> <span class="col">name</span>, <span class="fn">COALESCE</span>(<span class="col">phone</span>, <span class="str">'No phone'</span>) <span class="kw">AS</span> <span class="col">contact</span></span>
+<span class="line"><span class="kw">FROM</span> <span class="tbl">users</span>;</span>
+<span class="line"><span class="cm">-- Alice | +44 7911 123456</span></span>
+<span class="line"><span class="cm">-- Bob   | No phone</span></span></pre>
+        </div>
+
+        <div class="callout callout-yellow">
+          <strong>⚠️ NULL arithmetic:</strong> Any maths with NULL gives NULL back. <code>5 + NULL = NULL</code>, <code>COUNT(col)</code> skips NULLs, <code>SUM(col)</code> ignores NULLs. Use <code>COALESCE(col, 0)</code> to treat NULL as zero.
+        </div>
+
+        <div class="callout callout-blue">
+          <strong>IFNULL() — a handy shorthand:</strong> <code>IFNULL(phone, 'unknown')</code> is identical to <code>COALESCE(phone, 'unknown')</code> but only takes two arguments. Use COALESCE when you have multiple fallbacks.
+        </div>
+      </div>
+
+      <div class="ps">
+        <div class="ps-label">NULL in aggregate functions</div>
+        <h2>NULL is silently skipped in aggregates</h2>
+        <div class="code-wrap">
+          <button class="copy-btn">copy</button>
+          <pre><span class="line"><span class="kw">CREATE TABLE</span> <span class="tbl">scores</span> (val <span class="type">INTEGER</span>);</span>
+<span class="line"><span class="kw">INSERT INTO</span> <span class="tbl">scores</span> <span class="kw">VALUES</span> (<span class="num">10</span>), (<span class="num">20</span>), (<span class="kw">NULL</span>), (<span class="num">30</span>);</span>
+<span class="line"></span>
+<span class="line"><span class="kw">SELECT</span></span>
+<span class="line">  <span class="fn">COUNT</span>(*)         <span class="kw">AS</span> <span class="col">total_rows</span>,   <span class="cm">-- 4 (counts NULLs)</span></span>
+<span class="line">  <span class="fn">COUNT</span>(<span class="col">val</span>)       <span class="kw">AS</span> <span class="col">non_null</span>,     <span class="cm">-- 3 (skips NULLs)</span></span>
+<span class="line">  <span class="fn">SUM</span>(<span class="col">val</span>)         <span class="kw">AS</span> <span class="col">total</span>,        <span class="cm">-- 60 (skips NULLs)</span></span>
+<span class="line">  <span class="fn">AVG</span>(<span class="col">val</span>)         <span class="kw">AS</span> <span class="col">average</span>       <span class="cm">-- 20 (60/3, not 60/4)</span></span>
+<span class="line"><span class="kw">FROM</span> <span class="tbl">scores</span>;</span></pre>
+        </div>
+      </div>
+
+      <div class="panel-footer-nav">
+        <button class="nav-btn" id="btn-prev">← Previous</button>
+        <div class="pf-center" id="pf-dots"></div>
+        <button class="nav-btn primary" id="btn-next">Next →</button>
+      </div>
+    </div>
+
+    <!-- ─────────────────────────────────────────
+         PANEL 3 · INTEGER
+    ──────────────────────────────────────────── -->
+    <div class="panel" id="panel-integer">
+      <div class="panel-hero">
+        <div class="ph-eyebrow">
+          <span class="ph-num">Storage Class 2 of 5</span>
+          <span class="affinity-badge aff-integer" style="margin-left:0">INTEGER affinity</span>
+        </div>
+        <h1>🔢 <em>INTEGER</em></h1>
+        <p class="ph-desc">Whole numbers — stored in 1, 2, 3, 4, 6, or 8 bytes depending on the magnitude of the value. SQLite picks the smallest size automatically.</p>
+        <div class="ph-pills">
+          <span class="ph-pill">1–8 bytes (auto-sized)</span>
+          <span class="ph-pill">64-bit signed max</span>
+          <span class="ph-pill" style="color:var(--purple);border-color:rgba(188,140,255,.4)">BOOLEAN → 0 or 1</span>
+          <span class="ph-pill" style="color:var(--pink);border-color:rgba(255,123,114,.4)">DATE → text (recommended)</span>
+        </div>
+      </div>
+
+      <div class="ps">
+        <div class="ps-label">Declared types → INTEGER affinity</div>
+        <h2>All these become INTEGER on disk</h2>
+        <p>Any type name that <strong>contains "INT"</strong> gets INTEGER affinity (rule 1). Also any type that matches rule 5 (catch-all NUMERIC) — like BOOLEAN — stores whole number values as INTEGER:</p>
+        <div class="declared-chips">
+          <span class="chip highlight">INTEGER</span>
+          <span class="chip highlight">INT</span>
+          <span class="chip">TINYINT</span>
+          <span class="chip">SMALLINT</span>
+          <span class="chip">MEDIUMINT</span>
+          <span class="chip">BIGINT</span>
+          <span class="chip">INT2</span>
+          <span class="chip">INT8</span>
+          <span class="chip">UNSIGNED BIG INT</span>
+          <span class="chip" style="border-color:var(--purple);color:var(--purple)">BOOLEAN</span>
+        </div>
+      </div>
+
+      <div class="ps">
+        <div class="ps-label">Auto storage size</div>
+        <h2>SQLite picks the smallest byte size that fits</h2>
+        <div style="display:grid;gap:8px;margin:14px 0">
+          <div style="display:flex;align-items:center;gap:12px;font-size:.8rem">
+            <span style="width:160px;color:var(--muted)">0 or 1</span>
+            <div class="size-bar" style="flex:1;height:10px;background:var(--border);border-radius:5px;overflow:hidden"><div class="size-fill" style="height:100%;width:12%;background:var(--green);border-radius:5px;transform:scaleX(1)"></div></div>
+            <span style="width:56px;color:var(--green);font-weight:700">1 byte</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;font-size:.8rem">
+            <span style="width:160px;color:var(--muted)">-32768 to 32767</span>
+            <div class="size-bar" style="flex:1;height:10px;background:var(--border);border-radius:5px;overflow:hidden"><div class="size-fill" style="height:100%;width:25%;background:var(--teal);border-radius:5px;transform:scaleX(1)"></div></div>
+            <span style="width:56px;color:var(--teal);font-weight:700">2 bytes</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;font-size:.8rem">
+            <span style="width:160px;color:var(--muted)">up to ±8 million</span>
+            <div class="size-bar" style="flex:1;height:10px;background:var(--border);border-radius:5px;overflow:hidden"><div class="size-fill" style="height:100%;width:37%;background:var(--accent);border-radius:5px;transform:scaleX(1)"></div></div>
+            <span style="width:56px;color:var(--accent);font-weight:700">3 bytes</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;font-size:.8rem">
+            <span style="width:160px;color:var(--muted)">up to ±2 billion</span>
+            <div class="size-bar" style="flex:1;height:10px;background:var(--border);border-radius:5px;overflow:hidden"><div class="size-fill" style="height:100%;width:50%;background:var(--yellow);border-radius:5px;transform:scaleX(1)"></div></div>
+            <span style="width:56px;color:var(--yellow);font-weight:700">4 bytes</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;font-size:.8rem">
+            <span style="width:160px;color:var(--muted)">up to ±140 trillion</span>
+            <div class="size-bar" style="flex:1;height:10px;background:var(--border);border-radius:5px;overflow:hidden"><div class="size-fill" style="height:100%;width:75%;background:var(--orange);border-radius:5px;transform:scaleX(1)"></div></div>
+            <span style="width:56px;color:var(--orange);font-weight:700">6 bytes</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;font-size:.8rem">
+            <span style="width:160px;color:var(--muted)">any 64-bit value</span>
+            <div class="size-bar" style="flex:1;height:10px;background:var(--border);border-radius:5px;overflow:hidden"><div class="size-fill" style="height:100%;width:100%;background:var(--purple);border-radius:5px;transform:scaleX(1)"></div></div>
+            <span style="width:56px;color:var(--purple);font-weight:700">8 bytes</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="ps">
+        <div class="ps-label">Special cases</div>
+        <h2>BOOLEAN and DATE — both stored as INTEGER / TEXT</h2>
+
+        <div class="callout callout-purple">
+          <strong>🎭 BOOLEAN is INTEGER:</strong> SQLite has no boolean type. <code>TRUE</code> stores as <code>1</code>, <code>FALSE</code> stores as <code>0</code>. You can query with <code>WHERE active = TRUE</code> — it works because SQLite treats it as <code>= 1</code>.
+        </div>
+
+        <div class="callout callout-pink" style="margin-top:8px">
+          <strong>📅 DATE / DATETIME — store as TEXT:</strong> Declared <code>DATE</code> gets NUMERIC affinity (catch-all rule). Best practice: store dates as ISO 8601 TEXT <code>'2024-12-25'</code> — it sorts alphabetically = chronologically, and SQLite's built-in date functions understand it.
+        </div>
+
+        <div class="code-wrap">
+          <button class="copy-btn">copy</button>
+          <pre><span class="line"><span class="kw">CREATE TABLE</span> <span class="tbl">employees</span> (</span>
+<span class="line">  <span class="col">id</span>         <span class="type">INTEGER</span> <span class="con">PRIMARY KEY</span>,</span>
+<span class="line">  <span class="col">name</span>       <span class="type">TEXT</span>    <span class="con">NOT NULL</span>,</span>
+<span class="line">  <span class="col">salary</span>     <span class="type">INTEGER</span> <span class="con">NOT NULL</span>,  <span class="cm">-- store in pence/cents</span></span>
+<span class="line">  <span class="col">is_active</span>  <span class="type">BOOLEAN</span> <span class="con">DEFAULT TRUE</span>, <span class="cm">-- stored as 1</span></span>
+<span class="line">  <span class="col">hired_on</span>   <span class="type">TEXT</span>    <span class="con">NOT NULL</span>   <span class="cm">-- ISO date: '2024-03-01'</span></span>
+<span class="line">);</span>
+<span class="line"></span>
+<span class="line"><span class="kw">INSERT INTO</span> <span class="tbl">employees</span> (<span class="col">name</span>, <span class="col">salary</span>, <span class="col">hired_on</span>)</span>
+<span class="line"><span class="kw">VALUES</span></span>
+<span class="line">  (<span class="str">'Alice'</span>, <span class="num">6500000</span>, <span class="str">'2022-09-01'</span>),</span>
+<span class="line">  (<span class="str">'Bob'</span>,   <span class="num">5800000</span>, <span class="str">'2023-01-15'</span>);</span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- BOOLEAN query works naturally</span></span>
+<span class="line"><span class="kw">SELECT</span> <span class="col">name</span> <span class="kw">FROM</span> <span class="tbl">employees</span> <span class="kw">WHERE</span> <span class="col">is_active</span> = <span class="kw">TRUE</span>;</span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- Date sort works because ISO format is alphsort-safe</span></span>
+<span class="line"><span class="kw">SELECT</span> <span class="col">name</span> <span class="kw">FROM</span> <span class="tbl">employees</span> <span class="kw">ORDER BY</span> <span class="col">hired_on</span> <span class="kw">ASC</span>;</span>
+<span class="line"><span class="cm">-- Alice | Bob</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- Salary in pence → display in £</span></span>
+<span class="line"><span class="kw">SELECT</span> <span class="col">name</span>, <span class="col">salary</span> / <span class="num">100.0</span> <span class="kw">AS</span> <span class="col">salary_gbp</span> <span class="kw">FROM</span> <span class="tbl">employees</span>;</span>
+<span class="line"><span class="cm">-- Alice | 65000.0</span></span></pre>
+        </div>
+      </div>
+
+      <div class="panel-footer-nav">
+        <button class="nav-btn" id="btn-prev">← Previous</button>
+        <div class="pf-center" id="pf-dots"></div>
+        <button class="nav-btn primary" id="btn-next">Next →</button>
+      </div>
+    </div>
+
+    <!-- ─────────────────────────────────────────
+         PANEL 4 · REAL
+    ──────────────────────────────────────────── -->
+    <div class="panel" id="panel-real">
+      <div class="panel-hero">
+        <div class="ph-eyebrow">
+          <span class="ph-num">Storage Class 3 of 5</span>
+          <span class="affinity-badge aff-real" style="margin-left:0">REAL affinity</span>
+        </div>
+        <h1>📐 <em>REAL</em></h1>
+        <p class="ph-desc">Floating-point numbers — always stored as an 8-byte IEEE 754 double-precision float. Great for measurements and scientific data, terrible for money.</p>
+        <div class="ph-pills">
+          <span class="ph-pill">Always 8 bytes</span>
+          <span class="ph-pill">15–17 significant digits</span>
+          <span class="ph-pill" style="color:var(--red);border-color:rgba(248,81,73,.4)">Never use for money!</span>
+        </div>
+      </div>
+
+      <div class="ps">
+        <div class="ps-label">Declared types → REAL affinity</div>
+        <h2>All these become 8-byte floats on disk</h2>
+        <p>Any type name containing <strong>"REAL"</strong>, <strong>"FLOA"</strong>, or <strong>"DOUB"</strong> gets REAL affinity (rule 4):</p>
+        <div class="declared-chips">
+          <span class="chip highlight">REAL</span>
+          <span class="chip highlight">FLOAT</span>
+          <span class="chip highlight">DOUBLE</span>
+          <span class="chip">DOUBLE PRECISION</span>
+        </div>
+      </div>
+
+      <div class="ps">
+        <div class="ps-label">Example</div>
+        <h2>Sensor readings — a perfect REAL use case</h2>
+        <div class="code-wrap">
+          <button class="copy-btn">copy</button>
+          <pre><span class="line"><span class="kw">CREATE TABLE</span> <span class="tbl">readings</span> (</span>
+<span class="line">  <span class="col">id</span>          <span class="type">INTEGER</span> <span class="con">PRIMARY KEY</span>,</span>
+<span class="line">  <span class="col">sensor</span>      <span class="type">TEXT</span>    <span class="con">NOT NULL</span>,</span>
+<span class="line">  <span class="col">temperature</span> <span class="type">REAL</span>,             <span class="cm">-- degrees Celsius</span></span>
+<span class="line">  <span class="col">humidity</span>    <span class="type">FLOAT</span>,            <span class="cm">-- same as REAL</span></span>
+<span class="line">  <span class="col">pressure</span>    <span class="type">DOUBLE</span>,           <span class="cm">-- same as REAL</span></span>
+<span class="line">  <span class="col">recorded</span>    <span class="type">TEXT</span>    <span class="con">NOT NULL</span></span>
+<span class="line">);</span>
+<span class="line"></span>
+<span class="line"><span class="kw">INSERT INTO</span> <span class="tbl">readings</span> (<span class="col">sensor</span>,<span class="col">temperature</span>,<span class="col">humidity</span>,<span class="col">pressure</span>,<span class="col">recorded</span>) <span class="kw">VALUES</span></span>
+<span class="line">  (<span class="str">'Room A'</span>,  <span class="num">21.5</span>,  <span class="num">68.3</span>,  <span class="num">1013.25</span>, <span class="str">'2024-06-01 09:00'</span>),</span>
+<span class="line">  (<span class="str">'Room B'</span>,  <span class="num">19.8</span>,  <span class="num">72.1</span>,  <span class="num">1011.80</span>, <span class="str">'2024-06-01 09:00'</span>),</span>
+<span class="line">  (<span class="str">'Outside'</span>, <span class="num">-3.2</span>,  <span class="num">95.0</span>,  <span class="num">995.60</span>,  <span class="str">'2024-06-01 09:00'</span>);</span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- Average of rooms above freezing</span></span>
+<span class="line"><span class="kw">SELECT</span> <span class="fn">ROUND</span>(<span class="fn">AVG</span>(<span class="col">temperature</span>), <span class="num">2</span>) <span class="kw">AS</span> <span class="col">avg_temp</span></span>
+<span class="line"><span class="kw">FROM</span>   <span class="tbl">readings</span></span>
+<span class="line"><span class="kw">WHERE</span>  <span class="col">temperature</span> > <span class="num">0</span>;</span>
+<span class="line"><span class="cm">-- → 20.65</span></span></pre>
+        </div>
+      </div>
+
+      <div class="ps">
+        <div class="ps-label">The money trap</div>
+        <h2>⚠️ Never store money as REAL</h2>
+        <p>IEEE 754 floats cannot represent most decimal fractions exactly. <code>0.1 + 0.2</code> in floating point is <code>0.30000000000000004</code> — which causes rounding errors in financial calculations.</p>
+
+        <div class="compare">
+          <div class="compare-col col-bad">
+            <h4>❌ Wrong — REAL for money</h4>
+            <ul>
+              <li>0.1 + 0.2 = 0.30000000000000004</li>
+              <li>Rounding errors accumulate</li>
+              <li>Totals can be off by a penny</li>
+              <li>Fails audit / compliance</li>
+            </ul>
+          </div>
+          <div class="compare-col col-good">
+            <h4>✓ Right — INTEGER for money</h4>
+            <ul>
+              <li>Store in smallest unit (pence, cents)</li>
+              <li>1499 = £14.99, never rounded</li>
+              <li>Divide by 100 only for display</li>
+              <li>Exact arithmetic, always</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-footer-nav">
+        <button class="nav-btn" id="btn-prev">← Previous</button>
+        <div class="pf-center" id="pf-dots"></div>
+        <button class="nav-btn primary" id="btn-next">Next →</button>
+      </div>
+    </div>
+
+    <!-- ─────────────────────────────────────────
+         PANEL 5 · TEXT
+    ──────────────────────────────────────────── -->
+    <div class="panel" id="panel-text">
+      <div class="panel-hero">
+        <div class="ph-eyebrow">
+          <span class="ph-num">Storage Class 4 of 5</span>
+          <span class="affinity-badge aff-text" style="margin-left:0">TEXT affinity</span>
+        </div>
+        <h1>💬 <em>TEXT</em></h1>
+        <p class="ph-desc">Character strings stored in UTF-8 (or UTF-16). Any length — SQLite completely ignores any length limit you write like <code>VARCHAR(255)</code>.</p>
+        <div class="ph-pills">
+          <span class="ph-pill">UTF-8 by default</span>
+          <span class="ph-pill">No length limit enforced</span>
+          <span class="ph-pill">VARCHAR(n) = just TEXT</span>
+          <span class="ph-pill">LIKE / GLOB for pattern search</span>
+        </div>
+      </div>
+
+      <div class="ps">
+        <div class="ps-label">Declared types → TEXT affinity</div>
+        <h2>All these become UTF-8 strings on disk</h2>
+        <p>Any type containing <strong>"CHAR"</strong>, <strong>"CLOB"</strong>, or <strong>"TEXT"</strong> gets TEXT affinity (rule 2):</p>
+        <div class="declared-chips">
+          <span class="chip highlight">TEXT</span>
+          <span class="chip highlight">VARCHAR(n)</span>
+          <span class="chip highlight">CHAR(n)</span>
+          <span class="chip">CHARACTER(n)</span>
+          <span class="chip">NVARCHAR</span>
+          <span class="chip">NCHAR</span>
+          <span class="chip">CLOB</span>
+          <span class="chip">NATIVE CHARACTER</span>
+          <span class="chip">VARYING CHARACTER</span>
+        </div>
+        <div class="callout callout-yellow">
+          <strong>VARCHAR(50) in SQLite does NOT limit to 50 characters.</strong> The number is completely ignored. You'd need a <code>CHECK(length(col) &lt;= 50)</code> to actually enforce it.
+        </div>
+      </div>
+
+      <div class="ps">
+        <div class="ps-label">Text search</div>
+        <h2>LIKE and GLOB for pattern matching</h2>
+        <div class="code-wrap">
+          <button class="copy-btn">copy</button>
+          <pre><span class="line"><span class="kw">CREATE TABLE</span> <span class="tbl">articles</span> (</span>
+<span class="line">  <span class="col">id</span>        <span class="type">INTEGER</span> <span class="con">PRIMARY KEY</span>,</span>
+<span class="line">  <span class="col">title</span>     <span class="type">VARCHAR</span> <span class="con">NOT NULL</span>,  <span class="cm">-- TEXT, any length</span></span>
+<span class="line">  <span class="col">body</span>      <span class="type">TEXT</span>    <span class="con">NOT NULL</span>,</span>
+<span class="line">  <span class="col">status</span>    <span class="type">TEXT</span>    <span class="con">NOT NULL</span>,  <span class="cm">-- 'draft'|'published'</span></span>
+<span class="line">  <span class="col">published</span> <span class="type">TEXT</span>              <span class="cm">-- ISO date as TEXT</span></span>
+<span class="line">);</span>
+<span class="line"></span>
+<span class="line"><span class="kw">INSERT INTO</span> <span class="tbl">articles</span> (<span class="col">title</span>, <span class="col">body</span>, <span class="col">status</span>, <span class="col">published</span>) <span class="kw">VALUES</span></span>
+<span class="line">  (<span class="str">'SQLite Guide'</span>,  <span class="str">'SQLite is great...'</span>, <span class="str">'published'</span>, <span class="str">'2024-03-01'</span>),</span>
+<span class="line">  (<span class="str">'SQL for Beginners'</span>, <span class="str">'Let us learn SQL'</span>, <span class="str">'published'</span>, <span class="str">'2024-04-10'</span>),</span>
+<span class="line">  (<span class="str">'Draft Post'</span>,    <span class="str">'Work in progress...'</span>, <span class="str">'draft'</span>, <span class="kw">NULL</span>);</span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- LIKE: case-insensitive, % = any chars, _ = one char</span></span>
+<span class="line"><span class="kw">SELECT</span> <span class="col">title</span> <span class="kw">FROM</span> <span class="tbl">articles</span> <span class="kw">WHERE</span> <span class="col">title</span> <span class="kw">LIKE</span> <span class="str">'%SQL%'</span>;</span>
+<span class="line"><span class="cm">-- SQLite Guide | SQL for Beginners</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- GLOB: case-sensitive, * = any chars, ? = one char</span></span>
+<span class="line"><span class="kw">SELECT</span> <span class="col">title</span> <span class="kw">FROM</span> <span class="tbl">articles</span> <span class="kw">WHERE</span> <span class="col">title</span> <span class="kw">GLOB</span> <span class="str">'SQL*'</span>;</span>
+<span class="line"><span class="cm">-- SQLite Guide</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- Dates stored as TEXT sort correctly!</span></span>
+<span class="line"><span class="kw">SELECT</span> <span class="col">title</span>, <span class="col">published</span></span>
+<span class="line"><span class="kw">FROM</span>  <span class="tbl">articles</span></span>
+<span class="line"><span class="kw">WHERE</span> <span class="col">status</span> = <span class="str">'published'</span></span>
+<span class="line"><span class="kw">ORDER BY</span> <span class="col">published</span> <span class="kw">DESC</span>;</span>
+<span class="line"><span class="cm">-- SQL for Beginners | 2024-04-10</span></span>
+<span class="line"><span class="cm">-- SQLite Guide      | 2024-03-01</span></span></pre>
+        </div>
+      </div>
+
+      <div class="panel-footer-nav">
+        <button class="nav-btn" id="btn-prev">← Previous</button>
+        <div class="pf-center" id="pf-dots"></div>
+        <button class="nav-btn primary" id="btn-next">Next →</button>
+      </div>
+    </div>
+
+    <!-- ─────────────────────────────────────────
+         PANEL 6 · BLOB
+    ──────────────────────────────────────────── -->
+    <div class="panel" id="panel-blob">
+      <div class="panel-hero">
+        <div class="ph-eyebrow">
+          <span class="ph-num">Storage Class 5 of 5</span>
+          <span class="affinity-badge aff-none" style="margin-left:0">NONE affinity</span>
+        </div>
+        <h1>📦 <em>BLOB</em></h1>
+        <p class="ph-desc">Binary Large Object — raw bytes stored exactly as given, with zero conversion, zero interpretation. The type you use when data is not text.</p>
+        <div class="ph-pills">
+          <span class="ph-pill">No conversion ever</span>
+          <span class="ph-pill">X'AABB...' hex literals</span>
+          <span class="ph-pill">Images, files, hashes</span>
+          <span class="ph-pill">No declared type = BLOB</span>
+        </div>
+      </div>
+
+      <div class="ps">
+        <div class="ps-label">Declared types → NONE affinity</div>
+        <h2>BLOB and the "no type" column</h2>
+        <div class="declared-chips">
+          <span class="chip highlight">BLOB</span>
+          <span class="chip" style="border-color:var(--teal);color:var(--teal)">(no type at all)</span>
+        </div>
+        <div class="callout callout-teal">
+          <strong>Fun fact:</strong> A column with no type declaration at all — just a column name — gets NONE affinity and behaves like BLOB. This is valid SQLite: <code>CREATE TABLE t (a, b, c);</code>
+        </div>
+      </div>
+
+      <div class="ps">
+        <div class="ps-label">Example</div>
+        <h2>Storing files, avatars, and cryptographic hashes</h2>
+        <div class="code-wrap">
+          <button class="copy-btn">copy</button>
+          <pre><span class="line"><span class="kw">CREATE TABLE</span> <span class="tbl">assets</span> (</span>
+<span class="line">  <span class="col">id</span>        <span class="type">INTEGER</span> <span class="con">PRIMARY KEY</span>,</span>
+<span class="line">  <span class="col">filename</span>  <span class="type">TEXT</span>    <span class="con">NOT NULL</span>,</span>
+<span class="line">  <span class="col">mime_type</span> <span class="type">TEXT</span>    <span class="con">NOT NULL</span>,</span>
+<span class="line">  <span class="col">data</span>      <span class="type">BLOB</span>,             <span class="cm">-- raw file bytes</span></span>
+<span class="line">  <span class="col">sha256</span>    <span class="type">BLOB</span>              <span class="cm">-- 32-byte hash</span></span>
+<span class="line">);</span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- Insert with hex literal X'...'</span></span>
+<span class="line"><span class="kw">INSERT INTO</span> <span class="tbl">assets</span> (<span class="col">filename</span>, <span class="col">mime_type</span>, <span class="col">data</span>)</span>
+<span class="line"><span class="kw">VALUES</span> (</span>
+<span class="line">  <span class="str">'icon.png'</span>,</span>
+<span class="line">  <span class="str">'image/png'</span>,</span>
+<span class="line">  X<span class="str">'89504E470D0A1A0A0000000D49484452'</span> <span class="cm">-- PNG header bytes</span></span>
+<span class="line">);</span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- Get file size in bytes</span></span>
+<span class="line"><span class="kw">SELECT</span> <span class="col">filename</span>, <span class="fn">LENGTH</span>(<span class="col">data</span>) <span class="kw">AS</span> <span class="col">bytes</span></span>
+<span class="line"><span class="kw">FROM</span>   <span class="tbl">assets</span>;</span>
+<span class="line"></span>
+<span class="line"><span class="cm">-- Verify typeof is 'blob'</span></span>
+<span class="line"><span class="kw">SELECT</span> <span class="fn">typeof</span>(<span class="col">data</span>) <span class="kw">FROM</span> <span class="tbl">assets</span>;</span>
+<span class="line"><span class="cm">-- → blob</span></span></pre>
+        </div>
+
+        <div class="callout callout-blue">
+          <strong>💡 When to use BLOB vs file path:</strong> For small binaries (thumbnails &lt;100KB, tokens, checksums) store as BLOB. For large files (videos, photos, documents) store the <em>file path</em> as TEXT and keep the file on disk — BLOBs in SQLite can make the database file very large and slow.
+        </div>
+      </div>
+
+      <div class="panel-footer-nav">
+        <button class="nav-btn" id="btn-prev">← Previous</button>
+        <div class="pf-center" id="pf-dots"></div>
+        <button class="nav-btn primary" id="btn-next">Next →</button>
+      </div>
+    </div>
+
+    <!-- ─────────────────────────────────────────
+         PANEL 7 · NUMERIC
+    ──────────────────────────────────────────── -->
+    <div class="panel" id="panel-numeric">
+      <div class="panel-hero">
+        <div class="ph-eyebrow">
+          <span class="ph-num">Affinity type</span>
+          <span class="affinity-badge aff-numeric" style="margin-left:0">NUMERIC affinity</span>
+        </div>
+        <h1>🔀 <em>NUMERIC</em></h1>
+        <p class="ph-desc">The catch-all affinity. When a declared type doesn't match any of the other four rules, SQLite gives it NUMERIC affinity — and tries to convert values into INTEGER or REAL whenever possible.</p>
+        <div class="ph-pills">
+          <span class="ph-pill">Converts TEXT → INTEGER if possible</span>
+          <span class="ph-pill">DECIMAL, NUMERIC types</span>
+          <span class="ph-pill">DATE/DATETIME affinity</span>
+          <span class="ph-pill">typeof() reveals the truth</span>
+        </div>
+      </div>
+
+      <div class="ps">
+        <div class="ps-label">Declared types → NUMERIC affinity</div>
+        <h2>The catch-all — when rules 1–4 don't match</h2>
+        <div class="declared-chips">
+          <span class="chip highlight">NUMERIC</span>
+          <span class="chip highlight">DECIMAL</span>
+          <span class="chip">NUMBER</span>
+          <span class="chip" style="border-color:var(--pink);color:var(--pink)">DATE</span>
+          <span class="chip" style="border-color:var(--pink);color:var(--pink)">DATETIME</span>
+          <span class="chip">anything else not covered</span>
+        </div>
+      </div>
+
+      <div class="ps">
+        <div class="ps-label">Conversion behaviour</div>
+        <h2>NUMERIC tries hard to be a number</h2>
+        <p>With NUMERIC affinity, SQLite attempts conversion in this order: first INTEGER, then REAL, then leaves as TEXT:</p>
+
+        <div class="code-wrap">
+          <button class="copy-btn">copy</button>
+          <pre><span class="line"><span class="kw">CREATE TABLE</span> <span class="tbl">demo</span> (val <span class="type">NUMERIC</span>);</span>
+<span class="line"></span>
+<span class="line"><span class="kw">INSERT INTO</span> <span class="tbl">demo</span> <span class="kw">VALUES</span></span>
+<span class="line">  (<span class="str">'42'</span>),      <span class="cm">-- text looks like integer → stored as INTEGER 42</span></span>
+<span class="line">  (<span class="str">'3.14'</span>),    <span class="cm">-- text looks like float   → stored as REAL 3.14</span></span>
+<span class="line">  (<span class="str">'hello'</span>),   <span class="cm">-- not a number at all     → stays as TEXT 'hello'</span></span>
+<span class="line">  (<span class="num">1.0</span>),       <span class="cm">-- float with no fraction  → stored as INTEGER 1</span></span>
+<span class="line">  (<span class="num">1.5</span>),       <span class="cm">-- float with fraction     → stays as REAL 1.5</span></span>
+<span class="line">  (<span class="kw">NULL</span>);      <span class="cm">-- NULL stays NULL</span></span>
+<span class="line"></span>
+<span class="line"><span class="kw">SELECT</span> <span class="col">val</span>, <span class="fn">typeof</span>(<span class="col">val</span>) <span class="kw">FROM</span> <span class="tbl">demo</span>;</span>
+<span class="line"><span class="cm">-- 42    | integer</span></span>
+<span class="line"><span class="cm">-- 3.14  | real</span></span>
+<span class="line"><span class="cm">-- hello | text</span></span>
+<span class="line"><span class="cm">-- 1     | integer  ← 1.0 was converted!</span></span>
+<span class="line"><span class="cm">-- 1.5   | real</span></span>
+<span class="line"><span class="cm">-- NULL  | null</span></span></pre>
+        </div>
+
+        <div class="callout callout-teal">
+          <strong>Practical tip:</strong> Declare columns as <code>NUMERIC</code> or <code>DECIMAL</code> when you want SQLite to store whole numbers as integers and fractional numbers as reals automatically — without you having to decide ahead of time.
+        </div>
+      </div>
+
+      <div class="ps">
+        <div class="ps-label">Key takeaway</div>
+        <div class="card">
+          <h3 style="margin-bottom:14px">What to remember about SQLite data types</h3>
+          <ul style="list-style:none;display:flex;flex-direction:column;gap:10px">
+            <li style="display:flex;gap:12px;font-size:.87rem;color:var(--muted)"><span style="color:var(--teal);font-weight:800;flex-shrink:0">→</span> 5 storage classes on disk: <strong style="color:var(--text)">NULL, INTEGER, REAL, TEXT, BLOB</strong></li>
+            <li style="display:flex;gap:12px;font-size:.87rem;color:var(--muted)"><span style="color:var(--teal);font-weight:800;flex-shrink:0">→</span> Declared type → <strong style="color:var(--text)">affinity</strong> (a hint, not a hard rule in normal mode)</li>
+            <li style="display:flex;gap:12px;font-size:.87rem;color:var(--muted)"><span style="color:var(--purple);font-weight:800;flex-shrink:0">→</span> <strong style="color:var(--purple)">BOOLEAN</strong> = INTEGER (1 or 0)</li>
+            <li style="display:flex;gap:12px;font-size:.87rem;color:var(--muted)"><span style="color:var(--pink);font-weight:800;flex-shrink:0">→</span> Store <strong style="color:var(--pink)">dates</strong> as ISO TEXT <code>'2024-06-01'</code></li>
+            <li style="display:flex;gap:12px;font-size:.87rem;color:var(--muted)"><span style="color:var(--red);font-weight:800;flex-shrink:0">→</span> <strong style="color:var(--red)">Never</strong> store money as REAL — use INTEGER (pence/cents)</li>
+            <li style="display:flex;gap:12px;font-size:.87rem;color:var(--muted)"><span style="color:var(--teal);font-weight:800;flex-shrink:0">→</span> Add <code>STRICT</code> to opt into hard type enforcement (SQLite 3.37+)</li>
+            <li style="display:flex;gap:12px;font-size:.87rem;color:var(--muted)"><span style="color:var(--teal);font-weight:800;flex-shrink:0">→</span> Use <code>typeof(val)</code> to see what was actually stored</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="panel-footer-nav">
+        <button class="nav-btn" id="btn-prev">← Previous</button>
+        <div class="pf-center" id="pf-dots"></div>
+        <a href="02-constraints.html" class="nav-btn primary">Next Topic: Constraints →</a>
+      </div>
+    </div>
+
+  </main><!-- .content-area -->
+</div><!-- .page-layout -->
+
+<script src="app.js"></script>
+<script>
+  const PANELS   = ['affinity','null','integer','real','text','blob','numeric'];
+  const NAV_LABELS = {
+    affinity: 'Type Affinity', null: 'NULL', integer: 'INTEGER',
+    real: 'REAL', text: 'TEXT', blob: 'BLOB', numeric: 'NUMERIC'
+  };
+
+  let current = 0;
+
+  function buildDots() {
+    document.querySelectorAll('#pf-dots').forEach(wrap => {
+      wrap.innerHTML = '';
+      PANELS.forEach((_, i) => {
+        const d = document.createElement('div');
+        d.className = 'pf-dot' + (i === current ? ' active' : '');
+        d.onclick = () => show(i);
+        d.title = NAV_LABELS[PANELS[i]];
+        d.style.cursor = 'pointer';
+        wrap.appendChild(d);
+      });
+    });
+  }
+
+  function show(idx) {
+    // hide all panels
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.sn-item').forEach(b => b.classList.remove('active'));
+
+    // show target
+    const id = PANELS[idx];
+    document.getElementById('panel-' + id).classList.add('active');
+    document.querySelectorAll('.sn-item')[idx].classList.add('active');
+    current = idx;
+
+    // update footer nav in active panel
+    const panel = document.getElementById('panel-' + id);
+    const prev = panel.querySelector('#btn-prev');
+    const next = panel.querySelector('#btn-next');
+
+    if (prev) {
+      prev.classList.toggle('disabled', idx === 0);
+      prev.onclick = idx > 0 ? () => show(idx - 1) : null;
+      if (idx > 0) prev.textContent = '← ' + NAV_LABELS[PANELS[idx - 1]];
+      else prev.textContent = '← Previous';
+    }
+    if (next && next.tagName === 'BUTTON') {
+      if (idx < PANELS.length - 1) {
+        next.textContent = NAV_LABELS[PANELS[idx + 1]] + ' →';
+        next.onclick = () => show(idx + 1);
+      }
+    }
+
+    buildDots();
+    animatePanel(panel);
+
+    // scroll to top of content area (not full page on desktop)
+    document.querySelector('.content-area').scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function animatePanel(panel) {
+    // reset + re-fire code line animations
+    panel.querySelectorAll('pre .line').forEach(l => {
+      l.classList.remove('show');
+    });
+    setTimeout(() => {
+      panel.querySelectorAll('pre').forEach(pre => {
+        pre.querySelectorAll('.line').forEach((l, i) =>
+          setTimeout(() => l.classList.add('show'), i * 42 + 80));
+      });
+      panel.querySelectorAll('table.dt tbody tr').forEach((r, i) => {
+        r.classList.remove('show');
+        setTimeout(() => r.classList.add('show'), i * 100 + 150);
+      });
+      panel.querySelectorAll('.aff-table tbody tr').forEach((r, i) => {
+        r.classList.remove('show');
+        setTimeout(() => r.classList.add('show'), i * 80 + 100);
+      });
+      panel.querySelectorAll('.fact').forEach((f, i) => {
+        f.classList.remove('show');
+        setTimeout(() => f.classList.add('show'), i * 80 + 100);
+      });
+    }, 50);
+  }
+
+  // sidebar button clicks
+  document.querySelectorAll('.sn-item').forEach((btn, i) => {
+    btn.addEventListener('click', () => show(i));
+  });
+
+  // boot
+  show(0);
+</script>
+</body>
+</html>
