@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SQL Lesson 2 — Data Types &amp; Constraints</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='white'/><text x='32' y='45' text-anchor='middle' font-family='Arial, sans-serif' font-size='42' font-weight='700' fill='%232dd4bf'>db</text></svg>">
+  <style>
+    :root {
+      --bg-soft:   #ffffff;
+      --teal-1:    #0e5a52;
+      --teal-2:    #1a9e8f;
+      --teal-3:    #d2f6f2;
+      --mint:      #e6fffc;
+      --text:      #0f2622;
+      --muted:     #3d7a72;
+      --border:    #9adcd4;
+      --code-bg:   #07201d;
+      --code-text: #cef9f3;
+      --accent-a:  #d9fdf7;
+      --accent-b:  #e8fff8;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Trebuchet MS", "Lucida Sans", "Segoe UI", sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at 15% 10%, #ddfff8 0%, transparent 35%),
+                  radial-gradient(circle at 85% 18%, #e8fff3 0%, transparent 36%),
+                  linear-gradient(180deg, #f0fffb 0%, #ffffff 45%, #e8fff9 100%);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      width: 240px; height: 240px;
+      z-index: -1;
+      border-radius: 999px;
+      filter: blur(2px);
+      opacity: 0.35;
+      animation: blobMove 8s ease-in-out infinite alternate;
+    }
+    body::before { background: #9ef5eb; top: -30px; left: -40px; }
+    body::after  { background: #b8ffe0; bottom: -40px; right: -40px; animation-delay: 1.4s; }
+
+    .wrap {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    /* ── Sidebar ── */
+    .side-nav {
+      position: sticky;
+      top: 14px;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 8px 22px rgba(14, 90, 82, 0.1);
+      padding: 12px;
+    }
+
+    .side-title {
+      margin: 0 0 8px;
+      font-size: 0.9rem;
+      color: var(--teal-1);
+      font-weight: 700;
+    }
+
+    .topic-link {
+      display: block;
+      width: 100%;
+      text-align: left;
+      border: 1px solid transparent;
+      border-radius: 9px;
+      padding: 8px 10px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.89rem;
+      text-transform: lowercase;
+      margin-bottom: 6px;
+      transition: all 0.2s ease;
+    }
+    .topic-link:hover {
+      background: #f0fffb;
+      color: var(--teal-1);
+      border-color: var(--border);
+    }
+    .topic-link.active {
+      background: #d8faf5;
+      color: var(--teal-1);
+      border-color: var(--teal-2);
+      font-weight: 700;
+    }
+
+    .side-divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 10px 0;
+    }
+
+    .side-section-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--teal-2);
+      padding: 4px 4px 6px;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      background: linear-gradient(135deg, var(--bg-soft) 0%, var(--accent-a) 55%, var(--accent-b) 100%);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow: 0 12px 30px rgba(14, 110, 100, 0.12);
+      margin-bottom: 22px;
+      animation: riseIn 0.75s ease both;
+    }
+
+    h1, h2, h3 { margin-top: 0; color: var(--teal-1); }
+    h1 { font-size: 2rem; margin-bottom: 8px; letter-spacing: 0.2px; }
+
+    .tag {
+      display: inline-block;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      background: var(--teal-3);
+      color: var(--teal-1);
+      border: 1px solid var(--border);
+      margin-bottom: 10px;
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--bg-soft);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 16px;
+      box-shadow: 0 7px 22px rgba(14, 90, 82, 0.08);
+      animation: riseIn 0.65s ease both;
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 13px 28px rgba(14, 90, 82, 0.15);
+    }
+
+    .topic-panel { display: none; }
+    .topic-panel.active { display: block; }
+
+    .step-title { margin: 0 0 8px; color: var(--teal-1); font-size: 1.15rem; }
+
+    /* ── Code blocks ── */
+    .code {
+      background: var(--code-bg);
+      color: var(--code-text);
+      border-radius: 10px;
+      border: 1px solid #1e5c54;
+      padding: 14px;
+      overflow-x: auto;
+      margin: 10px 0 12px;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.94rem;
+      white-space: pre;
+    }
+    .code .k  { color: #5eead4; font-weight: 700; }
+    .code .t  { color: #c084fc; }
+    .code .c  { color: #6b7280; font-style: italic; }
+    .code .s  { color: #6ee7b7; }
+    .code .n  { color: #fb923c; }
+    .code .co { color: #f87171; }
+    .code .ok { color: #4ade80; }
+
+    /* ── Note / callout ── */
+    .note {
+      background: var(--mint);
+      border-left: 4px solid var(--teal-2);
+      padding: 10px 12px;
+      color: var(--muted);
+      margin: 8px 0 10px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+
+    /* ── Tables ── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      font-size: 0.93rem;
+      margin: 10px 0;
+    }
+    th, td { border-bottom: 1px solid #ccf0eb; padding: 10px; text-align: left; vertical-align: top; }
+    th { background: #d2faf5; color: #0b4b44; }
+    tr:last-child td { border-bottom: none; }
+
+    /* ── Result heading ── */
+    .result-title { margin: 12px 0 6px; color: var(--teal-1); font-size: 0.96rem; font-weight: 700; }
+    .big-result   { font-size: 1.5rem; margin: 8px 0 10px; color: var(--teal-1); font-weight: 800; }
+
+    /* ── Exercise card — matches 02_data_const_co design ── */
+    .exercise-card {
+      border: 1px solid #f5d68b;
+      background: linear-gradient(140deg, #fffdf7 0%, #fff9eb 100%);
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 20px;
+    }
+    .exercise-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    .exercise-q {
+      width: 52px; height: 52px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-size: 1.9rem;
+      font-weight: 800;
+      color: #92400e;
+      background: radial-gradient(circle at 30% 30%, #fde68a 0%, #fbbf24 100%);
+      border: 2px solid #f59e0b;
+      box-shadow: 0 6px 14px rgba(245,158,11,.25);
+      flex-shrink: 0;
+    }
+    .exercise-head h2 { margin: 0 0 4px; color: var(--teal-1); font-size: 1.1rem; }
+    .exercise-sub  { color: #7c2d12; font-weight: 700; font-size: .95rem; margin: 0; }
+    .exercise-steps {
+      margin: 8px 0 10px;
+      padding-left: 18px;
+    }
+    .exercise-steps li { color: #374151; margin-bottom: 5px; }
+    .exercise-table-wrap {
+      margin-top: 10px;
+      border: 1px solid #f5d68b;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 6px 16px rgba(245,158,11,.12);
+    }
+    .exercise-table-title {
+      background: #fff3d1;
+      color: #92400e;
+      padding: 7px 12px;
+      font-weight: 800;
+      font-size: .8rem;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      border-bottom: 1px solid #f5d68b;
+    }
+    .exercise-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #ffffff;
+    }
+    .exercise-table th,
+    .exercise-table td { padding: 9px 10px; border-bottom: 1px solid #fef3c7; text-align: left; }
+    .exercise-table th  { background: #fffbeb; color: #78350f; font-size: .82rem; }
+    .exercise-table tr:last-child td { border-bottom: none; }
+    .exercise-note {
+      background: #fffbeb;
+      border-left: 4px solid #f59e0b;
+      padding: 10px 12px;
+      color: #92400e;
+      font-size: .87rem;
+      border-radius: 4px;
+      margin-top: 12px;
+      line-height: 1.7;
+    }
+
+    /* ── divider between Q and A ── */
+    .qa-divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 20px 0 16px;
+      font-size: .75rem;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--teal-2);
+    }
+    .qa-divider::before, .qa-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── Exercise solution card ── */
+    .solution-card {
+      background: linear-gradient(135deg, #ffffff 0%, #d9fdf7 100%);
+      border: 2px solid var(--teal-2);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 16px;
+      animation: riseIn 0.7s ease both;
+    }
+    .solution-head {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+    .solution-badge {
+      width: 42px; height: 42px;
+      border-radius: 10px;
+      background: var(--teal-2);
+      color: #fff;
+      font-weight: 900;
+      font-size: 1.1rem;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+
+    /* ── Bottom nav ── */
+    .nav-back {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--teal-2);
+      background: #d8faf5;
+      color: var(--teal-1);
+      text-decoration: none;
+      font-weight: 700;
+      transition: all 0.2s ease;
+      width: 100%;
+      text-align: center;
+    }
+    .nav-back:hover { background: #bff5ec; transform: translateY(-1px); }
+
+    .footer { text-align: center; color: var(--muted); font-size: 0.86rem; padding: 10px 0 16px; }
+
+    /* ── quick list ── */
+    ul.simple { padding-left: 20px; color: var(--muted); font-size: .9rem; }
+    ul.simple li { margin-bottom: 6px; }
+
+    /* ── badges inside content ── */
+    .badge {
+      display: inline-block;
+      padding: 2px 9px;
+      border-radius: 6px;
+      font-size: .78rem;
+      font-weight: 700;
+    }
+    .badge-null    { background: #374151; color: #9ca3af; }
+    .badge-int     { background: #1e3a5f; color: #60a5fa; }
+    .badge-real    { background: #1a3e2e; color: #34d399; }
+    .badge-text    { background: #3b2a59; color: #c084fc; }
+    .badge-blob    { background: #3d2b15; color: #fb923c; }
+
+    /* ── two-col ── */
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+    .card.good { border-color: #68d391; background: #f0fff4; }
+    .card.bad  { border-color: #fc8181; background: #fff5f5; }
+    .card.good h4 { color: #276749; }
+    .card.bad  h4 { color: #9b2c2c; }
+
+    .homework {
+      background: linear-gradient(135deg, #ffffff 0%, #dcfbf4 100%);
+      border: 2px solid var(--teal-2);
+      border-radius: 16px;
+      padding: 20px;
+      margin-top: 22px;
+      animation: riseIn 0.8s ease both;
+    }
+    .homework h2 { margin-bottom: 10px; }
+    .homework ol {
+      margin-top: 8px;
+      padding-left: 20px;
+    }
+
+    /* ── Animation delays for nth cards ── */
+    .card:nth-of-type(1) { animation-delay: 0.05s; }
+    .card:nth-of-type(2) { animation-delay: 0.10s; }
+    .card:nth-of-type(3) { animation-delay: 0.15s; }
+    .card:nth-of-type(4) { animation-delay: 0.20s; }
+    .card:nth-of-type(5) { animation-delay: 0.25s; }
+    .card:nth-of-type(6) { animation-delay: 0.30s; }
+    .card:nth-of-type(7) { animation-delay: 0.35s; }
+
+    @keyframes riseIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes blobMove {
+      from { transform: translate(0, 0) scale(1); }
+      to   { transform: translate(24px, 18px) scale(1.06); }
+    }
+
+    @media (max-width: 760px) {
+      .wrap { padding: 14px; }
+      .layout { grid-template-columns: 1fr; }
+      .side-nav { position: static; }
+      h1 { font-size: 1.6rem; }
+      .code { font-size: 0.86rem; }
+      .two-col { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+
+    <!-- Hero -->
+    <section class="hero">
+      <span class="tag">Lesson 2 — Apr 15, 2026</span>
+      <h1>Data Types &amp; Constraints</h1>
+      <p>This page covers everything from class — SQLite storage classes, BOOLEAN / DATE / DATETIME, and all five constraints — with exercise solutions</p>
+    </section>
+
+    <div class="layout">
+
+      <!-- Sidebar -->
+      <aside class="side-nav" aria-label="Topic navigation">
+        <h2 class="side-title">Exercise Solutions</h2>
+        <button class="topic-link active" data-target="t-sol-1">1) Storage Classes</button>
+        <button class="topic-link" data-target="t-sol-2">2) Bool / Date / Datetime</button>
+        <button class="topic-link" data-target="t-sol-3">3) Constraints</button>
+        <button class="topic-link" data-target="t-sol-4">Homework</button>
+
+        <a class="nav-back" href="../../index.html">← back to sql module</a>
+      </aside>
+
+      <main>
+
+        <!-- ══════════ SOLUTION 1 ══════════ -->
+        <section class="topic-panel active" id="t-sol-1">
+
+          <!-- Question -->
+          <div class="exercise-card">
+            <div class="exercise-head">
+              <div class="exercise-q">?</div>
+              <div>
+                <h2>Exercise</h2>
+                <p class="exercise-sub">Create one table that uses all 5 storage classes</p>
+              </div>
+            </div>
+            <ol class="exercise-steps">
+              <li>Create a table named <strong>student_scores</strong> with the same columns as the sample below</li>
+              <li>Insert all 3 rows</li>
+              <li>Find all students with score &lt; 90</li>
+            </ol>
+            <div class="exercise-table-wrap">
+              <div class="exercise-table-title">Rows to insert</div>
+              <table class="exercise-table">
+                <thead>
+                  <tr><th>id (INTEGER)</th><th>score (REAL)</th><th>name (TEXT)</th><th>avatar (BLOB)</th><th>note (TEXT NOT NULL)</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>1</td><td>91.5</td><td>Dana</td><td>X'0102'</td><td>excellent</td></tr>
+                  <tr><td>2</td><td>76.0</td><td>Omar</td><td>X'0304'</td><td>needs practice</td></tr>
+                  <tr><td>3</td><td>88.0</td><td>Noa</td><td>X'0506'</td><td>good</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="qa-divider">Solution</div>
+
+          <div class="solution-card">
+            <div class="solution-head">
+              <div class="solution-badge">1</div>
+              <div>
+                <h2 style="margin:0">Solution — Storage Classes</h2>
+              </div>
+            </div>
+
+            <h3>Step 1 — Create table with all 5 storage classes</h3>
+            <div class="code"><span class="k">CREATE TABLE</span> student_scores (
+  id     <span class="t">INTEGER</span>,
+  score  <span class="t">REAL</span>,
+  name   <span class="t">TEXT</span>,
+  avatar <span class="t">BLOB</span>,
+  note   <span class="t">TEXT</span> <span class="k">NOT NULL</span>
+);</div>
+
+            <h3>Step 2 — Insert all 3 rows</h3>
+            <div class="code"><span class="k">INSERT INTO</span> student_scores (id, score, name, avatar, note)
+<span class="k">VALUES</span>
+  (<span class="n">1</span>, <span class="n">91.5</span>, <span class="s">'Dana'</span>, X<span class="s">'0102'</span>, <span class="s">'excellent'</span>),
+  (<span class="n">2</span>, <span class="n">76.0</span>, <span class="s">'Omar'</span>, X<span class="s">'0304'</span>, <span class="s">'needs practice'</span>),
+  (<span class="n">3</span>, <span class="n">88.0</span>, <span class="s">'Noa'</span>,  X<span class="s">'0506'</span>, <span class="s">'good'</span>);</div>
+
+            <h3>Step 3 — Find all students with score &lt; 90</h3>
+            <div class="code"><span class="k">SELECT</span> id, score, name, note
+<span class="k">FROM</span>   student_scores
+<span class="k">WHERE</span>  score &lt; <span class="n">90</span>;</div>
+
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>id</th><th>score</th><th>name</th><th>note</th></tr></thead>
+              <tbody>
+                <tr><td>2</td><td>76.0</td><td>Omar</td><td>needs practice</td></tr>
+                <tr><td>3</td><td>88.0</td><td>Noa</td><td>good</td></tr>
+              </tbody>
+            </table>
+            <p class="note">Dana (91.5) is excluded because 91.5 is not less than 90</p>
+          </div>
+        </section>
+
+        <!-- ══════════ SOLUTION 2 ══════════ -->
+        <section class="topic-panel" id="t-sol-2">
+
+          <!-- Question -->
+          <div class="exercise-card">
+            <div class="exercise-head">
+              <div class="exercise-q">?</div>
+              <div>
+                <h2>Exercise</h2>
+                <p class="exercise-sub">Build a table with BOOLEAN, DATE, and DATETIME</p>
+              </div>
+            </div>
+            <ol class="exercise-steps">
+              <li>Create a table named <strong>app_users</strong> with id, name, married, birth_date, and last_login</li>
+              <li>Insert the 3 rows from the sample</li>
+              <li>Find all married users that last login after 2026-04-01</li>
+            </ol>
+            <div class="exercise-table-wrap">
+              <div class="exercise-table-title">Rows to insert</div>
+              <table class="exercise-table">
+                <thead>
+                  <tr><th>id</th><th>name</th><th>married</th><th>birth_date</th><th>last_login</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>1</td><td>Dana</td><td>TRUE</td><td>2004-06-15</td><td>2026-04-10 09:10:00</td></tr>
+                  <tr><td>2</td><td>Omar</td><td>FALSE</td><td>2003-11-02</td><td>2026-03-20 18:40:00</td></tr>
+                  <tr><td>3</td><td>Noa</td><td>TRUE</td><td>2005-01-30</td><td>2026-04-12 07:55:00</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="qa-divider">Solution</div>
+
+          <div class="solution-card">
+            <div class="solution-head">
+              <div class="solution-badge">2</div>
+              <div>
+                <h2 style="margin:0">Solution — BOOLEAN, DATE, DATETIME</h2>
+              </div>
+            </div>
+
+            <h3>Step 1 — Create the table</h3>
+            <div class="code"><span class="k">CREATE TABLE</span> app_users (
+  id         <span class="t">INTEGER</span>  <span class="k">PRIMARY KEY</span>,
+  name       <span class="t">TEXT</span>     <span class="k">NOT NULL</span>,
+  married    <span class="t">BOOLEAN</span>  <span class="k">NOT NULL DEFAULT</span> <span class="n">0</span>,
+  birth_date <span class="t">DATE</span>     <span class="k">NOT NULL</span>,
+  last_login <span class="t">DATETIME</span> <span class="k">NOT NULL</span>
+);</div>
+
+            <h3>Step 2 — Insert all 3 rows</h3>
+            <div class="code"><span class="k">INSERT INTO</span> app_users (id, name, married, birth_date, last_login)
+<span class="k">VALUES</span>
+  (<span class="n">1</span>, <span class="s">'Dana'</span>, <span class="k">TRUE</span>,  <span class="s">'2004-06-15'</span>, <span class="s">'2026-04-10 09:10:00'</span>),
+  (<span class="n">2</span>, <span class="s">'Omar'</span>, <span class="k">FALSE</span>, <span class="s">'2003-11-02'</span>, <span class="s">'2026-03-20 18:40:00'</span>),
+  (<span class="n">3</span>, <span class="s">'Noa'</span>,  <span class="k">TRUE</span>,  <span class="s">'2005-01-30'</span>, <span class="s">'2026-04-12 07:55:00'</span>);</div>
+
+            <h3>Step 3 — Find married users who last logged in after 2026-04-01</h3>
+            <div class="code"><span class="k">SELECT</span> *
+<span class="k">FROM</span>   app_users
+<span class="k">WHERE</span>  married = <span class="k">TRUE</span>
+  <span class="k">AND</span>  last_login &gt; <span class="s">'2026-04-01'</span>;</div>
+
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>id</th><th>name</th><th>married</th><th>birth_date</th><th>last_login</th></tr></thead>
+              <tbody>
+                <tr><td>1</td><td>Dana</td><td>1</td><td>2004-06-15</td><td>2026-04-10 09:10:00</td></tr>
+                <tr><td>3</td><td>Noa</td><td>1</td><td>2005-01-30</td><td>2026-04-12 07:55:00</td></tr>
+              </tbody>
+            </table>
+            <p class="note">Omar is excluded: married = FALSE (0). Omar's last_login (2026-03-20) is also before 2026-04-01</p>
+          </div>
+        </section>
+
+        <!-- ══════════ SOLUTION 3 ══════════ -->
+        <section class="topic-panel" id="t-sol-3">
+
+          <!-- Question -->
+          <div class="exercise-card">
+            <div class="exercise-head">
+              <div class="exercise-q">?</div>
+              <div>
+                <h2>Exercise</h2>
+                <p class="exercise-sub">Create a table with multiple constraints</p>
+              </div>
+            </div>
+            <ol class="exercise-steps">
+              <li>Create a table named <strong>exam_results</strong> using the column rules shown under the sample table</li>
+              <li>Insert the 3 rows below</li>
+              <li>Find names of approved students</li>
+              <li>Find users where student_name and email start with d</li>
+            </ol>
+            <div class="exercise-table-wrap">
+              <div class="exercise-table-title">Rows to insert</div>
+              <table class="exercise-table">
+                <thead>
+                  <tr><th>id</th><th>email</th><th>student_name</th><th>grade</th><th>status</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>1</td><td>dana@mail.com</td><td>Dana</td><td>92</td><td>approved</td></tr>
+                  <tr><td>2</td><td>omar@mail.com</td><td>Omar</td><td>76</td><td>pending</td></tr>
+                  <tr><td>3</td><td>noa@mail.com</td><td>Noa</td><td>85</td><td>approved</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="exercise-note">
+              id: main ID for each row (must be unique and not empty)<br>
+              email: cannot be empty and cannot duplicate another email<br>
+              student_name: cannot be empty<br>
+              grade: should be between 0 and 100<br>
+              status: if no value is given, use pending
+            </div>
+          </div>
+
+          <div class="qa-divider">Solution</div>
+
+          <div class="solution-card">
+            <div class="solution-head">
+              <div class="solution-badge">3</div>
+              <div>
+                <h2 style="margin:0">Solution — Constraints</h2>
+              </div>
+            </div>
+
+            <h3>Step 1 — Create table with all required constraints</h3>
+            <div class="code"><span class="k">CREATE TABLE</span> exam_results (
+  id           <span class="t">INTEGER</span> <span class="k">PRIMARY KEY NOT NULL</span>,
+  email        <span class="t">TEXT</span>    <span class="k">NOT NULL UNIQUE</span>,
+  student_name <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  grade        <span class="t">INTEGER</span> <span class="k">CHECK</span> (grade &gt;= <span class="n">0</span> <span class="k">AND</span> grade &lt;= <span class="n">100</span>),
+  status       <span class="t">TEXT</span>    <span class="k">DEFAULT</span> <span class="s">'pending'</span>
+);</div>
+
+            <h3>Step 2 — Insert all 3 rows</h3>
+            <div class="code"><span class="k">INSERT INTO</span> exam_results (id, email, student_name, grade, status)
+<span class="k">VALUES</span>
+  (<span class="n">1</span>, <span class="s">'dana@mail.com'</span>, <span class="s">'Dana'</span>, <span class="n">92</span>, <span class="s">'approved'</span>),
+  (<span class="n">2</span>, <span class="s">'omar@mail.com'</span>, <span class="s">'Omar'</span>, <span class="n">76</span>, <span class="s">'pending'</span>),
+  (<span class="n">3</span>, <span class="s">'noa@mail.com'</span>,  <span class="s">'Noa'</span>,  <span class="n">85</span>, <span class="s">'approved'</span>);</div>
+
+            <h3>Step 3a — Find names of approved students</h3>
+            <div class="code"><span class="k">SELECT</span> student_name
+<span class="k">FROM</span>   exam_results
+<span class="k">WHERE</span>  status = <span class="s">'approved'</span>;</div>
+
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>student_name</th></tr></thead>
+              <tbody>
+                <tr><td>Dana</td></tr>
+                <tr><td>Noa</td></tr>
+              </tbody>
+            </table>
+
+            <h3 style="margin-top:16px">Step 3b — Find users where student_name AND email both start with 'd'</h3>
+            <div class="code"><span class="k">SELECT</span> *
+<span class="k">FROM</span>   exam_results
+<span class="k">WHERE</span>  student_name <span class="k">LIKE</span> <span class="s">'d%'</span>
+  <span class="k">AND</span>  email <span class="k">LIKE</span> <span class="s">'d%'</span>;</div>
+
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>id</th><th>email</th><th>student_name</th><th>grade</th><th>status</th></tr></thead>
+              <tbody>
+                <tr><td>1</td><td>dana@mail.com</td><td>Dana</td><td>92</td><td>approved</td></tr>
+              </tbody>
+            </table>
+            <p class="note">LIKE is case-insensitive in SQLite by default for ASCII letters, so 'd%' matches 'Dana' and 'dana@mail.com'</p>
+          </div>
+        </section>
+
+        <a id="homework"></a>
+        <section class="homework topic-panel" id="t-sol-4">
+          <h2>Homework Exercise</h2>
+          <ol>
+            <li>Create a new table called <strong>workshop_roster</strong> with these field rules:<br>
+              <strong>roster_id</strong> must be unique and cannot be empty (main id)<br>
+              <strong>contact_email</strong> must contain value and cannot repeat<br>
+              <strong>display_name</strong> must contain value<br>
+              <strong>wants_certificate</strong> is BOOLEAN and if missing use FALSE by default<br>
+              <strong>start_date</strong> is DATE and must contain value<br>
+              <strong>last_activity</strong> is DATETIME and must contain value<br>
+              <strong>completion_score</strong> is REAL and must stay between 0 and 100<br>
+              <strong>group_label</strong> is TEXT and if missing use starter by default
+            </li>
+            <li>Insert exactly <strong>5</strong> rows from the sample table below</li>
+            <li>Write these SELECT queries using only lesson 2 material:<br>
+              1) show all rows and all columns<br>
+              2) show only display_name, contact_email, completion_score<br>
+              3) show rows where wants_certificate = FALSE and last_activity &lt; '2026-04-10'<br>
+              4) show rows where display_name and contact_email both start with m (use LIKE)<br>
+              5) show rows where completion_score &lt; 85
+            </li>
+            <li>Try one insert with duplicate contact_email and explain which constraint blocks it</li>
+            <li>Try one insert with completion_score = 120 and explain which constraint blocks it</li>
+          </ol>
+
+          <div class="big-result">Rows to insert:</div>
+          <table>
+            <thead>
+              <tr>
+                <th>roster_id</th><th>contact_email</th><th>display_name</th><th>wants_certificate</th><th>start_date</th><th>last_activity</th><th>completion_score</th><th>group_label</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>1</td><td>mika@campus.com</td><td>Mika</td><td>1</td><td>2026-04-01</td><td>2026-04-14 08:15:00</td><td>94.5</td><td>advanced</td></tr>
+              <tr><td>2</td><td>matan@campus.com</td><td>Matan</td><td>1</td><td>2026-04-05</td><td>2026-04-12 18:20:00</td><td>82.0</td><td>advanced</td></tr>
+              <tr><td>3</td><td>nora@campus.com</td><td>Nora</td><td>0</td><td>2026-04-07</td><td>2026-04-09 10:00:00</td><td>74.0</td><td>starter</td></tr>
+              <tr><td>4</td><td>liam@campus.com</td><td>Liam</td><td>1</td><td>2026-04-10</td><td>2026-04-15 07:45:00</td><td>88.0</td><td>regular</td></tr>
+              <tr><td>5</td><td>dana@campus.com</td><td>Dana</td><td>0</td><td>2026-04-11</td><td>2026-04-11 21:05:00</td><td>69.5</td><td>starter</td></tr>
+            </tbody>
+          </table>
+          <p><strong>Submit:</strong> your SQL script as text file .sql</p>
+          <p><strong>Submission email:</strong> pythonai211225+sql2@gmail.com</p>
+        </section>
+
+      </main>
+    </div>
+
+  </div><!-- /wrap -->
+
+  <script>
+    const links  = document.querySelectorAll('.topic-link');
+    const panels = document.querySelectorAll('.topic-panel');
+
+    function showTopic(id) {
+      panels.forEach(p => p.classList.toggle('active', p.id === id));
+      links.forEach(l  => l.classList.toggle('active', l.dataset.target === id));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    links.forEach(link => {
+      link.addEventListener('click', () => {
+        const targetId = link.dataset.target;
+        showTopic(targetId);
+        if (targetId === 't-sol-4') {
+          location.hash = 'homework';
+        } else {
+          location.hash = targetId;
+        }
+      });
+    });
+
+    function applyHashTopic() {
+      const hash = location.hash.replace('#', '');
+      if (!hash) return;
+
+      if (hash === 'homework') {
+        showTopic('t-sol-4');
+        return;
+      }
+
+      if (document.getElementById(hash)) {
+        showTopic(hash);
+      }
+    }
+
+    applyHashTopic();
+    window.addEventListener('hashchange', applyHashTopic);
+  </script>
+</body>
+</html>
