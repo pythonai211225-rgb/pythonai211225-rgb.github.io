@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Topic 2 - LIKE, IN, BETWEEN, NULL</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='white'/><text x='32' y='45' text-anchor='middle' font-family='Arial, sans-serif' font-size='42' font-weight='700' fill='%232dd4bf'>db</text></svg>">
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+  <nav class="top-nav">
+    <div class="wrap">
+      <a class="nav-home" href="../index.html">Home</a>
+      <div class="brand">Lesson 3</div>
+      <a class="nav-link" href="01-where-logic.html">1. WHERE + Logic</a>
+      <a class="nav-link" href="02-pattern-filters.html">2. LIKE / IN / NULL</a>
+      <a class="nav-link" href="03-sorting-pagination.html">3. ORDER BY + LIMIT</a>
+      <a class="nav-link" href="04-column-aliases.html">4. Aliases with AS</a>
+      <a class="nav-link" href="05-distinct.html">5. DISTINCT</a>
+      <a class="nav-link" href="06-netflix-practice.html">6. Netflix Practice</a>
+    </div>
+  </nav>
+
+  <main class="container">
+    <section class="hero reveal">
+      <span class="tag">Topic 2</span>
+      <h1>LIKE, GLOB, BETWEEN, IN, IS NULL</h1>
+      <p class="lead">This is your filter toolbox for pattern matching, ranges, lists, and missing values.</p>
+    </section>
+
+    <section class="section card reveal">
+      <h2>Setup table</h2>
+      <div class="code">
+        <div class="label">Setup</div>
+        <pre><span class="k">CREATE TABLE</span> products (
+  id <span class="t">INTEGER</span> <span class="k">PRIMARY KEY</span>,
+  product_name <span class="t">TEXT</span> <span class="k">NOT NULL</span>,
+  category <span class="t">TEXT</span> <span class="k">NOT NULL</span>,
+  price <span class="t">REAL</span> <span class="k">NOT NULL</span>,
+  stock <span class="t">INTEGER</span>
+);
+
+<span class="k">INSERT INTO</span> products <span class="k">VALUES</span>
+  (1, 'Mouse Pro', 'Accessories', 49.0, 20),
+  (2, 'Monitor 27', 'Displays', 289.0, 5),
+  (3, 'Keyboard Lite', 'Accessories', 39.0, NULL),
+  (4, 'Dock Station', 'Accessories', 129.0, 8),
+  (5, 'Mini PC', 'Computers', 699.0, 3);
+</pre>
+      </div>
+      <table class="table" style="margin-top: 12px;">
+        <thead>
+          <tr>
+            <th>id</th>
+            <th>product_name</th>
+            <th>category</th>
+            <th>price</th>
+            <th>stock</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1</td>
+            <td>Mouse Pro</td>
+            <td>Accessories</td>
+            <td>49.0</td>
+            <td>20</td>
+          </tr>
+          <tr>
+            <td>2</td>
+            <td>Monitor 27</td>
+            <td>Displays</td>
+            <td>289.0</td>
+            <td>5</td>
+          </tr>
+          <tr>
+            <td>3</td>
+            <td>Keyboard Lite</td>
+            <td>Accessories</td>
+            <td>39.0</td>
+            <td>NULL</td>
+          </tr>
+          <tr>
+            <td>4</td>
+            <td>Dock Station</td>
+            <td>Accessories</td>
+            <td>129.0</td>
+            <td>8</td>
+          </tr>
+          <tr>
+            <td>5</td>
+            <td>Mini PC</td>
+            <td>Computers</td>
+            <td>699.0</td>
+            <td>3</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section card reveal">
+      <h2>Filter patterns and ranges</h2>
+      <p>Read each query, then compare it with the result table below it.</p>
+      <div class="code">
+        <div class="label">Query 1</div>
+        <pre><span class="c">-- LIKE: names starting with 'M'</span>
+<span class="k">SELECT</span> product_name <span class="k">FROM</span> products
+    <span class="k">WHERE</span> product_name <span class="k">LIKE</span> 'M%';
+</pre>
+      </div>
+      <table class="table" style="margin-top: 12px;">
+        <thead>
+          <tr>
+            <th>product_name</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Mouse Pro</td>
+          </tr>
+          <tr>
+            <td>Monitor 27</td>
+          </tr>
+          <tr>
+            <td>Mini PC</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="code" style="margin-top: 14px;">
+        <div class="label">Query 2</div>
+        <pre><span class="c">-- GLOB: exactly 5 letters then space then anything</span>
+<span class="k">SELECT</span> product_name <span class="k">FROM</span> products
+    <span class="k">WHERE</span> product_name <span class="k">GLOB</span> '????? *';
+</pre>
+      </div>
+      <table class="table" style="margin-top: 12px;">
+        <thead>
+          <tr>
+            <th>product_name</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Mouse Pro</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="code" style="margin-top: 14px;">
+        <div class="label">Query 3</div>
+        <pre><span class="c">-- BETWEEN: inclusive range</span>
+<span class="k">SELECT</span> product_name, price <span class="k">FROM</span> products
+    <span class="k">WHERE</span> price <span class="k">BETWEEN</span> 40 <span class="k">AND</span> 300;
+</pre>
+      </div>
+      <table class="table" style="margin-top: 12px;">
+        <thead>
+          <tr>
+            <th>product_name</th>
+            <th>price</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Mouse Pro</td>
+            <td>49.0</td>
+          </tr>
+          <tr>
+            <td>Monitor 27</td>
+            <td>289.0</td>
+          </tr>
+          <tr>
+            <td>Dock Station</td>
+            <td>129.0</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="code" style="margin-top: 14px;">
+        <div class="label">Query 4</div>
+        <pre><span class="c">-- IN: match one of many categories</span>
+<span class="k">SELECT</span> product_name, category <span class="k">FROM</span> products
+    <span class="k">WHERE</span> category <span class="k">IN</span> ('Accessories', 'Computers');
+</pre>
+      </div>
+      <table class="table" style="margin-top: 12px;">
+        <thead>
+          <tr>
+            <th>product_name</th>
+            <th>category</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Mouse Pro</td>
+            <td>Accessories</td>
+          </tr>
+          <tr>
+            <td>Keyboard Lite</td>
+            <td>Accessories</td>
+          </tr>
+          <tr>
+            <td>Dock Station</td>
+            <td>Accessories</td>
+          </tr>
+          <tr>
+            <td>Mini PC</td>
+            <td>Computers</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="code" style="margin-top: 14px;">
+        <div class="label">Query 5</div>
+        <pre><span class="c">-- IS NULL: unknown or missing stock</span>
+<span class="k">SELECT</span> product_name <span class="k">FROM</span> products
+<span class="k">WHERE</span> stock <span class="k">IS NULL</span>;</pre>
+      </div>
+      <table class="table" style="margin-top: 12px;">
+        <thead>
+          <tr>
+            <th>product_name</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Keyboard Lite</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section card reveal exercise-card">
+      <div class="exercise-head">
+        <div class="exercise-q">?</div>
+        <div>
+          <h2>Exercise</h2>
+          <p class="exercise-sub">Use every filter type at least once</p>
+        </div>
+      </div>
+      <ol class="exercise-steps">
+        <li>Find all products with name ending in "Pro" (LIKE)</li>
+        <li>Find products priced between 30 and 150 (BETWEEN)</li>
+        <li>Find products in categories Computers or Displays (IN)</li>
+        <li>Find products with known stock (not null)</li>
+        <li>Bonus: use GLOB to match names that start with "M" and have a space</li>
+      </ol>
+      <div class="note" style="margin-top: 10px;">
+        Tip: BETWEEN includes both border values
+      </div>
+    </section>
+
+    <div class="lesson-nav reveal">
+      <a class="btn" href="01-where-logic.html">Back: WHERE + Logic</a>
+      <a class="btn primary" href="03-sorting-pagination.html">Next: ORDER BY + LIMIT</a>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

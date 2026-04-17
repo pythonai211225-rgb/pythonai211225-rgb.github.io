@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Topic 6 - Netflix Practice</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='white'/><text x='32' y='45' text-anchor='middle' font-family='Arial, sans-serif' font-size='42' font-weight='700' fill='%232dd4bf'>db</text></svg>">
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+  <nav class="top-nav">
+    <div class="wrap">
+      <a class="nav-home" href="../index.html">Home</a>
+      <div class="brand">Lesson 3</div>
+      <a class="nav-link" href="01-where-logic.html">1. WHERE + Logic</a>
+      <a class="nav-link" href="02-pattern-filters.html">2. LIKE / IN / NULL</a>
+      <a class="nav-link" href="03-sorting-pagination.html">3. ORDER BY + LIMIT</a>
+      <a class="nav-link" href="04-column-aliases.html">4. Aliases with AS</a>
+      <a class="nav-link" href="05-distinct.html">5. DISTINCT</a>
+      <a class="nav-link" href="06-netflix-practice.html">6. Netflix Practice</a>
+    </div>
+  </nav>
+
+  <main class="container">
+    <section class="hero reveal">
+      <span class="tag">Topic 6</span>
+      <h1>Netflix Practice Lab</h1>
+      <p class="lead">Use a real CSV import and run practical filtering and ranking queries.</p>
+    </section>
+
+    <section class="section card reveal">
+      <h2>Fun Twist</h2>
+      <p>Import Netflix titles CSV to SQLite and run practical queries on real data.</p>
+      <ol class="simple" style="margin-top: 8px; padding-left: 18px;">
+        <li>Go to dataset page: <a href="https://www.kaggle.com/datasets/bhargavchirumamilla/netflix-movies-and-tv-shows-till-2025" target="_blank" rel="noopener noreferrer">Netflix Movies and TV Shows (Kaggle)</a></li>
+        <li>Click Download and save the ZIP file</li>
+        <li>Extract the ZIP and find the CSV file</li>
+      </ol>
+
+      <h3 style="margin-top: 12px;">Open CSV in DB Browser and convert to .db</h3>
+      <ol class="simple" style="margin-top: 6px; padding-left: 18px;">
+        <li>Open DB Browser for SQLite</li>
+        <li>Click New Database and save a file, for example: netflix.db</li>
+        <li>Go to File > Import > Table from CSV file</li>
+        <li>Select the CSV you downloaded from Kaggle</li>
+        <li>Set table name to netflix_movies_detailed_up_to_2025 and confirm first row is column names</li>
+        <li>Click OK, then press Write Changes so data is saved into the .db file</li>
+      </ol>
+
+      <div class="code">
+        <div class="label">Target query shape</div>
+        <pre><span class="k">SELECT DISTINCT</span> type
+<span class="k">FROM</span> netflix_movies_detailed_up_to_2025
+<span class="k">ORDER BY</span> type;</pre>
+      </div>
+
+      <div class="code">
+        <div class="label">Category search example</div>
+        <pre><span class="k">SELECT</span> title, release_year, rating
+<span class="k">FROM</span> netflix_movies_detailed_up_to_2025
+<span class="k">WHERE</span> type = 'Movie'
+  <span class="k">AND</span> genres <span class="k">LIKE</span> '%Action%'
+  <span class="k">AND</span> release_year &gt;= 2015
+<span class="k">ORDER BY</span> rating <span class="k">DESC</span>
+<span class="k">LIMIT</span> 10;</pre>
+      </div>
+
+      <div class="note" style="margin-top: 10px;">
+        In this CSV, duration is empty in all rows, so use genres, release_year, rating, vote_count, and cast for filtering
+      </div>
+
+      <div class="code">
+        <div class="label">Search queries to try</div>
+        <pre><span class="c">-- 1) What type values exist in the dataset?</span>
+<span class="k">SELECT DISTINCT</span> type
+<span class="k">FROM</span> netflix_movies_detailed_up_to_2025
+<span class="k">ORDER BY</span> type;
+
+<span class="c">-- 2) Distinct cast entries for action movies (cast text blocks)</span>
+<span class="k">SELECT DISTINCT</span> "cast"
+<span class="k">FROM</span> netflix_movies_detailed_up_to_2025
+<span class="k">WHERE</span> type = 'Movie'
+  <span class="k">AND</span> genres <span class="k">LIKE</span> '%Action%'
+  <span class="k">AND</span> "cast" <span class="k">IS NOT NULL</span>
+  <span class="k">AND</span> <span class="k">TRIM</span>("cast") != ''
+<span class="k">LIMIT</span> 20;
+
+<span class="c">-- 3) Action movies from 2015 and later</span>
+<span class="k">SELECT</span> title, release_year, rating
+<span class="k">FROM</span> netflix_movies_detailed_up_to_2025
+<span class="k">WHERE</span> type = 'Movie'
+  <span class="k">AND</span> genres <span class="k">LIKE</span> '%Action%'
+  <span class="k">AND</span> release_year &gt;= 2015
+<span class="k">ORDER BY</span> release_year <span class="k">DESC</span>
+<span class="k">LIMIT</span> 20;
+
+<span class="c">-- 4) Top 10 comedy titles by rating (with enough votes)</span>
+<span class="k">SELECT</span> title, release_year, rating, vote_count
+<span class="k">FROM</span> netflix_movies_detailed_up_to_2025
+<span class="k">WHERE</span> type = 'Movie'
+  <span class="k">AND</span> genres <span class="k">LIKE</span> '%Comedy%'
+  <span class="k">AND</span> vote_count &gt;= 100
+<span class="k">ORDER BY</span> rating <span class="k">DESC</span>, vote_count <span class="k">DESC</span>
+<span class="k">LIMIT</span> 10;
+
+<span class="c">-- 5) Drama titles where cast is missing</span>
+<span class="k">SELECT</span> title, release_year
+<span class="k">FROM</span> netflix_movies_detailed_up_to_2025
+<span class="k">WHERE</span> type = 'Movie'
+  <span class="k">AND</span> genres <span class="k">LIKE</span> '%Drama%'
+  <span class="k">AND</span> (<span class="k">"cast"</span> <span class="k">IS NULL</span> <span class="k">OR</span> <span class="k">TRIM</span>(<span class="k">"cast"</span>) = '');</pre>
+      </div>
+    </section>
+
+    <section class="section card reveal exercise-card">
+      <div class="exercise-head">
+        <div class="exercise-q">?</div>
+        <div>
+          <h2>Exercise B: Netflix Twist</h2>
+          <p class="exercise-sub">Filter noisy text data with SQL</p>
+        </div>
+      </div>
+      <ol class="exercise-steps">
+        <li>Use DISTINCT to list all values from type</li>
+        <li>Use DISTINCT to list 20 non-empty cast entries from Action movies</li>
+        <li>Find 5 action movies released after 2015</li>
+        <li>Sort by highest rating first</li>
+        <li>Alias output columns as movie and score</li>
+        <li>Bonus: find drama titles where cast is NULL</li>
+      </ol>
+    </section>
+
+    <div class="lesson-nav reveal">
+      <a class="btn" href="05-distinct.html">Back: DISTINCT</a>
+      <a class="btn primary" href="index.html">Lesson Home</a>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
