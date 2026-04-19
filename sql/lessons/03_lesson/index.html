@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SQL Lesson 3 — SELECT Filter &amp; Sort</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='white'/><text x='32' y='45' text-anchor='middle' font-family='Arial, sans-serif' font-size='42' font-weight='700' fill='%232dd4bf'>db</text></svg>">
+  <style>
+    :root {
+      --bg-soft:   #ffffff;
+      --teal-1:    #0e5a52;
+      --teal-2:    #1a9e8f;
+      --teal-3:    #d2f6f2;
+      --mint:      #e6fffc;
+      --text:      #0f2622;
+      --muted:     #3d7a72;
+      --border:    #9adcd4;
+      --code-bg:   #07201d;
+      --code-text: #cef9f3;
+      --accent-a:  #d9fdf7;
+      --accent-b:  #e8fff8;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Trebuchet MS", "Lucida Sans", "Segoe UI", sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at 15% 10%, #ddfff8 0%, transparent 35%),
+                  radial-gradient(circle at 85% 18%, #e8fff3 0%, transparent 36%),
+                  linear-gradient(180deg, #f0fffb 0%, #ffffff 45%, #e8fff9 100%);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      width: 240px; height: 240px;
+      z-index: -1;
+      border-radius: 999px;
+      filter: blur(2px);
+      opacity: 0.35;
+      animation: blobMove 8s ease-in-out infinite alternate;
+    }
+    body::before { background: #9ef5eb; top: -30px; left: -40px; }
+    body::after  { background: #b8ffe0; bottom: -40px; right: -40px; animation-delay: 1.4s; }
+
+    .wrap {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    /* ── Sidebar ── */
+    .side-nav {
+      position: sticky;
+      top: 14px;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 8px 22px rgba(14, 90, 82, 0.1);
+      padding: 12px;
+    }
+
+    .side-title {
+      margin: 0 0 8px;
+      font-size: 0.9rem;
+      color: var(--teal-1);
+      font-weight: 700;
+    }
+
+    .topic-link {
+      display: block;
+      width: 100%;
+      text-align: left;
+      border: 1px solid transparent;
+      border-radius: 9px;
+      padding: 8px 10px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.89rem;
+      text-transform: lowercase;
+      margin-bottom: 6px;
+      transition: all 0.2s ease;
+    }
+    .topic-link:hover {
+      background: #f0fffb;
+      color: var(--teal-1);
+      border-color: var(--border);
+    }
+    .topic-link.active {
+      background: #d8faf5;
+      color: var(--teal-1);
+      border-color: var(--teal-2);
+      font-weight: 700;
+    }
+
+    .side-divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 10px 0;
+    }
+
+    .side-section-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--teal-2);
+      padding: 4px 4px 6px;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      background: linear-gradient(135deg, var(--bg-soft) 0%, var(--accent-a) 55%, var(--accent-b) 100%);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow: 0 12px 30px rgba(14, 110, 100, 0.12);
+      margin-bottom: 22px;
+      animation: riseIn 0.75s ease both;
+    }
+
+    h1, h2, h3 { margin-top: 0; color: var(--teal-1); }
+    h1 { font-size: 2rem; margin-bottom: 8px; letter-spacing: 0.2px; }
+
+    .tag {
+      display: inline-block;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      background: var(--teal-3);
+      color: var(--teal-1);
+      border: 1px solid var(--border);
+      margin-bottom: 10px;
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--bg-soft);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 16px;
+      box-shadow: 0 7px 22px rgba(14, 90, 82, 0.08);
+      animation: riseIn 0.65s ease both;
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 13px 28px rgba(14, 90, 82, 0.15);
+    }
+
+    .topic-panel { display: none; }
+    .topic-panel.active { display: block; }
+
+    /* ── Code blocks ── */
+    .code {
+      background: var(--code-bg);
+      color: var(--code-text);
+      border-radius: 10px;
+      border: 1px solid #1e5c54;
+      padding: 14px;
+      overflow-x: auto;
+      margin: 10px 0 12px;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.94rem;
+      white-space: pre;
+    }
+    .code .k  { color: #5eead4; font-weight: 700; }
+    .code .t  { color: #c084fc; }
+    .code .c  { color: #6b7280; font-style: italic; }
+    .code .s  { color: #6ee7b7; }
+    .code .n  { color: #fb923c; }
+
+    /* ── Note / callout ── */
+    .note {
+      background: var(--mint);
+      border-left: 4px solid var(--teal-2);
+      padding: 10px 12px;
+      color: var(--muted);
+      margin: 8px 0 10px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+
+    /* ── Tables ── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      font-size: 0.93rem;
+      margin: 10px 0;
+    }
+    th, td { border-bottom: 1px solid #ccf0eb; padding: 10px; text-align: left; vertical-align: top; }
+    th { background: #d2faf5; color: #0b4b44; }
+    tr:last-child td { border-bottom: none; }
+
+    .result-title { margin: 12px 0 6px; color: var(--teal-1); font-size: 0.96rem; font-weight: 700; }
+    .big-result   { font-size: 1.5rem; margin: 8px 0 10px; color: var(--teal-1); font-weight: 800; }
+
+    /* ── Exercise card ── */
+    .exercise-card {
+      border: 1px solid #f5d68b;
+      background: linear-gradient(140deg, #fffdf7 0%, #fff9eb 100%);
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 20px;
+    }
+    .exercise-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    .exercise-q {
+      width: 52px; height: 52px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-size: 1.9rem;
+      font-weight: 800;
+      color: #92400e;
+      background: radial-gradient(circle at 30% 30%, #fde68a 0%, #fbbf24 100%);
+      border: 2px solid #f59e0b;
+      box-shadow: 0 6px 14px rgba(245,158,11,.25);
+      flex-shrink: 0;
+    }
+    .exercise-head h2 { margin: 0 0 4px; color: var(--teal-1); font-size: 1.1rem; }
+    .exercise-sub  { color: #7c2d12; font-weight: 700; font-size: .95rem; margin: 0; }
+    .exercise-steps {
+      margin: 8px 0 10px;
+      padding-left: 18px;
+    }
+    .exercise-steps li { color: #374151; margin-bottom: 5px; }
+    .exercise-table-wrap {
+      margin-top: 10px;
+      border: 1px solid #f5d68b;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 6px 16px rgba(245,158,11,.12);
+    }
+    .exercise-table-title {
+      background: #fff3d1;
+      color: #92400e;
+      padding: 7px 12px;
+      font-weight: 800;
+      font-size: .8rem;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      border-bottom: 1px solid #f5d68b;
+    }
+    .exercise-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #ffffff;
+    }
+    .exercise-table th,
+    .exercise-table td { padding: 9px 10px; border-bottom: 1px solid #fef3c7; text-align: left; }
+    .exercise-table th  { background: #fffbeb; color: #78350f; font-size: .82rem; }
+    .exercise-table tr:last-child td { border-bottom: none; }
+    .exercise-note {
+      background: #fffbeb;
+      border-left: 4px solid #f59e0b;
+      padding: 10px 12px;
+      color: #92400e;
+      font-size: .87rem;
+      border-radius: 4px;
+      margin-top: 12px;
+      line-height: 1.7;
+    }
+
+    /* ── Q/A divider ── */
+    .qa-divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 20px 0 16px;
+      font-size: .75rem;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--teal-2);
+    }
+    .qa-divider::before, .qa-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── Solution card ── */
+    .solution-card {
+      background: linear-gradient(135deg, #ffffff 0%, #d9fdf7 100%);
+      border: 2px solid var(--teal-2);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 16px;
+      animation: riseIn 0.7s ease both;
+    }
+    .solution-head {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+    .solution-badge {
+      width: 42px; height: 42px;
+      border-radius: 10px;
+      background: var(--teal-2);
+      color: #fff;
+      font-weight: 900;
+      font-size: 1.1rem;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+
+    /* ── Bottom nav ── */
+    .nav-back {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--teal-2);
+      background: #d8faf5;
+      color: var(--teal-1);
+      text-decoration: none;
+      font-weight: 700;
+      transition: all 0.2s ease;
+      width: 100%;
+      text-align: center;
+    }
+    .nav-back:hover { background: #bff5ec; transform: translateY(-1px); }
+
+    .footer { text-align: center; color: var(--muted); font-size: 0.86rem; padding: 10px 0 16px; }
+
+    /* ── Homework card ── */
+    .hw-card {
+      background: linear-gradient(135deg, #ffffff 0%, #dcfbf4 100%);
+      border: 2px solid var(--teal-2);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 18px;
+    }
+    .hw-card h3 { color: var(--teal-1); margin-bottom: 8px; }
+    .hw-card ol { margin-top: 8px; padding-left: 20px; }
+    .hw-card li { margin-bottom: 6px; color: #374151; }
+    .hw-badge {
+      display: inline-block;
+      padding: 3px 12px;
+      border-radius: 999px;
+      font-size: .75rem;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      background: var(--teal-3);
+      color: var(--teal-1);
+      border: 1px solid var(--border);
+      margin-bottom: 10px;
+    }
+
+    .card:nth-of-type(1) { animation-delay: 0.05s; }
+    .card:nth-of-type(2) { animation-delay: 0.10s; }
+    .card:nth-of-type(3) { animation-delay: 0.15s; }
+    .card:nth-of-type(4) { animation-delay: 0.20s; }
+    .card:nth-of-type(5) { animation-delay: 0.25s; }
+
+    @keyframes riseIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes blobMove {
+      from { transform: translate(0, 0) scale(1); }
+      to   { transform: translate(24px, 18px) scale(1.06); }
+    }
+
+    @media (max-width: 760px) {
+      .wrap { padding: 14px; }
+      .layout { grid-template-columns: 1fr; }
+      .side-nav { position: static; }
+      h1 { font-size: 1.6rem; }
+      .code { font-size: 0.86rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+
+    <!-- Hero -->
+    <section class="hero">
+      <span class="tag">Lesson 3 — Apr 19, 2026</span>
+      <h1>SELECT — Filter &amp; Sort</h1>
+      <p>Exercise solutions for Auto Increment, Foreign Keys, WHERE logic, LIKE / IN / NULL, and ORDER BY + LIMIT. Homework covers AS aliases, DISTINCT, and the Netflix practice lab.</p>
+    </section>
+
+    <div class="layout">
+
+      <!-- Sidebar -->
+      <aside class="side-nav" aria-label="Topic navigation">
+        <h2 class="side-title">Exercise Solutions</h2>
+        <button class="topic-link active" data-target="t-sol-1">1) Auto Increment</button>
+        <button class="topic-link" data-target="t-sol-2">2) Foreign Key</button>
+        <button class="topic-link" data-target="t-sol-3">3) WHERE + Logic</button>
+        <button class="topic-link" data-target="t-sol-4">4) LIKE / IN / NULL</button>
+        <button class="topic-link" data-target="t-sol-5">5) ORDER BY + LIMIT</button>
+
+        <hr class="side-divider">
+        <div class="side-section-label">Homework</div>
+        <button class="topic-link" data-target="t-hw">Exercise</button>
+
+        <a class="nav-back" href="../../index.html">← back to sql module</a>
+      </aside>
+
+      <main>
+
+        <!-- ══════════ SOLUTION 1 — AUTO INCREMENT ══════════ -->
+        <section class="topic-panel active" id="t-sol-1">
+
+          <div class="exercise-card">
+            <div class="exercise-head">
+              <div class="exercise-q">?</div>
+              <div>
+                <h2>Exercise</h2>
+                <p class="exercise-sub">Practice AUTOINCREMENT with 3 rows</p>
+              </div>
+            </div>
+            <ol class="exercise-steps">
+              <li>Create a table named <strong>support_tickets</strong> with id, customer_name, priority, issue_score</li>
+              <li>Set id to auto increment so IDs are generated automatically</li>
+              <li>Insert the 3 rows below <strong>without writing id values manually</strong></li>
+              <li>Find all medium priority tickets</li>
+              <li>Delete the last row, insert one more row, and check that id was not reused</li>
+            </ol>
+            <div class="exercise-table-wrap">
+              <div class="exercise-table-title">Rows to insert (no id needed)</div>
+              <table class="exercise-table">
+                <thead>
+                  <tr><th>customer_name</th><th>priority</th><th>issue_score</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>Dana</td><td>high</td><td>95</td></tr>
+                  <tr><td>Omar</td><td>medium</td><td>74</td></tr>
+                  <tr><td>Noa</td><td>high</td><td>88</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="exercise-note">
+              id: auto-generated number that always moves forward<br>
+              customer_name: cannot be empty<br>
+              priority: text value like high, medium, low<br>
+              issue_score: numeric score
+            </div>
+          </div>
+
+          <div class="qa-divider">Solution</div>
+
+          <div class="solution-card">
+            <div class="solution-head">
+              <div class="solution-badge">1</div>
+              <div><h2 style="margin:0">Solution — Auto Increment</h2></div>
+            </div>
+
+            <h3>Step 1 — Create table with AUTOINCREMENT</h3>
+            <div class="code"><span class="k">CREATE TABLE</span> support_tickets (
+  id            <span class="t">INTEGER</span> <span class="k">PRIMARY KEY AUTOINCREMENT</span>,
+  customer_name <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  priority      <span class="t">TEXT</span>,
+  issue_score   <span class="t">INTEGER</span>
+);</div>
+
+            <h3>Step 2 — Insert 3 rows without specifying id</h3>
+            <div class="code"><span class="k">INSERT INTO</span> support_tickets (customer_name, priority, issue_score)
+<span class="k">VALUES</span>
+  (<span class="s">'Dana'</span>, <span class="s">'high'</span>,   <span class="n">95</span>),
+  (<span class="s">'Omar'</span>, <span class="s">'medium'</span>, <span class="n">74</span>),
+  (<span class="s">'Noa'</span>,  <span class="s">'high'</span>,   <span class="n">88</span>);</div>
+
+            <div class="big-result">After insert:</div>
+            <table>
+              <thead><tr><th>id</th><th>customer_name</th><th>priority</th><th>issue_score</th></tr></thead>
+              <tbody>
+                <tr><td>1</td><td>Dana</td><td>high</td><td>95</td></tr>
+                <tr><td>2</td><td>Omar</td><td>medium</td><td>74</td></tr>
+                <tr><td>3</td><td>Noa</td><td>high</td><td>88</td></tr>
+              </tbody>
+            </table>
+
+            <h3>Step 3 — Find medium priority tickets</h3>
+            <div class="code"><span class="k">SELECT</span> * <span class="k">FROM</span> support_tickets
+<span class="k">WHERE</span> priority = <span class="s">'medium'</span>;</div>
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>id</th><th>customer_name</th><th>priority</th><th>issue_score</th></tr></thead>
+              <tbody>
+                <tr><td>2</td><td>Omar</td><td>medium</td><td>74</td></tr>
+              </tbody>
+            </table>
+
+            <h3>Step 4 — Delete last row, insert new, verify no ID reuse</h3>
+            <div class="code"><span class="c">-- delete id = 3 (Noa)</span>
+<span class="k">DELETE FROM</span> support_tickets <span class="k">WHERE</span> id = <span class="n">3</span>;
+
+<span class="c">-- insert a new row</span>
+<span class="k">INSERT INTO</span> support_tickets (customer_name, priority, issue_score)
+<span class="k">VALUES</span> (<span class="s">'Liam'</span>, <span class="s">'low'</span>, <span class="n">60</span>);
+
+<span class="k">SELECT</span> id, customer_name <span class="k">FROM</span> support_tickets;</div>
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>id</th><th>customer_name</th></tr></thead>
+              <tbody>
+                <tr><td>1</td><td>Dana</td></tr>
+                <tr><td>2</td><td>Omar</td></tr>
+                <tr><td>4</td><td>Liam</td></tr>
+              </tbody>
+            </table>
+            <p class="note">id 3 was NOT reused — AUTOINCREMENT always moves forward. With plain INTEGER PRIMARY KEY, id 3 might have been reused.</p>
+          </div>
+        </section>
+
+        <!-- ══════════ SOLUTION 2 — FOREIGN KEY ══════════ -->
+        <section class="topic-panel" id="t-sol-2">
+
+          <div class="exercise-card">
+            <div class="exercise-head">
+              <div class="exercise-q">?</div>
+              <div>
+                <h2>Exercise</h2>
+                <p class="exercise-sub">Build two related tables and query them</p>
+              </div>
+            </div>
+            <ol class="exercise-steps">
+              <li>Create tables <strong>projects</strong> and <strong>tasks</strong> with a FOREIGN KEY from tasks.project_id to projects.id</li>
+              <li>Insert all rows from both sample tables</li>
+              <li>Find all tasks in project_id = 2</li>
+              <li>Challenge 🧩: Find all tasks that belong to project_name = 'Website Redesign' using a JOIN</li>
+            </ol>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px;">
+              <div class="exercise-table-wrap">
+                <div class="exercise-table-title">projects rows</div>
+                <table class="exercise-table">
+                  <thead><tr><th>id</th><th>project_name</th></tr></thead>
+                  <tbody>
+                    <tr><td>1</td><td>Mobile App</td></tr>
+                    <tr><td>2</td><td>Website Redesign</td></tr>
+                    <tr><td>3</td><td>Data Migration</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="exercise-table-wrap">
+                <div class="exercise-table-title">tasks rows</div>
+                <table class="exercise-table">
+                  <thead><tr><th>id</th><th>task_name</th><th>project_id</th></tr></thead>
+                  <tbody>
+                    <tr><td>1</td><td>Design Login Screen</td><td>1</td></tr>
+                    <tr><td>2</td><td>Build Landing Page</td><td>2</td></tr>
+                    <tr><td>3</td><td>Clean Old Records</td><td>3</td></tr>
+                    <tr><td>4</td><td>Optimize Homepage Images</td><td>2</td></tr>
+                    <tr><td>5</td><td>Validate Data Checksums</td><td>3</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="qa-divider">Solution</div>
+
+          <div class="solution-card">
+            <div class="solution-head">
+              <div class="solution-badge">2</div>
+              <div><h2 style="margin:0">Solution — Foreign Key</h2></div>
+            </div>
+
+            <h3>Step 1 — Create both tables</h3>
+            <div class="code"><span class="k">PRAGMA</span> foreign_keys = <span class="k">ON</span>;
+<span class="c">-- must be ON in SQLite for FK rules to be enforced</span>
+
+<span class="k">CREATE TABLE</span> projects (
+  id           <span class="t">INTEGER</span> <span class="k">PRIMARY KEY</span>,
+  project_name <span class="t">TEXT</span>    <span class="k">NOT NULL</span>
+);
+
+<span class="k">CREATE TABLE</span> tasks (
+  id         <span class="t">INTEGER</span> <span class="k">PRIMARY KEY</span>,
+  task_name  <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  project_id <span class="t">INTEGER</span> <span class="k">NOT NULL</span>,
+  <span class="k">FOREIGN KEY</span> (project_id) <span class="k">REFERENCES</span> projects(id)
+);</div>
+
+            <h3>Step 2 — Insert rows (parent table first)</h3>
+            <div class="code"><span class="c">-- insert into parent first!</span>
+<span class="k">INSERT INTO</span> projects (id, project_name) <span class="k">VALUES</span>
+  (<span class="n">1</span>, <span class="s">'Mobile App'</span>),
+  (<span class="n">2</span>, <span class="s">'Website Redesign'</span>),
+  (<span class="n">3</span>, <span class="s">'Data Migration'</span>);
+
+<span class="c">-- then insert into child table</span>
+<span class="k">INSERT INTO</span> tasks (id, task_name, project_id) <span class="k">VALUES</span>
+  (<span class="n">1</span>, <span class="s">'Design Login Screen'</span>,      <span class="n">1</span>),
+  (<span class="n">2</span>, <span class="s">'Build Landing Page'</span>,        <span class="n">2</span>),
+  (<span class="n">3</span>, <span class="s">'Clean Old Records'</span>,         <span class="n">3</span>),
+  (<span class="n">4</span>, <span class="s">'Optimize Homepage Images'</span>,  <span class="n">2</span>),
+  (<span class="n">5</span>, <span class="s">'Validate Data Checksums'</span>,   <span class="n">3</span>);</div>
+
+            <h3>Step 3 — Find all tasks in project_id = 2</h3>
+            <div class="code"><span class="k">SELECT</span> * <span class="k">FROM</span> tasks
+<span class="k">WHERE</span> project_id = <span class="n">2</span>;</div>
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>id</th><th>task_name</th><th>project_id</th></tr></thead>
+              <tbody>
+                <tr><td>2</td><td>Build Landing Page</td><td>2</td></tr>
+                <tr><td>4</td><td>Optimize Homepage Images</td><td>2</td></tr>
+              </tbody>
+            </table>
+
+            <h3>Step 4 (Challenge) — JOIN to find by project name</h3>
+            <div class="code"><span class="k">SELECT</span> tasks.task_name
+<span class="k">FROM</span> tasks
+<span class="k">JOIN</span> projects <span class="k">ON</span> tasks.project_id = projects.id
+<span class="k">WHERE</span> projects.project_name = <span class="s">'Website Redesign'</span>;</div>
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>task_name</th></tr></thead>
+              <tbody>
+                <tr><td>Build Landing Page</td></tr>
+                <tr><td>Optimize Homepage Images</td></tr>
+              </tbody>
+            </table>
+            <p class="note">JOIN connects the two tables on the matching column. The FK ensures that every project_id in tasks points to a real row in projects.</p>
+          </div>
+        </section>
+
+        <!-- ══════════ SOLUTION 3 — WHERE + LOGIC ══════════ -->
+        <section class="topic-panel" id="t-sol-3">
+
+          <div class="exercise-card">
+            <div class="exercise-head">
+              <div class="exercise-q">?</div>
+              <div>
+                <h2>Exercise</h2>
+                <p class="exercise-sub">Practice complex WHERE filters</p>
+              </div>
+            </div>
+            <ol class="exercise-steps">
+              <li>Find movies released after 2010 with rating &gt;= 7.0</li>
+              <li>Find movies that are Action or Horror but shorter than 110 minutes</li>
+              <li>Find all non-Drama movies with rating above 7.3</li>
+              <li>Write a query for: rating higher than 7 AND lower than 8.9, OR year after 2015</li>
+            </ol>
+            <div class="exercise-table-wrap" style="margin-top:10px;">
+              <div class="exercise-table-title">movies table used in class</div>
+              <table class="exercise-table">
+                <thead><tr><th>id</th><th>title</th><th>genre</th><th>year</th><th>rating</th><th>minutes</th></tr></thead>
+                <tbody>
+                  <tr><td>1</td><td>Metro Rush</td><td>Action</td><td>2005</td><td>7.9</td><td>118</td></tr>
+                  <tr><td>2</td><td>Quiet Lake</td><td>Drama</td><td>2012</td><td>8.1</td><td>124</td></tr>
+                  <tr><td>3</td><td>Night Pulse</td><td>Horror</td><td>2018</td><td>6.8</td><td>95</td></tr>
+                  <tr><td>4</td><td>Skyline Code</td><td>Action</td><td>2021</td><td>7.4</td><td>109</td></tr>
+                  <tr><td>5</td><td>Tiny Planet</td><td>Family</td><td>2010</td><td>7.1</td><td>86</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="qa-divider">Solution</div>
+
+          <div class="solution-card">
+            <div class="solution-head">
+              <div class="solution-badge">3</div>
+              <div><h2 style="margin:0">Solution — WHERE + Logic</h2></div>
+            </div>
+
+            <h3>Setup — create and populate the movies table</h3>
+            <div class="code"><span class="k">CREATE TABLE</span> movies (
+  id      <span class="t">INTEGER</span> <span class="k">PRIMARY KEY</span>,
+  title   <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  genre   <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  year    <span class="t">INTEGER</span> <span class="k">NOT NULL</span>,
+  rating  <span class="t">REAL</span>,
+  minutes <span class="t">INTEGER</span>
+);
+
+<span class="k">INSERT INTO</span> movies (id, title, genre, year, rating, minutes) <span class="k">VALUES</span>
+  (<span class="n">1</span>, <span class="s">'Metro Rush'</span>,   <span class="s">'Action'</span>, <span class="n">2005</span>, <span class="n">7.9</span>, <span class="n">118</span>),
+  (<span class="n">2</span>, <span class="s">'Quiet Lake'</span>,   <span class="s">'Drama'</span>,  <span class="n">2012</span>, <span class="n">8.1</span>, <span class="n">124</span>),
+  (<span class="n">3</span>, <span class="s">'Night Pulse'</span>,  <span class="s">'Horror'</span>, <span class="n">2018</span>, <span class="n">6.8</span>, <span class="n">95</span>),
+  (<span class="n">4</span>, <span class="s">'Skyline Code'</span>, <span class="s">'Action'</span>, <span class="n">2021</span>, <span class="n">7.4</span>, <span class="n">109</span>),
+  (<span class="n">5</span>, <span class="s">'Tiny Planet'</span>,  <span class="s">'Family'</span>, <span class="n">2010</span>, <span class="n">7.1</span>, <span class="n">86</span>);</div>
+
+            <h3>Query 1 — After 2010 and rating &gt;= 7.0</h3>
+            <div class="code"><span class="k">SELECT</span> title, year, rating <span class="k">FROM</span> movies
+<span class="k">WHERE</span> year &gt; <span class="n">2010</span> <span class="k">AND</span> rating &gt;= <span class="n">7.0</span>;</div>
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>title</th><th>year</th><th>rating</th></tr></thead>
+              <tbody>
+                <tr><td>Quiet Lake</td><td>2012</td><td>8.1</td></tr>
+                <tr><td>Skyline Code</td><td>2021</td><td>7.4</td></tr>
+              </tbody>
+            </table>
+            <p class="note">Night Pulse (2018) is excluded because its rating 6.8 is below 7.0. Tiny Planet is excluded because year 2010 is NOT greater than 2010.</p>
+
+            <h3>Query 2 — Action or Horror, shorter than 110 minutes</h3>
+            <div class="code"><span class="k">SELECT</span> title, genre, minutes <span class="k">FROM</span> movies
+<span class="k">WHERE</span> (genre = <span class="s">'Action'</span> <span class="k">OR</span> genre = <span class="s">'Horror'</span>) <span class="k">AND</span> minutes &lt; <span class="n">110</span>;</div>
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>title</th><th>genre</th><th>minutes</th></tr></thead>
+              <tbody>
+                <tr><td>Night Pulse</td><td>Horror</td><td>95</td></tr>
+                <tr><td>Skyline Code</td><td>Action</td><td>109</td></tr>
+              </tbody>
+            </table>
+            <p class="note">Metro Rush (Action, 118 min) is excluded because 118 is not less than 110. Parentheses are important — without them AND would bind tighter than OR and the result would be wrong.</p>
+
+            <h3>Query 3 — Non-Drama with rating above 7.3</h3>
+            <div class="code"><span class="k">SELECT</span> title, genre, rating <span class="k">FROM</span> movies
+<span class="k">WHERE</span> <span class="k">NOT</span> genre = <span class="s">'Drama'</span> <span class="k">AND</span> rating &gt; <span class="n">7.3</span>;</div>
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>title</th><th>genre</th><th>rating</th></tr></thead>
+              <tbody>
+                <tr><td>Metro Rush</td><td>Action</td><td>7.9</td></tr>
+                <tr><td>Skyline Code</td><td>Action</td><td>7.4</td></tr>
+              </tbody>
+            </table>
+
+            <h3>Query 4 — Rating 7–8.9 OR year after 2015</h3>
+            <div class="code"><span class="k">SELECT</span> title, year, rating <span class="k">FROM</span> movies
+<span class="k">WHERE</span> (rating &gt; <span class="n">7</span> <span class="k">AND</span> rating &lt; <span class="n">8.9</span>) <span class="k">OR</span> year &gt; <span class="n">2015</span>;</div>
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>title</th><th>year</th><th>rating</th></tr></thead>
+              <tbody>
+                <tr><td>Metro Rush</td><td>2005</td><td>7.9</td></tr>
+                <tr><td>Quiet Lake</td><td>2012</td><td>8.1</td></tr>
+                <tr><td>Night Pulse</td><td>2018</td><td>6.8</td></tr>
+                <tr><td>Skyline Code</td><td>2021</td><td>7.4</td></tr>
+                <tr><td>Tiny Planet</td><td>2010</td><td>7.1</td></tr>
+              </tbody>
+            </table>
+            <p class="note">All 5 rows match. Night Pulse (6.8) fails the rating condition but passes year &gt; 2015 (2018). Quiet Lake (8.1) passes rating condition (8.1 &lt; 8.9).</p>
+          </div>
+        </section>
+
+        <!-- ══════════ SOLUTION 4 — LIKE / IN / NULL ══════════ -->
+        <section class="topic-panel" id="t-sol-4">
+
+          <div class="exercise-card">
+            <div class="exercise-head">
+              <div class="exercise-q">?</div>
+              <div>
+                <h2>Exercise</h2>
+                <p class="exercise-sub">Use every filter type at least once</p>
+              </div>
+            </div>
+            <ol class="exercise-steps">
+              <li>Find all products with name ending in "Pro" (LIKE)</li>
+              <li>Find products priced between 30 and 150 (BETWEEN)</li>
+              <li>Find products in categories Computers or Displays (IN)</li>
+              <li>Find products with known stock (IS NOT NULL)</li>
+              <li>Bonus: use GLOB to match names that start with "M" and have a space</li>
+            </ol>
+            <div class="exercise-table-wrap" style="margin-top:10px;">
+              <div class="exercise-table-title">products table used in class</div>
+              <table class="exercise-table">
+                <thead><tr><th>id</th><th>product_name</th><th>category</th><th>price</th><th>stock</th></tr></thead>
+                <tbody>
+                  <tr><td>1</td><td>Mouse Pro</td><td>Accessories</td><td>49.0</td><td>20</td></tr>
+                  <tr><td>2</td><td>Monitor 27</td><td>Displays</td><td>289.0</td><td>5</td></tr>
+                  <tr><td>3</td><td>Keyboard Lite</td><td>Accessories</td><td>39.0</td><td>NULL</td></tr>
+                  <tr><td>4</td><td>Dock Station</td><td>Accessories</td><td>129.0</td><td>8</td></tr>
+                  <tr><td>5</td><td>Mini PC</td><td>Computers</td><td>699.0</td><td>3</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="qa-divider">Solution</div>
+
+          <div class="solution-card">
+            <div class="solution-head">
+              <div class="solution-badge">4</div>
+              <div><h2 style="margin:0">Solution — LIKE / IN / NULL</h2></div>
+            </div>
+
+            <h3>Setup — create and populate the products table</h3>
+            <div class="code"><span class="k">CREATE TABLE</span> products (
+  id           <span class="t">INTEGER</span> <span class="k">PRIMARY KEY</span>,
+  product_name <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  category     <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  price        <span class="t">REAL</span>    <span class="k">NOT NULL</span>,
+  stock        <span class="t">INTEGER</span>
+);
+
+<span class="k">INSERT INTO</span> products <span class="k">VALUES</span>
+  (<span class="n">1</span>, <span class="s">'Mouse Pro'</span>,     <span class="s">'Accessories'</span>, <span class="n">49.0</span>,  <span class="n">20</span>),
+  (<span class="n">2</span>, <span class="s">'Monitor 27'</span>,    <span class="s">'Displays'</span>,    <span class="n">289.0</span>, <span class="n">5</span>),
+  (<span class="n">3</span>, <span class="s">'Keyboard Lite'</span>, <span class="s">'Accessories'</span>, <span class="n">39.0</span>,  <span class="k">NULL</span>),
+  (<span class="n">4</span>, <span class="s">'Dock Station'</span>,  <span class="s">'Accessories'</span>, <span class="n">129.0</span>, <span class="n">8</span>),
+  (<span class="n">5</span>, <span class="s">'Mini PC'</span>,       <span class="s">'Computers'</span>,   <span class="n">699.0</span>, <span class="n">3</span>);</div>
+
+            <h3>Query 1 — Names ending in "Pro" (LIKE)</h3>
+            <div class="code"><span class="k">SELECT</span> product_name <span class="k">FROM</span> products
+<span class="k">WHERE</span> product_name <span class="k">LIKE</span> <span class="s">'%Pro'</span>;</div>
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>product_name</th></tr></thead>
+              <tbody><tr><td>Mouse Pro</td></tr></tbody>
+            </table>
+
+            <h3>Query 2 — Price between 30 and 150 (BETWEEN)</h3>
+            <div class="code"><span class="k">SELECT</span> product_name, price <span class="k">FROM</span> products
+<span class="k">WHERE</span> price <span class="k">BETWEEN</span> <span class="n">30</span> <span class="k">AND</span> <span class="n">150</span>;</div>
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>product_name</th><th>price</th></tr></thead>
+              <tbody>
+                <tr><td>Mouse Pro</td><td>49.0</td></tr>
+                <tr><td>Keyboard Lite</td><td>39.0</td></tr>
+                <tr><td>Dock Station</td><td>129.0</td></tr>
+              </tbody>
+            </table>
+            <p class="note">BETWEEN is inclusive — both 30 and 150 would be included if they existed.</p>
+
+            <h3>Query 3 — Computers or Displays (IN)</h3>
+            <div class="code"><span class="k">SELECT</span> product_name, category <span class="k">FROM</span> products
+<span class="k">WHERE</span> category <span class="k">IN</span> (<span class="s">'Computers'</span>, <span class="s">'Displays'</span>);</div>
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>product_name</th><th>category</th></tr></thead>
+              <tbody>
+                <tr><td>Monitor 27</td><td>Displays</td></tr>
+                <tr><td>Mini PC</td><td>Computers</td></tr>
+              </tbody>
+            </table>
+
+            <h3>Query 4 — Known stock (IS NOT NULL)</h3>
+            <div class="code"><span class="k">SELECT</span> product_name, stock <span class="k">FROM</span> products
+<span class="k">WHERE</span> stock <span class="k">IS NOT NULL</span>;</div>
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>product_name</th><th>stock</th></tr></thead>
+              <tbody>
+                <tr><td>Mouse Pro</td><td>20</td></tr>
+                <tr><td>Monitor 27</td><td>5</td></tr>
+                <tr><td>Dock Station</td><td>8</td></tr>
+                <tr><td>Mini PC</td><td>3</td></tr>
+              </tbody>
+            </table>
+            <p class="note">Keyboard Lite is excluded — its stock is NULL (unknown). You cannot use stock != NULL; you must use IS NOT NULL.</p>
+
+            <h3>Bonus — GLOB: starts with "M" and has a space</h3>
+            <div class="code"><span class="k">SELECT</span> product_name <span class="k">FROM</span> products
+<span class="k">WHERE</span> product_name <span class="k">GLOB</span> <span class="s">'M* *'</span>;</div>
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>product_name</th></tr></thead>
+              <tbody>
+                <tr><td>Mouse Pro</td></tr>
+                <tr><td>Monitor 27</td></tr>
+                <tr><td>Mini PC</td></tr>
+              </tbody>
+            </table>
+            <p class="note">GLOB is case-sensitive (unlike LIKE). 'M* *' means: starts with capital M, then anything, then a space, then anything.</p>
+          </div>
+        </section>
+
+        <!-- ══════════ SOLUTION 5 — ORDER BY + LIMIT ══════════ -->
+        <section class="topic-panel" id="t-sol-5">
+
+          <div class="exercise-card">
+            <div class="exercise-head">
+              <div class="exercise-q">?</div>
+              <div>
+                <h2>Exercise</h2>
+                <p class="exercise-sub">Build sorted and paginated result sets</p>
+              </div>
+            </div>
+            <ol class="exercise-steps">
+              <li>Show top 2 highest-rated movies</li>
+              <li>Show all movies sorted by genre ascending, then rating descending</li>
+              <li>Show the first 4 movies by year ascending</li>
+              <li>Return page 2 where page size is 2 rows (using LIMIT and OFFSET)</li>
+            </ol>
+            <div class="exercise-table-wrap" style="margin-top:10px;">
+              <div class="exercise-table-title">movies table used in class (6 rows)</div>
+              <table class="exercise-table">
+                <thead><tr><th>id</th><th>title</th><th>genre</th><th>year</th><th>rating</th></tr></thead>
+                <tbody>
+                  <tr><td>1</td><td>Metro Rush</td><td>Action</td><td>2005</td><td>7.4</td></tr>
+                  <tr><td>2</td><td>Quiet Lake</td><td>Drama</td><td>2012</td><td>8.1</td></tr>
+                  <tr><td>3</td><td>Night Pulse</td><td>Horror</td><td>2018</td><td>6.8</td></tr>
+                  <tr><td>4</td><td>Skyline Code</td><td>Action</td><td>2021</td><td>7.4</td></tr>
+                  <tr><td>5</td><td>Tiny Planet</td><td>Family</td><td>2010</td><td>7.1</td></tr>
+                  <tr><td>6</td><td>Silver Track</td><td>Thriller</td><td>2016</td><td>7.4</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="qa-divider">Solution</div>
+
+          <div class="solution-card">
+            <div class="solution-head">
+              <div class="solution-badge">5</div>
+              <div><h2 style="margin:0">Solution — ORDER BY + LIMIT</h2></div>
+            </div>
+
+            <h3>Setup — create and populate the 6-row movies table</h3>
+            <div class="code"><span class="k">CREATE TABLE</span> movies (
+  id     <span class="t">INTEGER</span> <span class="k">PRIMARY KEY</span>,
+  title  <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  genre  <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  year   <span class="t">INTEGER</span> <span class="k">NOT NULL</span>,
+  rating <span class="t">REAL</span>
+);
+
+<span class="k">INSERT INTO</span> movies (id, title, genre, year, rating) <span class="k">VALUES</span>
+  (<span class="n">1</span>, <span class="s">'Metro Rush'</span>,   <span class="s">'Action'</span>,   <span class="n">2005</span>, <span class="n">7.4</span>),
+  (<span class="n">2</span>, <span class="s">'Quiet Lake'</span>,   <span class="s">'Drama'</span>,    <span class="n">2012</span>, <span class="n">8.1</span>),
+  (<span class="n">3</span>, <span class="s">'Night Pulse'</span>,  <span class="s">'Horror'</span>,   <span class="n">2018</span>, <span class="n">6.8</span>),
+  (<span class="n">4</span>, <span class="s">'Skyline Code'</span>, <span class="s">'Action'</span>,   <span class="n">2021</span>, <span class="n">7.4</span>),
+  (<span class="n">5</span>, <span class="s">'Tiny Planet'</span>,  <span class="s">'Family'</span>,   <span class="n">2010</span>, <span class="n">7.1</span>),
+  (<span class="n">6</span>, <span class="s">'Silver Track'</span>, <span class="s">'Thriller'</span>, <span class="n">2016</span>, <span class="n">7.4</span>);</div>
+
+            <h3>Query 1 — Top 2 highest-rated</h3>
+            <div class="code"><span class="k">SELECT</span> title, rating <span class="k">FROM</span> movies
+<span class="k">ORDER BY</span> rating <span class="k">DESC</span>
+<span class="k">LIMIT</span> <span class="n">2</span>;</div>
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>title</th><th>rating</th></tr></thead>
+              <tbody>
+                <tr><td>Quiet Lake</td><td>8.1</td></tr>
+                <tr><td>Metro Rush</td><td>7.4</td></tr>
+              </tbody>
+            </table>
+            <p class="note">Three movies share 7.4 — SQLite picks by insertion order when ratings are equal. To make it fully deterministic, add a tiebreaker: ORDER BY rating DESC, id ASC.</p>
+
+            <h3>Query 2 — Genre A→Z, then rating Z→A</h3>
+            <div class="code"><span class="k">SELECT</span> title, genre, rating <span class="k">FROM</span> movies
+<span class="k">ORDER BY</span> genre <span class="k">ASC</span>, rating <span class="k">DESC</span>;</div>
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>title</th><th>genre</th><th>rating</th></tr></thead>
+              <tbody>
+                <tr><td>Metro Rush</td><td>Action</td><td>7.4</td></tr>
+                <tr><td>Skyline Code</td><td>Action</td><td>7.4</td></tr>
+                <tr><td>Quiet Lake</td><td>Drama</td><td>8.1</td></tr>
+                <tr><td>Tiny Planet</td><td>Family</td><td>7.1</td></tr>
+                <tr><td>Night Pulse</td><td>Horror</td><td>6.8</td></tr>
+                <tr><td>Silver Track</td><td>Thriller</td><td>7.4</td></tr>
+              </tbody>
+            </table>
+
+            <h3>Query 3 — First 4 movies by year ascending</h3>
+            <div class="code"><span class="k">SELECT</span> title, year <span class="k">FROM</span> movies
+<span class="k">ORDER BY</span> year <span class="k">ASC</span>
+<span class="k">LIMIT</span> <span class="n">4</span>;</div>
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>title</th><th>year</th></tr></thead>
+              <tbody>
+                <tr><td>Metro Rush</td><td>2005</td></tr>
+                <tr><td>Tiny Planet</td><td>2010</td></tr>
+                <tr><td>Quiet Lake</td><td>2012</td></tr>
+                <tr><td>Silver Track</td><td>2016</td></tr>
+              </tbody>
+            </table>
+
+            <h3>Query 4 — Page 2 (page size = 2)</h3>
+            <div class="code"><span class="c">-- page 1 → LIMIT 2 OFFSET 0 (rows 1-2)</span>
+<span class="c">-- page 2 → LIMIT 2 OFFSET 2 (rows 3-4)</span>
+<span class="k">SELECT</span> id, title <span class="k">FROM</span> movies
+<span class="k">ORDER BY</span> id
+<span class="k">LIMIT</span> <span class="n">2</span> <span class="k">OFFSET</span> <span class="n">2</span>;</div>
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>id</th><th>title</th></tr></thead>
+              <tbody>
+                <tr><td>3</td><td>Night Pulse</td></tr>
+                <tr><td>4</td><td>Skyline Code</td></tr>
+              </tbody>
+            </table>
+            <p class="note">OFFSET 2 skips the first 2 rows. Always combine LIMIT/OFFSET with ORDER BY for stable pagination — without ORDER BY the rows may appear in a different order on each run.</p>
+          </div>
+        </section>
+
+        <!-- ══════════ HOMEWORK ══════════ -->
+        <section class="topic-panel" id="t-hw">
+
+          <div class="hw-card">
+            <p>Complete the exercises from these three pages:</p>
+            <ul style="padding-left:18px;margin-top:10px;">
+              <li style="margin-bottom:10px;"><a href="../../03_master/04-column-aliases.html#exercise" style="color:var(--teal-2);font-weight:700;">Topic 4 — Column Aliases with AS →</a></li>
+              <li style="margin-bottom:10px;"><a href="../../03_master/05-distinct.html#exercise" style="color:var(--teal-2);font-weight:700;">Topic 5 — DISTINCT →</a></li>
+              <li style="margin-bottom:10px;"><a href="../../03_master/06-netflix-practice.html#exercise" style="color:var(--teal-2);font-weight:700;">Topic 6 — Netflix Practice Lab →</a></li>
+            </ul>
+            <div class="note" style="margin-top:12px;">
+              <strong>Submit:</strong> your SQL script as a .sql text file &nbsp;|&nbsp;
+              <strong>Email:</strong> pythonai211225+sql3@gmail.com
+            </div>
+          </div>
+
+        </section>
+
+      </main>
+    </div>
+
+  </div><!-- /wrap -->
+
+  <script>
+    const links  = document.querySelectorAll('.topic-link');
+    const panels = document.querySelectorAll('.topic-panel');
+
+    function showTopic(id) {
+      panels.forEach(p => p.classList.toggle('active', p.id === id));
+      links.forEach(l  => l.classList.toggle('active', l.dataset.target === id));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    links.forEach(link => {
+      link.addEventListener('click', () => {
+        const targetId = link.dataset.target;
+        showTopic(targetId);
+        location.hash = targetId;
+      });
+    });
+
+    function applyHashTopic() {
+      const hash = location.hash.replace('#', '');
+      if (!hash) return;
+      if (document.getElementById(hash)) showTopic(hash);
+    }
+
+    applyHashTopic();
+    window.addEventListener('hashchange', applyHashTopic);
+  </script>
+</body>
+</html>
