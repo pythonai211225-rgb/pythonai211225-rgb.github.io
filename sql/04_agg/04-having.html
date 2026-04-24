@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Topic 4 - HAVING</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='white'/><text x='32' y='45' text-anchor='middle' font-family='Arial, sans-serif' font-size='42' font-weight='700' fill='%232dd4bf'>db</text></svg>">
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+  <nav class="top-nav">
+    <div class="wrap">
+      <a class="nav-home" href="../index.html">Home</a>
+      <div class="brand">Lesson 4</div>
+      <a class="nav-link" href="01-count.html">1. COUNT</a>
+      <a class="nav-link" href="02-sum-avg-min-max.html">2. SUM / AVG / MIN / MAX</a>
+      <a class="nav-link" href="03-group-by.html">3. GROUP BY</a>
+      <a class="nav-link" href="04-having.html">4. HAVING</a>
+      <a class="nav-link" href="05-alter-table.html">5. ALTER TABLE</a>
+      <a class="nav-link" href="06-advanced-agg.html">6. Advanced &amp; Mistakes</a>
+    </div>
+  </nav>
+
+  <main class="container">
+    <section class="hero reveal">
+      <span class="tag">Topic 4</span>
+      <h1>HAVING — Filter After Grouping</h1>
+      <p class="lead">HAVING filters groups the same way WHERE filters rows — but it runs after GROUP BY, so you can use aggregate results in the condition.</p>
+    </section>
+
+    <section class="section card reveal">
+      <h2>HAVING basic example</h2>
+      <p>Keep only reps with more than 2 sales.</p>
+      <div class="code">
+        <div class="label">Query 1</div>
+        <pre><span class="k">SELECT</span>
+  rep_name,
+  <span class="k">COUNT</span>(*) <span class="k">AS</span> num_sales
+<span class="k">FROM</span> sales
+<span class="k">GROUP BY</span> rep_name
+<span class="k">HAVING</span> <span class="k">COUNT</span>(*) &gt; 2;</pre>
+      </div>
+      <table class="table" style="margin-top:10px;">
+        <thead><tr><th>rep_name</th><th>num_sales</th></tr></thead>
+        <tbody>
+          <tr><td>Dana</td><td>3</td></tr>
+          <tr><td>Omar</td><td>3</td></tr>
+        </tbody>
+      </table>
+      <p class="note" style="margin-top:10px;">Liam (2 sales) and Noa (2 sales) are filtered out because their count is not greater than 2.</p>
+    </section>
+
+    <section class="section card reveal">
+      <h2>HAVING with SUM</h2>
+      <p>Keep only reps whose total revenue exceeds 1800.</p>
+      <div class="code">
+        <div class="label">Query 2</div>
+        <pre><span class="k">SELECT</span>
+  rep_name,
+  <span class="k">SUM</span>(amount) <span class="k">AS</span> total_sales
+<span class="k">FROM</span> sales
+<span class="k">GROUP BY</span> rep_name
+<span class="k">HAVING</span> <span class="k">SUM</span>(amount) &gt; 1800
+<span class="k">ORDER BY</span> total_sales <span class="k">DESC</span>;</pre>
+      </div>
+      <table class="table" style="margin-top:10px;">
+        <thead><tr><th>rep_name</th><th>total_sales</th></tr></thead>
+        <tbody>
+          <tr><td>Noa</td><td>2040.00</td></tr>
+          <tr><td>Dana</td><td>1920.00</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section card reveal">
+      <h2>WHERE vs HAVING — side by side</h2>
+      <div class="two-col">
+        <div class="card good">
+          <h4>WHERE — filter rows before grouping</h4>
+          <p>Use WHERE when the condition is about individual row values.</p>
+          <div class="code" style="margin-top:8px;">
+            <div class="label">Example</div>
+            <pre><span class="c">-- only Laptop rows, then group</span>
+<span class="k">SELECT</span> rep_name, <span class="k">SUM</span>(amount)
+<span class="k">FROM</span> sales
+<span class="k">WHERE</span> product = <span class="c">'Laptop'</span>
+<span class="k">GROUP BY</span> rep_name;</pre>
+          </div>
+        </div>
+        <div class="card good">
+          <h4>HAVING — filter groups after grouping</h4>
+          <p>Use HAVING when the condition involves an aggregate result.</p>
+          <div class="code" style="margin-top:8px;">
+            <div class="label">Example</div>
+            <pre><span class="c">-- group first, then keep big groups</span>
+<span class="k">SELECT</span> rep_name, <span class="k">SUM</span>(amount)
+<span class="k">FROM</span> sales
+<span class="k">GROUP BY</span> rep_name
+<span class="k">HAVING</span> <span class="k">SUM</span>(amount) &gt; 1500;</pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section card reveal">
+      <h2>Using both WHERE and HAVING</h2>
+      <p>Filter rows first with WHERE, then filter groups with HAVING.</p>
+      <div class="code">
+        <div class="label">Query 3</div>
+        <pre><span class="c">-- Only Laptop and Phone rows, then keep reps with total > 1500</span>
+<span class="k">SELECT</span>
+  rep_name,
+  <span class="k">SUM</span>(amount) <span class="k">AS</span> total
+<span class="k">FROM</span> sales
+<span class="k">WHERE</span> product <span class="k">IN</span> (<span class="c">'Laptop'</span>, <span class="c">'Phone'</span>)
+<span class="k">GROUP BY</span> rep_name
+<span class="k">HAVING</span> <span class="k">SUM</span>(amount) &gt; 1500
+<span class="k">ORDER BY</span> total <span class="k">DESC</span>;</pre>
+      </div>
+      <table class="table" style="margin-top:10px;">
+        <thead><tr><th>rep_name</th><th>total</th></tr></thead>
+        <tbody>
+          <tr><td>Noa</td><td>2040.00</td></tr>
+          <tr><td>Dana</td><td>1920.00</td></tr>
+          <tr><td>Omar</td><td>1750.00</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section card reveal">
+      <h2>Quick rule</h2>
+      <table class="table">
+        <thead><tr><th>Clause</th><th>Runs when</th><th>Can reference aggregate?</th></tr></thead>
+        <tbody>
+          <tr><td>WHERE</td><td>Before GROUP BY — filters individual rows</td><td>No</td></tr>
+          <tr><td>HAVING</td><td>After GROUP BY — filters groups</td><td>Yes</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section card reveal exercise-card" id="exercise">
+      <div class="exercise-head">
+        <div class="exercise-q">?</div>
+        <div>
+          <h2>Exercise</h2>
+          <p class="exercise-sub">Filter groups with HAVING</p>
+        </div>
+      </div>
+      <ol class="exercise-steps">
+        <li>Find regions where total revenue is above 1500</li>
+        <li>Find products sold 3 or more times (use HAVING COUNT(*) &gt;= 3)</li>
+        <li>Find reps whose average sale is above 900 (only count non-NULL amounts)</li>
+        <li>Combine: among Laptop and Phone rows only, find reps with more than 1 sale</li>
+        <li>Explain in a comment why you can't write WHERE SUM(amount) &gt; 1000</li>
+      </ol>
+    </section>
+
+    <div class="lesson-nav reveal">
+      <a class="btn" href="03-group-by.html">Back: GROUP BY</a>
+      <a class="btn primary" href="05-alter-table.html">Next: ALTER TABLE</a>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

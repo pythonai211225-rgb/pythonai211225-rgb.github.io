@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Topic 3 — GROUP BY</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%23080e1c'/><text x='32' y='45' text-anchor='middle' font-family='Arial, sans-serif' font-size='42' font-weight='700' fill='%232dd4bf'>db</text></svg>">
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    /* ── GROUP-BY aggregation diagram ── */
+    .gd-outer {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin-top: 20px;
+    }
+
+    .gd-group {
+      display: grid;
+      grid-template-columns: 1fr 54px 220px;
+      align-items: stretch;
+    }
+
+    /* left: stacked rows */
+    .gd-rows-col {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 2px 0;
+    }
+
+    .gd-row-item {
+      display: grid;
+      grid-template-columns: 20px 48px 56px 1fr;
+      gap: 8px;
+      align-items: center;
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-family: 'JetBrains Mono', monospace;
+      border-left: 3px solid var(--ri-clr);
+      background: var(--ri-bg);
+      border-top: 1px solid var(--ri-border);
+      border-right: 1px solid var(--ri-border);
+      border-bottom: 1px solid var(--ri-border);
+    }
+
+    .ri-id      { color: var(--dim); text-align: right; }
+    .ri-rep     { font-weight: 700; color: var(--ri-clr); }
+    .ri-product { color: var(--muted); }
+    .ri-amount  { text-align: right; }
+
+    /* middle: bracket + arrow */
+    .gd-mid {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .gd-brace {
+      position: absolute;
+      top: 4px; bottom: 4px; left: 0;
+      width: 14px;
+      border: 2px solid var(--ri-clr);
+      border-left: none;
+      border-radius: 0 8px 8px 0;
+      /* secondary animation: fade in after parent reveals */
+      opacity: 0;
+      transition: opacity 0.4s 0.25s ease;
+    }
+    .reveal-scale.show .gd-brace { opacity: 0.5; }
+
+    .gd-arrow-wrap {
+      margin-left: 16px;
+      display: flex;
+      align-items: center;
+      gap: 0;
+    }
+
+    .gd-arrow-shaft {
+      height: 2px;
+      width: 22px;
+      background: var(--ri-clr);
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform 0.55s 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .reveal-scale.show .gd-arrow-shaft { transform: scaleX(1); }
+
+    .gd-arrow-tip {
+      font-size: 1rem;
+      line-height: 1;
+      color: var(--ri-clr);
+      opacity: 0;
+      transition: opacity 0.3s 0.85s ease;
+    }
+    .reveal-scale.show .gd-arrow-tip { opacity: 1; }
+
+    /* right: result card */
+    .gd-result-col {
+      display: flex;
+      align-items: center;
+      padding-left: 4px;
+    }
+
+    .gd-result-card {
+      width: 100%;
+      border-radius: 13px;
+      padding: 12px 14px;
+      border: 1px solid var(--ri-border);
+      background: var(--ri-bg);
+      /* secondary animation: slide in from right */
+      opacity: 0;
+      transform: translateX(12px);
+      transition: opacity 0.5s 0.55s ease, transform 0.5s 0.55s ease;
+    }
+    .reveal-scale.show .gd-result-card { opacity: 1; transform: translateX(0); }
+
+    .gd-result-card .rc-name {
+      font-weight: 800;
+      font-size: 0.95rem;
+      color: var(--ri-clr);
+      margin-bottom: 8px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--ri-border);
+    }
+
+    .gd-result-card .rc-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.8rem;
+      padding: 4px 0;
+    }
+
+    .gd-result-card .rc-key { color: var(--muted); }
+    .gd-result-card .rc-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    /* step indicator */
+    .gd-step-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 16px 0 20px;
+      flex-wrap: wrap;
+    }
+
+    .gd-step-pill {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+
+    .gd-step-num {
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-size: 0.72rem;
+      font-weight: 800;
+    }
+
+    .gd-sep { color: var(--dim); font-size: 1.3rem; }
+
+    /* column header row */
+    .gd-col-header {
+      display: grid;
+      grid-template-columns: 20px 48px 56px 1fr;
+      gap: 8px;
+      padding: 0 10px 6px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--dim);
+    }
+
+    @media (max-width: 680px) {
+      .gd-group { grid-template-columns: 1fr 48px 160px; }
+      .gd-row-item { grid-template-columns: 18px 40px 50px 1fr; font-size: 0.72rem; }
+      .gd-result-card { padding: 10px 10px; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="top-nav">
+    <div class="wrap">
+      <a class="nav-home" href="../index.html">Home</a>
+      <div class="brand">Lesson 4</div>
+      <a class="nav-link" href="01-count.html">1. COUNT</a>
+      <a class="nav-link" href="02-sum-avg-min-max.html">2. SUM / AVG / MIN / MAX</a>
+      <a class="nav-link" href="03-group-by.html">3. GROUP BY</a>
+      <a class="nav-link" href="04-having.html">4. HAVING</a>
+      <a class="nav-link" href="05-alter-table.html">5. ALTER TABLE</a>
+      <a class="nav-link" href="06-advanced-agg.html">6. Advanced &amp; Mistakes</a>
+    </div>
+  </nav>
+
+  <main class="container">
+    <section class="hero reveal">
+      <span class="tag">Topic 3</span>
+      <h1>GROUP BY — Single and Multi-column</h1>
+      <p class="lead">GROUP BY splits rows into buckets and runs an aggregate inside each bucket. ORDER BY can sort by the aggregate result.</p>
+    </section>
+
+    <!-- practice table -->
+    <section class="section card reveal">
+      <h2>Practice table — <span style="color:var(--teal)">sales</span></h2>
+      <p style="color:var(--muted);">10 rows across 4 reps, 4 regions, 3 products. Rows 3 and 10 have <span class="null-val">NULL</span> in amount.</p>
+      <table class="table" style="margin-top:14px;">
+        <thead><tr><th>id</th><th>rep_name</th><th>region</th><th>product</th><th>amount</th><th>sale_date</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>Dana</td><td>North</td><td>Laptop</td><td>1200.00</td><td>2026-01-10</td></tr>
+          <tr><td>2</td><td>Omar</td><td>South</td><td>Phone</td><td>650.00</td><td>2026-01-12</td></tr>
+          <tr><td>3</td><td>Dana</td><td>North</td><td>Tablet</td><td class="null-val">NULL</td><td>2026-01-15</td></tr>
+          <tr><td>4</td><td>Noa</td><td>East</td><td>Laptop</td><td>1350.00</td><td>2026-01-18</td></tr>
+          <tr><td>5</td><td>Omar</td><td>South</td><td>Laptop</td><td>1100.00</td><td>2026-01-20</td></tr>
+          <tr><td>6</td><td>Dana</td><td>North</td><td>Phone</td><td>720.00</td><td>2026-01-22</td></tr>
+          <tr><td>7</td><td>Noa</td><td>East</td><td>Phone</td><td>690.00</td><td>2026-01-25</td></tr>
+          <tr><td>8</td><td>Liam</td><td>West</td><td>Tablet</td><td>480.00</td><td>2026-01-28</td></tr>
+          <tr><td>9</td><td>Liam</td><td>West</td><td>Laptop</td><td>1050.00</td><td>2026-02-01</td></tr>
+          <tr><td>10</td><td>Omar</td><td>South</td><td>Tablet</td><td class="null-val">NULL</td><td>2026-02-03</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- GROUP BY rep_name -->
+    <section class="section card reveal">
+      <h2>GROUP BY single column — by rep</h2>
+      <p style="color:var(--muted);">One row per rep_name — each showing their total sales.</p>
+      <div class="code">
+        <div class="label">Query 1</div>
+        <pre><span class="k">SELECT</span>
+  rep_name,
+  <span class="k">COUNT</span>(*) <span class="k">AS</span> num_sales,
+  <span class="k">SUM</span>(amount) <span class="k">AS</span> total_sales
+<span class="k">FROM</span> sales
+<span class="k">GROUP BY</span> rep_name;</pre>
+      </div>
+      <table class="table" style="margin-top:14px;">
+        <thead><tr><th>rep_name</th><th>num_sales</th><th>total_sales</th></tr></thead>
+        <tbody>
+          <tr><td>Dana</td><td>3</td><td>1920.00</td></tr>
+          <tr><td>Liam</td><td>2</td><td>1530.00</td></tr>
+          <tr><td>Noa</td><td>2</td><td>2040.00</td></tr>
+          <tr><td>Omar</td><td>3</td><td>1750.00</td></tr>
+        </tbody>
+      </table>
+      <div class="bar-chart" style="margin-top:18px;">
+        <div class="bar-chart-title">Total revenue per rep</div>
+        <div class="bar-row">
+          <span class="bar-label">Noa</span>
+          <div class="bar-track"><div class="bar-fill bar-teal" data-pct="100"></div></div>
+          <span class="bar-val">2040</span>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">Dana</span>
+          <div class="bar-track"><div class="bar-fill bar-violet" data-pct="94"></div></div>
+          <span class="bar-val">1920</span>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">Omar</span>
+          <div class="bar-track"><div class="bar-fill bar-amber" data-pct="86"></div></div>
+          <span class="bar-val">1750</span>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">Liam</span>
+          <div class="bar-track"><div class="bar-fill bar-coral" data-pct="75"></div></div>
+          <span class="bar-val">1530</span>
+        </div>
+      </div>
+      <p class="note">Dana has 3 sales but one is NULL — SUM(amount) for Dana = 1200 + 720 = 1920. The NULL row is skipped by SUM.</p>
+    </section>
+
+    <!-- aggregation diagram -->
+    <section class="section card reveal">
+      <h2>What GROUP BY actually does — visualized</h2>
+      <p style="color:var(--muted);">SQL sorts all rows by the GROUP BY column, then collapses each rep's rows into a single aggregate result.</p>
+
+      <!-- step indicator -->
+      <div class="gd-step-bar">
+        <div class="gd-step-pill" style="background:rgba(45,212,191,0.1);border:1px solid rgba(45,212,191,0.25);">
+          <div class="gd-step-num" style="background:var(--teal);color:#07101f;">1</div>
+          <span style="color:var(--teal);">Sort by rep_name</span>
+        </div>
+        <div class="gd-sep">→</div>
+        <div class="gd-step-pill" style="background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.25);">
+          <div class="gd-step-num" style="background:var(--amber);color:#07101f;">2</div>
+          <span style="color:var(--amber);">Collapse each group</span>
+        </div>
+        <div class="gd-sep">→</div>
+        <div class="gd-step-pill" style="background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.25);">
+          <div class="gd-step-num" style="background:var(--violet);color:#07101f;">3</div>
+          <span style="color:var(--violet);">Run aggregate function</span>
+        </div>
+      </div>
+
+      <!-- column header -->
+      <div class="gd-col-header">
+        <span>id</span><span>rep</span><span>product</span><span style="text-align:right">amount</span>
+      </div>
+
+      <div class="gd-outer">
+
+        <!-- ── Dana (teal) ── -->
+        <div class="gd-group reveal-scale d1"
+             style="--ri-clr:#2dd4bf; --ri-bg:rgba(45,212,191,0.07); --ri-border:rgba(45,212,191,0.2);">
+          <div class="gd-rows-col">
+            <div class="gd-row-item">
+              <span class="ri-id">1</span>
+              <span class="ri-rep">Dana</span>
+              <span class="ri-product">Laptop</span>
+              <span class="ri-amount">1200.00</span>
+            </div>
+            <div class="gd-row-item">
+              <span class="ri-id">3</span>
+              <span class="ri-rep">Dana</span>
+              <span class="ri-product">Tablet</span>
+              <span class="ri-amount null-val">NULL</span>
+            </div>
+            <div class="gd-row-item">
+              <span class="ri-id">6</span>
+              <span class="ri-rep">Dana</span>
+              <span class="ri-product">Phone</span>
+              <span class="ri-amount">720.00</span>
+            </div>
+          </div>
+          <div class="gd-mid">
+            <div class="gd-brace"></div>
+            <div class="gd-arrow-wrap">
+              <div class="gd-arrow-shaft"></div>
+              <span class="gd-arrow-tip">▶</span>
+            </div>
+          </div>
+          <div class="gd-result-col">
+            <div class="gd-result-card">
+              <div class="rc-name">Dana</div>
+              <div class="rc-row"><span class="rc-key">COUNT(*)</span><span class="rc-val">3</span></div>
+              <div class="rc-row"><span class="rc-key">SUM(amount)</span><span class="rc-val">1920.00</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Liam (violet) ── -->
+        <div class="gd-group reveal-scale d2"
+             style="--ri-clr:#a78bfa; --ri-bg:rgba(167,139,250,0.07); --ri-border:rgba(167,139,250,0.2);">
+          <div class="gd-rows-col">
+            <div class="gd-row-item">
+              <span class="ri-id">8</span>
+              <span class="ri-rep">Liam</span>
+              <span class="ri-product">Tablet</span>
+              <span class="ri-amount">480.00</span>
+            </div>
+            <div class="gd-row-item">
+              <span class="ri-id">9</span>
+              <span class="ri-rep">Liam</span>
+              <span class="ri-product">Laptop</span>
+              <span class="ri-amount">1050.00</span>
+            </div>
+          </div>
+          <div class="gd-mid">
+            <div class="gd-brace"></div>
+            <div class="gd-arrow-wrap">
+              <div class="gd-arrow-shaft"></div>
+              <span class="gd-arrow-tip">▶</span>
+            </div>
+          </div>
+          <div class="gd-result-col">
+            <div class="gd-result-card">
+              <div class="rc-name">Liam</div>
+              <div class="rc-row"><span class="rc-key">COUNT(*)</span><span class="rc-val">2</span></div>
+              <div class="rc-row"><span class="rc-key">SUM(amount)</span><span class="rc-val">1530.00</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Noa (amber) ── -->
+        <div class="gd-group reveal-scale d3"
+             style="--ri-clr:#fbbf24; --ri-bg:rgba(251,191,36,0.07); --ri-border:rgba(251,191,36,0.2);">
+          <div class="gd-rows-col">
+            <div class="gd-row-item">
+              <span class="ri-id">4</span>
+              <span class="ri-rep">Noa</span>
+              <span class="ri-product">Laptop</span>
+              <span class="ri-amount">1350.00</span>
+            </div>
+            <div class="gd-row-item">
+              <span class="ri-id">7</span>
+              <span class="ri-rep">Noa</span>
+              <span class="ri-product">Phone</span>
+              <span class="ri-amount">690.00</span>
+            </div>
+          </div>
+          <div class="gd-mid">
+            <div class="gd-brace"></div>
+            <div class="gd-arrow-wrap">
+              <div class="gd-arrow-shaft"></div>
+              <span class="gd-arrow-tip">▶</span>
+            </div>
+          </div>
+          <div class="gd-result-col">
+            <div class="gd-result-card">
+              <div class="rc-name">Noa</div>
+              <div class="rc-row"><span class="rc-key">COUNT(*)</span><span class="rc-val">2</span></div>
+              <div class="rc-row"><span class="rc-key">SUM(amount)</span><span class="rc-val">2040.00</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Omar (coral) ── -->
+        <div class="gd-group reveal-scale d4"
+             style="--ri-clr:#f87171; --ri-bg:rgba(248,113,113,0.07); --ri-border:rgba(248,113,113,0.2);">
+          <div class="gd-rows-col">
+            <div class="gd-row-item">
+              <span class="ri-id">2</span>
+              <span class="ri-rep">Omar</span>
+              <span class="ri-product">Phone</span>
+              <span class="ri-amount">650.00</span>
+            </div>
+            <div class="gd-row-item">
+              <span class="ri-id">5</span>
+              <span class="ri-rep">Omar</span>
+              <span class="ri-product">Laptop</span>
+              <span class="ri-amount">1100.00</span>
+            </div>
+            <div class="gd-row-item">
+              <span class="ri-id">10</span>
+              <span class="ri-rep">Omar</span>
+              <span class="ri-product">Tablet</span>
+              <span class="ri-amount null-val">NULL</span>
+            </div>
+          </div>
+          <div class="gd-mid">
+            <div class="gd-brace"></div>
+            <div class="gd-arrow-wrap">
+              <div class="gd-arrow-shaft"></div>
+              <span class="gd-arrow-tip">▶</span>
+            </div>
+          </div>
+          <div class="gd-result-col">
+            <div class="gd-result-card">
+              <div class="rc-name">Omar</div>
+              <div class="rc-row"><span class="rc-key">COUNT(*)</span><span class="rc-val">3</span></div>
+              <div class="rc-row"><span class="rc-key">SUM(amount)</span><span class="rc-val">1750.00</span></div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /gd-outer -->
+
+      <p class="note" style="margin-top:16px;">10 input rows → 4 output rows. The bracket shows which rows belong to each group. The arrow shows them collapsing into a single aggregate result. Dana's NULL Tablet row is counted by COUNT(*) but skipped by SUM.</p>
+    </section>
+
+    <!-- what is an aggregate -->
+    <section class="section card reveal">
+      <h2>What is an aggregate?</h2>
+      <p style="color:var(--muted);">An aggregate takes <strong style="color:var(--text)">many rows</strong> and returns <strong style="color:var(--text)">one value</strong>. Instead of showing every individual row, it computes a summary over the whole set.</p>
+
+      <div class="two-col" style="margin-top:16px; gap:12px;">
+        <div style="background:var(--surface2); border:1px solid var(--border); border-radius:14px; padding:16px;">
+          <div style="font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:var(--dim); margin-bottom:10px;">Without aggregate — every row</div>
+          <table class="table">
+            <thead><tr><th>rep_name</th><th>product</th><th>amount</th></tr></thead>
+            <tbody>
+              <tr><td style="color:var(--teal)">Dana</td><td>Laptop</td><td>1200.00</td></tr>
+              <tr><td style="color:var(--teal)">Dana</td><td>Tablet</td><td class="null-val">NULL</td></tr>
+              <tr><td style="color:var(--teal)">Dana</td><td>Phone</td><td>720.00</td></tr>
+            </tbody>
+          </table>
+          <div style="margin-top:10px; font-size:0.82rem; color:var(--muted);">3 rows returned — one per sale</div>
+        </div>
+
+        <div style="background:var(--surface2); border:1px solid rgba(45,212,191,0.3); border-radius:14px; padding:16px;">
+          <div style="font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:var(--teal); margin-bottom:10px;">With MAX() aggregate — one result</div>
+          <table class="table">
+            <thead><tr><th>rep_name</th><th>max_amount</th></tr></thead>
+            <tbody>
+              <tr><td style="color:var(--teal)">Dana</td><td style="color:var(--green); font-weight:700;">1200.00</td></tr>
+            </tbody>
+          </table>
+          <div style="margin-top:10px; font-size:0.82rem; color:var(--muted);">1 row returned — the summary</div>
+        </div>
+      </div>
+
+      <div style="margin-top:16px; display:flex; flex-wrap:wrap; gap:10px;">
+        <div style="flex:1; min-width:160px; background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:12px 14px;">
+          <div style="font-size:0.72rem; color:var(--dim); font-weight:700; text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px;">COUNT(*)</div>
+          <div style="font-size:1.5rem; font-weight:800; font-family:'JetBrains Mono',monospace; color:var(--teal);">3</div>
+          <div style="font-size:0.78rem; color:var(--muted); margin-top:2px;">how many rows</div>
+        </div>
+        <div style="flex:1; min-width:160px; background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:12px 14px;">
+          <div style="font-size:0.72rem; color:var(--dim); font-weight:700; text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px;">MAX(amount)</div>
+          <div style="font-size:1.5rem; font-weight:800; font-family:'JetBrains Mono',monospace; color:var(--amber);">1200</div>
+          <div style="font-size:0.78rem; color:var(--muted); margin-top:2px;">highest value, NULL skipped</div>
+        </div>
+        <div style="flex:1; min-width:160px; background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:12px 14px;">
+          <div style="font-size:0.72rem; color:var(--dim); font-weight:700; text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px;">AVG(amount)</div>
+          <div style="font-size:1.5rem; font-weight:800; font-family:'JetBrains Mono',monospace; color:var(--violet);">960</div>
+          <div style="font-size:0.78rem; color:var(--muted); margin-top:2px;">1920 ÷ 2 non-NULL rows</div>
+        </div>
+        <div style="flex:1; min-width:160px; background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:12px 14px;">
+          <div style="font-size:0.72rem; color:var(--dim); font-weight:700; text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px;">MIN(amount)</div>
+          <div style="font-size:1.5rem; font-weight:800; font-family:'JetBrains Mono',monospace; color:var(--coral);">720</div>
+          <div style="font-size:0.78rem; color:var(--muted); margin-top:2px;">lowest value, NULL skipped</div>
+        </div>
+      </div>
+
+      <p class="note" style="margin-top:14px;">All examples above are for Dana's 3 rows. The NULL Tablet row is counted by COUNT(*) but skipped by every other aggregate. When you add <code style="color:var(--teal)">GROUP BY rep_name</code>, SQL runs the same aggregate <em>separately inside each rep's bucket</em> — so you get one summary row per rep instead of one for the whole table.</p>
+    </section>
+
+    <!-- ORDER BY alias -->
+    <section class="section card reveal">
+      <h2>GROUP BY + ORDER BY aggregate alias</h2>
+      <p style="color:var(--muted);">You can sort the output by the computed column using its alias.</p>
+      <div class="code">
+        <div class="label">Query 2</div>
+        <pre><span class="k">SELECT</span>
+  rep_name,
+  <span class="k">SUM</span>(amount) <span class="k">AS</span> total_sales
+<span class="k">FROM</span> sales
+<span class="k">GROUP BY</span> rep_name
+<span class="k">ORDER BY</span> total_sales <span class="k">DESC</span>;</pre>
+      </div>
+      <table class="table" style="margin-top:12px;">
+        <thead><tr><th>rep_name</th><th>total_sales</th></tr></thead>
+        <tbody>
+          <tr><td>Noa</td><td>2040.00</td></tr>
+          <tr><td>Dana</td><td>1920.00</td></tr>
+          <tr><td>Omar</td><td>1750.00</td></tr>
+          <tr><td>Liam</td><td>1530.00</td></tr>
+        </tbody>
+      </table>
+      <p class="note note-amber">ORDER BY total_sales uses the alias defined in SELECT. SQLite allows this. ORDER BY applies after GROUP BY.</p>
+    </section>
+
+    <!-- by product -->
+    <section class="section card reveal">
+      <h2>GROUP BY single column — by product</h2>
+      <div class="code">
+        <div class="label">Query 3</div>
+        <pre><span class="k">SELECT</span>
+  product,
+  <span class="k">COUNT</span>(*) <span class="k">AS</span> sales_count,
+  <span class="k">SUM</span>(amount) <span class="k">AS</span> revenue,
+  <span class="k">AVG</span>(amount) <span class="k">AS</span> avg_price
+<span class="k">FROM</span> sales
+<span class="k">GROUP BY</span> product
+<span class="k">ORDER BY</span> revenue <span class="k">DESC</span>;</pre>
+      </div>
+      <table class="table" style="margin-top:12px;">
+        <thead><tr><th>product</th><th>sales_count</th><th>revenue</th><th>avg_price</th></tr></thead>
+        <tbody>
+          <tr><td>Laptop</td><td>4</td><td>4700.00</td><td>1175.00</td></tr>
+          <tr><td>Phone</td><td>3</td><td>2060.00</td><td>686.67</td></tr>
+          <tr><td>Tablet</td><td>3</td><td>480.00</td><td>480.00</td></tr>
+        </tbody>
+      </table>
+      <div class="bar-chart" style="margin-top:16px;">
+        <div class="bar-chart-title">Revenue per product</div>
+        <div class="bar-row">
+          <span class="bar-label">Laptop</span>
+          <div class="bar-track"><div class="bar-fill bar-blue" data-pct="100"></div></div>
+          <span class="bar-val">4700</span>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">Phone</span>
+          <div class="bar-track"><div class="bar-fill bar-teal" data-pct="44"></div></div>
+          <span class="bar-val">2060</span>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">Tablet</span>
+          <div class="bar-track"><div class="bar-fill bar-amber" data-pct="10"></div></div>
+          <span class="bar-val">480</span>
+        </div>
+      </div>
+      <p class="note note-coral">Tablet has 3 rows but 2 have NULL amount. SUM = 480, COUNT(*) = 3, AVG = 480/1 = 480 (AVG ignores NULLs).</p>
+    </section>
+
+    <!-- multi-column -->
+    <section class="section card reveal">
+      <h2>GROUP BY multiple columns</h2>
+      <p style="color:var(--muted);">One row per unique combination of region + product.</p>
+      <div class="code">
+        <div class="label">Query 4</div>
+        <pre><span class="k">SELECT</span>
+  region,
+  product,
+  <span class="k">COUNT</span>(*) <span class="k">AS</span> cnt,
+  <span class="k">SUM</span>(amount) <span class="k">AS</span> revenue
+<span class="k">FROM</span> sales
+<span class="k">GROUP BY</span> region, product
+<span class="k">ORDER BY</span> region, revenue <span class="k">DESC</span>;</pre>
+      </div>
+      <table class="table" style="margin-top:12px;">
+        <thead><tr><th>region</th><th>product</th><th>cnt</th><th>revenue</th></tr></thead>
+        <tbody>
+          <tr><td>East</td><td>Laptop</td><td>1</td><td>1350.00</td></tr>
+          <tr><td>East</td><td>Phone</td><td>1</td><td>690.00</td></tr>
+          <tr><td>North</td><td>Laptop</td><td>1</td><td>1200.00</td></tr>
+          <tr><td>North</td><td>Phone</td><td>1</td><td>720.00</td></tr>
+          <tr><td>North</td><td>Tablet</td><td>1</td><td class="null-val">NULL</td></tr>
+          <tr><td>South</td><td>Laptop</td><td>1</td><td>1100.00</td></tr>
+          <tr><td>South</td><td>Phone</td><td>1</td><td>650.00</td></tr>
+          <tr><td>South</td><td>Tablet</td><td>1</td><td class="null-val">NULL</td></tr>
+          <tr><td>West</td><td>Laptop</td><td>1</td><td>1050.00</td></tr>
+          <tr><td>West</td><td>Tablet</td><td>1</td><td>480.00</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section card reveal exercise-card" id="exercise">
+      <div class="exercise-head">
+        <div class="exercise-q">?</div>
+        <div>
+          <h2>Exercise</h2>
+          <p class="exercise-sub">Group and summarize the sales data</p>
+        </div>
+      </div>
+      <ol class="exercise-steps">
+        <li>Show total revenue per region, sorted highest first</li>
+        <li>Show the number of sales and average amount per product</li>
+        <li>Show revenue per rep_name, sorted by revenue descending — use an alias in ORDER BY</li>
+        <li>Show COUNT and SUM grouped by both region and rep_name</li>
+        <li>Bonus: find which rep sold the most Laptops (GROUP BY rep_name with WHERE product = 'Laptop')</li>
+      </ol>
+    </section>
+
+    <div class="lesson-nav reveal">
+      <a class="btn" href="02-sum-avg-min-max.html">← SUM / AVG / MIN / MAX</a>
+      <a class="btn primary" href="04-having.html">Next: HAVING →</a>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

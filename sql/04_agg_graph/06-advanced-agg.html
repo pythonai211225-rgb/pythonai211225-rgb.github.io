@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Topic 6 — Advanced &amp; Mistakes</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%23080e1c'/><text x='32' y='45' text-anchor='middle' font-family='Arial, sans-serif' font-size='42' font-weight='700' fill='%232dd4bf'>db</text></svg>">
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    /* mini dashboard header */
+    .dash-header {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .dash-metric {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .dash-icon {
+      width: 42px; height: 42px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      font-size: 1.3rem;
+      flex-shrink: 0;
+    }
+    .dash-txt .d-val { font-size: 1.35rem; font-weight: 800; font-family:'JetBrains Mono',monospace; }
+    .dash-txt .d-lbl { font-size: 0.72rem; color: var(--muted); font-weight: 600; text-transform:uppercase; letter-spacing:.05em; }
+
+    /* mistake card */
+    .mistake-num {
+      width: 28px; height: 28px; border-radius: 50%;
+      display:grid; place-items:center;
+      font-weight: 800; font-size: 0.85rem;
+      background: var(--coral-d);
+      border: 1px solid rgba(248,113,113,0.3);
+      color: var(--coral);
+      flex-shrink: 0;
+    }
+    .mistake-head { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  </style>
+</head>
+<body>
+  <nav class="top-nav">
+    <div class="wrap">
+      <a class="nav-home" href="../index.html">Home</a>
+      <div class="brand">Lesson 4</div>
+      <a class="nav-link" href="01-count.html">1. COUNT</a>
+      <a class="nav-link" href="02-sum-avg-min-max.html">2. SUM / AVG / MIN / MAX</a>
+      <a class="nav-link" href="03-group-by.html">3. GROUP BY</a>
+      <a class="nav-link" href="04-having.html">4. HAVING</a>
+      <a class="nav-link" href="05-alter-table.html">5. ALTER TABLE</a>
+      <a class="nav-link" href="06-advanced-agg.html">6. Advanced &amp; Mistakes</a>
+    </div>
+  </nav>
+
+  <main class="container">
+    <section class="hero reveal">
+      <span class="tag">Topic 6</span>
+      <h1>Advanced Aggregates &amp; Common Mistakes</h1>
+      <p class="lead">COALESCE, ROUND, COUNT(CASE WHEN), and the two mistakes that trip almost everyone.</p>
+    </section>
+
+    <!-- practice table -->
+    <section class="section card reveal">
+      <h2>Practice table — <span style="color:var(--teal)">sales</span></h2>
+      <p style="color:var(--muted);">Same 10-row table used throughout. Rows 3 and 10 have <span class="null-val">NULL</span> in amount.</p>
+      <table class="table" style="margin-top:14px;">
+        <thead><tr><th>id</th><th>rep_name</th><th>region</th><th>product</th><th>amount</th><th>sale_date</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>Dana</td><td>North</td><td>Laptop</td><td>1200.00</td><td>2026-01-10</td></tr>
+          <tr><td>2</td><td>Omar</td><td>South</td><td>Phone</td><td>650.00</td><td>2026-01-12</td></tr>
+          <tr><td>3</td><td>Dana</td><td>North</td><td>Tablet</td><td class="null-val">NULL</td><td>2026-01-15</td></tr>
+          <tr><td>4</td><td>Noa</td><td>East</td><td>Laptop</td><td>1350.00</td><td>2026-01-18</td></tr>
+          <tr><td>5</td><td>Omar</td><td>South</td><td>Laptop</td><td>1100.00</td><td>2026-01-20</td></tr>
+          <tr><td>6</td><td>Dana</td><td>North</td><td>Phone</td><td>720.00</td><td>2026-01-22</td></tr>
+          <tr><td>7</td><td>Noa</td><td>East</td><td>Phone</td><td>690.00</td><td>2026-01-25</td></tr>
+          <tr><td>8</td><td>Liam</td><td>West</td><td>Tablet</td><td>480.00</td><td>2026-01-28</td></tr>
+          <tr><td>9</td><td>Liam</td><td>West</td><td>Laptop</td><td>1050.00</td><td>2026-02-01</td></tr>
+          <tr><td>10</td><td>Omar</td><td>South</td><td>Tablet</td><td class="null-val">NULL</td><td>2026-02-03</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- conditional CASE update (moved from topic 5) -->
+    <section class="section card reveal">
+      <h2>Conditional UPDATE with CASE</h2>
+      <p style="color:var(--muted);">Use CASE inside UPDATE to apply different formulas to different rows in one statement.</p>
+      <div class="code">
+        <div class="label">Query — tiered bonus</div>
+        <pre><span class="k">UPDATE</span> sales
+<span class="k">SET</span> bonus =
+  <span class="k">CASE</span>
+    <span class="k">WHEN</span> product = <span class="c">'Laptop'</span>  <span class="k">THEN</span> amount * <span class="c">0.15</span>
+    <span class="k">WHEN</span> amount <span class="k">IS NOT NULL</span>   <span class="k">THEN</span> amount * <span class="c">0.08</span>
+    <span class="k">ELSE</span> <span class="c">0</span>
+  <span class="k">END</span>;</pre>
+      </div>
+      <table class="table" style="margin-top:12px;">
+        <thead><tr><th>id</th><th>rep_name</th><th>product</th><th>amount</th><th>bonus</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>Dana</td><td>Laptop</td><td>1200.00</td><td style="color:var(--green)">180.00</td></tr>
+          <tr><td>2</td><td>Omar</td><td>Phone</td><td>650.00</td><td style="color:var(--teal)">52.00</td></tr>
+          <tr><td>3</td><td>Dana</td><td>Tablet</td><td class="null-val">NULL</td><td style="color:var(--amber)">0.00</td></tr>
+          <tr><td>4</td><td>Noa</td><td>Laptop</td><td>1350.00</td><td style="color:var(--green)">202.50</td></tr>
+          <tr><td>5</td><td>Omar</td><td>Laptop</td><td>1100.00</td><td style="color:var(--green)">165.00</td></tr>
+          <tr><td>…</td><td>…</td><td>…</td><td>…</td><td>…</td></tr>
+        </tbody>
+      </table>
+      <p class="note">The ELSE branch converts the two NULL Tablet rows to 0 instead of leaving them NULL. CASE evaluates conditions top to bottom and stops at the first match.</p>
+    </section>
+
+    <!-- mini dashboard -->
+    <section class="section card reveal">
+      <h2>Full report — all patterns combined</h2>
+      <p style="color:var(--muted);margin-bottom:6px;">This is the final query from Query 4 below — broken down into stat cards first.</p>
+      <div class="dash-header">
+        <div class="dash-metric reveal-left d1">
+          <div class="dash-icon" style="background:var(--teal-d);">💰</div>
+          <div class="dash-txt">
+            <div class="d-val" style="color:var(--teal)">$<span class="count-up" data-val="2040">2040</span></div>
+            <div class="d-lbl">Top revenue (Noa)</div>
+          </div>
+        </div>
+        <div class="dash-metric reveal-left d2">
+          <div class="dash-icon" style="background:var(--amber-d);">📊</div>
+          <div class="dash-txt">
+            <div class="d-val" style="color:var(--amber)"><span class="count-up" data-val="4">4</span></div>
+            <div class="d-lbl">Reps with ≥ 2 sales</div>
+          </div>
+        </div>
+        <div class="dash-metric reveal-left d3">
+          <div class="dash-icon" style="background:var(--violet-d);">💻</div>
+          <div class="dash-txt">
+            <div class="d-val" style="color:var(--violet)"><span class="count-up" data-val="1">1</span></div>
+            <div class="d-lbl">Laptops per rep (avg)</div>
+          </div>
+        </div>
+        <div class="dash-metric reveal-left d4">
+          <div class="dash-icon" style="background:var(--green-d);">✓</div>
+          <div class="dash-txt">
+            <div class="d-val" style="color:var(--green)">$<span class="count-up" data-val="905">905</span></div>
+            <div class="d-lbl">Avg sale (non-NULL)</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- COALESCE -->
+    <section class="section card reveal">
+      <h2>COALESCE — replace NULL totals with 0</h2>
+      <p style="color:var(--muted);">When a group's SUM is NULL (all values in the group are NULL), COALESCE replaces it with a fallback.</p>
+      <div class="code">
+        <div class="label">Query 1</div>
+        <pre><span class="k">SELECT</span>
+  rep_name,
+  product,
+  <span class="k">COALESCE</span>(<span class="k">SUM</span>(amount), <span class="c">0</span>) <span class="k">AS</span> revenue
+<span class="k">FROM</span> sales
+<span class="k">GROUP BY</span> rep_name, product
+<span class="k">ORDER BY</span> rep_name, product;</pre>
+      </div>
+      <table class="table" style="margin-top:12px;">
+        <thead><tr><th>rep_name</th><th>product</th><th>revenue</th></tr></thead>
+        <tbody>
+          <tr><td>Dana</td><td>Laptop</td><td>1200.00</td></tr>
+          <tr><td>Dana</td><td>Phone</td><td>720.00</td></tr>
+          <tr><td>Dana</td><td>Tablet</td><td style="color:var(--green)">0.00 ✓</td></tr>
+          <tr><td>Liam</td><td>Laptop</td><td>1050.00</td></tr>
+          <tr><td>Liam</td><td>Tablet</td><td>480.00</td></tr>
+          <tr><td>Noa</td><td>Laptop</td><td>1350.00</td></tr>
+          <tr><td>Noa</td><td>Phone</td><td>690.00</td></tr>
+          <tr><td>Omar</td><td>Laptop</td><td>1100.00</td></tr>
+          <tr><td>Omar</td><td>Phone</td><td>650.00</td></tr>
+          <tr><td>Omar</td><td>Tablet</td><td style="color:var(--green)">0.00 ✓</td></tr>
+        </tbody>
+      </table>
+      <p class="note">Dana's Tablet and Omar's Tablet both had only NULL amounts — SUM returned NULL. COALESCE converts those to 0.</p>
+    </section>
+
+    <!-- ROUND -->
+    <section class="section card reveal">
+      <h2>ROUND — clean up AVG results</h2>
+      <p style="color:var(--muted);">AVG often produces long decimals. ROUND(value, n) trims them to n decimal places.</p>
+      <div class="code">
+        <div class="label">Query 2</div>
+        <pre><span class="k">SELECT</span>
+  product,
+  <span class="k">ROUND</span>(<span class="k">AVG</span>(amount), <span class="c">2</span>) <span class="k">AS</span> avg_price,
+  <span class="k">ROUND</span>(<span class="k">SUM</span>(amount), <span class="c">2</span>) <span class="k">AS</span> total_revenue
+<span class="k">FROM</span> sales
+<span class="k">GROUP BY</span> product
+<span class="k">ORDER BY</span> total_revenue <span class="k">DESC</span>;</pre>
+      </div>
+      <table class="table" style="margin-top:12px;">
+        <thead><tr><th>product</th><th>avg_price</th><th>total_revenue</th></tr></thead>
+        <tbody>
+          <tr><td>Laptop</td><td>1175.00</td><td>4700.00</td></tr>
+          <tr><td>Phone</td><td>686.67</td><td>2060.00</td></tr>
+          <tr><td>Tablet</td><td>480.00</td><td>480.00</td></tr>
+        </tbody>
+      </table>
+      <div class="bar-chart" style="margin-top:16px;">
+        <div class="bar-chart-title">avg_price per product (ROUND to 2 dp)</div>
+        <div class="bar-row">
+          <span class="bar-label">Laptop</span>
+          <div class="bar-track"><div class="bar-fill bar-blue" data-pct="100"></div></div>
+          <span class="bar-val">1175</span>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">Phone</span>
+          <div class="bar-track"><div class="bar-fill bar-teal" data-pct="58"></div></div>
+          <span class="bar-val">687</span>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">Tablet</span>
+          <div class="bar-track"><div class="bar-fill bar-amber" data-pct="41"></div></div>
+          <span class="bar-val">480</span>
+        </div>
+      </div>
+      <p class="note note-amber">Phone's raw AVG is 686.6666… — ROUND(…, 2) gives 686.67. ORDER BY total_revenue uses the alias.</p>
+    </section>
+
+    <!-- COUNT CASE WHEN -->
+    <section class="section card reveal">
+      <h2>COUNT(CASE WHEN …) — conditional counting</h2>
+      <p style="color:var(--muted);">Count only rows matching a condition, without filtering out others.</p>
+      <div class="code">
+        <div class="label">Query 3</div>
+        <pre><span class="k">SELECT</span>
+  rep_name,
+  <span class="k">COUNT</span>(*) <span class="k">AS</span> total_sales,
+  <span class="k">COUNT</span>(<span class="k">CASE WHEN</span> product = <span class="c">'Laptop'</span> <span class="k">THEN</span> <span class="c">1</span> <span class="k">END</span>) <span class="k">AS</span> laptop_sales,
+  <span class="k">COUNT</span>(<span class="k">CASE WHEN</span> amount &gt; <span class="c">1000</span>   <span class="k">THEN</span> <span class="c">1</span> <span class="k">END</span>) <span class="k">AS</span> big_sales
+<span class="k">FROM</span> sales
+<span class="k">GROUP BY</span> rep_name;</pre>
+      </div>
+      <table class="table" style="margin-top:12px;">
+        <thead><tr><th>rep_name</th><th>total_sales</th><th>laptop_sales</th><th>big_sales</th></tr></thead>
+        <tbody>
+          <tr><td>Dana</td><td>3</td><td>1</td><td>1</td></tr>
+          <tr><td>Liam</td><td>2</td><td>1</td><td>1</td></tr>
+          <tr><td>Noa</td><td>2</td><td>1</td><td>2</td></tr>
+          <tr><td>Omar</td><td>3</td><td>1</td><td>2</td></tr>
+        </tbody>
+      </table>
+      <p class="note">CASE returns 1 when true, NULL otherwise. COUNT ignores NULLs — so it effectively counts only the true cases.</p>
+    </section>
+
+    <!-- common mistakes -->
+    <section class="section card reveal">
+      <h2>Common mistakes</h2>
+      <div class="two-col" style="margin-top:12px;">
+        <div class="card bad">
+          <div class="mistake-head">
+            <div class="mistake-num">1</div>
+            <h4>Selecting a non-grouped column</h4>
+          </div>
+          <p style="color:var(--muted);font-size:0.9rem;">Every column in SELECT must either be in GROUP BY or wrapped in an aggregate.</p>
+          <div class="code" style="margin-top:10px;">
+            <div class="label">Wrong</div>
+            <pre><span class="c">-- sale_date not in GROUP BY</span>
+<span class="k">SELECT</span> rep_name, sale_date,
+       <span class="k">SUM</span>(amount)
+<span class="k">FROM</span> sales
+<span class="k">GROUP BY</span> rep_name;</pre>
+          </div>
+          <div class="code" style="margin-top:8px;">
+            <div class="label" style="background:#0d1a0d;color:var(--green);">Fixed ✓</div>
+            <pre><span class="k">SELECT</span> rep_name,
+       <span class="k">SUM</span>(amount) <span class="k">AS</span> total
+<span class="k">FROM</span> sales
+<span class="k">GROUP BY</span> rep_name;</pre>
+          </div>
+        </div>
+
+        <div class="card bad">
+          <div class="mistake-head">
+            <div class="mistake-num">2</div>
+            <h4>WHERE on an aggregate</h4>
+          </div>
+          <p style="color:var(--muted);font-size:0.9rem;">WHERE runs before GROUP BY — the aggregate result doesn't exist yet.</p>
+          <div class="code" style="margin-top:10px;">
+            <div class="label">Wrong</div>
+            <pre><span class="c">-- can't use SUM() in WHERE</span>
+<span class="k">SELECT</span> rep_name, <span class="k">SUM</span>(amount)
+<span class="k">FROM</span> sales
+<span class="k">GROUP BY</span> rep_name
+<span class="k">WHERE</span> <span class="k">SUM</span>(amount) &gt; <span class="c">1500</span>;</pre>
+          </div>
+          <div class="code" style="margin-top:8px;">
+            <div class="label" style="background:#0d1a0d;color:var(--green);">Fixed ✓</div>
+            <pre><span class="k">SELECT</span> rep_name, <span class="k">SUM</span>(amount)
+<span class="k">FROM</span> sales
+<span class="k">GROUP BY</span> rep_name
+<span class="k">HAVING</span> <span class="k">SUM</span>(amount) &gt; <span class="c">1500</span>;</pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- full report query -->
+    <section class="section card reveal">
+      <h2>Putting it all together — full report</h2>
+      <div class="code">
+        <div class="label">Query 4</div>
+        <pre><span class="k">SELECT</span>
+  rep_name,
+  <span class="k">COUNT</span>(*) <span class="k">AS</span> total_sales,
+  <span class="k">COUNT</span>(<span class="k">CASE WHEN</span> product = <span class="c">'Laptop'</span> <span class="k">THEN</span> <span class="c">1</span> <span class="k">END</span>) <span class="k">AS</span> laptops,
+  <span class="k">COALESCE</span>(<span class="k">ROUND</span>(<span class="k">SUM</span>(amount), <span class="c">2</span>), <span class="c">0</span>) <span class="k">AS</span> revenue,
+  <span class="k">COALESCE</span>(<span class="k">ROUND</span>(<span class="k">AVG</span>(amount), <span class="c">2</span>), <span class="c">0</span>) <span class="k">AS</span> avg_sale
+<span class="k">FROM</span> sales
+<span class="k">GROUP BY</span> rep_name
+<span class="k">HAVING</span> <span class="k">COUNT</span>(*) &gt;= <span class="c">2</span>
+<span class="k">ORDER BY</span> revenue <span class="k">DESC</span>;</pre>
+      </div>
+      <table class="table" style="margin-top:12px;">
+        <thead><tr><th>rep_name</th><th>total_sales</th><th>laptops</th><th>revenue</th><th>avg_sale</th></tr></thead>
+        <tbody>
+          <tr><td>Noa</td><td>2</td><td>1</td><td>2040.00</td><td>1020.00</td></tr>
+          <tr><td>Dana</td><td>3</td><td>1</td><td>1920.00</td><td>960.00</td></tr>
+          <tr><td>Omar</td><td>3</td><td>1</td><td>1750.00</td><td>875.00</td></tr>
+          <tr><td>Liam</td><td>2</td><td>1</td><td>1530.00</td><td>765.00</td></tr>
+        </tbody>
+      </table>
+      <div class="bar-chart" style="margin-top:16px;">
+        <div class="bar-chart-title">Revenue (COALESCE + ROUND), sorted by alias</div>
+        <div class="bar-row">
+          <span class="bar-label">Noa</span>
+          <div class="bar-track"><div class="bar-fill bar-teal" data-pct="100"></div></div>
+          <span class="bar-val">2040</span>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">Dana</span>
+          <div class="bar-track"><div class="bar-fill bar-violet" data-pct="94"></div></div>
+          <span class="bar-val">1920</span>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">Omar</span>
+          <div class="bar-track"><div class="bar-fill bar-amber" data-pct="86"></div></div>
+          <span class="bar-val">1750</span>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">Liam</span>
+          <div class="bar-track"><div class="bar-fill bar-coral" data-pct="75"></div></div>
+          <span class="bar-val">1530</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- quick ref -->
+    <section class="section card reveal">
+      <h2>Quick reference</h2>
+      <table class="table" style="margin-top:10px;">
+        <thead><tr><th>Pattern</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><span class="chip chip-teal">COALESCE(expr, fallback)</span></td><td>Replace NULL with a default value</td></tr>
+          <tr><td><span class="chip chip-amber">ROUND(expr, n)</span></td><td>Round to n decimal places</td></tr>
+          <tr><td><span class="chip chip-violet">COUNT(CASE WHEN cond THEN 1 END)</span></td><td>Count only rows where cond is true</td></tr>
+          <tr><td><span class="chip chip-coral">ORDER BY alias DESC</span></td><td>Sort by a SELECT alias (SQLite)</td></tr>
+          <tr><td><span class="chip chip-teal">HAVING agg_fn(col) op value</span></td><td>Filter groups — never use WHERE for this</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section card reveal exercise-card" id="exercise">
+      <div class="exercise-head">
+        <div class="exercise-q">?</div>
+        <div>
+          <h2>Exercise</h2>
+          <p class="exercise-sub">Advanced aggregation patterns</p>
+        </div>
+      </div>
+      <ol class="exercise-steps">
+        <li>Use COALESCE to show revenue per rep — replace any NULL total with 0</li>
+        <li>Show average amount per product, rounded to 2 decimal places, sorted highest first</li>
+        <li>For each rep show: total sales, count of Phone sales, count of sales above 1000</li>
+        <li>Write the "Mistake 1" query (non-grouped column) — observe the result, then fix it</li>
+        <li>Build the full report from Query 4: COALESCE + ROUND + COUNT(CASE WHEN) + HAVING + ORDER BY alias</li>
+      </ol>
+    </section>
+
+    <div class="lesson-nav reveal">
+      <a class="btn" href="05-alter-table.html">← ALTER TABLE</a>
+      <a class="btn" href="index.html">← Lesson 4 Home</a>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

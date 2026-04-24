@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Topic 6 - ALTER TABLE + ADD COLUMN</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='white'/><text x='32' y='45' text-anchor='middle' font-family='Arial, sans-serif' font-size='42' font-weight='700' fill='%232dd4bf'>db</text></svg>">
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+  <nav class="top-nav">
+    <div class="wrap">
+      <a class="nav-home" href="../index.html">Home</a>
+      <div class="brand">Lesson 4</div>
+      <a class="nav-link" href="01-count-distinct.html">1. COUNT + DISTINCT</a>
+      <a class="nav-link" href="02-agg-nulls.html">2. SUM/AVG/MIN/MAX + NULL</a>
+      <a class="nav-link" href="03-group-by.html">3. GROUP BY</a>
+      <a class="nav-link" href="04-having.html">4. HAVING</a>
+      <a class="nav-link" href="05-where-vs-having.html">5. WHERE vs HAVING</a>
+      <a class="nav-link" href="06-alter-add-column.html">6. ALTER TABLE + ADD COLUMN</a>
+      <a class="nav-link" href="07-reporting-tricks-mistakes.html">7. Reporting Tricks + Mistakes</a>
+    </div>
+  </nav>
+
+  <main class="container">
+    <section class="hero reveal">
+      <span class="tag">Topic 6</span>
+      <h1>ALTER TABLE and ADD COLUMN</h1>
+      <p class="lead">Change schema safely, then populate new columns with UPDATE statements.</p>
+    </section>
+
+    <section class="section card reveal">
+      <h2>Add a new column</h2>
+      <div class="code">
+        <div class="label">Query 1</div>
+        <pre><span class="k">ALTER TABLE</span> products
+<span class="k">ADD COLUMN</span> stock_quantity <span class="k">INTEGER</span> <span class="k">DEFAULT</span> 0;</pre>
+      </div>
+      <div class="note" style="margin-top: 10px;">
+        Existing rows receive the default value if provided. Without default, they get NULL.
+      </div>
+    </section>
+
+    <section class="section card reveal">
+      <h2>Backfill the new column</h2>
+      <div class="code">
+        <div class="label">Query 2</div>
+        <pre><span class="k">UPDATE</span> products
+<span class="k">SET</span> stock_quantity = 25
+<span class="k">WHERE</span> category = 'Accessories';</pre>
+      </div>
+
+      <div class="code" style="margin-top: 12px;">
+        <div class="label">Query 3</div>
+        <pre><span class="k">UPDATE</span> products
+<span class="k">SET</span> stock_quantity = 100
+<span class="k">WHERE</span> stock_quantity <span class="k">IS NULL</span>;</pre>
+      </div>
+    </section>
+
+    <section class="section card reveal">
+      <h2>Useful pattern after schema change</h2>
+      <div class="code">
+        <div class="label">Query 4</div>
+        <pre><span class="k">SELECT</span>
+  category,
+  <span class="k">SUM</span>(<span class="k">COALESCE</span>(stock_quantity, 0)) <span class="k">AS</span> total_stock
+<span class="k">FROM</span> products
+<span class="k">GROUP BY</span> category
+<span class="k">ORDER BY</span> total_stock <span class="k">DESC</span>;</pre>
+      </div>
+    </section>
+
+    <section class="section card reveal exercise-card" id="exercise">
+      <div class="exercise-head">
+        <div class="exercise-q">?</div>
+        <div>
+          <h2>Exercise</h2>
+          <p class="exercise-sub">Practice schema evolution</p>
+        </div>
+      </div>
+      <ol class="exercise-steps">
+        <li>Add a nullable column named notes to products.</li>
+        <li>Add a numeric column named reorder_level with default 10.</li>
+        <li>Update reorder_level to 30 for low-stock categories.</li>
+        <li>Build a grouped report that uses COALESCE on reorder_level.</li>
+      </ol>
+    </section>
+
+    <div class="lesson-nav reveal">
+      <a class="btn" href="05-where-vs-having.html">Back: WHERE vs HAVING</a>
+      <a class="btn primary" href="07-reporting-tricks-mistakes.html">Next: Reporting Tricks + Mistakes</a>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

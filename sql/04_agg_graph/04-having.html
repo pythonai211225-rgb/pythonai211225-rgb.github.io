@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Topic 4 — HAVING</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%23080e1c'/><text x='32' y='45' text-anchor='middle' font-family='Arial, sans-serif' font-size='42' font-weight='700' fill='%232dd4bf'>db</text></svg>">
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+  <nav class="top-nav">
+    <div class="wrap">
+      <a class="nav-home" href="../index.html">Home</a>
+      <div class="brand">Lesson 4</div>
+      <a class="nav-link" href="01-count.html">1. COUNT</a>
+      <a class="nav-link" href="02-sum-avg-min-max.html">2. SUM / AVG / MIN / MAX</a>
+      <a class="nav-link" href="03-group-by.html">3. GROUP BY</a>
+      <a class="nav-link" href="04-having.html">4. HAVING</a>
+      <a class="nav-link" href="05-alter-table.html">5. ALTER TABLE</a>
+      <a class="nav-link" href="06-advanced-agg.html">6. Advanced &amp; Mistakes</a>
+    </div>
+  </nav>
+
+  <main class="container">
+    <section class="hero reveal">
+      <span class="tag">Topic 4</span>
+      <h1>HAVING — Filter After Grouping</h1>
+      <p class="lead">HAVING filters groups the same way WHERE filters rows — but it runs after GROUP BY, so you can use aggregate results in the condition.</p>
+    </section>
+
+    <!-- practice table -->
+    <section class="section card reveal">
+      <h2>Practice table — <span style="color:var(--teal)">sales</span></h2>
+      <p style="color:var(--muted);">10 rows across 4 reps. Rows 3 and 10 have <span class="null-val">NULL</span> in amount.</p>
+      <table class="table" style="margin-top:14px;">
+        <thead><tr><th>id</th><th>rep_name</th><th>region</th><th>product</th><th>amount</th><th>sale_date</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>Dana</td><td>North</td><td>Laptop</td><td>1200.00</td><td>2026-01-10</td></tr>
+          <tr><td>2</td><td>Omar</td><td>South</td><td>Phone</td><td>650.00</td><td>2026-01-12</td></tr>
+          <tr><td>3</td><td>Dana</td><td>North</td><td>Tablet</td><td class="null-val">NULL</td><td>2026-01-15</td></tr>
+          <tr><td>4</td><td>Noa</td><td>East</td><td>Laptop</td><td>1350.00</td><td>2026-01-18</td></tr>
+          <tr><td>5</td><td>Omar</td><td>South</td><td>Laptop</td><td>1100.00</td><td>2026-01-20</td></tr>
+          <tr><td>6</td><td>Dana</td><td>North</td><td>Phone</td><td>720.00</td><td>2026-01-22</td></tr>
+          <tr><td>7</td><td>Noa</td><td>East</td><td>Phone</td><td>690.00</td><td>2026-01-25</td></tr>
+          <tr><td>8</td><td>Liam</td><td>West</td><td>Tablet</td><td>480.00</td><td>2026-01-28</td></tr>
+          <tr><td>9</td><td>Liam</td><td>West</td><td>Laptop</td><td>1050.00</td><td>2026-02-01</td></tr>
+          <tr><td>10</td><td>Omar</td><td>South</td><td>Tablet</td><td class="null-val">NULL</td><td>2026-02-03</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- interactive HAVING COUNT demo -->
+    <section class="section card reveal">
+      <h2>Interactive — HAVING COUNT(*) &gt; 2</h2>
+      <p style="color:var(--muted);">Each bar represents a rep's sale count. Press the button to apply the filter.</p>
+      <div class="code">
+        <div class="label">Query 1</div>
+        <pre><span class="k">SELECT</span> rep_name, <span class="k">COUNT</span>(*) <span class="k">AS</span> num_sales
+<span class="k">FROM</span> sales
+<span class="k">GROUP BY</span> rep_name
+<span class="k">HAVING</span> <span class="k">COUNT</span>(*) &gt; <span class="c">2</span>;</pre>
+      </div>
+
+      <div style="margin-top:16px;">
+        <!-- filter-row: data-passes="true/false" controls which get dimmed -->
+        <div class="filter-row" data-passes="true">
+          <span class="f-name" style="color:var(--teal)">Dana</span>
+          <div class="f-bar-wrap">
+            <div class="bar-track"><div class="bar-fill bar-teal" data-pct="100" style="width:100%"></div></div>
+          </div>
+          <span class="f-val">3 sales</span>
+        </div>
+        <div class="filter-row" data-passes="false">
+          <span class="f-name" style="color:var(--amber)">Liam</span>
+          <div class="f-bar-wrap">
+            <div class="bar-track"><div class="bar-fill bar-amber" data-pct="67" style="width:67%"></div></div>
+          </div>
+          <span class="f-val">2 sales</span>
+        </div>
+        <div class="filter-row" data-passes="false">
+          <span class="f-name" style="color:var(--violet)">Noa</span>
+          <div class="f-bar-wrap">
+            <div class="bar-track"><div class="bar-fill bar-violet" data-pct="67" style="width:67%"></div></div>
+          </div>
+          <span class="f-val">2 sales</span>
+        </div>
+        <div class="filter-row" data-passes="true">
+          <span class="f-name" style="color:var(--coral)">Omar</span>
+          <div class="f-bar-wrap">
+            <div class="bar-track"><div class="bar-fill bar-coral" data-pct="100" style="width:100%"></div></div>
+          </div>
+          <span class="f-val">3 sales</span>
+        </div>
+      </div>
+
+      <button class="filter-btn" id="filter-toggle">▶ Apply HAVING COUNT(*) &gt; 2</button>
+      <p class="note" style="margin-top:12px;">Liam (2) and Noa (2) are filtered out. Dana (3) and Omar (3) pass.</p>
+    </section>
+
+    <!-- HAVING SUM interactive -->
+    <section class="section card reveal">
+      <h2>Interactive — HAVING SUM(amount) &gt; 1800</h2>
+      <p style="color:var(--muted);">Same idea, but filtering on total revenue instead of count.</p>
+      <div class="code">
+        <div class="label">Query 2</div>
+        <pre><span class="k">SELECT</span> rep_name, <span class="k">SUM</span>(amount) <span class="k">AS</span> total_sales
+<span class="k">FROM</span> sales
+<span class="k">GROUP BY</span> rep_name
+<span class="k">HAVING</span> <span class="k">SUM</span>(amount) &gt; <span class="c">1800</span>
+<span class="k">ORDER BY</span> total_sales <span class="k">DESC</span>;</pre>
+      </div>
+
+      <div style="margin-top:16px;">
+        <div class="filter-row filter-row-2" data-passes2="true">
+          <span class="f-name" style="color:var(--teal)">Noa</span>
+          <div class="f-bar-wrap">
+            <div class="bar-track"><div class="bar-fill bar-teal" data-pct="100" style="width:100%"></div></div>
+          </div>
+          <span class="f-val">2040</span>
+        </div>
+        <div class="filter-row filter-row-2" data-passes2="true">
+          <span class="f-name" style="color:var(--violet)">Dana</span>
+          <div class="f-bar-wrap">
+            <div class="bar-track"><div class="bar-fill bar-violet" data-pct="94" style="width:94%"></div></div>
+          </div>
+          <span class="f-val">1920</span>
+        </div>
+        <div class="filter-row filter-row-2" data-passes2="false">
+          <span class="f-name" style="color:var(--amber)">Omar</span>
+          <div class="f-bar-wrap">
+            <div class="bar-track"><div class="bar-fill bar-amber" data-pct="86" style="width:86%"></div></div>
+          </div>
+          <span class="f-val">1750</span>
+        </div>
+        <div class="filter-row filter-row-2" data-passes2="false">
+          <span class="f-name" style="color:var(--coral)">Liam</span>
+          <div class="f-bar-wrap">
+            <div class="bar-track"><div class="bar-fill bar-coral" data-pct="75" style="width:75%"></div></div>
+          </div>
+          <span class="f-val">1530</span>
+        </div>
+      </div>
+
+      <button class="filter-btn" id="filter-toggle-2">▶ Apply HAVING SUM &gt; 1800</button>
+      <p class="note" style="margin-top:12px;">Omar (1750) and Liam (1530) are below 1800 — filtered out. Noa and Dana remain.</p>
+    </section>
+
+    <!-- WHERE vs HAVING -->
+    <section class="section card reveal">
+      <h2>WHERE vs HAVING — side by side</h2>
+      <div class="two-col">
+        <div class="card good">
+          <h4>WHERE — filter rows before grouping</h4>
+          <p style="color:var(--muted);font-size:0.92rem;">Use WHERE when the condition is about individual row values.</p>
+          <div class="code" style="margin-top:10px;">
+            <div class="label">Example</div>
+            <pre><span class="c">-- only Laptop rows, then group</span>
+<span class="k">SELECT</span> rep_name, <span class="k">SUM</span>(amount)
+<span class="k">FROM</span> sales
+<span class="k">WHERE</span> product = <span class="c">'Laptop'</span>
+<span class="k">GROUP BY</span> rep_name;</pre>
+          </div>
+        </div>
+        <div class="card good">
+          <h4>HAVING — filter groups after grouping</h4>
+          <p style="color:var(--muted);font-size:0.92rem;">Use HAVING when the condition involves an aggregate result.</p>
+          <div class="code" style="margin-top:10px;">
+            <div class="label">Example</div>
+            <pre><span class="c">-- group first, then keep big groups</span>
+<span class="k">SELECT</span> rep_name, <span class="k">SUM</span>(amount)
+<span class="k">FROM</span> sales
+<span class="k">GROUP BY</span> rep_name
+<span class="k">HAVING</span> <span class="k">SUM</span>(amount) &gt; <span class="c">1500</span>;</pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- combined -->
+    <section class="section card reveal">
+      <h2>Using both WHERE and HAVING</h2>
+      <p style="color:var(--muted);">Filter rows first with WHERE, then filter groups with HAVING.</p>
+      <div class="code">
+        <div class="label">Query 3</div>
+        <pre><span class="c">-- Only Laptop and Phone rows, then keep reps with total > 1500</span>
+<span class="k">SELECT</span>
+  rep_name,
+  <span class="k">SUM</span>(amount) <span class="k">AS</span> total
+<span class="k">FROM</span> sales
+<span class="k">WHERE</span> product <span class="k">IN</span> (<span class="c">'Laptop'</span>, <span class="c">'Phone'</span>)
+<span class="k">GROUP BY</span> rep_name
+<span class="k">HAVING</span> <span class="k">SUM</span>(amount) &gt; <span class="c">1500</span>
+<span class="k">ORDER BY</span> total <span class="k">DESC</span>;</pre>
+      </div>
+      <table class="table" style="margin-top:12px;">
+        <thead><tr><th>rep_name</th><th>total</th></tr></thead>
+        <tbody>
+          <tr><td>Noa</td><td>2040.00</td></tr>
+          <tr><td>Dana</td><td>1920.00</td></tr>
+          <tr><td>Omar</td><td>1750.00</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- rule table -->
+    <section class="section card reveal">
+      <h2>Quick rule</h2>
+      <table class="table" style="margin-top:10px;">
+        <thead><tr><th>Clause</th><th>Runs when</th><th>Can reference aggregate?</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="chip chip-violet">WHERE</span></td>
+            <td>Before GROUP BY — filters individual rows</td>
+            <td style="color:var(--coral);">No</td>
+          </tr>
+          <tr>
+            <td><span class="chip chip-teal">HAVING</span></td>
+            <td>After GROUP BY — filters groups</td>
+            <td style="color:var(--green);">Yes</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section card reveal exercise-card" id="exercise">
+      <div class="exercise-head">
+        <div class="exercise-q">?</div>
+        <div>
+          <h2>Exercise</h2>
+          <p class="exercise-sub">Filter groups with HAVING</p>
+        </div>
+      </div>
+      <ol class="exercise-steps">
+        <li>Find regions where total revenue is above 1500</li>
+        <li>Find products sold 3 or more times (use HAVING COUNT(*) &gt;= 3)</li>
+        <li>Find reps whose average sale is above 900 (only count non-NULL amounts)</li>
+        <li>Combine: among Laptop and Phone rows only, find reps with more than 1 sale</li>
+        <li>Explain in a comment why you can't write WHERE SUM(amount) &gt; 1000</li>
+      </ol>
+    </section>
+
+    <div class="lesson-nav reveal">
+      <a class="btn" href="03-group-by.html">← GROUP BY</a>
+      <a class="btn primary" href="05-alter-table.html">Next: ALTER TABLE →</a>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

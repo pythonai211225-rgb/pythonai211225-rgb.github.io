@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Topic 5 — ALTER TABLE</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%23080e1c'/><text x='32' y='45' text-anchor='middle' font-family='Arial, sans-serif' font-size='42' font-weight='700' fill='%232dd4bf'>db</text></svg>">
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    /* column addition animation */
+    .schema-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+      gap: 8px;
+      margin-top: 14px;
+    }
+    .col-pill {
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      text-align: center;
+      border: 1px solid;
+    }
+    .col-existing {
+      background: var(--surface2);
+      border-color: var(--border-hi);
+      color: var(--text);
+    }
+    .col-new {
+      background: var(--teal-d);
+      border-color: rgba(45,212,191,0.4);
+      color: var(--teal);
+      animation: colAppear 0.6s cubic-bezier(0.22,1,0.36,1) both;
+    }
+    .col-new-amber {
+      background: var(--amber-d);
+      border-color: rgba(251,191,36,0.4);
+      color: var(--amber);
+      animation: colAppear 0.6s 0.15s cubic-bezier(0.22,1,0.36,1) both;
+    }
+    @keyframes colAppear {
+      from { opacity: 0; transform: scale(0.7) translateY(-8px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .col-type {
+      font-size: 0.7rem;
+      font-weight: 400;
+      color: var(--dim);
+      margin-top: 2px;
+    }
+  </style>
+</head>
+<body>
+  <nav class="top-nav">
+    <div class="wrap">
+      <a class="nav-home" href="../index.html">Home</a>
+      <div class="brand">Lesson 4</div>
+      <a class="nav-link" href="01-count.html">1. COUNT</a>
+      <a class="nav-link" href="02-sum-avg-min-max.html">2. SUM / AVG / MIN / MAX</a>
+      <a class="nav-link" href="03-group-by.html">3. GROUP BY</a>
+      <a class="nav-link" href="04-having.html">4. HAVING</a>
+      <a class="nav-link" href="05-alter-table.html">5. ALTER TABLE</a>
+      <a class="nav-link" href="06-advanced-agg.html">6. Advanced &amp; Mistakes</a>
+    </div>
+  </nav>
+
+  <main class="container">
+    <section class="hero reveal">
+      <span class="tag">Topic 5</span>
+      <h1>ALTER TABLE — Modify Table Structure</h1>
+      <p class="lead">ALTER TABLE lets you add columns, rename columns, rename the table, and drop columns you no longer need.</p>
+    </section>
+
+    <!-- practice table -->
+    <section class="section card reveal">
+      <h2>Practice table — <span style="color:var(--teal)">sales</span></h2>
+      <p style="color:var(--muted);">Starting point before any ALTER TABLE. Rows 3 and 10 have <span class="null-val">NULL</span> in amount.</p>
+      <table class="table" style="margin-top:14px;">
+        <thead><tr><th>id</th><th>rep_name</th><th>region</th><th>product</th><th>amount</th><th>sale_date</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>Dana</td><td>North</td><td>Laptop</td><td>1200.00</td><td>2026-01-10</td></tr>
+          <tr><td>2</td><td>Omar</td><td>South</td><td>Phone</td><td>650.00</td><td>2026-01-12</td></tr>
+          <tr><td>3</td><td>Dana</td><td>North</td><td>Tablet</td><td class="null-val">NULL</td><td>2026-01-15</td></tr>
+          <tr><td>4</td><td>Noa</td><td>East</td><td>Laptop</td><td>1350.00</td><td>2026-01-18</td></tr>
+          <tr><td>5</td><td>Omar</td><td>South</td><td>Laptop</td><td>1100.00</td><td>2026-01-20</td></tr>
+          <tr><td>6</td><td>Dana</td><td>North</td><td>Phone</td><td>720.00</td><td>2026-01-22</td></tr>
+          <tr><td>7</td><td>Noa</td><td>East</td><td>Phone</td><td>690.00</td><td>2026-01-25</td></tr>
+          <tr><td>8</td><td>Liam</td><td>West</td><td>Tablet</td><td>480.00</td><td>2026-01-28</td></tr>
+          <tr><td>9</td><td>Liam</td><td>West</td><td>Laptop</td><td>1050.00</td><td>2026-02-01</td></tr>
+          <tr><td>10</td><td>Omar</td><td>South</td><td>Tablet</td><td class="null-val">NULL</td><td>2026-02-03</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- schema visualiser -->
+    <section class="section card reveal">
+      <h2>What the schema looks like after adding columns</h2>
+      <p style="color:var(--muted);">Original 6 columns + 2 new ones — the <span style="color:var(--teal)">teal</span> and <span style="color:var(--amber)">amber</span> ones are added via ALTER TABLE.</p>
+      <div class="schema-grid">
+        <div class="col-pill col-existing">id<div class="col-type">INTEGER PK</div></div>
+        <div class="col-pill col-existing">rep_name<div class="col-type">TEXT</div></div>
+        <div class="col-pill col-existing">region<div class="col-type">TEXT</div></div>
+        <div class="col-pill col-existing">product<div class="col-type">TEXT</div></div>
+        <div class="col-pill col-existing">amount<div class="col-type">REAL</div></div>
+        <div class="col-pill col-existing">sale_date<div class="col-type">TEXT</div></div>
+        <div class="col-pill col-new">bonus<div class="col-type">REAL</div></div>
+        <div class="col-pill col-new-amber">is_flagged<div class="col-type">INT DEFAULT 0</div></div>
+      </div>
+    </section>
+
+    <!-- ADD COLUMN -->
+    <section class="section card reveal">
+      <h2>ADD COLUMN basics</h2>
+      <p style="color:var(--muted);">Add a <code style="color:var(--teal)">bonus</code> column to the existing sales table.</p>
+      <div class="code">
+        <div class="label">Syntax</div>
+        <pre><span class="k">ALTER TABLE</span> sales
+<span class="k">ADD COLUMN</span> bonus <span class="t">REAL</span>;</pre>
+      </div>
+      <p class="note" style="margin-top:12px;">After this statement the table has 7 columns. Every existing row has <span class="null-val">NULL</span> for bonus until you fill it with UPDATE.</p>
+    </section>
+
+    <!-- UPDATE to fill -->
+    <section class="section card reveal">
+      <h2>Fill the new column with UPDATE</h2>
+      <p style="color:var(--muted);">Set bonus to 10% of amount. Rows where amount is NULL will still have NULL bonus.</p>
+      <div class="code">
+        <div class="label">Query 1 — flat percentage</div>
+        <pre><span class="k">UPDATE</span> sales
+<span class="k">SET</span>    bonus = amount * <span class="c">0.10</span>;</pre>
+      </div>
+
+      <div class="bar-chart" style="margin-top:18px;">
+        <div class="bar-chart-title">Bonus per rep (10% of revenue)</div>
+        <div class="bar-row">
+          <span class="bar-label">Noa</span>
+          <div class="bar-track"><div class="bar-fill bar-teal" data-pct="100"></div></div>
+          <span class="bar-val">$204</span>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">Dana</span>
+          <div class="bar-track"><div class="bar-fill bar-violet" data-pct="94"></div></div>
+          <span class="bar-val">$192</span>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">Omar</span>
+          <div class="bar-track"><div class="bar-fill bar-amber" data-pct="86"></div></div>
+          <span class="bar-val">$175</span>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">Liam</span>
+          <div class="bar-track"><div class="bar-fill bar-coral" data-pct="75"></div></div>
+          <span class="bar-val">$153</span>
+        </div>
+      </div>
+      <p class="note note-coral">NULL * 0.10 is NULL — the two Tablet rows keep NULL bonus. Use COALESCE to treat them as 0 (see Topic 6).</p>
+    </section>
+
+    <!-- ADD COLUMN DEFAULT -->
+    <section class="section card reveal">
+      <h2>ADD COLUMN with a DEFAULT</h2>
+      <div class="code">
+        <div class="label">Query 3</div>
+        <pre><span class="k">ALTER TABLE</span> sales
+<span class="k">ADD COLUMN</span> is_flagged <span class="t">INTEGER</span> <span class="k">DEFAULT</span> <span class="c">0</span>;</pre>
+      </div>
+      <p class="note note-amber" style="margin-top:12px;">All 10 existing rows now have is_flagged = 0. Future INSERTs that omit is_flagged also default to 0.</p>
+    </section>
+
+    <!-- PRAGMA -->
+    <section class="section card reveal">
+      <h2>Verify with PRAGMA table_info</h2>
+      <div class="code">
+        <div class="label">Query 4</div>
+        <pre><span class="k">PRAGMA</span> table_info(sales);</pre>
+      </div>
+      <table class="table" style="margin-top:12px;">
+        <thead><tr><th>cid</th><th>name</th><th>type</th><th>notnull</th><th>dflt_value</th></tr></thead>
+        <tbody>
+          <tr><td>0</td><td>id</td><td>INTEGER</td><td>0</td><td class="null-val">NULL</td></tr>
+          <tr><td>1</td><td>rep_name</td><td>TEXT</td><td>1</td><td class="null-val">NULL</td></tr>
+          <tr><td>2</td><td>region</td><td>TEXT</td><td>1</td><td class="null-val">NULL</td></tr>
+          <tr><td>3</td><td>product</td><td>TEXT</td><td>1</td><td class="null-val">NULL</td></tr>
+          <tr><td>4</td><td>amount</td><td>REAL</td><td>0</td><td class="null-val">NULL</td></tr>
+          <tr><td>5</td><td>sale_date</td><td>TEXT</td><td>1</td><td class="null-val">NULL</td></tr>
+          <tr><td>6</td><td style="color:var(--teal)">bonus</td><td>REAL</td><td>0</td><td class="null-val">NULL</td></tr>
+          <tr><td>7</td><td style="color:var(--amber)">is_flagged</td><td>INTEGER</td><td>0</td><td>0</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- RENAME TABLE -->
+    <section class="section card reveal">
+      <h2>RENAME TABLE</h2>
+      <p style="color:var(--muted);">Rename the table itself. All existing data and column structure stays the same.</p>
+      <div class="code">
+        <div class="label">Syntax</div>
+        <pre><span class="k">ALTER TABLE</span> sales <span class="k">RENAME TO</span> sales_archive;
+
+<span class="c">-- rename it back</span>
+<span class="k">ALTER TABLE</span> sales_archive <span class="k">RENAME TO</span> sales;</pre>
+      </div>
+      <p class="note note-amber" style="margin-top:12px;">Any views or triggers that reference the old name will break — update them after renaming.</p>
+    </section>
+
+    <!-- RENAME COLUMN -->
+    <section class="section card reveal">
+      <h2>RENAME COLUMN</h2>
+      <p style="color:var(--muted);">Rename a single column without touching any other structure or data.</p>
+      <div class="code">
+        <div class="label">Syntax</div>
+        <pre><span class="k">ALTER TABLE</span> sales
+<span class="k">RENAME COLUMN</span> rep_name <span class="k">TO</span> salesperson;</pre>
+      </div>
+      <table class="table" style="margin-top:12px;">
+        <thead><tr><th>Before</th><th>After</th></tr></thead>
+        <tbody>
+          <tr><td><code>rep_name</code></td><td><code style="color:var(--violet)">salesperson</code></td></tr>
+          <tr><td colspan="2" style="color:var(--muted); font-size:0.85rem;">All other columns and data unchanged</td></tr>
+        </tbody>
+      </table>
+      <p class="note note-violet" style="margin-top:12px;">Supported in SQLite 3.25.0 (2018). Any queries or views that reference the old column name must be updated.</p>
+    </section>
+
+    <!-- DROP COLUMN -->
+    <section class="section card reveal">
+      <h2>DROP COLUMN</h2>
+      <p style="color:var(--muted);">Remove a column and all its data permanently.</p>
+      <div class="code">
+        <div class="label">Syntax</div>
+        <pre><span class="k">ALTER TABLE</span> sales
+<span class="k">DROP COLUMN</span> is_flagged;</pre>
+      </div>
+      <p class="note note-coral" style="margin-top:12px;">Supported in SQLite 3.35.0 (2021). Cannot drop a PRIMARY KEY column, a column with a UNIQUE constraint, or a column referenced by another column's DEFAULT or a generated column.</p>
+    </section>
+
+    <!-- quick ref -->
+    <section class="section card reveal">
+      <h2>Quick reference</h2>
+      <table class="table" style="margin-top:10px;">
+        <thead><tr><th>Statement</th><th>Effect</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td><code style="color:var(--teal)">ADD COLUMN col TYPE</code></td><td>Adds a new column</td><td>Existing rows get NULL</td></tr>
+          <tr><td><code style="color:var(--teal)">ADD COLUMN col TYPE DEFAULT v</code></td><td>Adds column with default</td><td>Existing rows get v</td></tr>
+          <tr><td><code style="color:var(--amber)">RENAME TO new_name</code></td><td>Renames the table</td><td>Update views / triggers</td></tr>
+          <tr><td><code style="color:var(--violet)">RENAME COLUMN old TO new</code></td><td>Renames a column</td><td>SQLite ≥ 3.25</td></tr>
+          <tr><td><code style="color:var(--coral)">DROP COLUMN col</code></td><td>Deletes column + data</td><td>SQLite ≥ 3.35, irreversible</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section card reveal exercise-card" id="exercise">
+      <div class="exercise-head">
+        <div class="exercise-q">?</div>
+        <div>
+          <h2>Exercise</h2>
+          <p class="exercise-sub">Modify the sales table</p>
+        </div>
+      </div>
+      <ol class="exercise-steps">
+        <li>Add a TEXT column called <code style="color:var(--teal)">tier</code> to the sales table, then fill it: 'high' where amount &gt; 1000, 'low' otherwise</li>
+        <li>Add a REAL column called <code style="color:var(--teal)">tax</code> with DEFAULT 0, then update it to amount * 0.07 where amount IS NOT NULL</li>
+        <li>Rename the sales table to <code style="color:var(--amber)">sales_backup</code>, then rename it back to <code style="color:var(--amber)">sales</code></li>
+        <li>Rename the column <code style="color:var(--violet)">product</code> to <code style="color:var(--violet)">item</code></li>
+        <li>Drop the <code style="color:var(--coral)">tier</code> column you created in step 1, then run PRAGMA table_info(sales) to verify it is gone</li>
+      </ol>
+    </section>
+
+    <div class="lesson-nav reveal">
+      <a class="btn" href="04-having.html">← HAVING</a>
+      <a class="btn primary" href="06-advanced-agg.html">Next: Advanced &amp; Mistakes →</a>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
