@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SQL Detective — Mockup</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+    :root {
+      --bg: #020b16;
+      --panel: #071321;
+      --panel-2: #09192b;
+      --panel-3: #0b1f34;
+      --panel-4: #0d2237;
+      --line: #17324f;
+      --line-soft: rgba(53, 90, 130, 0.42);
+      --gold: #f0b63e;
+      --gold-2: #ffcf67;
+      --text: #e9f0f8;
+      --muted: #95a9c2;
+      --muted-2: #70849f;
+      --green: #2db96c;
+      --green-2: #33d17a;
+      --red: #ff645c;
+      --blue-glow: 0 0 0 1px rgba(34, 68, 104, 0.55), 0 16px 40px rgba(0,0,0,0.35);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top right, rgba(23, 63, 108, 0.22), transparent 28%),
+        radial-gradient(circle at bottom left, rgba(16, 51, 87, 0.22), transparent 24%),
+        linear-gradient(180deg, #020914 0%, #04111d 100%);
+      min-height: 100vh;
+    }
+
+    .app {
+      width: min(1540px, calc(100vw - 22px));
+      margin: 14px auto;
+      border: 1px solid #103250;
+      background: linear-gradient(180deg, rgba(4,15,26,0.95), rgba(3,12,22,0.96));
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    }
+
+    .topbar {
+      height: 88px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 28px;
+      background: linear-gradient(180deg, #020a14 0%, #05111c 100%);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .brand-icon {
+      width: 56px;
+      height: 56px;
+      display: grid;
+      place-items: center;
+      border-radius: 18px;
+      font-size: 34px;
+      background: linear-gradient(180deg, rgba(11, 29, 47, 0.9), rgba(7, 19, 33, 0.9));
+      border: 1px solid var(--line);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.03);
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+    }
+
+    .brand p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+
+    .metric-card,
+    .mini-card,
+    .danger-btn {
+      height: 56px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(8, 23, 39, 0.95), rgba(6, 19, 33, 0.95));
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+    }
+
+    .metric-card {
+      width: 260px;
+      padding: 10px 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .metric-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 14px;
+    }
+
+    .metric-top span:first-child { color: var(--text); }
+    .metric-top span:last-child { color: var(--gold); font-weight: 700; }
+
+    .progress {
+      height: 11px;
+      border-radius: 999px;
+      background: #102338;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .progress > div {
+      width: 16%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--gold), var(--gold-2));
+    }
+
+    .mini-card,
+    .danger-btn {
+      padding: 0 18px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--text);
+      text-decoration: none;
+      user-select: none;
+      cursor: default;
+    }
+
+    .mini-card .icon,
+    .danger-btn .icon { font-size: 22px; }
+    .mini-card .text strong,
+    .danger-btn .text strong { display: block; font-size: 14px; }
+    .mini-card .text span,
+    .danger-btn .text span { color: var(--muted); font-size: 12px; }
+    .danger-btn { color: var(--red); }
+    .danger-btn .text span { color: #cc807b; }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 314px 1fr;
+      min-height: calc(100vh - 120px);
+    }
+
+    .sidebar {
+      background: linear-gradient(180deg, rgba(6, 18, 30, 0.98), rgba(4, 14, 24, 0.98));
+      border-right: 1px solid var(--line);
+      padding: 26px 20px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .sidebar-title {
+      color: #cbd7e8;
+      font-size: 18px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 2px;
+    }
+
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .step {
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(8, 23, 39, 0.94), rgba(7, 20, 34, 0.94));
+      padding: 16px 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      position: relative;
+      box-shadow: var(--blue-glow);
+    }
+
+    .step.active {
+      border-color: rgba(240, 182, 62, 0.9);
+      box-shadow: inset 0 0 0 1px rgba(240, 182, 62, 0.14), 0 0 0 1px rgba(240, 182, 62, 0.22);
+    }
+
+    .step-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      font-size: 24px;
+      color: #ffe3a1;
+      background: linear-gradient(180deg, #10243a, #0b1a2d);
+      border: 1px solid rgba(255,255,255,0.06);
+      flex: 0 0 44px;
+    }
+
+    .step-copy {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .step-copy strong {
+      display: block;
+      font-size: 30px;
+      font-weight: 400;
+      line-height: 0.9;
+      color: #b3c9e9;
+      opacity: 0.95;
+      margin-bottom: 3px;
+    }
+
+    .step-copy h3 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .step-copy p {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .lock {
+      color: #7891b3;
+      font-size: 18px;
+      margin-left: auto;
+    }
+
+    .tip-card {
+      margin-top: auto;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 20px 18px;
+      background: linear-gradient(180deg, rgba(7, 21, 36, 0.96), rgba(5, 18, 30, 0.96));
+      box-shadow: var(--blue-glow);
+    }
+
+    .tip-card h4 {
+      margin: 0 0 10px;
+      color: var(--gold);
+      font-size: 17px;
+    }
+
+    .tip-card p {
+      margin: 0;
+      color: #e9f0f8;
+      line-height: 1.7;
+      font-size: 15px;
+    }
+
+    .main-wrap {
+      padding: 22px;
+      background:
+        radial-gradient(circle at 100% 0, rgba(20, 52, 86, 0.16), transparent 26%),
+        linear-gradient(180deg, rgba(4, 15, 26, 0.95), rgba(4, 13, 22, 0.95));
+    }
+
+    .hero {
+      min-height: 176px;
+      border-radius: 20px;
+      border: 1px solid var(--line);
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: 1.35fr 1fr;
+      background: linear-gradient(90deg, rgba(7, 22, 38, 0.98) 0%, rgba(5, 18, 30, 0.96) 54%, rgba(4, 18, 32, 0.86) 100%);
+      box-shadow: var(--blue-glow);
+    }
+
+    .hero-copy {
+      padding: 26px 28px;
+    }
+
+    .hero-label {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--gold);
+      font-size: 16px;
+      font-weight: 800;
+      margin-bottom: 16px;
+    }
+
+    .hero-label .folder {
+      font-size: 26px;
+      filter: saturate(1.1);
+    }
+
+    .hero-copy h2 {
+      margin: 0 0 12px;
+      font-size: 23px;
+      line-height: 1.25;
+    }
+
+    .hero-copy h2 span { color: var(--gold); }
+
+    .hero-copy p {
+      margin: 0;
+      color: #dce7f4;
+      font-size: 18px;
+      line-height: 1.55;
+      max-width: 720px;
+    }
+
+    .hero-copy p strong { color: white; }
+
+    .hero-art {
+      position: relative;
+      background:
+        linear-gradient(180deg, rgba(4, 13, 22, 0.2), rgba(4, 13, 22, 0.75)),
+        radial-gradient(circle at 72% 30%, rgba(255, 197, 102, 0.85), rgba(255, 197, 102, 0.1) 12%, transparent 13%),
+        linear-gradient(180deg, rgba(3, 9, 16, 0.1), rgba(3, 9, 16, 0.8)),
+        linear-gradient(135deg, #12283b 0%, #071221 40%, #0c1f34 100%);
+      isolation: isolate;
+    }
+
+    .hero-art::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(90deg, transparent 0 60%, rgba(0,0,0,0.4) 60% 100%),
+        linear-gradient(180deg, transparent 0 72%, rgba(255, 196, 68, 0.18) 72% 74%, transparent 74% 100%);
+      z-index: 0;
+    }
+
+    .lamp {
+      position: absolute;
+      top: 18px;
+      left: 44%;
+      width: 16px;
+      height: 110px;
+      background: linear-gradient(180deg, #33424f, #1d2f3e);
+      border-radius: 10px;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.08);
+    }
+
+    .lamp::before {
+      content: "";
+      position: absolute;
+      top: -9px;
+      left: -9px;
+      width: 34px;
+      height: 28px;
+      border-radius: 12px 12px 8px 8px;
+      background: linear-gradient(180deg, #ffd57f, #f2b444);
+      box-shadow: 0 0 26px rgba(255, 187, 77, 0.75);
+    }
+
+    .police-sign {
+      position: absolute;
+      right: 56px;
+      top: 50px;
+      font-weight: 800;
+      font-size: 42px;
+      letter-spacing: 0.08em;
+      color: #ffd28d;
+      text-shadow: 0 0 14px rgba(255, 200, 115, 0.65);
+    }
+
+    .tape {
+      position: absolute;
+      left: 42%;
+      right: -20px;
+      bottom: 36px;
+      transform: rotate(-8deg);
+      background: linear-gradient(90deg, #e0b120, #c99912);
+      color: #1e1600;
+      font-size: 17px;
+      font-weight: 800;
+      padding: 8px 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      box-shadow: 0 8px 22px rgba(0,0,0,0.34);
+      z-index: 1;
+    }
+
+    .grid {
+      margin-top: 22px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 274px;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .card {
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(8, 22, 38, 0.96), rgba(6, 19, 32, 0.96));
+      box-shadow: var(--blue-glow);
+    }
+
+    .table-card { padding: 16px; }
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      color: #d9e7fb;
+      font-size: 15px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .table-shell {
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px;
+      background: linear-gradient(180deg, rgba(5, 14, 24, 0.95), rgba(4, 12, 22, 0.95));
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 15px;
+    }
+
+    thead th {
+      background: rgba(12, 31, 52, 0.95);
+      color: #e6eef9;
+      font-weight: 600;
+      padding: 14px 16px;
+      border-right: 1px solid rgba(255,255,255,0.08);
+      text-align: left;
+    }
+
+    thead th:last-child,
+    tbody td:last-child { border-right: none; }
+
+    tbody td {
+      padding: 15px 16px;
+      color: #f2f7fd;
+      border-top: 1px solid rgba(255,255,255,0.07);
+      border-right: 1px solid rgba(255,255,255,0.06);
+      white-space: nowrap;
+    }
+
+    tbody tr { background: rgba(6, 17, 29, 0.92); }
+    tbody tr:nth-child(even) { background: rgba(7, 20, 34, 0.92); }
+    tbody tr.highlight { background: rgba(70, 56, 11, 0.88); }
+    tbody tr.highlight td { color: #ffdc6f; }
+
+    .hint-line {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 16px;
+      color: #cfdced;
+      font-size: 15px;
+    }
+
+    .hint-line .dot {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(255,255,255,0.09);
+      background: #0c2034;
+      color: #9fc0ea;
+      font-weight: 700;
+    }
+
+    .hint-line strong { color: var(--gold); }
+
+    .mission-card {
+      padding: 16px;
+      min-height: 380px;
+    }
+
+    .polaroid {
+      margin-top: 12px;
+      background: #efe2c7;
+      border-radius: 6px;
+      padding: 12px 12px 16px;
+      transform: rotate(-1.5deg);
+      box-shadow: 0 16px 22px rgba(0,0,0,0.28);
+      position: relative;
+    }
+
+    .polaroid::before,
+    .polaroid::after {
+      content: "";
+      position: absolute;
+      width: 42px;
+      height: 14px;
+      background: rgba(214, 193, 156, 0.85);
+      top: -6px;
+    }
+
+    .polaroid::before { left: 14px; transform: rotate(-20deg); }
+    .polaroid::after { right: 14px; transform: rotate(18deg); }
+
+    .crime-photo {
+      height: 210px;
+      border-radius: 2px;
+      background:
+        radial-gradient(circle at 72% 25%, rgba(255,255,255,0.22), transparent 12%),
+        linear-gradient(180deg, rgba(14, 31, 46, 0.55), rgba(10, 20, 31, 0.74)),
+        linear-gradient(135deg, #243849 0%, #12293b 46%, #091723 100%);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .crime-photo::before {
+      content: "";
+      position: absolute;
+      inset: 18px auto auto 18px;
+      width: 92px;
+      height: 92px;
+      border: 6px solid rgba(255,255,255,0.14);
+      border-radius: 50%;
+      box-shadow:
+        0 0 0 5px rgba(255,255,255,0.04) inset,
+        80px 26px 0 -40px rgba(255,255,255,0.1),
+        104px 44px 0 -48px rgba(255,255,255,0.1);
+      transform: rotate(22deg);
+      opacity: 0.75;
+    }
+
+    .marker {
+      position: absolute;
+      right: 16px;
+      bottom: 16px;
+      width: 42px;
+      height: 42px;
+      border-radius: 6px;
+      background: #f2bc2f;
+      color: #161200;
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      font-size: 24px;
+    }
+
+    .polaroid p {
+      margin: 14px 4px 0;
+      color: #2d2413;
+      font-size: 15px;
+      line-height: 1.55;
+    }
+
+    .polaroid p strong { color: #9f2e1e; }
+
+    .lower {
+      margin-top: 18px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 405px;
+      gap: 18px;
+    }
+
+    .editor-card,
+    .answer-card { padding: 16px; }
+
+    .editor-box {
+      margin-top: 10px;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: #081523;
+    }
+
+    .editor-lines {
+      display: grid;
+      grid-template-columns: 48px 1fr;
+      min-height: 148px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 23px;
+    }
+
+    .line-numbers {
+      padding: 20px 0;
+      text-align: center;
+      color: #6e85a3;
+      background: rgba(255,255,255,0.03);
+      border-right: 1px solid rgba(255,255,255,0.06);
+      line-height: 1.8;
+    }
+
+    .editor-content {
+      padding: 20px 22px;
+      color: #5f7086;
+      line-height: 1.8;
+    }
+
+    .editor-actions {
+      margin-top: 14px;
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 12px;
+      padding: 14px 22px;
+      font-weight: 700;
+      font-size: 15px;
+      color: white;
+      cursor: default;
+    }
+
+    .btn.run { background: linear-gradient(180deg, #1e8c4f, #187541); }
+    .btn.clear {
+      background: #213448;
+      color: #e4edf7;
+      border: 1px solid rgba(255,255,255,0.07);
+    }
+
+    .answer-card .answer-label {
+      margin-top: 18px;
+      color: #e6eef9;
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .answer-card .answer-eq {
+      margin: 18px 0 14px;
+      font-size: 34px;
+      font-weight: 500;
+      color: white;
+    }
+
+    .input-shell {
+      border-radius: 12px;
+      padding: 18px 16px;
+      background: #091625;
+      border: 1px solid rgba(255,255,255,0.08);
+      color: #627b96;
+      font-size: 20px;
+      margin-bottom: 18px;
+    }
+
+    .submit {
+      width: 100%;
+      border: none;
+      border-radius: 12px;
+      padding: 18px 16px;
+      background: linear-gradient(180deg, #efb842, #deaa3a);
+      color: #1b1602;
+      font-size: 18px;
+      font-weight: 800;
+      cursor: default;
+      box-shadow: 0 10px 24px rgba(192, 138, 22, 0.25);
+    }
+
+    .footer-line {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      padding: 18px 10px 20px;
+      color: #dbe7f5;
+      font-size: 18px;
+    }
+
+    .footer-line .shield,
+    .footer-line .prints { opacity: 0.8; }
+
+    @media (max-width: 1250px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { border-right: none; border-bottom: 1px solid var(--line); }
+      .grid, .lower { grid-template-columns: 1fr; }
+      .topbar { height: auto; gap: 20px; flex-direction: column; align-items: stretch; }
+      .top-actions { flex-wrap: wrap; }
+      .hero { grid-template-columns: 1fr; }
+      .hero-art { min-height: 220px; }
+    }
+
+    @media (max-width: 780px) {
+      .app { width: calc(100vw - 10px); margin: 5px auto; border-radius: 12px; }
+      .main-wrap, .sidebar { padding: 14px; }
+      .hero-copy p { font-size: 16px; }
+      .editor-lines { font-size: 18px; }
+      .answer-card .answer-eq { font-size: 25px; }
+      .top-actions { gap: 10px; }
+      .metric-card { width: 100%; }
+      .mini-card, .danger-btn { flex: 1 1 180px; }
+      .table-shell { overflow-x: auto; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-icon">🕵️</div>
+        <div>
+          <h1>SQL DETECTIVE</h1>
+          <p>Crack the case</p>
+        </div>
+      </div>
+
+      <div class="top-actions">
+        <div class="metric-card">
+          <div class="metric-top">
+            <span>Case Progress</span>
+            <span>16%</span>
+          </div>
+          <div class="progress"><div></div></div>
+        </div>
+
+        <div class="mini-card">
+          <div class="icon">💡</div>
+          <div class="text">
+            <strong>Hints</strong>
+            <span>2 available</span>
+          </div>
+        </div>
+
+        <div class="danger-btn">
+          <div class="icon">🔄</div>
+          <div class="text">
+            <strong>Reset Case</strong>
+            <span>Start over</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="sidebar-title">◔ Case Steps</div>
+
+        <div class="steps">
+          <div class="step active">
+            <div class="step-icon">📁</div>
+            <div class="step-copy">
+              <strong>1</strong>
+              <h3>Robberies</h3>
+              <p>Find the robbery details</p>
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="step-icon">🌀</div>
+            <div class="step-copy">
+              <strong>2</strong>
+              <h3>Fingerprints</h3>
+              <p>Find the suspect ID</p>
+            </div>
+            <div class="lock">🔒</div>
+          </div>
+
+          <div class="step">
+            <div class="step-icon">👤</div>
+            <div class="step-copy">
+              <strong>3</strong>
+              <h3>Suspects</h3>
+              <p>Read the suspect’s clues</p>
+            </div>
+            <div class="lock">🔒</div>
+          </div>
+
+          <div class="step">
+            <div class="step-icon">🌍</div>
+            <div class="step-copy">
+              <strong>4</strong>
+              <h3>Countries</h3>
+              <p>Check nightlife by month</p>
+            </div>
+            <div class="lock">🔒</div>
+          </div>
+
+          <div class="step">
+            <div class="step-icon">✈️</div>
+            <div class="step-copy">
+              <strong>5</strong>
+              <h3>Flights</h3>
+              <p>Find the correct flight</p>
+            </div>
+            <div class="lock">🔒</div>
+          </div>
+
+          <div class="step">
+            <div class="step-icon">🏨</div>
+            <div class="step-copy">
+              <strong>6</strong>
+              <h3>Hotels</h3>
+              <p>Find the right hotel</p>
+            </div>
+            <div class="lock">🔒</div>
+          </div>
+
+          <div class="step">
+            <div class="step-icon">🗝️</div>
+            <div class="step-copy">
+              <strong>7</strong>
+              <h3>Hotel Rooms</h3>
+              <p>Find the exact room</p>
+            </div>
+            <div class="lock">🔒</div>
+          </div>
+        </div>
+
+        <div class="tip-card">
+          <h4>🕵️ Detective Tip</h4>
+          <p>Use SQL queries to explore the database and find clues one step at a time</p>
+        </div>
+      </aside>
+
+      <main class="main-wrap">
+        <section class="hero">
+          <div class="hero-copy">
+            <div class="hero-label"><span class="folder">📁</span> TASK 1: <span>FIND THE ROBBERY DETAILS</span></div>
+            <h2>A robbery happened last night. Look into the database table below and find the details of the robbery that happened last night</h2>
+            <p>You need the <strong>fingerprint code</strong> for the next step</p>
+          </div>
+          <div class="hero-art">
+            <div class="lamp"></div>
+            <div class="police-sign">POLICE</div>
+            <div class="tape">Crime Scene Do Not Cross</div>
+          </div>
+        </section>
+
+        <section class="grid">
+          <div class="table-card card">
+            <div class="section-title">🧮 Table: robberies</div>
+            <div class="table-shell">
+              <table>
+                <thead>
+                  <tr>
+                    <th>robbery_id</th>
+                    <th>robbery_date</th>
+                    <th>robbery_time</th>
+                    <th>location</th>
+                    <th>stolen_item</th>
+                    <th>fingerprint_code</th>
+                    <th>note</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>1</td>
+                    <td>2025-05-21</td>
+                    <td>14:30:00</td>
+                    <td>City Mall</td>
+                    <td>Jewelry</td>
+                    <td>FP928374</td>
+                    <td>CCTV captured</td>
+                  </tr>
+                  <tr>
+                    <td>2</td>
+                    <td>2025-05-22</td>
+                    <td>09:15:00</td>
+                    <td>Central Bank</td>
+                    <td>Cash</td>
+                    <td>FP192837</td>
+                    <td>Alarms triggered</td>
+                  </tr>
+                  <tr>
+                    <td>3</td>
+                    <td>2025-05-24</td>
+                    <td>16:45:00</td>
+                    <td>Tech Store</td>
+                    <td>Laptops</td>
+                    <td>FP736291</td>
+                    <td>No witnesses</td>
+                  </tr>
+                  <tr>
+                    <td>4</td>
+                    <td>2025-05-25</td>
+                    <td>21:10:00</td>
+                    <td>Golden Museum</td>
+                    <td>Antique Vase</td>
+                    <td>FP493021</td>
+                    <td>Guard injured</td>
+                  </tr>
+                  <tr class="highlight">
+                    <td>5</td>
+                    <td>2025-05-26</td>
+                    <td>23:40:00</td>
+                    <td>Diamond House</td>
+                    <td>Diamond Necklace</td>
+                    <td>FP562781</td>
+                    <td>Silent alarm</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="hint-line">
+              <div class="dot">i</div>
+              <div>“Last night” means the <strong>most recent date</strong> in the table</div>
+            </div>
+          </div>
+
+          <aside class="mission-card card">
+            <div class="section-title">📋 Mission Note</div>
+            <div class="polaroid">
+              <div class="crime-photo">
+                <div class="marker">5</div>
+              </div>
+              <p>The police found a fingerprint at the scene. Find the robbery that happened last night and get the <strong>fingerprint code</strong></p>
+            </div>
+          </aside>
+        </section>
+
+        <section class="lower">
+          <div class="editor-card card">
+            <div class="section-title">⌨️ Your SQL Query</div>
+            <div class="editor-box">
+              <div class="editor-lines">
+                <div class="line-numbers">1<br>2</div>
+                <div class="editor-content">-- Write your SQL query here</div>
+              </div>
+            </div>
+            <div class="editor-actions">
+              <button class="btn run">▶ Run Query</button>
+              <button class="btn clear">Clear</button>
+            </div>
+          </div>
+
+          <div class="answer-card card">
+            <div class="section-title">🔑 Your Answer</div>
+            <div class="answer-label">fingerprint_code =</div>
+            <div class="input-shell">Enter fingerprint code...</div>
+            <button class="submit">✓ Submit Answer</button>
+          </div>
+        </section>
+
+        <div class="footer-line">
+          <span class="shield">🛡️</span>
+          <span>Think like a detective. Query like a pro.</span>
+          <span class="prints">👣</span>
+        </div>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

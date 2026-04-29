@@ -1,0 +1,2182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SQL Detective — Crack the Case</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/sql-wasm.js"></script>
+  <style>
+    /* ── BASE (from preview.html) ──────────────────── */
+    :root {
+      --bg: #020b16;
+      --panel: #071321;
+      --panel-2: #09192b;
+      --panel-3: #0b1f34;
+      --panel-4: #0d2237;
+      --line: #17324f;
+      --line-soft: rgba(53, 90, 130, 0.42);
+      --gold: #f0b63e;
+      --gold-2: #ffcf67;
+      --text: #e9f0f8;
+      --muted: #95a9c2;
+      --muted-2: #70849f;
+      --green: #2db96c;
+      --green-2: #33d17a;
+      --red: #ff645c;
+      --blue-glow: 0 0 0 1px rgba(34, 68, 104, 0.55), 0 16px 40px rgba(0,0,0,0.35);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: Inter, system-ui, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top right, rgba(23, 63, 108, 0.22), transparent 28%),
+        radial-gradient(circle at bottom left, rgba(16, 51, 87, 0.22), transparent 24%),
+        linear-gradient(180deg, #020914 0%, #04111d 100%);
+      min-height: 100vh;
+    }
+
+    .app {
+      width: min(1540px, calc(100vw - 22px));
+      margin: 14px auto;
+      border: 1px solid #103250;
+      background: linear-gradient(180deg, rgba(4,15,26,0.95), rgba(3,12,22,0.96));
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    }
+
+    /* ── TOPBAR ──────────────────────────────────── */
+    .topbar {
+      height: 88px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 28px;
+      background: linear-gradient(180deg, #020a14 0%, #05111c 100%);
+      border-bottom: 1px solid var(--line);
+    }
+    .brand { display: flex; align-items: center; gap: 16px; }
+    .brand-icon {
+      width: 56px; height: 56px;
+      display: grid; place-items: center;
+      border-radius: 18px; font-size: 34px;
+      background: linear-gradient(180deg, rgba(11,29,47,0.9), rgba(7,19,33,0.9));
+      border: 1px solid var(--line);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.03);
+    }
+    .brand h1 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: 0.03em; }
+    .brand p  { margin: 4px 0 0; color: var(--muted); font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; }
+    .brand-logo-img { height: 52px; width: auto; display: block; object-fit: contain; }
+    .step-icon img  { width: 100%; height: 100%; object-fit: contain; border-radius: 10px; }
+    .folder img     { width: 28px; height: 28px; object-fit: contain; vertical-align: middle; }
+
+    .top-actions { display: flex; align-items: center; gap: 18px; }
+
+    .metric-card, .mini-card, .danger-btn {
+      height: 56px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(8,23,39,0.95), rgba(6,19,33,0.95));
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+    }
+    .metric-card { width: 260px; padding: 10px 16px; display: flex; flex-direction: column; justify-content: center; gap: 8px; }
+    .metric-top { display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
+    .metric-top span:first-child { color: var(--text); }
+    .metric-top span:last-child  { color: var(--gold); font-weight: 700; }
+    .progress {
+      height: 11px; border-radius: 999px;
+      background: #102338; overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .progress > div {
+      height: 100%; border-radius: inherit;
+      background: linear-gradient(90deg, var(--gold), var(--gold-2));
+      width: 0%; transition: width .45s ease;
+    }
+    .mini-card, .danger-btn {
+      padding: 0 18px; display: flex; align-items: center; gap: 12px;
+      color: var(--text); user-select: none; cursor: pointer;
+    }
+    .mini-card:hover  { border-color: rgba(240,182,62,0.4); }
+    .danger-btn { color: var(--red); }
+    .danger-btn:hover { border-color: rgba(255,100,92,0.4); }
+    .mini-card .icon, .danger-btn .icon { font-size: 22px; }
+    .mini-card .text strong, .danger-btn .text strong { display: block; font-size: 14px; }
+    .mini-card .text span   { color: var(--muted); font-size: 12px; }
+    .danger-btn .text span  { color: #cc807b; font-size: 12px; }
+
+    /* ── LAYOUT ──────────────────────────────────── */
+    .layout {
+      display: grid;
+      grid-template-columns: 314px 1fr;
+      min-height: calc(100vh - 120px);
+    }
+
+    /* ── SIDEBAR ─────────────────────────────────── */
+    .sidebar {
+      background: linear-gradient(180deg, rgba(6,18,30,0.98), rgba(4,14,24,0.98));
+      border-right: 1px solid var(--line);
+      padding: 26px 20px 20px;
+      display: flex; flex-direction: column; gap: 18px;
+      overflow-y: auto;
+    }
+    .sidebar-title {
+      color: #cbd7e8; font-size: 18px; font-weight: 700;
+      display: flex; align-items: center; gap: 10px; margin-bottom: 2px;
+    }
+    .steps { display: flex; flex-direction: column; gap: 14px; }
+
+    .step {
+      border-radius: 18px; border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(8,23,39,0.94), rgba(7,20,34,0.94));
+      padding: 16px; display: flex; align-items: center; gap: 14px;
+      position: relative; box-shadow: var(--blue-glow); cursor: pointer;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .step:hover:not(.locked) { border-color: rgba(240,182,62,0.4); }
+    .step.active {
+      border-color: rgba(240,182,62,0.9);
+      box-shadow: inset 0 0 0 1px rgba(240,182,62,0.14), 0 0 0 1px rgba(240,182,62,0.22);
+    }
+    .step.done   { border-color: rgba(45,185,108,0.5); opacity: .75; }
+    .step.locked { opacity: .3; cursor: not-allowed; }
+
+    .step-icon {
+      width: 44px; height: 44px; border-radius: 14px;
+      display: grid; place-items: center;
+      font-size: 24px; color: #ffe3a1;
+      background: linear-gradient(180deg, #10243a, #0b1a2d);
+      border: 1px solid rgba(255,255,255,0.06); flex: 0 0 44px;
+    }
+    .step.done .step-icon { background: linear-gradient(180deg, #0d2e1a, #091d11); }
+
+    .step-copy { min-width: 0; flex: 1; }
+    .step-copy strong {
+      display: block; font-size: 30px; font-weight: 400;
+      line-height: 0.9; color: #b3c9e9; opacity: .95; margin-bottom: 3px;
+    }
+    .step-copy h3 { margin: 0; font-size: 16px; font-weight: 700; }
+    .step-copy p  { margin: 5px 0 0; color: var(--muted); font-size: 13px; line-height: 1.35; }
+    .lock { color: #7891b3; font-size: 18px; margin-left: auto; }
+    .check { color: var(--green); font-size: 20px; margin-left: auto; }
+
+    .tip-card {
+      margin-top: auto; border: 1px solid var(--line);
+      border-radius: 18px; padding: 20px 18px;
+      background: linear-gradient(180deg, rgba(7,21,36,0.96), rgba(5,18,30,0.96));
+      box-shadow: var(--blue-glow);
+    }
+    .tip-card h4 { margin: 0 0 10px; color: var(--gold); font-size: 17px; }
+    .tip-card p  { margin: 0; color: #e9f0f8; line-height: 1.7; font-size: 15px; }
+
+    /* ── MAIN ────────────────────────────────────── */
+    .main-wrap {
+      padding: 22px;
+      background:
+        radial-gradient(circle at 100% 0, rgba(20,52,86,0.16), transparent 26%),
+        linear-gradient(180deg, rgba(4,15,26,0.95), rgba(4,13,22,0.95));
+      overflow-y: auto;
+    }
+
+    /* ── HERO ────────────────────────────────────── */
+    .hero {
+      min-height: 176px; border-radius: 20px; border: 1px solid var(--line);
+      overflow: hidden; display: grid; grid-template-columns: 1.35fr 1fr;
+      background: linear-gradient(90deg, rgba(7,22,38,0.98) 0%, rgba(5,18,30,0.96) 54%, rgba(4,18,32,0.86) 100%);
+      box-shadow: var(--blue-glow);
+    }
+    .hero-copy { padding: 26px 28px; }
+    .hero-label {
+      display: flex; align-items: center; gap: 12px;
+      color: var(--gold); font-size: 16px; font-weight: 800; margin-bottom: 16px;
+    }
+    .hero-label .folder { font-size: 26px; }
+    .hero-copy h2 { margin: 0 0 12px; font-size: 22px; line-height: 1.25; font-weight: 400; }
+    .hero-copy h2 span { color: var(--gold); }
+    .hero-copy p { margin: 0; color: #dce7f4; font-size: 16px; line-height: 1.55; max-width: 720px; }
+    .hero-copy p strong { color: white; }
+
+    .hero-art {
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-art-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+      display: block;
+    }
+    .hero-art::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        to right,
+        rgba(5, 18, 30, 1)   0%,
+        rgba(5, 18, 30, 0.6) 30%,
+        rgba(5, 18, 30, 0)   65%
+      );
+      pointer-events: none;
+    }
+
+    /* ── GRID: table + mission ───────────────────── */
+    .grid {
+      margin-top: 22px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 274px;
+      gap: 18px; align-items: start;
+    }
+    .card {
+      border-radius: 18px; border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(8,22,38,0.96), rgba(6,19,32,0.96));
+      box-shadow: var(--blue-glow);
+    }
+    .table-card  { padding: 16px; }
+    .section-title {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 14px; color: #d9e7fb;
+      font-size: 15px; font-weight: 800;
+      text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .table-shell {
+      overflow: hidden; border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px;
+      background: linear-gradient(180deg, rgba(5,14,24,0.95), rgba(4,12,22,0.95));
+    }
+    .table-shell-scroll { overflow-x: auto; max-height: 220px; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    thead th {
+      background: rgba(12,31,52,0.95);
+      color: #e6eef9; font-weight: 600;
+      padding: 12px 16px;
+      border-right: 1px solid rgba(255,255,255,0.08);
+      text-align: left; white-space: nowrap;
+    }
+    thead th:last-child, tbody td:last-child { border-right: none; }
+    tbody td {
+      padding: 12px 16px; color: #f2f7fd;
+      border-top: 1px solid rgba(255,255,255,0.07);
+      border-right: 1px solid rgba(255,255,255,0.06);
+      white-space: nowrap;
+    }
+    tbody tr             { background: rgba(6,17,29,0.92); }
+    tbody tr:nth-child(even) { background: rgba(7,20,34,0.92); }
+    tbody tr.highlight   { background: rgba(70,56,11,0.88); }
+    tbody tr.highlight td { color: #ffdc6f; }
+
+    .hint-line {
+      margin-top: 16px;
+    }
+    .hint-line-label {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--muted-2); margin-bottom: 8px;
+    }
+    .findings-wrap {
+      display: flex; flex-wrap: wrap; gap: 8px;
+    }
+    .finding-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(240,182,62,0.08);
+      border: 1px solid rgba(240,182,62,0.22);
+      border-radius: 8px; padding: 5px 10px;
+      font-size: 13px; color: var(--text); white-space: nowrap;
+    }
+    .finding-chip .fc-label { color: var(--muted); font-size: 11px; }
+    .finding-chip .fc-value { color: var(--gold-2); font-weight: 600; font-family: "JetBrains Mono", monospace; font-size: 12px; }
+    .findings-empty { font-size: 13px; color: var(--muted-2); font-style: italic; }
+
+    /* ── MISSION TICKET ──────────────────────────── */
+    .mission-card {
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      background: transparent;
+      border: none;
+      box-shadow: none;
+      padding: 0;
+    }
+    #ticket-img {
+      width: 100%;
+      max-width: 340px;
+      border-radius: 14px;
+      display: block;
+      box-shadow: 0 20px 48px rgba(0,0,0,0.55);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+
+    /* ── TABLE BUTTONS ───────────────────────────── */
+    .tbl-btn-grid {
+      display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px;
+    }
+    .tbl-acc-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 9px 16px; cursor: pointer;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(10,26,44,0.96), rgba(7,20,34,0.96));
+      transition: background .15s, border-color .15s, box-shadow .15s;
+      user-select: none; flex: 0 0 auto;
+    }
+    .tbl-acc-row:hover   {
+      border-color: rgba(240,182,62,0.4);
+      background: rgba(255,255,255,0.04);
+    }
+    .tbl-acc-row.open    {
+      border-color: rgba(240,182,62,0.75);
+      background: rgba(240,182,62,0.09);
+      box-shadow: 0 0 0 1px rgba(240,182,62,0.18);
+    }
+    .tbl-acc-arrow { font-size: 10px; color: var(--muted-2); flex-shrink: 0; transition: transform .15s; }
+    .tbl-acc-row.open .tbl-acc-arrow { transform: rotate(90deg); }
+    .tbl-acc-name  { font-size: 13px; color: var(--text); font-family: "JetBrains Mono", monospace; }
+    .tbl-content-area { display: none; }
+    .tbl-content-area.open { display: block; }
+
+    /* ── EVIDENCE PANEL ──────────────────────────── */
+    .evidence-card { padding: 14px 16px; margin-top: 0; }
+    .evidence-card .section-title { margin-bottom: 10px; font-size: 13px; }
+    .findings-wrap { gap: 6px; }
+    .finding-chip { font-size: 12px; padding: 4px 8px; }
+    .finding-chip .fc-value { font-size: 11px; }
+
+    /* ── ANSWER SECTION (below hero) ────────────── */
+    .answer-section {
+      margin-top: 18px;
+    }
+    .answer-card {
+      padding: 16px 20px;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: start;
+      gap: 0 24px;
+    }
+    .answer-left   { display: flex; flex-direction: column; gap: 0; min-width: 220px; }
+    .answer-center { display: flex; flex-direction: column; justify-content: center; padding-top: 6px; }
+    .answer-right  { display: flex; flex-direction: column; gap: 10px; min-width: 200px; padding-top: 6px; }
+
+    /* ── LOWER: editor only ──────────────────────── */
+    .lower {
+      margin-top: 18px;
+    }
+    .editor-card { padding: 16px; }
+
+    .editor-box {
+      margin-top: 10px; border-radius: 14px;
+      overflow: hidden; border: 1px solid rgba(255,255,255,0.08);
+      background: #081523;
+    }
+    .editor-lines {
+      display: grid; grid-template-columns: 44px 1fr;
+      min-height: 130px;
+      font-family: "JetBrains Mono", monospace; font-size: 15px;
+    }
+    .line-numbers {
+      padding: 18px 0; text-align: center;
+      color: #6e85a3;
+      background: rgba(255,255,255,0.03);
+      border-right: 1px solid rgba(255,255,255,0.06);
+      line-height: 1.8; user-select: none; font-size: 13px;
+    }
+    #sql-editor {
+      padding: 18px 20px; background: transparent; border: none; outline: none;
+      color: #7dd3fc; font-family: "JetBrains Mono", monospace; font-size: 15px;
+      line-height: 1.8; resize: vertical; width: 100%; min-height: 130px;
+    }
+    .editor-actions { margin-top: 14px; display: flex; gap: 12px; align-items: center; }
+    .btn {
+      border: none; border-radius: 12px; padding: 12px 22px;
+      font-weight: 700; font-size: 15px; cursor: pointer; font-family: inherit;
+    }
+    .btn.run   { background: linear-gradient(180deg, #1e8c4f, #187541); color: white; }
+    .btn.run:hover { background: linear-gradient(180deg, #24a85e, #1e8c4f); }
+    .btn.clear {
+      background: #213448; color: #e4edf7;
+      border: 1px solid rgba(255,255,255,0.07);
+    }
+    .btn.clear:hover { background: #2a4060; }
+    .kbd-hint { color: var(--muted-2); font-size: 13px; margin-left: auto; }
+
+    /* Results (inside editor card) */
+    #results-wrap { margin-top: 18px; display: none; }
+    .results-section-title { margin-bottom: 10px; }
+    .res-cnt { color: var(--muted); font-size: 13px; font-weight: 400; margin-left: 6px; }
+    .res-empty { padding: 18px; text-align: center; color: var(--muted-2); font-size: 14px; }
+    .res-error {
+      padding: 14px 16px; border-radius: 10px;
+      background: rgba(255,100,92,0.1);
+      border: 1px solid rgba(255,100,92,0.3);
+      color: #ff9990; font-size: 14px; font-family: "JetBrains Mono", monospace;
+    }
+
+    /* ── ANSWER CARD ─────────────────────────────── */
+    .answer-eq-line {
+      display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+    }
+    .answer-label {
+      color: #95a9c2; font-size: 13px; font-weight: 600;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      font-family: "JetBrains Mono", monospace;
+      white-space: nowrap;
+    }
+    .answer-eq {
+      font-size: 22px; font-weight: 700;
+      color: var(--gold-2); font-family: "JetBrains Mono", monospace;
+      line-height: 1;
+    }
+    .answer-eq.unanswered {
+      animation: qmarkGlow 1.6s ease-in-out infinite;
+    }
+    @keyframes qmarkGlow {
+      0%, 100% { opacity: 1;   text-shadow: 0 0 0px transparent; transform: scale(1);    }
+      50%       { opacity: 0.6; text-shadow: 0 0 14px var(--gold); transform: scale(1.18); }
+    }
+
+    /* ── CORRECT ANSWER OVERLAY ──────────────────── */
+    .answer-card { position: relative; overflow: hidden; }
+    #answer-ok {
+      display: none; position: absolute; inset: 0;
+      background: rgba(4, 22, 10, 0.93);
+      border-radius: inherit;
+      align-items: center; justify-content: center; gap: 18px;
+      z-index: 20;
+    }
+    #answer-ok.show { display: flex; }
+    .ok-check {
+      font-size: 86px; line-height: 1;
+      color: var(--green-2);
+      filter: drop-shadow(0 0 22px rgba(51,209,122,0.55));
+      animation: okPop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+    .ok-label {
+      font-size: 22px; font-weight: 800; color: var(--green-2);
+      letter-spacing: 0.04em;
+      animation: okFadeIn 0.45s 0.15s ease forwards; opacity: 0;
+    }
+    @keyframes okPop {
+      0%   { transform: scale(0) rotate(-25deg); opacity: 0; }
+      100% { transform: scale(1)  rotate(0deg);  opacity: 1; }
+    }
+    @keyframes okFadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0);   }
+    }
+    .input-shell {
+      border-radius: 12px; padding: 13px 16px;
+      background: #091625; border: 1px solid rgba(255,255,255,0.08);
+      font-size: 16px; margin-bottom: 10px; width: 100%;
+      color: var(--text); font-family: "JetBrains Mono", monospace;
+      outline: none; transition: border-color .2s;
+    }
+    .input-shell:focus   { border-color: rgba(240,182,62,0.5); }
+    .input-shell:disabled { opacity: .4; }
+    .submit {
+      width: 100%; border: none; border-radius: 12px; padding: 13px 16px;
+      background: linear-gradient(180deg, #efb842, #deaa3a);
+      color: #1b1602; font-size: 15px; font-weight: 800;
+      cursor: pointer; font-family: inherit;
+      box-shadow: 0 8px 20px rgba(192,138,22,0.25);
+      transition: opacity .15s;
+    }
+    .submit:hover:not(:disabled) { opacity: .88; }
+    .submit:disabled { opacity: .35; cursor: not-allowed; }
+
+    .btn-next-step {
+      width: 100%; border: none; border-radius: 12px; padding: 13px 16px;
+      background: linear-gradient(180deg, #1e8c4f, #187541);
+      color: white; font-size: 15px; font-weight: 800;
+      cursor: pointer; font-family: inherit; display: none;
+    }
+    .btn-next-step:hover { opacity: .88; }
+
+    #feedback {
+      padding: 10px 14px;
+      border-radius: 10px; font-size: 14px;
+      font-weight: 600; text-align: center; display: none;
+    }
+    .fb-ok { background: rgba(45,185,108,0.14); border: 1px solid rgba(45,185,108,0.4); color: #5ce89a; }
+    .fb-no { background: rgba(255,100,92,0.12); border: 1px solid rgba(255,100,92,0.35); color: #ff9990; }
+
+    /* ── FOOTER ──────────────────────────────────── */
+    .footer-line {
+      display: flex; justify-content: center; align-items: center;
+      gap: 12px; padding: 18px 10px 20px;
+      color: #dbe7f5; font-size: 17px;
+    }
+    .footer-line .shield, .footer-line .prints { opacity: .8; }
+
+    /* ── HINT MODAL ──────────────────────────────── */
+    .overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.82); z-index: 100;
+      align-items: center; justify-content: center;
+    }
+    .overlay.open { display: flex; }
+    .modal-box {
+      background: linear-gradient(180deg, rgba(8,22,38,0.99), rgba(6,18,32,0.99));
+      border: 1px solid var(--line); border-radius: 20px;
+      padding: 28px; max-width: 460px; width: 92%;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+    }
+    .modal-title { color: var(--gold); font-size: 18px; font-weight: 800; margin-bottom: 14px; }
+    .modal-sql {
+      background: #081523; color: #7dd3fc;
+      padding: 18px; font-size: 14px; line-height: 1.8;
+      font-family: "JetBrains Mono", monospace; white-space: pre;
+      border-radius: 12px; border: 1px solid rgba(255,255,255,0.08);
+      margin-bottom: 18px;
+    }
+    .modal-btns { display: flex; gap: 12px; }
+    .btn-modal-use {
+      padding: 12px 20px; border-radius: 10px;
+      background: transparent; color: var(--gold);
+      border: 1px solid var(--gold); cursor: pointer; font-family: inherit;
+      font-size: 14px; font-weight: 700;
+    }
+    .btn-modal-use:hover { background: rgba(240,182,62,0.1); }
+    .btn-modal-cls {
+      padding: 12px 20px; border-radius: 10px;
+      background: linear-gradient(180deg, #efb842, #deaa3a); color: #1b1602;
+      border: none; cursor: pointer; font-family: inherit;
+      font-size: 14px; font-weight: 800;
+    }
+
+    /* ── INTRO VIDEO ─────────────────────────────── */
+    #intro-overlay {
+      display: none; position: fixed; inset: 0;
+      background: #000; z-index: 900;
+      align-items: center; justify-content: center;
+      transition: opacity 0.6s ease;
+    }
+    #intro-overlay.open  { display: flex; }
+    #intro-overlay.fading { opacity: 0; }
+
+    #intro-video {
+      width: 100%; height: 100%;
+      object-fit: contain;
+      pointer-events: none; user-select: none;
+      display: block;
+    }
+
+    /* "Click to start" splash shown before video plays */
+    #intro-splash {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 28px; cursor: pointer;
+      background: radial-gradient(ellipse at center, rgba(5,18,32,0.82) 0%, rgba(1,6,14,0.96) 100%);
+      z-index: 902;
+      transition: opacity 0.5s ease;
+    }
+    #intro-splash.hidden { opacity: 0; pointer-events: none; }
+
+    .splash-logo {
+      font-size: 52px;
+      animation: splashPulse 2s ease-in-out infinite;
+    }
+    .splash-title {
+      font-size: 28px; font-weight: 800; color: var(--gold-2);
+      letter-spacing: 0.08em; text-transform: uppercase;
+      text-shadow: 0 0 32px rgba(240,182,62,0.4);
+    }
+    .splash-sub {
+      font-size: 15px; color: var(--muted); letter-spacing: 0.04em;
+    }
+    .splash-play {
+      margin-top: 8px;
+      width: 80px; height: 80px; border-radius: 50%;
+      background: linear-gradient(180deg, #efb842, #c88f1e);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 32px; color: #1b1602;
+      box-shadow: 0 0 0 6px rgba(240,182,62,0.2), 0 0 40px rgba(240,182,62,0.3);
+      animation: splashPulse 2s ease-in-out infinite;
+    }
+    .splash-hint {
+      font-size: 13px; color: var(--muted-2); letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    @keyframes splashPulse {
+      0%, 100% { transform: scale(1);    }
+      50%       { transform: scale(1.07); }
+    }
+
+    #intro-skip {
+      position: absolute; bottom: 32px; right: 36px;
+      background: rgba(10,26,44,0.82);
+      border: 1px solid rgba(240,182,62,0.5);
+      color: var(--gold); font-family: inherit;
+      font-size: 14px; font-weight: 700;
+      padding: 10px 22px; border-radius: 10px;
+      cursor: pointer; letter-spacing: 0.04em;
+      backdrop-filter: blur(4px);
+      transition: background .15s, border-color .15s;
+      z-index: 903; display: none;
+    }
+    #intro-skip:hover {
+      background: rgba(240,182,62,0.15);
+      border-color: rgba(240,182,62,0.85);
+    }
+
+    /* ── VIDEO OVERLAY ──────────────────────────────*/
+    #video-overlay {
+      display: none; position: fixed; inset: 0;
+      background: #000; z-index: 300;
+      align-items: center; justify-content: center;
+      cursor: none;
+    }
+    #video-overlay.open { display: flex; }
+    #arrest-video {
+      width: 100%; height: 100%;
+      object-fit: contain;
+      pointer-events: none; /* blocks click-to-pause */
+      user-select: none;
+    }
+
+    /* ── VICTORY ─────────────────────────────────── */
+    #victory {
+      display: none; position: fixed; inset: 0;
+      background: rgba(1,6,14,0.93); z-index: 200;
+      align-items: center; justify-content: center;
+    }
+    #victory.open { display: flex; }
+    .vic-box {
+      background: linear-gradient(180deg, rgba(8,22,38,0.99), rgba(5,16,30,0.99));
+      border: 1px solid var(--line); border-radius: 24px;
+      padding: 42px; text-align: center; max-width: 500px;
+      box-shadow: 0 30px 70px rgba(0,0,0,0.6);
+    }
+    .vic-icon  { font-size: 64px; }
+    .vic-title { font-size: 28px; font-weight: 800; color: var(--gold-2); letter-spacing: 0.05em; margin: 14px 0 4px; }
+    .vic-stamp {
+      display: inline-block; margin: 14px 0;
+      border: 3px solid var(--green-2); color: var(--green-2);
+      font-size: 18px; font-weight: 800; padding: 8px 24px;
+      letter-spacing: 0.2em; transform: rotate(-4deg);
+      border-radius: 6px;
+    }
+    .vic-sub  { color: var(--muted); line-height: 1.8; font-size: 15px; margin: 16px 0 24px; }
+    .vic-sub  strong { color: var(--gold-2); }
+    .btn-replay {
+      padding: 14px 28px; border-radius: 14px;
+      background: linear-gradient(180deg, #efb842, #deaa3a); color: #1b1602;
+      border: none; cursor: pointer; font-family: inherit;
+      font-size: 16px; font-weight: 800;
+    }
+    .btn-replay:hover { opacity: .88; }
+
+    /* ── TUTORIAL BUBBLE ─────────────────────────── */
+    #tut-bubble {
+      position: fixed;
+      z-index: 500;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity .3s ease, top .25s ease, left .25s ease;
+      width: 340px;
+    }
+    #tut-bubble.visible { opacity: 1; pointer-events: auto; }
+
+    /* Dim backdrop */
+    #tut-backdrop {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,5,14,0.55);
+      z-index: 499; backdrop-filter: blur(1px);
+    }
+    #tut-backdrop.open { display: block; }
+
+    /* Highlight ring around target */
+    #tut-ring {
+      display: none; position: fixed;
+      border: 2px solid rgba(240,182,62,0.7);
+      border-radius: 14px;
+      box-shadow: 0 0 0 4px rgba(240,182,62,0.1), 0 0 24px rgba(240,182,62,0.2);
+      z-index: 500; pointer-events: none;
+      transition: all .25s ease;
+    }
+    #tut-ring.open { display: block; }
+
+    .bubble-box {
+      background: linear-gradient(155deg, #0e2845 0%, #071a2e 100%);
+      border: 1.5px solid rgba(240,182,62,0.65);
+      border-radius: 16px;
+      padding: 18px 20px 14px;
+      box-shadow:
+        0 0 0 1px rgba(240,182,62,0.12),
+        0 20px 52px rgba(0,0,0,0.65),
+        0 0 40px rgba(240,182,62,0.07);
+      animation: bubbleFloat 3s ease-in-out infinite;
+      position: relative;
+    }
+
+    /* Arrow DOWN (bubble above target) – default */
+    .bubble-box.arr-down::after {
+      content: ""; position: absolute;
+      bottom: -11px; left: 50%; transform: translateX(-50%);
+      border-left: 11px solid transparent;
+      border-right: 11px solid transparent;
+      border-top: 11px solid rgba(240,182,62,0.65);
+    }
+    .bubble-box.arr-down::before {
+      content: ""; position: absolute;
+      bottom: -9px; left: 50%; transform: translateX(-50%);
+      border-left: 10px solid transparent;
+      border-right: 10px solid transparent;
+      border-top: 10px solid #071a2e; z-index: 1;
+    }
+    /* Arrow UP (bubble below target) */
+    .bubble-box.arr-up::after {
+      content: ""; position: absolute;
+      top: -11px; left: 50%; transform: translateX(-50%);
+      border-left: 11px solid transparent;
+      border-right: 11px solid transparent;
+      border-bottom: 11px solid rgba(240,182,62,0.65);
+    }
+    .bubble-box.arr-up::before {
+      content: ""; position: absolute;
+      top: -9px; left: 50%; transform: translateX(-50%);
+      border-left: 10px solid transparent;
+      border-right: 10px solid transparent;
+      border-bottom: 10px solid #0e2845; z-index: 1;
+    }
+    /* Arrow RIGHT (bubble to left of target) */
+    .bubble-box.arr-right::after {
+      content: ""; position: absolute;
+      right: -11px; top: 50%; transform: translateY(-50%);
+      border-top: 11px solid transparent;
+      border-bottom: 11px solid transparent;
+      border-left: 11px solid rgba(240,182,62,0.65);
+    }
+    .bubble-box.arr-right::before {
+      content: ""; position: absolute;
+      right: -9px; top: 50%; transform: translateY(-50%);
+      border-top: 10px solid transparent;
+      border-bottom: 10px solid transparent;
+      border-left: 10px solid #071a2e; z-index: 1;
+    }
+
+    .bubble-head {
+      display: flex; align-items: center; gap: 9px;
+      color: var(--gold); font-size: 13px; font-weight: 800;
+      letter-spacing: 0.07em; text-transform: uppercase; margin-bottom: 10px;
+    }
+    .bubble-step-badge {
+      background: rgba(240,182,62,0.15);
+      border: 1px solid rgba(240,182,62,0.35);
+      border-radius: 6px; padding: 1px 7px;
+      font-size: 11px; color: var(--gold); font-weight: 700;
+    }
+    .bh-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--gold); flex-shrink: 0;
+      box-shadow: 0 0 6px var(--gold);
+      animation: pulse 1.4s ease-in-out infinite;
+    }
+    .bubble-body {
+      color: #d4e4f7; font-size: 14px; line-height: 1.7; margin-bottom: 14px;
+    }
+    .bubble-body strong { color: var(--gold-2); }
+
+    .bubble-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      border-top: 1px solid rgba(255,255,255,0.07); padding-top: 12px;
+    }
+    .bubble-dots { display: flex; gap: 5px; }
+    .bubble-dots span {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: rgba(255,255,255,0.15); transition: background .2s;
+    }
+    .bubble-dots span.active { background: var(--gold); box-shadow: 0 0 5px var(--gold); }
+    .bubble-btn {
+      padding: 8px 18px; border-radius: 10px; border: none; cursor: pointer;
+      font-family: inherit; font-size: 13px; font-weight: 800;
+      background: linear-gradient(180deg, #efb842, #deaa3a);
+      color: #1b1602; transition: opacity .15s;
+    }
+    .bubble-btn:hover { opacity: .88; }
+    .bubble-btn.start {
+      background: linear-gradient(180deg, #1e8c4f, #187541);
+      color: #fff; padding: 9px 20px; font-size: 14px;
+    }
+    .bubble-skip {
+      font-size: 11px; color: var(--muted-2); cursor: pointer;
+      text-decoration: underline; transition: color .15s;
+    }
+    .bubble-skip:hover { color: var(--muted); }
+
+    @keyframes bubbleFloat {
+      0%, 100% { transform: translateY(0px); }
+      50%       { transform: translateY(-6px); }
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.45; transform: scale(0.7); }
+    }
+
+    /* ── TABLE SCHEMA ────────────────────────────── */
+    .tbl-schema { padding: 12px 14px; }
+    .tbl-schema-count {
+      font-size: 12px; color: var(--muted-2);
+      margin-bottom: 10px; font-style: italic;
+    }
+    .tbl-schema-count strong { color: var(--gold); font-style: normal; }
+    .tbl-col-list { display: flex; flex-wrap: wrap; gap: 6px; }
+    .tbl-col-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(10,26,44,0.9);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 8px; padding: 5px 10px;
+      font-family: "JetBrains Mono", monospace; font-size: 12px;
+    }
+    .tbl-col-chip .col-name { color: #7dd3fc; }
+    .tbl-col-chip .col-type { color: var(--muted-2); font-size: 11px; }
+
+    /* ── LOADING ─────────────────────────────────── */
+    #loading {
+      position: fixed; inset: 0; background: #020b16;
+      z-index: 999; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 16px;
+    }
+    .spin { font-size: 54px; animation: spin 1.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .ltxt { font-size: 14px; color: var(--gold); letter-spacing: 3px; font-weight: 700; }
+    .lsub { font-size: 12px; color: var(--muted); }
+
+    /* scrollbars */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #17324f; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--gold); }
+
+    @media (max-width: 1250px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { border-right: none; border-bottom: 1px solid var(--line); }
+      .grid, .lower { grid-template-columns: 1fr; }
+      .topbar { height: auto; gap: 20px; flex-direction: column; align-items: stretch; }
+      .top-actions { flex-wrap: wrap; }
+      .hero { grid-template-columns: 1fr; }
+      .hero-art { min-height: 220px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loading">
+  <div class="spin">🔍</div>
+  <div class="ltxt">INITIALIZING DATABASE</div>
+  <div class="lsub">Loading evidence files…</div>
+</div>
+
+<!-- Intro Video -->
+<div id="intro-overlay">
+  <video id="intro-video"
+    src="Comic_Burglar_Video_Request.mp4"
+    playsinline preload="auto">
+  </video>
+
+  <!-- Click-to-start splash (shown before video plays) -->
+  <div id="intro-splash" onclick="startIntroVideo()">
+    <div class="splash-logo">🕵️</div>
+    <div class="splash-title">SQL Detective</div>
+    <div class="splash-sub">A mystery unfolds…</div>
+    <div class="splash-play">▶</div>
+    <div class="splash-hint">Click anywhere to begin</div>
+  </div>
+
+  <button id="intro-skip" onclick="skipIntro()">Skip ▶</button>
+</div>
+
+<div class="app">
+
+  <!-- Topbar -->
+  <header class="topbar">
+    <div class="brand">
+      <img src="header_sql_detective.jpg" alt="SQL Detective" class="brand-logo-img" />
+    </div>
+    <div class="top-actions">
+      <div class="metric-card">
+        <div class="metric-top">
+          <span>Case Progress</span>
+          <span id="prog-pct">0%</span>
+        </div>
+        <div class="progress"><div id="prog-fill"></div></div>
+      </div>
+      <div class="mini-card" onclick="openHint()">
+        <div class="icon">💡</div>
+        <div class="text">
+          <strong>Hints</strong>
+          <span id="hint-ct">3 available</span>
+        </div>
+      </div>
+      <div class="danger-btn" onclick="resetGame()">
+        <div class="icon">🔄</div>
+        <div class="text">
+          <strong>Reset Case</strong>
+          <span>Start over</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-title">◔ Case Steps</div>
+      <div class="steps" id="step-list"></div>
+
+      <!-- Evidence panel — lives in sidebar -->
+      <div class="evidence-card card">
+        <div class="section-title">🗂 Evidence Collected So Far</div>
+        <div class="findings-wrap" id="findings-wrap">
+          <span class="findings-empty">No clues found yet — start querying!</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main-wrap">
+
+      <!-- Hero -->
+      <section class="hero">
+        <div class="hero-copy" id="hero-copy">
+          <div class="hero-label">
+            <span class="folder" id="hero-icon">📁</span>
+            <span id="hero-lbl">TASK 1:</span>
+            <span id="hero-title">FIND THE ROBBERY DETAILS</span>
+          </div>
+          <h2 id="hero-h2">A robbery happened last night. Look into the database table below and find the details of the robbery that happened last night</h2>
+          <p id="hero-p">You need the <strong>fingerprint code</strong> for the next step</p>
+        </div>
+        <div class="hero-art">
+          <img src="header.jpg" alt="Crime Scene" class="hero-art-img" />
+        </div>
+      </section>
+
+      <!-- Answer panel — directly under task details -->
+      <section class="answer-section" id="answer-section-anchor">
+        <div class="answer-card card">
+          <!-- Correct answer overlay -->
+          <div id="answer-ok">
+            <span class="ok-check">✓</span>
+            <span class="ok-label">Correct!</span>
+          </div>
+          <div class="answer-left">
+            <div class="section-title" style="margin-bottom:10px">🔑 Your Answer</div>
+            <div class="answer-eq-line">
+              <span class="answer-label" id="ans-label">fingerprint_code =</span>
+              <span class="answer-eq unanswered" id="ans-eq">?</span>
+            </div>
+          </div>
+          <div class="answer-center">
+            <input class="input-shell" id="ans-input" type="text"
+              placeholder="Enter your answer…" autocomplete="off" />
+            <div id="feedback"></div>
+          </div>
+          <div class="answer-right">
+            <button class="submit" id="btn-submit" onclick="submitAnswer()">✓ Submit Answer</button>
+            <button class="btn-next-step" id="btn-next" onclick="nextStep()">→ Next Step</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Grid: table accordion + mission note -->
+      <section class="grid">
+        <div class="table-card card">
+          <div class="section-title">🧮 Database Tables</div>
+          <div id="table-accordion"></div>
+        </div>
+
+        <aside class="mission-card">
+          <img id="ticket-img" src="ticket_1.png" alt="Mission Note" />
+        </aside>
+      </section>
+
+      <!-- Lower: editor -->
+      <section class="lower">
+        <div class="editor-card card">
+          <div class="section-title">⌨️ Your SQL Query</div>
+          <div class="editor-box">
+            <div class="editor-lines">
+              <div class="line-numbers" id="line-nums">1<br>2</div>
+              <textarea id="sql-editor" spellcheck="false"
+                placeholder="-- Write your SQL query here"></textarea>
+            </div>
+          </div>
+          <div class="editor-actions">
+            <button class="btn run" onclick="runQuery()">▶ Run Query</button>
+            <button class="btn clear" onclick="clearEditor()">Clear</button>
+            <span class="kbd-hint">Ctrl + Enter</span>
+          </div>
+
+          <!-- Results appear here -->
+          <div id="results-wrap">
+            <div class="section-title results-section-title">
+              📊 Query Results <span class="res-cnt" id="res-cnt"></span>
+            </div>
+            <div class="table-shell">
+              <div class="table-shell-scroll" id="res-area"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="footer-line">
+        <span class="shield">🛡️</span>
+        <span>Think like a detective. Query like a pro</span>
+        <span class="prints">👣</span>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Tutorial backdrop + ring -->
+<div id="tut-backdrop"></div>
+<div id="tut-ring"></div>
+
+<!-- Tutorial Bubble -->
+<div id="tut-bubble">
+  <div class="bubble-box arr-down" id="tut-box">
+    <div class="bubble-head">
+      <span class="bh-dot"></span>
+      <span id="tut-title">How to play</span>
+      <span class="bubble-step-badge" id="tut-badge">1 / 6</span>
+    </div>
+    <div class="bubble-body" id="tut-body"></div>
+    <div class="bubble-footer">
+      <div class="bubble-dots" id="tut-dots"></div>
+      <button class="bubble-btn" id="tut-btn" onclick="nextTutStep()">Got it →</button>
+    </div>
+  </div>
+</div>
+
+<!-- Video Overlay — no controls, pointer-events blocked on video itself -->
+<div id="video-overlay">
+  <video id="arrest-video"
+    src="carmen_arrested.mp4"
+    playsinline
+    preload="auto">
+  </video>
+</div>
+
+<!-- Hint Modal -->
+<div class="overlay" id="hint-modal">
+  <div class="modal-box">
+    <div class="modal-title">💡 Detective Hint</div>
+    <div class="modal-sql" id="hint-sql"></div>
+    <div class="modal-btns">
+      <button class="btn-modal-use" onclick="useHint()">USE THIS QUERY</button>
+      <button class="btn-modal-cls" onclick="closeHint()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Victory -->
+<div id="victory">
+  <div class="vic-box">
+    <div class="vic-icon">🏆</div>
+    <div class="vic-title">CASE CLOSED!</div>
+    <div class="vic-stamp">SOLVED</div>
+    <div class="vic-sub">
+      Outstanding detective work!<br><br>
+      You tracked Carmen Sandiego from the Diamond Museum heist all the way to
+      <strong>Room 714, Hotel Mystique, Buenos Aires</strong>.<br><br>
+      The authorities have been dispatched. Carmen is in custody.
+    </div>
+    <button class="btn-replay" onclick="location.reload()">Play Again</button>
+  </div>
+</div>
+
+<script>
+/* ── STEP DATA ───────────────────────────────────── */
+const STEPS = [
+  {
+    icon: '📁', lbl: 'TASK 1:', title: 'FIND THE ROBBERY DETAILS',
+    h2:  'A robbery happened last night. Look into the <strong>robberies</strong> table and find the details of the robbery that happened last night',
+    sub: 'You need the <strong>fingerprint_code</strong>',
+    table: 'robberies', highlight: true,
+    hintLine: '"Last night" means the <strong>most recent date</strong> in the table',
+    note: 'The police found a fingerprint at the scene. Find the robbery that happened last night and get the <strong>fingerprint code</strong>',
+    ansLabel: 'fingerprint_code =', ansEq: '?',
+    ansPlaceholder: 'Enter fingerprint code…',
+    answer: 'fpx9214',
+    hint: 'SELECT fingerprint_code\nFROM robberies\nORDER BY date DESC, time DESC\nLIMIT 1;',
+    tip: 'Use ORDER BY date DESC, time DESC with LIMIT 1 to get the most recent robbery'
+  },
+  {
+    icon: '<img src="02_finger_print.jpg" alt="Fingerprints">', lbl: 'TASK 2:', title: 'IDENTIFY THE SUSPECT',
+    h2:  'You have the fingerprint code. Now search the <strong>fingerprints</strong> table to find who it belongs to',
+    sub: 'You need the suspect\'s <strong>passport_number</strong>',
+    table: 'fingerprints', highlight: false,
+    hintLine: 'Use the fingerprint code from Step 1 as a <strong>WHERE</strong> filter',
+    note: 'Lab results are back — 99% match! Use the fingerprint code to pull the suspect\'s <strong>passport number</strong> from the fingerprints table',
+    ansLabel: 'passport_number =', ansEq: '?',
+    ansPlaceholder: 'Enter passport number…',
+    answer: 'cs-7749201',
+    hint: "SELECT suspect_id, passport_number\nFROM fingerprints\nWHERE fingerprint_code = 'FPX9214';",
+    tip: "Filter by: WHERE fingerprint_code = 'FPX9214'"
+  },
+  {
+    icon: '👤', lbl: 'TASK 3:', title: 'PROFILE THE CRIMINAL',
+    h2:  'You have a passport number. Cross-reference the <strong>suspects</strong> table to get the full criminal profile',
+    sub: 'You need the suspect\'s <strong>name</strong>',
+    table: 'suspects', highlight: false,
+    hintLine: 'Look up the passport number you found in Step 2 in the <strong>suspects</strong> table',
+    note: 'A passport number is the key to a criminal\'s identity. Look up the passport and uncover who we\'re dealing with. Study the <strong>hobbies</strong> carefully — they will guide you later!',
+    ansLabel: 'suspect name =', ansEq: '?',
+    ansPlaceholder: 'Enter suspect\'s full name…',
+    answer: 'carmen sandiego',
+    hint: "SELECT name, nationality, hobbies\nFROM suspects\nWHERE passport_number = 'CS-7749201';",
+    tip: "Filter suspects by: WHERE passport_number = 'CS-7749201'"
+  },
+  {
+    icon: '<img src="04_countries.jpg" alt="Countries">', lbl: 'TASK 4:', title: 'FIND THE DESTINATION',
+    h2:  'Carmen\'s hobbies are <em>tango dancing</em> and <em>Malbec wine tasting</em>. Criminals flee to familiar territory',
+    sub: 'You need the <strong>destination country</strong>',
+    table: 'countries', highlight: false,
+    hintLine: 'Check the <strong>known_for</strong> column — match it to Carmen\'s hobbies using LIKE',
+    note: 'Every criminal has a comfort zone. Carmen\'s love of tango and Malbec wine is her tell. Find the country in the database that matches these <strong>cultural clues</strong>',
+    ansLabel: 'destination country =', ansEq: '?',
+    ansPlaceholder: 'Enter country name…',
+    answer: 'argentina',
+    hint: "SELECT name\nFROM countries\nWHERE known_for LIKE '%tango%'\n   OR known_for LIKE '%Malbec%';",
+    tip: "Use LIKE '%tango%' or LIKE '%Malbec%' on the known_for column"
+  },
+  {
+    icon: '<img src="05_flights.jpg" alt="Flights">', lbl: 'TASK 5:', title: 'TRACK THE FLIGHT',
+    h2:  'Carmen is on the run. Check the <strong>flights</strong> table to find which flight she boarded after the heist',
+    sub: 'You need her <strong>flight_number</strong>',
+    table: 'flights', highlight: false,
+    hintLine: 'All international passengers are logged. Filter by <strong>passenger_passport</strong>',
+    note: 'Border control scans all passports. If Carmen flew out, her passport will appear in the flight manifests. Find her <strong>flight number</strong>',
+    ansLabel: 'flight_number =', ansEq: '?',
+    ansPlaceholder: 'Enter flight number…',
+    answer: 'ar-4821',
+    hint: "SELECT flight_number, arrival_country, departure_date\nFROM flights\nWHERE passenger_passport = 'CS-7749201'\nORDER BY departure_date DESC;",
+    tip: "Filter flights by passport, then ORDER BY departure_date DESC to find the most recent"
+  },
+  {
+    icon: '<img src="06_hotels.jpg" alt="Hotels">', lbl: 'TASK 6:', title: 'LOCATE THE HOTEL',
+    h2:  'Carmen has landed in Buenos Aires. She needs somewhere to hide — and from her profile you know she <em>only</em> stays at 5-star luxury hotels',
+    sub: 'You need the <strong>hotel name</strong> where Carmen checked in',
+    table: 'hotels', highlight: false,
+    hintLine: 'Filter by <strong>guest_passport</strong> — then check stars and checkin_date to find the right one',
+    note: 'Our field agent in Buenos Aires spotted a woman in a red hat arriving today. Multiple hotels have her passport on record — find the <strong>5-star</strong> one with today\'s check-in date',
+    ansLabel: 'hotel name =', ansEq: '?',
+    ansPlaceholder: 'Enter hotel name…',
+    answer: 'hotel mystique',
+    hint: "SELECT name, country, stars, checkin_date\nFROM hotels\nWHERE guest_passport = 'CS-7749201'\nORDER BY checkin_date DESC;",
+    tip: "Filter by passport, then look for 5 stars AND today's checkin_date"
+  },
+  {
+    icon: '<img src="07_hotel_room.jpg" alt="Hotel Room">', lbl: 'TASK 7:', title: 'FIND THE ROOM',
+    h2:  'You know the hotel. Now find the exact room Carmen is hiding in before she escapes',
+    sub: 'You need Carmen\'s <strong>room_number</strong>',
+    table: 'hotel_rooms', highlight: false,
+    hintLine: 'Use the <strong>hotel_id</strong> of Hotel Mystique to filter hotel_rooms, then match the passport',
+    note: 'Carmen thinks she\'s safe in her luxury suite at Hotel Mystique. But we have access to the guest registry. Find her <strong>room number</strong> — the authorities are standing by!',
+    ansLabel: 'room_number =', ansEq: '?',
+    ansPlaceholder: 'Enter room number…',
+    answer: '714',
+    hint: "SELECT room_number, floor\nFROM hotel_rooms\nWHERE guest_passport = 'CS-7749201'\n  AND hotel_id = (\n    SELECT id FROM hotels\n    WHERE name = 'Hotel Mystique'\n  );",
+    tip: "Use a subquery: hotel_id = (SELECT id FROM hotels WHERE name = 'Hotel Mystique')"
+  }
+];
+
+const FINDINGS = [
+  { icon: '🔍', label: 'Fingerprint',  value: 'FPX9214'         },
+  { icon: '🪪',  label: 'Passport',     value: 'CS-7749201'      },
+  { icon: '👤', label: 'Suspect',      value: 'Carmen Sandiego' },
+  { icon: '🌍', label: 'Country',      value: 'Argentina'       },
+  { icon: '✈️',  label: 'Flight',       value: 'AR-4821'         },
+  { icon: '🏨', label: 'Hotel',        value: 'Hotel Mystique'  },
+  { icon: '🚪', label: 'Room',         value: '714'             },
+];
+
+function renderFindings() {
+  const wrap = document.getElementById('findings-wrap');
+  const found = FINDINGS.slice(0, cur);   // only steps already passed
+  if (!found.length) {
+    wrap.innerHTML = '<span class="findings-empty">No clues found yet — start querying!</span>';
+    return;
+  }
+  wrap.innerHTML = found.map(f =>
+    `<div class="finding-chip">
+       <span>${f.icon}</span>
+       <span class="fc-label">${f.label}:</span>
+       <span class="fc-value">${f.value}</span>
+     </div>`
+  ).join('');
+}
+
+const SQL_TIPS = [
+  'Use WHERE to filter rows',
+  'Use LIMIT 1 to get 1 result',
+  'Use ORDER BY to sort results',
+  'Use DESC to sort highest to lowest',
+  'SELECT * returns all columns',
+  "Use LIKE '%text%' to search inside a value",
+  'Use AND / OR to combine conditions',
+  'COUNT(*) counts all matching rows',
+  'Column names are case-insensitive',
+  'Use AS to rename a column in results',
+  'JOIN links two tables on a shared column',
+  'NULL means the field has no value',
+];
+
+function randomTip() {
+  return SQL_TIPS[Math.floor(Math.random() * SQL_TIPS.length)];
+}
+
+/* ── STATE ───────────────────────────────────────── */
+let db = null, cur = 0, maxReached = 0;
+let completed = new Set(), hintsLeft = 3;
+
+/* ── DB INIT ─────────────────────────────────────── */
+async function init() {
+  try {
+    const SQL = await initSqlJs({
+      locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/${f}`
+    });
+    db = new SQL.Database();
+    createDB();
+    document.getElementById('loading').style.display = 'none';
+    buildTableList();
+    buildSidebar();
+    loadStep(0);
+    showIntro();
+  } catch (e) {
+    document.getElementById('loading').innerHTML =
+      `<div style="text-align:center;padding:32px;max-width:400px">
+        <div style="font-size:44px;margin-bottom:16px">⚠️</div>
+        <div style="color:#ff9990;font-size:15px;line-height:1.7">
+          Failed to load database engine.<br>Please check your internet connection and refresh.<br><br>
+          <span style="color:#6e85a3;font-size:12px;font-family:monospace">${e.message}</span>
+        </div>
+      </div>`;
+  }
+}
+
+function createDB() {
+  db.run(`
+    CREATE TABLE robberies (
+      id INTEGER PRIMARY KEY, date TEXT, time TEXT, location TEXT,
+      stolen_item TEXT, fingerprint_code TEXT, notes TEXT
+    );
+    INSERT INTO robberies VALUES
+      (1,'2025-01-12','03:20','First National Bank','Cash Bundle - $50k','FPX1001','Broken window entry'),
+      (2,'2025-01-28','22:10','Jewelry Emporium','Diamond Necklace','FPX1002','Gloves left at scene'),
+      (3,'2025-02-05','01:45','Art Gallery West','Picasso Sketch - Original','FPX1003','CCTV disabled remotely'),
+      (4,'2025-02-19','14:30','Luxury Watch Store','Rolex Collection x5','FPX1004','Smashed display case'),
+      (5,'2025-03-03','08:15','Central Bank Branch','Gold Bullion x3','FPX1005','Vault drilled overnight'),
+      (6,'2025-03-17','23:55','Riverside Museum','Ancient Roman Coins','FPX1006','Rope entry via skylight'),
+      (7,'2025-04-01','19:00','Electronics Depot','Server Rack Components','FPX1007','Insider access suspected'),
+      (8,'2025-04-14','02:30','Luxury Auto Dealer','Ferrari 488 Spider','FPX1008','Gate code compromised'),
+      (9,'2025-04-28','11:20','Pharma Research Lab','Rare Chemical Compounds','FPX1009','Lab badge cloned'),
+      (10,'2025-05-05','16:45','Airport VIP Lounge','Diplomatic Briefcase','FPX1010','Security footage deleted'),
+      (11,'2025-05-19','03:10','Private Gallery','Van Gogh Copy - Rare','FPX1011','No prints initially found'),
+      (12,'2025-06-02','20:20','Uptown Jewelers','Sapphire Ring Collection','FPX1012','Front door lock picked'),
+      (13,'2025-06-15','01:05','Museum of History','Medieval Sword','FPX1013','Alarm bypassed'),
+      (14,'2025-06-29','22:30','Tech Startup Office','Quantum Processor Prototype','FPX1014','USB drive left behind'),
+      (15,'2025-07-10','04:50','Botanical Garden','Research Grants Cash','FPX1015','Soil sensor bypassed'),
+      (16,'2025-07-22','17:15','Maritime Museum','Ancient Compass - Gold','FPX1016','Speed boat getaway'),
+      (17,'2025-08-04','09:30','Private Residence','Family Heirloom Gems','FPX1017','Window left open'),
+      (18,'2025-08-18','23:40','Casino Safe Room','Weekend Cash Float','FPX1018','Dealer card used'),
+      (19,'2025-09-01','15:25','Rare Book Library','First Edition Shakespeare','FPX1019','Borrowed library card'),
+      (20,'2025-09-14','06:00','Airfield Hangar','Aircraft Navigation System','FPX1020','Pilot uniform found'),
+      (21,'2025-09-28','21:45','Stadium Ticket Office','Season Revenue Cash','FPX1021','Ticket found at scene'),
+      (22,'2025-10-11','13:00','Wine Auction House','Petrus 1961 x12','FPX1022','Sommelier gloves found'),
+      (23,'2025-10-25','00:30','Clockwork Antiques','Pocket Watch 1880s','FPX1023','Sand from boots found'),
+      (24,'2025-11-07','18:40','Science Institute','Meteorite Fragment','FPX1024','Forceps left behind'),
+      (25,'2025-11-20','07:20','Emerald City Gems','Uncut Emeralds x15','FPX1025','Gem cutting tool'),
+      (26,'2025-12-04','02:55','Central Post Office','Diplomatic Parcels x3','FPX1026','Forged postal badge'),
+      (27,'2025-12-18','20:05','Hotel Penthouse','Celebrity Jewels','FPX1027','Room service used'),
+      (28,'2026-01-07','10:30','Stock Exchange Archive','Trade Documents','FPX1028','Printer ink on floor'),
+      (29,'2026-01-20','22:15','Pharmaceutical Vault','Experimental Medication','FPX1029','Gloves found in bin'),
+      (30,'2026-02-03','03:40','Military Surplus Store','Night Vision Goggles','FPX1030','Bolt cutter marks'),
+      (31,'2026-02-17','16:50','City Hall Archive','Land Registry Documents','FPX1031','Footprint in dust'),
+      (32,'2026-03-02','08:00','Biotech Research Firm','Gene Sequencer Data','FPX1032','USB drive cloned'),
+      (33,'2026-03-15','01:15','Historic Church','Silver Chalice 600yr','FPX1033','Stone dust on floor'),
+      (34,'2026-03-28','19:30','Royal Mint Tour','Collector Coin Set','FPX1034','Glove tear found'),
+      (35,'2026-04-05','23:10','City Bank Downtown','Bearer Bonds x10','FPX1035','Drilling sounds reported'),
+      (36,'2026-04-10','02:15','City Bank','Cash Bundle','FPX1042','Guard knocked unconscious'),
+      (37,'2026-04-14','09:30','Central Bank','Gold Bars','FPX5531','Alarm triggered'),
+      (38,'2026-04-28','08:15','Louvre Annex Gallery','Mona Lisa Painting','FPX8803','Motion sensor triggered'),
+      (39,'2026-04-28','16:50','CityTech Convention Center','Quantum Laptop Prototype','FPX1036','Witness report'),
+      (40,'2026-04-28','23:40','Diamond Museum','Crimson Star Diamond','FPX9214','Silent alarm triggered');
+
+    CREATE TABLE fingerprints (
+      id INTEGER PRIMARY KEY, fingerprint_code TEXT,
+      suspect_id INTEGER, passport_number TEXT, match_confidence TEXT
+    );
+    INSERT INTO fingerprints VALUES
+      (1,'FPX1001',12,'MX-4421807','72%'),
+      (2,'FPX1002',18,'NL-6637211','65%'),
+      (3,'FPX1003',23,'FR-9912345','81%'),
+      (4,'FPX1004',31,'DE-7721009','69%'),
+      (5,'FPX1005',8,'ZA-3310921','78%'),
+      (6,'FPX1006',14,'AU-8824512','83%'),
+      (7,'FPX1007',19,'CA-5512309','74%'),
+      (8,'FPX1008',25,'ES-4431278','67%'),
+      (9,'FPX1009',33,'IN-9923401','88%'),
+      (10,'FPX1010',11,'CH-1144390','71%'),
+      (11,'FPX1011',16,'SE-6628811','79%'),
+      (12,'FPX1012',29,'NO-3315672','68%'),
+      (13,'FPX1013',22,'PL-7746123','85%'),
+      (14,'FPX1014',38,'KR-2213490','77%'),
+      (15,'FPX1015',9,'NZ-8834521','73%'),
+      (16,'FPX1016',26,'PT-5521089','80%'),
+      (17,'FPX1017',35,'GR-4412378','66%'),
+      (18,'FPX1018',13,'TR-9987654','82%'),
+      (19,'FPX1019',20,'IE-3321190','75%'),
+      (20,'FPX1020',37,'HU-7743012','69%'),
+      (21,'FPX1021',15,'CZ-2219876','84%'),
+      (22,'FPX1022',27,'SK-6634521','71%'),
+      (23,'FPX1023',32,'RO-8812309','76%'),
+      (24,'FPX1024',10,'DK-5521078','83%'),
+      (25,'FPX1025',40,'FI-4413209','70%'),
+      (26,'FPX1026',17,'AT-9924512','78%'),
+      (27,'FPX1027',28,'BE-3311890','85%'),
+      (28,'FPX1028',36,'LU-7746231','72%'),
+      (29,'FPX1029',21,'SG-2212398','79%'),
+      (30,'FPX1030',34,'MY-8824109','68%'),
+      (31,'FPX1031',39,'TH-5531987','74%'),
+      (32,'FPX1032',30,'ID-4423210','81%'),
+      (33,'FPX1033',24,'PH-9912087','77%'),
+      (34,'FPX1034',41,'VN-3314321','73%'),
+      (35,'FPX1035',42,'BD-7743010','67%'),
+      (36,'FPX1036',43,'PK-2221987','82%'),
+      (37,'FPX1042',3,'BR-2241190','94%'),
+      (38,'FPX5531',1,'UK-9918820','87%'),
+      (39,'FPX8803',6,'IT-8897234','91%'),
+      (40,'FPX9214',7,'CS-7749201','99%');
+
+    CREATE TABLE suspects (
+      id INTEGER PRIMARY KEY, name TEXT, passport_number TEXT,
+      nationality TEXT, hobbies TEXT, description TEXT
+    );
+    INSERT INTO suspects VALUES
+      (1,'James Whitmore','UK-9918820','British','cricket, tea ceremonies','Tall male, brown hair, scar on left cheek'),
+      (2,'Yuki Tanaka','JP-3374001','Japanese','origami, cherry blossom viewing','Female, black hair, elegant posture'),
+      (3,'Bruno Alves','BR-2241190','Brazilian','samba dancing, caipirinha tasting','Stocky male, curly hair, tattoo on neck'),
+      (4,'Fatima El-Hassan','EG-5560432','Egyptian','archaeology, hieroglyphics study','Female, dark hair, distinctive red coat'),
+      (5,'Viktor Drakov','RU-1122334','Russian','chess, vodka tasting','Male, grey hair, cold piercing eyes'),
+      (6,'Marco Bellini','IT-8897234','Italian','opera, pasta cooking','Male, dark curly hair, charming smile'),
+      (7,'Carmen Sandiego','CS-7749201','Unknown','tango dancing, Malbec wine tasting, red hat collecting, 5-star luxury hotels','Female, always wears a red fedora and long coat'),
+      (8,'Samuel Okafor','ZA-3310921','South African','safari, drumming','Male, athletic build, braided hair'),
+      (9,'Aroha Ngata','NZ-8834521','New Zealander','surfing, kiwi farming','Female, tan skin, wavy hair'),
+      (10,'Lars Eriksson','DK-5521078','Danish','cycling, Viking history','Male, blonde hair, tall and lean'),
+      (11,'Mei-Ling Zhou','CH-1144390','Chinese','calligraphy, dim sum','Female, short hair, always carries a fan'),
+      (12,'Diego Fuentes','MX-4421807','Mexican','mariachi, salsa dancing','Male, stocky, large moustache'),
+      (13,'Zeynep Arslan','TR-9987654','Turkish','weaving, baklava baking','Female, dark eyes, gold earrings'),
+      (14,'Connor Walsh','AU-8824512','Australian','surfing, cricket','Male, sun-tanned, board shorts'),
+      (15,'Petra Novak','CZ-2219876','Czech','glassblowing, pilsner tasting','Female, red hair, thick glasses'),
+      (16,'Ingrid Larsson','SE-6628811','Swedish','ice fishing, ABBA trivia','Female, blonde braid, tall'),
+      (17,'Stefan Gruber','AT-9924512','Austrian','skiing, Mozart concerts','Male, formal attire, wire-rim glasses'),
+      (18,'Amara Diallo','NL-6637211','Dutch','tulip gardening, cycling','Female, colorful hijab'),
+      (19,'Tom Bergeron','CA-5512309','Canadian','ice hockey, maple syrup','Male, hockey jersey, friendly smile'),
+      (20,'Fionnuala Breathnach','IE-3321190','Irish','hurling, whiskey tasting','Female, red curly hair, freckles'),
+      (21,'Priya Sharma','SG-2212398','Singaporean','hawker food, feng shui','Female, silk blouse, jade bracelet'),
+      (22,'Andrzej Kowalski','PL-7746123','Polish','pierogi making, football','Male, stocky, blue overalls'),
+      (23,'Elodie Martin','FR-9912345','French','wine tasting, philosophy','Female, beret, minimalist style'),
+      (24,'Rafael Santos','PH-9912087','Filipino','basketball, lechon roasting','Male, short, lively and expressive'),
+      (25,'Antonio Garcia','ES-4431278','Spanish','flamenco, bull-running','Male, dark hair, loud shirts'),
+      (26,'Ana Ferreira','PT-5521089','Portuguese','fado music, bacalhau cooking','Female, black dress, melancholic'),
+      (27,'Emil Dupont','BE-3311890','Belgian','chocolate tasting, cycling','Male, thin moustache, tweed jacket'),
+      (28,'Heinrich Muller','LU-7746231','Luxembourgish','fine dining, banking','Male, suit and tie, briefcase'),
+      (29,'Bjorn Hansen','NO-3315672','Norwegian','fjord hiking, salmon fishing','Male, beard, weatherproof jacket'),
+      (30,'Siti Rahmat','ID-4423210','Indonesian','batik weaving, mie goreng','Female, floral dress, sandals'),
+      (31,'Klaus Werner','DE-7721009','German','engineering, beer festivals','Male, precise movements, lederhosen'),
+      (32,'Mihai Ionescu','RO-8812309','Romanian','folk dance, Dracula tourism','Male, cape, dramatic gestures'),
+      (33,'Aditi Kapoor','IN-9923401','Indian','yoga, spice trading','Female, sari, elaborate henna'),
+      (34,'Ahmad Razak','MY-8824109','Malaysian','durian eating, badminton','Male, informal, always eating'),
+      (35,'Nikos Papadopoulos','GR-4412378','Greek','ouzo drinking, mythology','Male, tanned, fisherman cap'),
+      (36,'Luca Peeters','BD-7743010','Bangladeshi','cricket, hilsa fishing','Male, river navigator'),
+      (37,'Marta Varga','HU-7743012','Hungarian','goulash cooking, folk art','Female, embroidered blouse'),
+      (38,'Joon-Ho Kim','KR-2213490','South Korean','K-pop dancing, kimchi fermenting','Male, slim, stylish streetwear'),
+      (39,'Siriporn Chai','TH-5531987','Thai','Muay Thai, mango sticky rice','Female, determined, athletic'),
+      (40,'Sven Lindqvist','FI-4413209','Finnish','sauna, reindeer herding','Male, quiet, always in flannel'),
+      (41,'Tran Van Long','VN-3314321','Vietnamese','pho cooking, motorbike racing','Male, slim, always wearing a helmet'),
+      (42,'Farhan Ahmed','BD-7743010','Bangladeshi','cricket, river fishing','Male, casual, talks constantly'),
+      (43,'Imran Qureshi','PK-2221987','Pakistani','kabaddi, biryani cooking','Male, athletic, hospitality specialist');
+
+    CREATE TABLE countries (
+      id INTEGER PRIMARY KEY, name TEXT, code TEXT,
+      language TEXT, currency TEXT, known_for TEXT
+    );
+    INSERT INTO countries VALUES
+      (1,'United Kingdom','UK','English','British Pound','cricket, tea, Big Ben, Shakespeare'),
+      (2,'Japan','JP','Japanese','Yen','origami, cherry blossoms, sushi, Mount Fuji'),
+      (3,'Brazil','BR','Portuguese','Real','samba dancing, carnival, caipirinha, Amazon rainforest'),
+      (4,'Egypt','EG','Arabic','Egyptian Pound','pyramids, archaeology, hieroglyphics, Nile River'),
+      (5,'Russia','RU','Russian','Ruble','chess, vodka, Red Square, Bolshoi ballet'),
+      (6,'Italy','IT','Italian','Euro','opera, pasta cooking, Colosseum, Renaissance art'),
+      (7,'Argentina','AR','Spanish','Peso','tango dancing, Malbec wine, pampas, Buenos Aires'),
+      (8,'South Africa','ZA','Zulu/English','Rand','safari, drumming, Table Mountain, Nelson Mandela'),
+      (9,'New Zealand','NZ','English/Maori','NZ Dollar','surfing, kiwi birds, hobbit holes, bungee jumping'),
+      (10,'Denmark','DK','Danish','Krone','cycling, Viking history, LEGO, pastries'),
+      (11,'China','CN','Mandarin','Yuan','calligraphy, dim sum, Great Wall, pandas'),
+      (12,'Mexico','MX','Spanish','Peso','mariachi, salsa, ancient ruins, tacos'),
+      (13,'Turkey','TR','Turkish','Lira','weaving, baklava, Blue Mosque, bazaars'),
+      (14,'Australia','AU','English','AUD','surfing, cricket, kangaroos, Outback'),
+      (15,'Czech Republic','CZ','Czech','Koruna','glassblowing, pilsner beer, Prague Castle'),
+      (16,'Sweden','SE','Swedish','Krona','IKEA, midnight sun, ABBA, meatballs'),
+      (17,'Austria','AT','German','Euro','skiing, Mozart, Vienna Philharmonic, strudel'),
+      (18,'Netherlands','NL','Dutch','Euro','tulips, cycling, windmills, Rembrandt'),
+      (19,'Canada','CA','English/French','CAD','ice hockey, maple syrup, Niagara Falls'),
+      (20,'Ireland','IE','English/Irish','Euro','whiskey, hurling, cliffs of Moher, pubs'),
+      (21,'Singapore','SG','English','SGD','hawker food, Gardens by the Bay, efficiency'),
+      (22,'Poland','PL','Polish','Zloty','pierogi, football, Chopin, amber jewelry'),
+      (23,'France','FR','French','Euro','wine, Eiffel Tower, fashion, philosophy'),
+      (24,'Philippines','PH','Filipino','Peso','basketball, lechon, beaches, jeepneys'),
+      (25,'Spain','ES','Spanish','Euro','flamenco, bull-running, paella, Gaudi'),
+      (26,'Portugal','PT','Portuguese','Euro','fado music, bacalhau, Lisbon trams'),
+      (27,'Belgium','BE','French/Dutch','Euro','chocolate, waffles, cycling, EU headquarters'),
+      (28,'Luxembourg','LU','Luxembourgish','Euro','fine dining, banking, Vianden Castle'),
+      (29,'Norway','NO','Norwegian','Krone','fjords, northern lights, salmon, Viking ships'),
+      (30,'Indonesia','ID','Indonesian','Rupiah','batik, Bali temples, orangutans, gamelan'),
+      (31,'Germany','DE','German','Euro','engineering, Oktoberfest, Black Forest, Beethoven'),
+      (32,'Romania','RO','Romanian','Leu','Dracula legends, folk dance, painted monasteries'),
+      (33,'India','IN','Hindi','Rupee','yoga, spices, Taj Mahal, Bollywood'),
+      (34,'Malaysia','MY','Malay','Ringgit','durian, Petronas Towers, rainforests, batik'),
+      (35,'Greece','GR','Greek','Euro','mythology, ouzo, Acropolis, Mediterranean cuisine'),
+      (36,'Bangladesh','BD','Bengali','Taka','cricket, river deltas, muslin, Sundarbans'),
+      (37,'Hungary','HU','Hungarian','Forint','goulash, thermal baths, folk art, paprika'),
+      (38,'South Korea','KR','Korean','Won','K-pop, kimchi, K-dramas, technology'),
+      (39,'Thailand','TH','Thai','Baht','Muay Thai, temples, street food, beaches'),
+      (40,'Finland','FI','Finnish','Euro','sauna, reindeer, Northern Lights, Nokia');
+
+    CREATE TABLE flights (
+      id INTEGER PRIMARY KEY, flight_number TEXT,
+      departure_country TEXT, arrival_country TEXT,
+      departure_date TEXT, passenger_passport TEXT, airline TEXT
+    );
+    INSERT INTO flights VALUES
+      (1,'BA-2291','USA','United Kingdom','2026-04-22','UK-9918820','British Airways'),
+      (2,'JL-5543','USA','Japan','2026-04-21','JP-3374001','Japan Airlines'),
+      (3,'LA-8812','USA','Brazil','2026-04-20','BR-2241190','LATAM Airlines'),
+      (4,'EK-3390','USA','Egypt','2026-04-19','EG-5560432','EgyptAir'),
+      (5,'SU-7714','USA','Russia','2026-04-21','RU-1122334','Aeroflot'),
+      (6,'AZ-4401','USA','Italy','2026-04-18','IT-8897234','Alitalia'),
+      (7,'SA-1923','USA','South Africa','2026-04-17','ZA-3310921','South African Airways'),
+      (8,'NZ-5512','USA','New Zealand','2026-04-16','NZ-8834521','Air New Zealand'),
+      (9,'SK-3302','USA','Denmark','2026-04-20','DK-5521078','SAS'),
+      (10,'AM-4412','USA','Mexico','2026-04-22','MX-4421807','Aeromexico'),
+      (11,'TK-8803','USA','Turkey','2026-04-18','TR-9987654','Turkish Airlines'),
+      (12,'QF-6612','USA','Australia','2026-04-15','AU-8824512','Qantas'),
+      (13,'OK-2231','USA','Czech Republic','2026-04-17','CZ-2219876','Czech Airlines'),
+      (14,'SK-5514','USA','Sweden','2026-04-21','SE-6628811','Scandinavian Airlines'),
+      (15,'KL-3341','USA','Netherlands','2026-04-20','NL-6637211','KLM'),
+      (16,'AC-8812','USA','Canada','2026-04-18','CA-5512309','Air Canada'),
+      (17,'EI-4421','USA','Ireland','2026-04-16','IE-3321190','Aer Lingus'),
+      (18,'SQ-9931','USA','Singapore','2026-04-22','SG-2212398','Singapore Airlines'),
+      (19,'LO-5521','USA','Poland','2026-04-17','PL-7746123','LOT Polish Airlines'),
+      (20,'AF-3312','USA','France','2026-04-19','FR-9912345','Air France'),
+      (21,'LH-2834','USA','Germany','2026-02-12','CS-7749201','Lufthansa'),
+      (22,'SQ-7123','Germany','Singapore','2026-02-20','CS-7749201','Singapore Airlines'),
+      (23,'QR-5502','Singapore','USA','2026-03-18','CS-7749201','Qatar Airways'),
+      (24,'UA-3391','USA','Canada','2026-04-10','CS-7749201','United Airlines'),
+      (25,'AR-2291','Argentina','USA','2026-04-15','CS-7749201','Aerolineas Argentinas'),
+      (26,'AR-4821','USA','Argentina','2026-04-28','CS-7749201','Aerolineas Argentinas'),
+      (27,'IB-7712','USA','Spain','2026-04-20','ES-4431278','Iberia'),
+      (28,'TP-4423','USA','Portugal','2026-04-18','PT-5521089','TAP Portugal'),
+      (29,'SN-3312','USA','Belgium','2026-04-21','BE-3311890','Brussels Airlines'),
+      (30,'DY-5521','USA','Norway','2026-04-22','NO-3315672','Norwegian Air'),
+      (31,'GA-4401','USA','Indonesia','2026-04-17','ID-4423210','Garuda Indonesia'),
+      (32,'LH-9923','USA','Germany','2026-04-20','DE-7721009','Lufthansa'),
+      (33,'RO-3312','USA','Romania','2026-04-19','RO-8812309','TAROM'),
+      (34,'AI-6621','USA','India','2026-04-21','IN-9923401','Air India'),
+      (35,'MH-8831','USA','Malaysia','2026-04-18','MY-8824109','Malaysia Airlines'),
+      (36,'A3-4412','USA','Greece','2026-04-20','GR-4412378','Aegean Airlines'),
+      (37,'BG-5512','USA','Bangladesh','2026-04-19','BD-7743010','Biman Bangladesh'),
+      (38,'MA-3301','USA','Hungary','2026-04-17','HU-7743012','Wizz Air'),
+      (39,'KE-7723','USA','South Korea','2026-04-22','KR-2213490','Korean Air'),
+      (40,'TG-4481','USA','Thailand','2026-04-20','TH-5531987','Thai Airways');
+
+    CREATE TABLE hotels (
+      id INTEGER PRIMARY KEY, name TEXT, country TEXT,
+      city TEXT, stars INTEGER, guest_passport TEXT, checkin_date TEXT
+    );
+    INSERT INTO hotels VALUES
+      (1,'The Grand Britannia','United Kingdom','London',5,'UK-9918820','2026-04-23'),
+      (2,'Sakura Palace','Japan','Tokyo',4,'JP-3374001','2026-04-22'),
+      (3,'Rio Carnival Hotel','Brazil','Rio de Janeiro',3,'BR-2241190','2026-04-21'),
+      (4,'Nile View Resort','Egypt','Cairo',4,'EG-5560432','2026-04-20'),
+      (5,'Red Square Inn','Russia','Moscow',4,'RU-1122334','2026-04-22'),
+      (6,'Colosseo Palace','Italy','Rome',5,'IT-8897234','2026-04-23'),
+      (7,'Safari Lodge','South Africa','Cape Town',4,'ZA-3310921','2026-04-20'),
+      (8,'Kiwi Bay Resort','New Zealand','Auckland',3,'NZ-8834521','2026-04-19'),
+      (9,'Berlin Grand Suites','Germany','Berlin',5,'CS-7749201','2026-02-13'),
+      (10,'Viking Hotel','Denmark','Copenhagen',4,'DK-5521078','2026-04-21'),
+      (11,'Marina Bay Grand','Singapore','Singapore',5,'CS-7749201','2026-03-19'),
+      (12,'El Calafate Suites','Argentina','Buenos Aires',5,'CS-7749201','2026-03-28'),
+      (13,'Buenos Aires Backpackers','Argentina','Buenos Aires',2,'CS-7749201','2026-04-28'),
+      (14,'Hotel Mystique','Argentina','Buenos Aires',5,'CS-7749201','2026-04-28'),
+      (15,'Aztec Palace','Mexico','Mexico City',4,'MX-4421807','2026-04-23'),
+      (16,'Istanbul Bazaar Hotel','Turkey','Istanbul',4,'TR-9987654','2026-04-19'),
+      (17,'Outback Lodge','Australia','Sydney',4,'AU-8824512','2026-04-17'),
+      (18,'Prague Castle Inn','Czech Republic','Prague',3,'CZ-2219876','2026-04-18'),
+      (19,'Stockholm Suite','Sweden','Stockholm',4,'SE-6628811','2026-04-22'),
+      (20,'Vienna Music Hotel','Austria','Vienna',5,'AT-9924512','2026-04-20'),
+      (21,'Amsterdam Tulip Hotel','Netherlands','Amsterdam',3,'NL-6637211','2026-04-21'),
+      (22,'Maple Leaf Lodge','Canada','Toronto',4,'CA-5512309','2026-04-19'),
+      (23,'Dublin Grand','Ireland','Dublin',3,'IE-3321190','2026-04-17'),
+      (24,'Orchard Road Hotel','Singapore','Singapore',4,'SG-2212398','2026-04-23'),
+      (25,'Warsaw Royal','Poland','Warsaw',3,'PL-7746123','2026-04-18'),
+      (26,'Moulin Bleu','France','Paris',5,'FR-9912345','2026-04-20'),
+      (27,'Manila Bay Hotel','Philippines','Manila',3,'PH-9912087','2026-04-17'),
+      (28,'Costa Brava Suite','Spain','Barcelona',4,'ES-4431278','2026-04-21'),
+      (29,'Lisbon Tram Inn','Portugal','Lisbon',3,'PT-5521089','2026-04-19'),
+      (30,'Brussels Diamond Hotel','Belgium','Brussels',4,'BE-3311890','2026-04-22'),
+      (31,'Vianden Castle View','Luxembourg','Luxembourg City',5,'LU-7746231','2026-04-17'),
+      (32,'Bergen Fjord Hotel','Norway','Bergen',4,'NO-3315672','2026-04-23'),
+      (33,'Bali Sunrise Resort','Indonesia','Bali',4,'ID-4423210','2026-04-18'),
+      (34,'Brandenburg Gate Hotel','Germany','Berlin',4,'DE-7721009','2026-04-21'),
+      (35,'Draculas Rest','Romania','Brasov',3,'RO-8812309','2026-04-20'),
+      (36,'Taj View Inn','India','Mumbai',4,'IN-9923401','2026-04-22'),
+      (37,'Petronas Suite','Malaysia','Kuala Lumpur',5,'MY-8824109','2026-04-19'),
+      (38,'Athens Acropolis Hotel','Greece','Athens',4,'GR-4412378','2026-04-21'),
+      (39,'Seoul Skyline','South Korea','Seoul',4,'KR-2213490','2026-04-20'),
+      (40,'Bangkok Palace','Thailand','Bangkok',3,'TH-5531987','2026-04-18');
+
+    CREATE TABLE hotel_rooms (
+      id INTEGER PRIMARY KEY, hotel_id INTEGER,
+      room_number TEXT, guest_name TEXT, guest_passport TEXT, floor INTEGER
+    );
+    INSERT INTO hotel_rooms VALUES
+      (1,1,'512','James Whitmore','UK-9918820',5),
+      (2,2,'308','Yuki Tanaka','JP-3374001',3),
+      (3,3,'201','Bruno Alves','BR-2241190',2),
+      (4,4,'103','F. El-Hassan','EG-5560432',1),
+      (5,5,'217','V. Drakov','RU-1122334',2),
+      (6,6,'445','M. Bellini','IT-8897234',4),
+      (7,7,'301','S. Okafor','ZA-3310921',3),
+      (8,8,'102','A. Ngata','NZ-8834521',1),
+      (9,9,'312','C. Sandiego','CS-7749201',3),
+      (10,10,'205','L. Eriksson','DK-5521078',2),
+      (11,11,'501','C. Sandiego','CS-7749201',5),
+      (12,12,'801','C. Sandiego','CS-7749201',8),
+      (13,13,'12','C. Sandiego','CS-7749201',1),
+      (14,14,'701','M. Rodriguez','AR-3312456',7),
+      (15,14,'710','A. Montoya','ES-7712345',7),
+      (16,14,'714','C. Sandiego','CS-7749201',7),
+      (17,15,'402','D. Fuentes','MX-4421807',4),
+      (18,16,'119','Z. Arslan','TR-9987654',1),
+      (19,17,'308','C. Walsh','AU-8824512',3),
+      (20,18,'215','P. Novak','CZ-2219876',2),
+      (21,19,'507','I. Larsson','SE-6628811',5),
+      (22,20,'631','S. Gruber','AT-9924512',6),
+      (23,21,'114','A. Diallo','NL-6637211',1),
+      (24,22,'428','T. Bergeron','CA-5512309',4),
+      (25,23,'203','F. Breathnach','IE-3321190',2),
+      (26,24,'312','P. Sharma','SG-2212398',3),
+      (27,25,'115','A. Kowalski','PL-7746123',1),
+      (28,26,'820','E. Martin','FR-9912345',8),
+      (29,27,'207','R. Santos','PH-9912087',2),
+      (30,28,'516','A. Garcia','ES-4431278',5),
+      (31,29,'301','A. Ferreira','PT-5521089',3),
+      (32,30,'412','E. Dupont','BE-3311890',4),
+      (33,31,'709','H. Muller','LU-7746231',7),
+      (34,32,'218','B. Hansen','NO-3315672',2),
+      (35,33,'405','S. Rahmat','ID-4423210',4),
+      (36,34,'317','K. Werner','DE-7721009',3),
+      (37,35,'105','M. Ionescu','RO-8812309',1),
+      (38,36,'612','A. Kapoor','IN-9923401',6),
+      (39,37,'801','A. Razak','MY-8824109',8),
+      (40,38,'203','N. Papadopoulos','GR-4412378',2);
+  `);
+}
+
+/* ── SIDEBAR ─────────────────────────────────────── */
+const STEP_NAMES = ['Robberies','Fingerprints','Suspects','Countries','Flights','Hotels','Hotel Rooms'];
+
+function buildSidebar() { refreshSidebar(); }
+
+function refreshSidebar() {
+  const s = STEPS[cur];
+  document.getElementById('step-list').innerHTML = `
+    <div class="step active">
+      <div class="step-icon">${s.icon}</div>
+      <div class="step-copy">
+        <strong>${cur + 1}</strong>
+        <h3>${STEP_NAMES[cur]}</h3>
+        <p>${s.sub.replace(/<[^>]+>/g,'')}</p>
+      </div>
+    </div>`;
+}
+
+/* ── NAVIGATION ──────────────────────────────────── */
+function goStep(i) {
+  if (i > maxReached) return;
+  loadStep(i);
+}
+
+function nextStep() {
+  if (cur < STEPS.length - 1) loadStep(cur + 1);
+}
+
+// Flags to let loadStep know animated panels don't need a hard reset
+let ticketAnimated = false;
+let heroAnimated   = false;
+
+function animateTicket(nextIdx) {
+  const img = document.getElementById('ticket-img');
+  img.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+  img.style.opacity    = '0';
+  img.style.transform  = 'translateX(-48px) scale(0.92)';
+  setTimeout(() => {
+    img.style.transition = 'none';
+    img.src = `ticket_${nextIdx + 1}.png`;
+    img.style.transform  = 'translateX(48px) scale(0.92)';
+    img.offsetHeight;
+    img.style.transition = 'opacity 0.7s ease, transform 0.7s cubic-bezier(0.22, 1, 0.36, 1)';
+    img.style.opacity    = '1';
+    img.style.transform  = 'translateX(0) scale(1)';
+    ticketAnimated = true;
+  }, 650);
+}
+
+function animateHero(nextIdx) {
+  const copy = document.getElementById('hero-copy');
+  const s    = STEPS[nextIdx];
+  copy.style.transition = 'opacity 0.55s ease, transform 0.55s ease';
+  copy.style.opacity    = '0';
+  copy.style.transform  = 'translateX(-44px)';
+  setTimeout(() => {
+    // Swap content while invisible
+    document.getElementById('hero-icon').innerHTML    = s.icon;
+    document.getElementById('hero-lbl').textContent   = s.lbl;
+    document.getElementById('hero-title').textContent = s.title;
+    document.getElementById('hero-h2').innerHTML      = s.h2;
+    document.getElementById('hero-p').innerHTML       = s.sub;
+    // Slide in from right
+    copy.style.transition = 'none';
+    copy.style.transform  = 'translateX(44px)';
+    copy.offsetHeight;
+    copy.style.transition = 'opacity 0.65s ease, transform 0.65s cubic-bezier(0.22, 1, 0.36, 1)';
+    copy.style.opacity    = '1';
+    copy.style.transform  = 'translateX(0)';
+    heroAnimated = true;
+  }, 620);
+}
+
+function loadStep(idx) {
+  cur = idx;
+  buildTableList();
+  const s = STEPS[idx];
+
+  // Hero — skip if already animated in by animateHero
+  if (!heroAnimated) {
+    document.getElementById('hero-icon').innerHTML    = s.icon;
+    document.getElementById('hero-lbl').textContent   = s.lbl;
+    document.getElementById('hero-title').textContent = s.title;
+    document.getElementById('hero-h2').innerHTML      = s.h2;
+    document.getElementById('hero-p').innerHTML       = s.sub;
+    // Ensure no leftover transform from a previous animation
+    const copy = document.getElementById('hero-copy');
+    copy.style.transition = 'none';
+    copy.style.opacity    = '1';
+    copy.style.transform  = '';
+  } else {
+    heroAnimated = false;
+  }
+
+  // Evidence + ticket — skip if already animated by animateTicket
+  renderFindings();
+  if (!ticketAnimated) {
+    const ticketImg = document.getElementById('ticket-img');
+    ticketImg.style.transition = 'none';
+    ticketImg.style.opacity    = '1';
+    ticketImg.style.transform  = '';
+    ticketImg.src = `ticket_${idx + 1}.png`;
+    ticketImg.offsetHeight;
+    ticketImg.style.transition = '';
+  } else {
+    ticketAnimated = false;
+  }
+
+  // Editor — only reset on step 1
+  if (idx === 0) {
+    document.getElementById('sql-editor').value =
+      '-- Query the robberies table\nSELECT * FROM robberies;';
+    updateLineNumbers();
+    document.getElementById('results-wrap').style.display = 'none';
+    document.getElementById('res-area').innerHTML = '';
+    document.getElementById('res-cnt').textContent = '';
+  }
+
+  // Answer
+  document.getElementById('ans-label').textContent = s.ansLabel;
+  const eqEl = document.getElementById('ans-eq');
+  eqEl.textContent = s.ansEq;
+  eqEl.classList.add('unanswered');
+  const inp = document.getElementById('ans-input');
+  inp.value = ''; inp.placeholder = s.ansPlaceholder;
+  const isDone = completed.has(idx);
+  inp.disabled = isDone;
+  document.getElementById('btn-submit').style.display   = isDone ? 'none' : 'block';
+  document.getElementById('btn-next').style.display     =
+    (isDone && idx < STEPS.length - 1) ? 'block' : 'none';
+  const fb = document.getElementById('feedback');
+  fb.style.display = 'none'; fb.className = '';
+
+  // Tip
+
+  refreshSidebar();
+  updateProgress();
+}
+
+/* ── TABLE REFERENCE ─────────────────────────────── */
+/* ── TABLE ACCORDION ─────────────────────────────── */
+const ALL_TABLES = ['robberies','fingerprints','suspects','countries','flights','hotels','hotel_rooms'];
+let openTable = null;
+
+function buildTableList() {
+  const visibleTables = ALL_TABLES.slice(0, cur + 1);
+  if (openTable && !visibleTables.includes(openTable)) openTable = null;
+  document.getElementById('table-accordion').innerHTML =
+    `<div class="tbl-btn-grid">` +
+    visibleTables.map(tbl =>
+      `<div class="tbl-acc-row" id="tbl-row-${tbl}" onclick="toggleTable('${tbl}')">
+         <span class="tbl-acc-arrow" id="tbl-arr-${tbl}">▶</span>
+         <span class="tbl-acc-name">${tbl}</span>
+       </div>`
+    ).join('') +
+    `</div>
+     <div class="tbl-content-area" id="tbl-content-area"></div>`;
+}
+
+function toggleTable(tbl) {
+  const area    = document.getElementById('tbl-content-area');
+  const isOpen  = openTable === tbl;
+
+  // Reset all visible buttons
+  ALL_TABLES.slice(0, cur + 1).forEach(t => {
+    const row = document.getElementById(`tbl-row-${t}`);
+    const arr = document.getElementById(`tbl-arr-${t}`);
+    if (row) row.classList.remove('open');
+    if (arr) arr.textContent = '▶';
+  });
+
+  if (isOpen) {
+    area.innerHTML = '';
+    area.classList.remove('open');
+    openTable = null;
+  } else {
+    try {
+      const cols  = db.exec(`PRAGMA table_info(${tbl})`);
+      const count = db.exec(`SELECT COUNT(*) FROM ${tbl}`);
+      const rowCount = count[0].values[0][0];
+      const colDefs  = cols[0].values.map(r => ({ name: r[1], type: r[2] || 'TEXT' }));
+
+      const chips = colDefs.map(c =>
+        `<div class="tbl-col-chip">
+           <span class="col-name">${c.name}</span>
+           <span class="col-type">${c.type}</span>
+         </div>`
+      ).join('');
+
+      area.innerHTML =
+        `<div class="tbl-schema">
+           <div class="tbl-schema-count">
+             <strong>${rowCount}</strong> row${rowCount !== 1 ? 's' : ''} · ${colDefs.length} columns
+           </div>
+           <div class="tbl-col-list">${chips}</div>
+         </div>`;
+    } catch (e) {
+      area.innerHTML = `<div class="res-error">⚠ ${e.message}</div>`;
+    }
+    area.classList.add('open');
+    document.getElementById(`tbl-row-${tbl}`).classList.add('open');
+    document.getElementById(`tbl-arr-${tbl}`).textContent = '▼';
+    openTable = tbl;
+
+    // Auto-fill editor and run the query
+    const editor = document.getElementById('sql-editor');
+    editor.value = `SELECT * FROM ${tbl};`;
+    updateLineNumbers();
+    runQuery();
+  }
+}
+
+/* ── QUERY RUNNER ────────────────────────────────── */
+function runQuery() {
+  const sql = document.getElementById('sql-editor').value.trim();
+  if (!sql || !db) return;
+  try {
+    const results = db.exec(sql);
+    const wrap = document.getElementById('results-wrap');
+    const area = document.getElementById('res-area');
+    const cnt  = document.getElementById('res-cnt');
+    wrap.style.display = 'block';
+    if (!results.length) {
+      area.innerHTML  = '<div class="res-empty">Query executed successfully. No rows returned.</div>';
+      cnt.textContent = '(0 rows)';
+      return;
+    }
+    const last = results[results.length - 1];
+    cnt.textContent = `(${last.values.length} row${last.values.length !== 1 ? 's' : ''})`;
+    area.innerHTML  = renderTable(last, false);
+  } catch (e) {
+    document.getElementById('results-wrap').style.display = 'block';
+    document.getElementById('res-area').innerHTML = `<div class="res-error">⚠ ${e.message}</div>`;
+    document.getElementById('res-cnt').textContent = '';
+  }
+}
+
+function renderTable({ columns, values }, highlightLast) {
+  const rows = values.map((r, i) => {
+    const cls = (highlightLast && i === values.length - 1) ? ' class="highlight"' : '';
+    return `<tr${cls}>${r.map(v => `<td>${v ?? 'NULL'}</td>`).join('')}</tr>`;
+  }).join('');
+  return `<table>
+    <thead><tr>${columns.map(c => `<th>${c}</th>`).join('')}</tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function clearEditor() {
+  document.getElementById('sql-editor').value = '';
+  document.getElementById('results-wrap').style.display = 'none';
+  updateLineNumbers();
+  document.getElementById('sql-editor').focus();
+}
+
+function updateLineNumbers() {
+  const lines = document.getElementById('sql-editor').value.split('\n').length;
+  document.getElementById('line-nums').innerHTML =
+    Array.from({ length: Math.max(lines, 2) }, (_, i) => i + 1).join('<br>');
+}
+
+/* ── ANSWER ──────────────────────────────────────── */
+function submitAnswer() {
+  const val = document.getElementById('ans-input').value.trim().toLowerCase();
+  const fb  = document.getElementById('feedback');
+  if (!val) { showFb('Please enter an answer first.', false); return; }
+
+  if (val === STEPS[cur].answer) {
+    const eq = document.getElementById('ans-eq');
+    eq.textContent = document.getElementById('ans-input').value.trim();
+    eq.classList.remove('unanswered');
+    // Show big green ✓ overlay (no feedback bar)
+    const okOverlay = document.getElementById('answer-ok');
+    okOverlay.classList.add('show');
+    completed.add(cur);
+    if (cur >= maxReached) maxReached = cur + 1;
+    document.getElementById('ans-input').disabled = true;
+    document.getElementById('btn-submit').style.display = 'none';
+    refreshSidebar(); updateProgress();
+    // Animate ticket + hero panel out simultaneously, then load next step
+    if (cur < STEPS.length - 1) {
+      setTimeout(() => {
+        animateTicket(cur + 1);
+        animateHero(cur + 1);
+      }, 700);
+    }
+    setTimeout(() => {
+      okOverlay.classList.remove('show');
+      cur < STEPS.length - 1 ? loadStep(cur + 1) : showVictory();
+    }, 2000);
+  } else {
+    showFb('✗ Incorrect. Review your query and try again.', false);
+    document.getElementById('ans-input').select();
+  }
+}
+
+function showFb(msg, ok) {
+  const fb = document.getElementById('feedback');
+  fb.textContent  = msg;
+  fb.className    = ok ? 'fb-ok' : 'fb-no';
+  fb.style.display = 'block';
+}
+
+/* ── HINT ────────────────────────────────────────── */
+function openHint() {
+  if (hintsLeft <= 0) { alert('No hints remaining!'); return; }
+  document.getElementById('hint-sql').textContent = STEPS[cur].hint;
+  document.getElementById('hint-modal').classList.add('open');
+}
+function closeHint() { document.getElementById('hint-modal').classList.remove('open'); }
+function useHint() {
+  hintsLeft = Math.max(0, hintsLeft - 1);
+  document.getElementById('hint-ct').textContent = `${hintsLeft} available`;
+  document.getElementById('sql-editor').value = STEPS[cur].hint;
+  updateLineNumbers();
+  closeHint(); runQuery();
+}
+
+/* ── PROGRESS ────────────────────────────────────── */
+function updateProgress() {
+  const pct = Math.round(completed.size / STEPS.length * 100);
+  document.getElementById('prog-fill').style.width = pct + '%';
+  document.getElementById('prog-pct').textContent  = pct + '%';
+}
+
+/* ── VIDEO + VICTORY ─────────────────────────────── */
+function showVictory() {
+  const overlay = document.getElementById('video-overlay');
+  const video   = document.getElementById('arrest-video');
+  overlay.classList.add('open');
+  video.currentTime = 0;
+  video.play().catch(() => {
+    // Autoplay blocked — skip straight to victory screen
+    overlay.classList.remove('open');
+    document.getElementById('victory').classList.add('open');
+  });
+  video.onended = () => {
+    overlay.classList.remove('open');
+    document.getElementById('victory').classList.add('open');
+  };
+}
+
+function resetGame() {
+  completed.clear(); maxReached = 0; hintsLeft = 3; cur = 0;
+  document.getElementById('hint-ct').textContent = '3 available';
+  document.getElementById('victory').classList.remove('open');
+  buildSidebar(); loadStep(0);
+}
+
+/* ── KEYBOARD ────────────────────────────────────── */
+document.addEventListener('keydown', e => {
+  // While video is playing, swallow every key that could pause/stop it
+  if (document.getElementById('video-overlay').classList.contains('open')) {
+    e.preventDefault();
+    return;
+  }
+  if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); runQuery(); }
+  if (e.key === 'Escape') closeHint();
+});
+
+/* ── LOCK DOWN THE VIDEO ELEMENT ─────────────────── */
+(function lockVideo() {
+  const video = document.getElementById('arrest-video');
+
+  // Block right-click context menu (which shows "Save video", controls, etc.)
+  video.addEventListener('contextmenu', e => e.preventDefault());
+
+  // If something somehow pauses it while the overlay is open — force resume
+  video.addEventListener('pause', () => {
+    if (document.getElementById('video-overlay').classList.contains('open')) {
+      video.play().catch(() => {});
+    }
+  });
+})();
+document.getElementById('ans-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') submitAnswer();
+});
+document.getElementById('sql-editor').addEventListener('input', updateLineNumbers);
+
+/* ── TUTORIAL SYSTEM ─────────────────────────────── */
+const TUTORIAL = [
+  {
+    targetId: 'hero-copy',
+    side: 'below',
+    arrowClass: 'arr-up',
+    title: '📋 Read the Task',
+    body: 'Each step shows you a <strong>mission briefing</strong> here. Read it carefully — it tells you which database table to investigate and exactly what clue you\'re looking for.'
+  },
+  {
+    targetId: 'answer-section-anchor',
+    side: 'above',
+    arrowClass: 'arr-down',
+    title: '🔑 Your Answer Box',
+    body: 'Once you\'ve run a query and spotted the answer in the results, <strong>copy it here and hit Submit</strong>. A correct answer unlocks the next step of the case.'
+  },
+  {
+    targetId: 'table-accordion',
+    side: 'below',
+    arrowClass: 'arr-up',
+    title: '🧮 Database Tables',
+    body: '<strong>Click any table button</strong> to reveal its columns and row count. This shows you what data exists before you write a query — think of it as your case file index.'
+  },
+  {
+    targetId: 'findings-wrap',
+    side: 'below',
+    arrowClass: 'arr-up',
+    title: '🗂 Evidence Board',
+    body: 'Every answer you confirm gets logged here as a clue chip. <strong>Build your evidence trail</strong> step by step until you\'ve tracked Carmen all the way to her hiding spot.'
+  },
+  {
+    targetId: 'sql-editor',
+    side: 'above',
+    arrowClass: 'arr-down',
+    title: '⌨️ SQL Query Editor',
+    body: 'Write your SQL right here and press <strong>▶ Run Query</strong> (or Ctrl+Enter). Use SELECT, WHERE, ORDER BY and LIMIT to dig up the clue hidden in the database.'
+  },
+  {
+    targetId: 'btn-submit',
+    side: 'above',
+    arrowClass: 'arr-right',
+    title: '✓ Confirm Your Answer',
+    body: 'Paste the answer you found into the field and hit this button. Nail it and you\'ll advance the case. <strong>Wrong guess?</strong> Go back and refine your query — the truth is in the data.',
+    isLast: true
+  }
+];
+
+let tutStep = -1;
+
+function startTutorial() {
+  tutStep = 0;
+  // Build dots
+  const dots = document.getElementById('tut-dots');
+  dots.innerHTML = TUTORIAL.map((_, i) => `<span id="tdot-${i}"></span>`).join('');
+  showTutBubble(0);
+}
+
+function showTutBubble(idx) {
+  tutStep = idx;
+  const step = TUTORIAL[idx];
+  const bubble = document.getElementById('tut-bubble');
+  const box    = document.getElementById('tut-box');
+  const target = document.getElementById(step.targetId);
+  if (!target) { nextTutStep(); return; }
+
+  // Update content
+  document.getElementById('tut-title').textContent = step.title;
+  document.getElementById('tut-body').innerHTML    = step.body;
+  document.getElementById('tut-badge').textContent = `${idx + 1} / ${TUTORIAL.length}`;
+
+  const btn = document.getElementById('tut-btn');
+  if (step.isLast) {
+    btn.textContent = '🕵️ Start the Game!';
+    btn.className   = 'bubble-btn start';
+  } else {
+    btn.textContent = 'Got it →';
+    btn.className   = 'bubble-btn';
+  }
+
+  // Update dots
+  TUTORIAL.forEach((_, i) => {
+    const d = document.getElementById(`tdot-${i}`);
+    if (d) d.className = i === idx ? 'active' : '';
+  });
+
+  // Arrow direction
+  box.className = `bubble-box ${step.arrowClass}`;
+
+  // Show/open backdrop + ring
+  document.getElementById('tut-backdrop').classList.add('open');
+  document.getElementById('tut-ring').classList.add('open');
+
+  // Measure target
+  const tr = target.getBoundingClientRect();
+  const bw = 340;
+
+  // Position ring around target
+  const ring = document.getElementById('tut-ring');
+  ring.style.left   = (tr.left - 6) + 'px';
+  ring.style.top    = (tr.top  - 6) + 'px';
+  ring.style.width  = (tr.width  + 12) + 'px';
+  ring.style.height = (tr.height + 12) + 'px';
+
+  // Make bubble invisible to measure it, then position
+  bubble.style.visibility = 'hidden';
+  bubble.classList.add('visible');
+
+  requestAnimationFrame(() => {
+    const bh = bubble.offsetHeight || 160;
+
+    let top, left;
+    if (step.side === 'below') {
+      top  = tr.bottom + 20;
+    } else if (step.arrowClass === 'arr-right') {
+      // Bubble left of target, arrow points right
+      top  = tr.top + tr.height / 2 - bh / 2;
+    } else {
+      top  = tr.top - bh - 20;
+    }
+
+    if (step.arrowClass === 'arr-right') {
+      left = tr.left - bw - 16;
+    } else {
+      left = tr.left + tr.width / 2 - bw / 2;
+    }
+
+    // Clamp to viewport
+    left = Math.max(10, Math.min(left, window.innerWidth  - bw - 10));
+    top  = Math.max(10, Math.min(top,  window.innerHeight - bh - 10));
+
+    bubble.style.left = left + 'px';
+    bubble.style.top  = top  + 'px';
+    bubble.style.visibility = '';
+  });
+}
+
+function nextTutStep() {
+  if (tutStep < TUTORIAL.length - 1) {
+    showTutBubble(tutStep + 1);
+  } else {
+    closeTutorial();
+  }
+}
+
+function closeTutorial() {
+  document.getElementById('tut-bubble').classList.remove('visible');
+  document.getElementById('tut-backdrop').classList.remove('open');
+  document.getElementById('tut-ring').classList.remove('open');
+}
+
+/* ── INTRO VIDEO ─────────────────────────────────── */
+let introActive = false;   // true only while video is actually playing
+let tutorialStarted = false;
+
+function showIntro() {
+  document.getElementById('intro-overlay').classList.add('open');
+}
+
+function startIntroVideo() {
+  const splash = document.getElementById('intro-splash');
+  const video  = document.getElementById('intro-video');
+  const skip   = document.getElementById('intro-skip');
+
+  splash.classList.add('hidden');
+  setTimeout(() => { splash.style.display = 'none'; }, 500);
+  skip.style.display = 'block';
+
+  introActive = true;
+  video.currentTime = 0;
+  video.play().catch(() => skipIntro());
+  video.onended = () => skipIntro();
+}
+
+function skipIntro() {
+  if (!introActive) return;   // prevent double-call (onended + manual skip)
+  introActive = false;
+
+  const overlay = document.getElementById('intro-overlay');
+  const video   = document.getElementById('intro-video');
+
+  // Kill the video completely before touching the overlay
+  video.onended = null;
+  video.pause();
+  video.removeAttribute('src');
+  video.load();               // resets internal state, stops buffering & audio
+
+  overlay.classList.add('fading');
+  setTimeout(() => {
+    overlay.classList.remove('open', 'fading');
+    if (!tutorialStarted) {
+      tutorialStarted = true;
+      setTimeout(startTutorial, 400);
+    }
+  }, 620);
+}
+
+// Block right-click; only re-play on accidental pause while intro is active
+(function lockIntro() {
+  const video = document.getElementById('intro-video');
+  video.addEventListener('contextmenu', e => e.preventDefault());
+  video.addEventListener('pause', () => {
+    if (introActive) video.play().catch(() => {});
+  });
+})();
+
+init();
+</script>
+</body>
+</html>

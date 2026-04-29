@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SQL Detective — Crack the Case</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/sql-wasm.js"></script>
+  <style>
+    :root {
+      --bg:    #0b1a0c;
+      --bg2:   #0f2310;
+      --bg3:   #162d17;
+      --bdr:   #2a4a2b;
+      --gold:  #d4a520;
+      --goldb: #f0c040;
+      --txt:   #b8ccb0;
+      --txtb:  #e0f0d8;
+      --ok:    #3a9e50;
+      --err:   #c04030;
+      --grn:   #5ec45a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100vh; overflow: hidden; }
+    body {
+      background: var(--bg);
+      color: var(--txt);
+      font-family: 'Courier New', monospace;
+      display: flex;
+      flex-direction: column;
+      font-size: 13px;
+    }
+
+    /* ── LOADING ─────────────────────────────── */
+    #loading {
+      position: fixed; inset: 0; background: var(--bg); z-index: 999;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 14px;
+    }
+    #loading .spin { font-size: 52px; animation: spin 1.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading .ltxt { font-size: 13px; color: var(--gold); letter-spacing: 3px; }
+    #loading .lsub { font-size: 11px; color: var(--txt); opacity: .6; }
+
+    /* ── HEADER ──────────────────────────────── */
+    #hdr {
+      flex-shrink: 0;
+      background: var(--bg2);
+      border-bottom: 2px solid var(--gold);
+      padding: 8px 18px;
+      display: flex; align-items: center; gap: 14px;
+    }
+    .logo-wrap { display: flex; align-items: center; gap: 8px; }
+    .logo-icon { font-size: 28px; }
+    .logo-main { color: var(--goldb); font-size: 15px; font-weight: bold; letter-spacing: 3px; }
+    .logo-sub  { color: var(--txt);  font-size: 9px; letter-spacing: 4px; opacity: .65; margin-top: 1px; }
+
+    .prog-wrap { display: flex; align-items: center; gap: 10px; margin-left: 18px; flex: 1; }
+    .prog-lbl  { font-size: 9px; color: var(--txt); letter-spacing: 2px; white-space: nowrap; text-transform: uppercase; }
+    .prog-bar  { flex: 1; max-width: 170px; height: 6px; background: var(--bg3); border: 1px solid var(--bdr); border-radius: 3px; overflow: hidden; }
+    .prog-fill { height: 100%; background: var(--gold); width: 0%; transition: width .45s ease; }
+    .prog-pct  { font-size: 11px; color: var(--goldb); font-weight: bold; min-width: 32px; }
+
+    .hdr-btns { display: flex; gap: 8px; }
+    .btn-sm {
+      padding: 5px 11px; font-family: inherit; font-size: 9px; cursor: pointer;
+      letter-spacing: 1px; text-transform: uppercase; background: transparent; line-height: 1;
+    }
+    .btn-hint  { border: 1px solid var(--gold); color: var(--gold); }
+    .btn-hint:hover  { background: rgba(212,165,32,.12); }
+    .btn-reset { border: 1px solid var(--err); color: var(--err); }
+    .btn-reset:hover { background: rgba(192,64,48,.12); }
+    .hint-ct { font-size: 9px; color: var(--goldb); margin-left: 2px; }
+
+    /* ── LAYOUT ──────────────────────────────── */
+    #layout { display: flex; flex: 1; overflow: hidden; }
+
+    /* ── SIDEBAR ─────────────────────────────── */
+    #sidebar {
+      width: 205px; flex-shrink: 0;
+      background: var(--bg2); border-right: 1px solid var(--bdr);
+      display: flex; flex-direction: column; overflow-y: auto;
+    }
+    .sb-head { padding: 11px 14px 9px; font-size: 9px; letter-spacing: 3px; color: var(--gold); border-bottom: 1px solid var(--bdr); text-transform: uppercase; }
+
+    .step-btn {
+      width: 100%; padding: 10px 14px; background: none; border: none;
+      border-left: 3px solid transparent; display: flex; gap: 10px;
+      align-items: flex-start; cursor: pointer; text-align: left; font-family: inherit;
+      transition: background .15s;
+    }
+    .step-btn:hover:not(.locked) { background: rgba(22,45,23,.7); }
+    .step-btn.active  { background: var(--bg3); border-left-color: var(--gold); }
+    .step-btn.done    { opacity: .6; }
+    .step-btn.locked  { opacity: .28; cursor: not-allowed; }
+
+    .s-num {
+      width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--bdr);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; flex-shrink: 0; margin-top: 1px; color: var(--txt);
+    }
+    .step-btn.active .s-num  { background: var(--gold); color: #000; border-color: var(--gold); font-weight: bold; }
+    .step-btn.done   .s-num  { background: var(--ok);   color: #fff; border-color: var(--ok); }
+    .s-name { font-size: 11px; color: var(--txtb); line-height: 1.3; }
+    .s-sub  { font-size: 9px;  color: var(--txt);  margin-top: 2px; }
+
+    .sb-tip {
+      margin: 12px; padding: 10px; background: var(--bg3);
+      border: 1px solid var(--bdr); border-left: 2px solid var(--gold); margin-top: auto;
+    }
+    .sb-tip-t { font-size: 9px; color: var(--gold); letter-spacing: 2px; margin-bottom: 5px; }
+    .sb-tip-b { font-size: 10px; color: var(--txt); line-height: 1.55; }
+
+    /* ── CONTENT ─────────────────────────────── */
+    #content { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+
+    .task-hdr { border-bottom: 1px solid var(--bdr); padding-bottom: 10px; }
+    .task-lbl   { font-size: 9px; letter-spacing: 3px; color: var(--gold); text-transform: uppercase; margin-bottom: 3px; }
+    .task-title { font-size: 17px; color: var(--txtb); font-weight: bold; letter-spacing: 2px; text-transform: uppercase; }
+    .task-desc  { margin-top: 6px; font-size: 12px; color: var(--txt); line-height: 1.7; }
+    .task-desc strong { color: var(--goldb); }
+    .task-desc em     { color: #a8d0a8; font-style: normal; border-bottom: 1px dotted #a8d0a8; }
+
+    /* table reference */
+    .tbl-ref { background: var(--bg2); border: 1px solid var(--bdr); }
+    .tbl-ref-hdr {
+      padding: 6px 12px; background: var(--bg3); border-bottom: 1px solid var(--bdr);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .tbl-ref-nm  { font-size: 10px; color: var(--gold); letter-spacing: 2px; text-transform: uppercase; }
+    .tbl-ref-bdg { font-size: 9px; padding: 1px 5px; background: var(--bdr); color: var(--txt); }
+    .tbl-scroll  { overflow-x: auto; max-height: 175px; }
+
+    table.dtbl { width: 100%; border-collapse: collapse; font-size: 11px; }
+    table.dtbl th {
+      background: #19301a; color: var(--goldb); padding: 5px 10px;
+      text-align: left; border-bottom: 1px solid var(--bdr);
+      font-weight: normal; font-size: 9px; letter-spacing: 1px;
+      text-transform: uppercase; white-space: nowrap;
+    }
+    table.dtbl td {
+      padding: 5px 10px; border-bottom: 1px solid rgba(42,74,43,.35);
+      color: var(--txt); white-space: nowrap;
+    }
+    table.dtbl tr:hover td { background: rgba(22,45,23,.6); }
+
+    /* sql editor */
+    .sql-box { background: var(--bg2); border: 1px solid var(--bdr); }
+    .sql-box-hdr {
+      padding: 6px 12px; background: var(--bg3); border-bottom: 1px solid var(--bdr);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .sql-box-lbl  { font-size: 10px; color: var(--gold); letter-spacing: 2px; text-transform: uppercase; }
+    .schema-btn   { font-size: 9px; color: var(--txt); cursor: pointer; letter-spacing: 1px; background: none; border: none; font-family: inherit; padding: 0; }
+    .schema-btn:hover { color: var(--gold); }
+
+    #schema-panel {
+      display: none; background: #050c06; color: var(--grn);
+      padding: 10px 12px; font-size: 10px; line-height: 1.8;
+      white-space: pre; border-bottom: 1px solid var(--bdr);
+      max-height: 190px; overflow-y: auto;
+    }
+
+    #sql-editor {
+      width: 100%; min-height: 78px;
+      background: #060e07; color: var(--grn);
+      border: none; padding: 12px;
+      font-family: 'Courier New', monospace; font-size: 13px;
+      resize: vertical; outline: none; line-height: 1.6; tab-size: 2;
+    }
+    .sql-btns {
+      display: flex; gap: 8px; padding: 7px 12px;
+      border-top: 1px solid var(--bdr); background: var(--bg3); align-items: center;
+    }
+    .btn-run {
+      padding: 6px 16px; background: var(--gold); color: #000;
+      border: none; cursor: pointer; font-family: inherit;
+      font-size: 11px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase;
+    }
+    .btn-run:hover { background: var(--goldb); }
+    .btn-clr {
+      padding: 6px 12px; background: transparent; color: var(--txt);
+      border: 1px solid var(--bdr); cursor: pointer; font-family: inherit;
+      font-size: 11px; letter-spacing: 1px; text-transform: uppercase;
+    }
+    .btn-clr:hover { border-color: var(--txt); }
+    .sql-kbd { font-size: 10px; color: var(--txt); opacity: .4; margin-left: auto; }
+
+    /* results */
+    .res-box { background: var(--bg2); border: 1px solid var(--bdr); }
+    .res-hdr {
+      padding: 6px 12px; background: var(--bg3); border-bottom: 1px solid var(--bdr);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .res-lbl { font-size: 10px; color: var(--gold); letter-spacing: 2px; text-transform: uppercase; }
+    .res-cnt { font-size: 10px; color: var(--txt); }
+    #res-area { overflow: auto; max-height: 190px; }
+    .res-empty { padding: 16px; text-align: center; font-size: 11px; color: var(--txt); opacity: .38; }
+    .res-error { padding: 10px 12px; background: rgba(192,64,48,.12); border-left: 3px solid var(--err); color: #e08070; font-size: 11px; }
+
+    /* ── RIGHT PANEL ─────────────────────────── */
+    #rpanel {
+      width: 245px; flex-shrink: 0;
+      background: var(--bg2); border-left: 1px solid var(--bdr);
+      padding: 14px; display: flex; flex-direction: column;
+      gap: 13px; overflow-y: auto;
+    }
+
+    .wanted-card { background: #120d00; border: 2px solid var(--gold); padding: 12px; text-align: center; }
+    .wanted-t {
+      font-size: 9px; letter-spacing: 4px; color: var(--gold);
+      border-top: 1px solid var(--gold); border-bottom: 1px solid var(--gold);
+      padding: 2px 0; margin-bottom: 10px; text-transform: uppercase;
+    }
+    .wanted-fig  { font-size: 54px; line-height: 1; }
+    .wanted-name { margin-top: 8px; font-size: 14px; color: var(--goldb); letter-spacing: 2px; font-weight: bold; }
+    .wanted-aka  { font-size: 10px; color: var(--txt); margin-top: 2px; }
+
+    .note-card { background: #0f1400; border: 1px solid var(--gold); padding: 12px; position: relative; }
+    .note-card::before {
+      content: 'MISSION NOTE'; position: absolute; top: -8px; left: 8px;
+      background: var(--bg2); padding: 0 5px;
+      font-size: 9px; color: var(--gold); letter-spacing: 2px;
+    }
+    .note-txt { font-size: 11px; color: #c8b860; line-height: 1.7; }
+
+    .ans-card { background: var(--bg3); border: 1px solid var(--bdr); padding: 12px; }
+    .ans-lbl  { font-size: 9px; color: var(--gold); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 5px; }
+    .ans-hint { font-size: 10px; color: var(--txt); margin-bottom: 8px; font-style: italic; }
+
+    #ans-input {
+      width: 100%; background: #060e07; color: var(--txtb);
+      border: 1px solid var(--bdr); padding: 8px 10px;
+      font-family: inherit; font-size: 13px; outline: none; margin-bottom: 8px;
+    }
+    #ans-input:focus { border-color: var(--gold); }
+    #ans-input:disabled { opacity: .45; }
+
+    #btn-submit {
+      width: 100%; padding: 9px; background: var(--gold); color: #000;
+      border: none; cursor: pointer; font-family: inherit;
+      font-size: 12px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase;
+    }
+    #btn-submit:hover:not(:disabled) { background: var(--goldb); }
+    #btn-submit:disabled { opacity: .4; cursor: not-allowed; }
+
+    #btn-next {
+      width: 100%; padding: 9px; background: var(--ok); color: #fff;
+      border: none; cursor: pointer; font-family: inherit;
+      font-size: 12px; font-weight: bold; letter-spacing: 2px;
+      text-transform: uppercase; display: none; margin-top: 8px;
+    }
+    #btn-next:hover { background: #4ab860; }
+
+    #feedback { margin-top: 8px; font-size: 11px; text-align: center; padding: 6px; display: none; }
+    .fb-ok { background: rgba(58,158,80,.18); border: 1px solid var(--ok); color: #80d090; }
+    .fb-no { background: rgba(192,64,48,.18); border: 1px solid var(--err); color: #e08070; }
+
+    /* ── HINT MODAL ──────────────────────────── */
+    .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.8); z-index: 100; align-items: center; justify-content: center; }
+    .overlay.open { display: flex; }
+    .modal {
+      background: var(--bg2); border: 2px solid var(--gold);
+      padding: 22px; max-width: 420px; width: 92%;
+    }
+    .modal-title { color: var(--gold); font-size: 12px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 12px; }
+    .modal-sql {
+      background: #050c06; color: var(--grn);
+      padding: 12px; font-size: 12px; line-height: 1.7;
+      font-family: 'Courier New', monospace; white-space: pre;
+      margin-bottom: 14px; border: 1px solid var(--bdr);
+    }
+    .modal-btns { display: flex; gap: 8px; }
+    .btn-modal-use {
+      padding: 7px 16px; background: transparent; color: var(--gold);
+      border: 1px solid var(--gold); cursor: pointer; font-family: inherit;
+      font-size: 11px; letter-spacing: 1px; text-transform: uppercase;
+    }
+    .btn-modal-use:hover { background: rgba(212,165,32,.12); }
+    .btn-modal-cls {
+      padding: 7px 16px; background: var(--gold); color: #000;
+      border: none; cursor: pointer; font-family: inherit;
+      font-size: 11px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase;
+    }
+    .btn-modal-cls:hover { background: var(--goldb); }
+
+    /* ── VICTORY ─────────────────────────────── */
+    #victory { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.92); z-index: 200; align-items: center; justify-content: center; }
+    #victory.open { display: flex; }
+    .vic-box { background: var(--bg2); border: 3px solid var(--gold); padding: 38px; text-align: center; max-width: 490px; }
+    .vic-icon  { font-size: 60px; }
+    .vic-title { font-size: 26px; color: var(--goldb); letter-spacing: 4px; text-transform: uppercase; margin: 10px 0; }
+    .vic-stamp {
+      display: inline-block; border: 3px solid var(--ok); color: var(--ok);
+      font-size: 17px; padding: 7px 18px; letter-spacing: 4px;
+      font-weight: bold; transform: rotate(-5deg); margin: 10px 0;
+    }
+    .vic-sub { font-size: 12px; color: var(--txt); line-height: 1.8; margin: 14px 0 20px; }
+    .btn-replay {
+      padding: 10px 24px; background: var(--gold); color: #000;
+      border: none; cursor: pointer; font-family: inherit;
+      font-size: 12px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase;
+    }
+    .btn-replay:hover { background: var(--goldb); }
+
+    /* scrollbar */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--bdr); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--gold); }
+  </style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loading">
+  <div class="spin">🔍</div>
+  <div class="ltxt">INITIALIZING DATABASE</div>
+  <div class="lsub">Loading evidence files…</div>
+</div>
+
+<!-- Header -->
+<div id="hdr">
+  <div class="logo-wrap">
+    <span class="logo-icon">🕵️</span>
+    <div>
+      <div class="logo-main">SQL DETECTIVE</div>
+      <div class="logo-sub">CRACK THE CASE</div>
+    </div>
+  </div>
+  <div class="prog-wrap">
+    <div class="prog-lbl">CASE PROGRESS</div>
+    <div class="prog-bar"><div class="prog-fill" id="prog-fill"></div></div>
+    <div class="prog-pct" id="prog-pct">0%</div>
+  </div>
+  <div class="hdr-btns">
+    <button class="btn-sm btn-hint" onclick="openHint()">💡 HINT <span class="hint-ct" id="hint-ct">(3 left)</span></button>
+    <button class="btn-sm btn-reset" onclick="resetGame()">↺ RESET</button>
+  </div>
+</div>
+
+<!-- Layout -->
+<div id="layout">
+
+  <!-- Sidebar -->
+  <aside id="sidebar">
+    <div class="sb-head">📁 CASE STEPS</div>
+    <div id="step-list"></div>
+    <div class="sb-tip">
+      <div class="sb-tip-t">🕵️ DETECTIVE TIP</div>
+      <div class="sb-tip-b" id="sb-tip"></div>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main id="content">
+    <!-- Task header -->
+    <div class="task-hdr">
+      <div class="task-lbl"  id="task-lbl"></div>
+      <div class="task-title" id="task-title"></div>
+      <div class="task-desc"  id="task-desc"></div>
+    </div>
+
+    <!-- Table reference -->
+    <div class="tbl-ref">
+      <div class="tbl-ref-hdr">
+        <span class="tbl-ref-nm" id="tbl-nm"></span>
+        <span class="tbl-ref-bdg">REFERENCE</span>
+      </div>
+      <div class="tbl-scroll" id="tbl-body"></div>
+    </div>
+
+    <!-- SQL editor -->
+    <div class="sql-box">
+      <div class="sql-box-hdr">
+        <span class="sql-box-lbl">YOUR SQL QUERY</span>
+        <button class="schema-btn" onclick="toggleSchema()">📋 SCHEMA ▾</button>
+      </div>
+      <div id="schema-panel"></div>
+      <textarea id="sql-editor" spellcheck="false" placeholder="-- Write your SQL query here
+SELECT * FROM robberies;"></textarea>
+      <div class="sql-btns">
+        <button class="btn-run" onclick="runQuery()">▶ RUN QUERY</button>
+        <button class="btn-clr" onclick="clearEditor()">✕ CLEAR</button>
+        <span class="sql-kbd">Ctrl + Enter to run</span>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div class="res-box">
+      <div class="res-hdr">
+        <span class="res-lbl">QUERY RESULTS</span>
+        <span class="res-cnt" id="res-cnt"></span>
+      </div>
+      <div id="res-area"><div class="res-empty">Run a query to see results here.</div></div>
+    </div>
+  </main>
+
+  <!-- Right panel -->
+  <div id="rpanel">
+    <div class="wanted-card">
+      <div class="wanted-t">WANTED</div>
+      <div class="wanted-fig">🦹‍♀️</div>
+      <div class="wanted-name">CARMEN SANDIEGO</div>
+      <div class="wanted-aka">AKA "The Ghost in Red"</div>
+    </div>
+
+    <div class="note-card">
+      <div class="note-txt" id="note-txt"></div>
+    </div>
+
+    <div class="ans-card">
+      <div class="ans-lbl">YOUR ANSWER</div>
+      <div class="ans-hint" id="ans-hint"></div>
+      <input id="ans-input" type="text" placeholder="Your answer here…" autocomplete="off" />
+      <button id="btn-submit" onclick="submitAnswer()">SUBMIT ANSWER →</button>
+      <button id="btn-next"   onclick="nextStep()">NEXT STEP →</button>
+      <div id="feedback"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Hint modal -->
+<div class="overlay" id="hint-modal">
+  <div class="modal">
+    <div class="modal-title">💡 DETECTIVE HINT</div>
+    <div class="modal-sql" id="hint-sql"></div>
+    <div class="modal-btns">
+      <button class="btn-modal-use" onclick="useHint()">USE THIS QUERY</button>
+      <button class="btn-modal-cls" onclick="closeHint()">CLOSE</button>
+    </div>
+  </div>
+</div>
+
+<!-- Victory -->
+<div id="victory">
+  <div class="vic-box">
+    <div class="vic-icon">🏆</div>
+    <div class="vic-title">CASE CLOSED!</div>
+    <div class="vic-stamp">SOLVED</div>
+    <div class="vic-sub">
+      Outstanding detective work!<br><br>
+      You tracked Carmen Sandiego from the Diamond Museum heist all the way
+      to <strong style="color:var(--goldb)">Room 714, Hotel Mystique, Buenos Aires</strong>.<br><br>
+      The authorities have been dispatched. Carmen Sandiego is in custody.
+    </div>
+    <button class="btn-replay" onclick="resetGame()">PLAY AGAIN</button>
+  </div>
+</div>
+
+<script>
+/* ────────────────────────────────────────────────
+   STEP DEFINITIONS
+──────────────────────────────────────────────── */
+const STEPS = [
+  {
+    lbl:   'TASK 1',
+    title: 'FIND THE ROBBERY DETAILS',
+    desc:  'A robbery occurred last night. Investigate the <strong>robberies</strong> table and find the most recent crime. You need the <strong>fingerprint_code</strong> from the latest robbery to proceed.',
+    table: 'robberies',
+    ansHint: 'fingerprint_code = ?',
+    answer:  'fpx9214',
+    hint: 'SELECT fingerprint_code\nFROM robberies\nORDER BY date DESC, time DESC\nLIMIT 1;',
+    note: 'A daring heist took place at the Diamond Museum last night. The thief triggered the silent alarm at 23:40 and vanished — but left one partial fingerprint at the scene. Find the fingerprint code from the database.',
+    tip:  'Use ORDER BY date DESC, time DESC and LIMIT 1 to get the most recent row.'
+  },
+  {
+    lbl:   'TASK 2',
+    title: 'IDENTIFY THE SUSPECT',
+    desc:  'You have the fingerprint code. Now search the <strong>fingerprints</strong> table to find the matching record. You need the suspect\'s <strong>passport_number</strong>.',
+    table: 'fingerprints',
+    ansHint: 'passport_number = ?',
+    answer:  'cs-7749201',
+    hint: "SELECT suspect_id, passport_number\nFROM fingerprints\nWHERE fingerprint_code = 'FPX9214';",
+    note: 'Lab results are back — 99% confidence match. The fingerprint from the Diamond Museum corresponds to a record in our database. Use the fingerprint code to pull the suspect file.',
+    tip:  "Filter by: WHERE fingerprint_code = 'FPX9214'"
+  },
+  {
+    lbl:   'TASK 3',
+    title: 'PROFILE THE CRIMINAL',
+    desc:  'You have a passport number. Cross-reference the <strong>suspects</strong> table to get the full profile. Find the suspect\'s <strong>name</strong> — and pay close attention to their hobbies.',
+    table: 'suspects',
+    ansHint: 'suspect name = ?',
+    answer:  'carmen sandiego',
+    hint: "SELECT name, nationality, hobbies\nFROM suspects\nWHERE passport_number = 'CS-7749201';",
+    note: "A passport number is the key to a criminal's identity. Our suspect database has a file on everyone flagged by Interpol. Look up this passport — and study the hobbies carefully. They are a clue to the destination.",
+    tip:  "Filter suspects by: WHERE passport_number = 'CS-7749201'"
+  },
+  {
+    lbl:   'TASK 4',
+    title: 'FIND THE DESTINATION',
+    desc:  'Carmen\'s hobbies include <em>tango dancing</em> and <em>Malbec wine tasting</em>. Criminals flee to familiar territory. Search the <strong>countries</strong> table to find the country known for these activities.',
+    table: 'countries',
+    ansHint: 'country name = ?',
+    answer:  'argentina',
+    hint: "SELECT name\nFROM countries\nWHERE known_for LIKE '%tango%'\n   OR known_for LIKE '%Malbec%';",
+    note: "Every criminal has a comfort zone — a culture they gravitate toward. Carmen's love of tango and Malbec wine is her tell. Cross-reference her hobbies with the countries database to pinpoint her destination.",
+    tip:  "Use LIKE '%tango%' or LIKE '%Malbec%' on the known_for column."
+  },
+  {
+    lbl:   'TASK 5',
+    title: 'TRACK THE FLIGHT',
+    desc:  'Carmen is on the run. Check the <strong>flights</strong> table using her passport number to find which flight she boarded. Return her <strong>flight_number</strong>.',
+    table: 'flights',
+    ansHint: 'flight_number = ?',
+    answer:  'ar-4821',
+    hint: "SELECT flight_number, arrival_country\nFROM flights\nWHERE passenger_passport = 'CS-7749201';",
+    note: 'All international departures are logged by passport. If Carmen left the country, her passport will appear in the flight manifests. Pull up the records and trace her route.',
+    tip:  "Filter flights by: WHERE passenger_passport = 'CS-7749201'"
+  },
+  {
+    lbl:   'TASK 6',
+    title: 'LOCATE THE HOTEL',
+    desc:  'Carmen has landed in Buenos Aires. She needs to lie low. Search the <strong>hotels</strong> table using her passport number to find which hotel she checked into.',
+    table: 'hotels',
+    ansHint: 'hotel name = ?',
+    answer:  'hotel mystique',
+    hint: "SELECT name, city, stars\nFROM hotels\nWHERE guest_passport = 'CS-7749201';",
+    note: "Our field agent in Buenos Aires spotted a woman in a red hat arriving last night. High-profile thieves never stay in cheap motels. Check the luxury hotel registry using her passport — she'll be there.",
+    tip:  "Filter hotels by: WHERE guest_passport = 'CS-7749201'"
+  },
+  {
+    lbl:   'TASK 7',
+    title: 'FIND THE ROOM',
+    desc:  'You know the hotel. Now find the exact room Carmen is hiding in. Query the <strong>hotel_rooms</strong> table to get her <strong>room_number</strong> before she slips away.',
+    table: 'hotel_rooms',
+    ansHint: 'room_number = ?',
+    answer:  '714',
+    hint: "SELECT room_number, floor\nFROM hotel_rooms\nWHERE guest_passport = 'CS-7749201';",
+    note: "This is it! Carmen thinks she's safe in her luxury suite at Hotel Mystique. But we have access to their guest registry. Find her room number — the authorities are standing by and ready to move!",
+    tip:  "Filter hotel_rooms by: WHERE guest_passport = 'CS-7749201'"
+  }
+];
+
+const STEP_META = [
+  { name: 'Robberies',    sub: 'Find the fingerprint'    },
+  { name: 'Fingerprints', sub: 'Identify the suspect'    },
+  { name: 'Suspects',     sub: 'Profile the criminal'    },
+  { name: 'Countries',    sub: 'Find the destination'    },
+  { name: 'Flights',      sub: 'Track the flight'        },
+  { name: 'Hotels',       sub: 'Locate the hotel'        },
+  { name: 'Hotel Rooms',  sub: 'Find the room number'    },
+];
+
+const SCHEMA = `-- ── DATABASE SCHEMA ─────────────────────────────────
+robberies (id, date, time, location,
+           stolen_item, fingerprint_code, notes)
+
+fingerprints (id, fingerprint_code,
+              suspect_id, passport_number, match_confidence)
+
+suspects (id, name, passport_number,
+          nationality, hobbies, description)
+
+countries (id, name, code, language,
+           currency, known_for)
+
+flights (id, flight_number, departure_country,
+         arrival_country, departure_date,
+         passenger_passport, airline)
+
+hotels (id, name, country, city,
+        stars, guest_passport, checkin_date)
+
+hotel_rooms (id, hotel_id, room_number,
+             guest_name, guest_passport, floor)`;
+
+/* ────────────────────────────────────────────────
+   STATE
+──────────────────────────────────────────────── */
+let db          = null;
+let cur         = 0;      // currently viewed step
+let maxReached  = 0;      // furthest unlocked step
+let completed   = new Set();
+let hintsLeft   = 3;
+let schemaOpen  = false;
+
+/* ────────────────────────────────────────────────
+   DB INIT
+──────────────────────────────────────────────── */
+async function init() {
+  try {
+    const SQL = await initSqlJs({
+      locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/${f}`
+    });
+    db = new SQL.Database();
+    createDB();
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('schema-panel').textContent = SCHEMA;
+    buildSidebar();
+    loadStep(0);
+  } catch (e) {
+    document.getElementById('loading').innerHTML =
+      `<div style="color:#e07060;padding:24px;text-align:center;max-width:400px">
+        <div style="font-size:32px;margin-bottom:12px">⚠</div>
+        <div style="font-size:13px;line-height:1.7">Failed to load the database engine.<br>
+        Please check your internet connection and refresh.<br><br>
+        <span style="opacity:.6;font-size:11px">${e.message}</span></div>
+      </div>`;
+  }
+}
+
+function createDB() {
+  db.run(`
+    CREATE TABLE robberies (
+      id INTEGER PRIMARY KEY, date TEXT, time TEXT, location TEXT,
+      stolen_item TEXT, fingerprint_code TEXT, notes TEXT
+    );
+    INSERT INTO robberies VALUES
+      (1,'2026-04-15','02:15','City Bank',       'Cash Bundle',         'FPX1042','Guard knocked unconscious'),
+      (2,'2026-04-17','09:30','Central Bank',    'Gold Bars',           'FPX5531','Alarm triggered, fled on foot'),
+      (3,'2026-04-19','14:00','Tech Expo Store', 'Prototype Laptop',    'FPX8803','CCTV footage recovered'),
+      (4,'2026-04-21','23:40','Diamond Museum',  'Crimson Star Diamond','FPX9214','Silent alarm triggered');
+
+    CREATE TABLE fingerprints (
+      id INTEGER PRIMARY KEY, fingerprint_code TEXT,
+      suspect_id INTEGER, passport_number TEXT, match_confidence TEXT
+    );
+    INSERT INTO fingerprints VALUES
+      (1,'FPX1042',3,'BR-2241190','94%'),
+      (2,'FPX5531',1,'UK-9918820','87%'),
+      (3,'FPX8803',6,'IT-8897234','91%'),
+      (4,'FPX9214',7,'CS-7749201','99%');
+
+    CREATE TABLE suspects (
+      id INTEGER PRIMARY KEY, name TEXT, passport_number TEXT,
+      nationality TEXT, hobbies TEXT, description TEXT
+    );
+    INSERT INTO suspects VALUES
+      (1,'James Whitmore',   'UK-9918820','British',   'cricket, tea ceremonies',                    'Tall male, brown hair, scar on left cheek'),
+      (2,'Yuki Tanaka',      'JP-3374001','Japanese',  'origami, cherry blossom viewing',             'Female, black hair, elegant posture'),
+      (3,'Bruno Alves',      'BR-2241190','Brazilian', 'samba dancing, caipirinha tasting',           'Stocky male, curly hair, tattoo on neck'),
+      (4,'Fatima El-Hassan', 'EG-5560432','Egyptian',  'archaeology, hieroglyphics study',            'Female, dark hair, distinctive red coat'),
+      (5,'Viktor Drakov',    'RU-1122334','Russian',   'chess, vodka tasting',                       'Male, grey hair, cold piercing eyes'),
+      (6,'Marco Bellini',    'IT-8897234','Italian',   'opera, pasta cooking',                       'Male, dark curly hair, charming smile'),
+      (7,'Carmen Sandiego',  'CS-7749201','Unknown',   'tango dancing, Malbec wine tasting, red hat collecting','Female, always wears a red fedora and long coat');
+
+    CREATE TABLE countries (
+      id INTEGER PRIMARY KEY, name TEXT, code TEXT,
+      language TEXT, currency TEXT, known_for TEXT
+    );
+    INSERT INTO countries VALUES
+      (1,'United Kingdom','UK','English','British Pound','cricket, tea, Big Ben, Shakespeare'),
+      (2,'Japan',         'JP','Japanese','Yen',         'origami, cherry blossoms, sushi, Mount Fuji'),
+      (3,'Brazil',        'BR','Portuguese','Real',      'samba dancing, carnival, caipirinha, Amazon rainforest'),
+      (4,'Egypt',         'EG','Arabic','Egyptian Pound','pyramids, archaeology, hieroglyphics, Nile River'),
+      (5,'Russia',        'RU','Russian','Ruble',        'chess, vodka, Red Square, Bolshoi ballet'),
+      (6,'Italy',         'IT','Italian','Euro',         'opera, pasta cooking, Colosseum, Renaissance art'),
+      (7,'Argentina',     'AR','Spanish','Peso',         'tango dancing, Malbec wine, pampas, Buenos Aires');
+
+    CREATE TABLE flights (
+      id INTEGER PRIMARY KEY, flight_number TEXT,
+      departure_country TEXT, arrival_country TEXT,
+      departure_date TEXT, passenger_passport TEXT, airline TEXT
+    );
+    INSERT INTO flights VALUES
+      (1,'BA-2291','USA','United Kingdom','2026-04-22','UK-9918820','British Airways'),
+      (2,'JL-5543','USA','Japan',         '2026-04-21','JP-3374001','Japan Airlines'),
+      (3,'LA-8812','USA','Brazil',        '2026-04-20','BR-2241190','LATAM Airlines'),
+      (4,'AR-4821','USA','Argentina',     '2026-04-22','CS-7749201','Aerolineas Argentinas'),
+      (5,'EK-3390','USA','Egypt',         '2026-04-19','EG-5560432','EgyptAir'),
+      (6,'SU-7714','USA','Russia',        '2026-04-21','RU-1122334','Aeroflot');
+
+    CREATE TABLE hotels (
+      id INTEGER PRIMARY KEY, name TEXT, country TEXT,
+      city TEXT, stars INTEGER, guest_passport TEXT, checkin_date TEXT
+    );
+    INSERT INTO hotels VALUES
+      (1,'The Grand Britannia','United Kingdom','London',        5,'UK-9918820','2026-04-23'),
+      (2,'Sakura Palace',      'Japan',         'Tokyo',         4,'JP-3374001','2026-04-22'),
+      (3,'Rio Carnival Hotel', 'Brazil',        'Rio de Janeiro',3,'BR-2241190','2026-04-21'),
+      (4,'Hotel Mystique',     'Argentina',     'Buenos Aires',  5,'CS-7749201','2026-04-23'),
+      (5,'Nile View Resort',   'Egypt',         'Cairo',         4,'EG-5560432','2026-04-20');
+
+    CREATE TABLE hotel_rooms (
+      id INTEGER PRIMARY KEY, hotel_id INTEGER,
+      room_number TEXT, guest_name TEXT, guest_passport TEXT, floor INTEGER
+    );
+    INSERT INTO hotel_rooms VALUES
+      (1,1,'512','James Whitmore','UK-9918820',5),
+      (2,2,'308','Yuki Tanaka',   'JP-3374001',3),
+      (3,3,'201','Bruno Alves',   'BR-2241190',2),
+      (4,4,'714','C. Sandiego',   'CS-7749201',7),
+      (5,5,'103','F. El-Hassan',  'EG-5560432',1);
+  `);
+}
+
+/* ────────────────────────────────────────────────
+   SIDEBAR
+──────────────────────────────────────────────── */
+function buildSidebar() {
+  document.getElementById('step-list').innerHTML = STEPS.map((_, i) => `
+    <button class="step-btn ${i === 0 ? 'active' : 'locked'}" id="sb${i}" onclick="goStep(${i})">
+      <div class="s-num" id="sn${i}">${i + 1}</div>
+      <div>
+        <div class="s-name">${STEP_META[i].name}</div>
+        <div class="s-sub">${STEP_META[i].sub}</div>
+      </div>
+    </button>`).join('');
+}
+
+function refreshSidebar() {
+  STEPS.forEach((_, i) => {
+    const btn = document.getElementById(`sb${i}`);
+    const num = document.getElementById(`sn${i}`);
+    if (!btn) return;
+    btn.className = 'step-btn';
+    if (i === cur)              btn.classList.add('active');
+    else if (completed.has(i)) btn.classList.add('done');
+    else if (i > maxReached)   btn.classList.add('locked');
+    num.textContent = completed.has(i) ? '✓' : (i + 1);
+  });
+}
+
+/* ────────────────────────────────────────────────
+   NAVIGATION
+──────────────────────────────────────────────── */
+function goStep(i) {
+  if (i > maxReached) return;
+  cur = i;
+  loadStep(i);
+}
+
+function nextStep() {
+  if (cur < STEPS.length - 1) loadStep(cur + 1);
+}
+
+function loadStep(idx) {
+  cur = idx;
+  const s = STEPS[idx];
+
+  // task header
+  document.getElementById('task-lbl').textContent   = s.lbl;
+  document.getElementById('task-title').textContent = s.title;
+  document.getElementById('task-desc').innerHTML    = s.desc;
+
+  // note
+  document.getElementById('note-txt').textContent = s.note;
+
+  // sidebar tip
+  document.getElementById('sb-tip').textContent = s.tip;
+
+  // table reference
+  document.getElementById('tbl-nm').textContent = `TABLE: ${s.table}`;
+  loadTableRef(s.table);
+
+  // editor default
+  document.getElementById('sql-editor').value =
+    `-- Query the ${s.table} table\nSELECT * FROM ${s.table};`;
+
+  // results
+  document.getElementById('res-area').innerHTML = '<div class="res-empty">Run a query to see results here.</div>';
+  document.getElementById('res-cnt').textContent = '';
+
+  // answer panel
+  document.getElementById('ans-hint').textContent = s.ansHint;
+
+  const isDone = completed.has(idx);
+  const inp    = document.getElementById('ans-input');
+  const subBtn = document.getElementById('btn-submit');
+  const nxtBtn = document.getElementById('btn-next');
+  const fb     = document.getElementById('feedback');
+
+  inp.value    = '';
+  inp.disabled = isDone;
+  subBtn.style.display = isDone ? 'none' : 'block';
+  nxtBtn.style.display = (isDone && idx < STEPS.length - 1) ? 'block' : 'none';
+  fb.style.display = 'none';
+  fb.className = '';
+
+  refreshSidebar();
+  updateProgress();
+
+  // schema visibility reset
+  if (schemaOpen) toggleSchema();
+}
+
+/* ────────────────────────────────────────────────
+   TABLE REFERENCE (auto preview)
+──────────────────────────────────────────────── */
+function loadTableRef(tbl) {
+  try {
+    const r = db.exec(`SELECT * FROM ${tbl}`);
+    document.getElementById('tbl-body').innerHTML =
+      r.length ? renderTable(r[0]) : '<div class="res-empty">No rows.</div>';
+  } catch (e) {
+    document.getElementById('tbl-body').innerHTML =
+      `<div class="res-error">⚠ ${e.message}</div>`;
+  }
+}
+
+/* ────────────────────────────────────────────────
+   SQL EXECUTION
+──────────────────────────────────────────────── */
+function runQuery() {
+  const sql = document.getElementById('sql-editor').value.trim();
+  if (!sql || !db) return;
+  try {
+    const results = db.exec(sql);
+    const area = document.getElementById('res-area');
+    const cnt  = document.getElementById('res-cnt');
+    if (!results.length) {
+      area.innerHTML = '<div class="res-empty">Query executed. No rows returned.</div>';
+      cnt.textContent = '0 rows';
+      return;
+    }
+    const last = results[results.length - 1];
+    cnt.textContent = `${last.values.length} row${last.values.length !== 1 ? 's' : ''}`;
+    area.innerHTML  = renderTable(last);
+  } catch (e) {
+    document.getElementById('res-area').innerHTML =
+      `<div class="res-error">⚠ ${e.message}</div>`;
+    document.getElementById('res-cnt').textContent = 'Error';
+  }
+}
+
+function renderTable({ columns, values }) {
+  return `<table class="dtbl">
+    <thead><tr>${columns.map(c => `<th>${c}</th>`).join('')}</tr></thead>
+    <tbody>${values.map(r =>
+      `<tr>${r.map(v => `<td>${v ?? 'NULL'}</td>`).join('')}</tr>`
+    ).join('')}</tbody>
+  </table>`;
+}
+
+function clearEditor() {
+  document.getElementById('sql-editor').value = '';
+  document.getElementById('sql-editor').focus();
+}
+
+/* ────────────────────────────────────────────────
+   ANSWER SUBMISSION
+──────────────────────────────────────────────── */
+function submitAnswer() {
+  const val = document.getElementById('ans-input').value.trim().toLowerCase();
+  const fb  = document.getElementById('feedback');
+  const s   = STEPS[cur];
+
+  if (!val) {
+    showFb('Please enter an answer.', false);
+    return;
+  }
+
+  if (val === s.answer) {
+    showFb('✓ Correct! Advancing the case…', true);
+    completed.add(cur);
+    if (cur >= maxReached) maxReached = cur + 1;
+    refreshSidebar();
+    updateProgress();
+    document.getElementById('ans-input').disabled = true;
+    document.getElementById('btn-submit').style.display = 'none';
+
+    setTimeout(() => {
+      if (cur < STEPS.length - 1) {
+        loadStep(cur + 1);
+      } else {
+        showVictory();
+      }
+    }, 900);
+  } else {
+    showFb('✗ Incorrect. Review your query and try again.', false);
+    document.getElementById('ans-input').select();
+  }
+}
+
+function showFb(msg, ok) {
+  const fb = document.getElementById('feedback');
+  fb.textContent = msg;
+  fb.className   = ok ? 'fb-ok' : 'fb-no';
+  fb.style.display = 'block';
+}
+
+/* ────────────────────────────────────────────────
+   HINT
+──────────────────────────────────────────────── */
+function openHint() {
+  if (hintsLeft <= 0) {
+    alert('No hints remaining!');
+    return;
+  }
+  document.getElementById('hint-sql').textContent = STEPS[cur].hint;
+  document.getElementById('hint-modal').classList.add('open');
+}
+
+function closeHint() {
+  document.getElementById('hint-modal').classList.remove('open');
+}
+
+function useHint() {
+  hintsLeft = Math.max(0, hintsLeft - 1);
+  document.getElementById('hint-ct').textContent = `(${hintsLeft} left)`;
+  document.getElementById('sql-editor').value = STEPS[cur].hint;
+  closeHint();
+  runQuery();
+}
+
+/* ────────────────────────────────────────────────
+   SCHEMA TOGGLE
+──────────────────────────────────────────────── */
+function toggleSchema() {
+  schemaOpen = !schemaOpen;
+  document.getElementById('schema-panel').style.display = schemaOpen ? 'block' : 'none';
+}
+
+/* ────────────────────────────────────────────────
+   PROGRESS
+──────────────────────────────────────────────── */
+function updateProgress() {
+  const pct = Math.round(completed.size / STEPS.length * 100);
+  document.getElementById('prog-fill').style.width = pct + '%';
+  document.getElementById('prog-pct').textContent  = pct + '%';
+}
+
+/* ────────────────────────────────────────────────
+   VICTORY / RESET
+──────────────────────────────────────────────── */
+function showVictory() {
+  document.getElementById('victory').classList.add('open');
+}
+
+function resetGame() {
+  completed.clear();
+  maxReached = 0;
+  hintsLeft  = 3;
+  cur        = 0;
+  document.getElementById('hint-ct').textContent = '(3 left)';
+  document.getElementById('victory').classList.remove('open');
+  buildSidebar();
+  loadStep(0);
+}
+
+/* ────────────────────────────────────────────────
+   KEYBOARD SHORTCUTS
+──────────────────────────────────────────────── */
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); runQuery(); }
+  if (e.key === 'Escape') closeHint();
+});
+document.getElementById('ans-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') submitAnswer();
+});
+
+/* kick off */
+init();
+</script>
+</body>
+</html>
