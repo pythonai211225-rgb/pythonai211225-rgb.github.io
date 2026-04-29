@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SQL Lesson 4 — Aggregations</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='white'/><text x='32' y='45' text-anchor='middle' font-family='Arial, sans-serif' font-size='42' font-weight='700' fill='%232dd4bf'>db</text></svg>">
+  <style>
+    :root {
+      --bg-soft:   #ffffff;
+      --teal-1:    #0e5a52;
+      --teal-2:    #1a9e8f;
+      --teal-3:    #d2f6f2;
+      --mint:      #e6fffc;
+      --text:      #0f2622;
+      --muted:     #3d7a72;
+      --border:    #9adcd4;
+      --code-bg:   #07201d;
+      --code-text: #cef9f3;
+      --accent-a:  #d9fdf7;
+      --accent-b:  #e8fff8;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Trebuchet MS", "Lucida Sans", "Segoe UI", sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at 15% 10%, #ddfff8 0%, transparent 35%),
+                  radial-gradient(circle at 85% 18%, #e8fff3 0%, transparent 36%),
+                  linear-gradient(180deg, #f0fffb 0%, #ffffff 45%, #e8fff9 100%);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      width: 240px; height: 240px;
+      z-index: -1;
+      border-radius: 999px;
+      filter: blur(2px);
+      opacity: 0.35;
+      animation: blobMove 8s ease-in-out infinite alternate;
+    }
+    body::before { background: #9ef5eb; top: -30px; left: -40px; }
+    body::after  { background: #b8ffe0; bottom: -40px; right: -40px; animation-delay: 1.4s; }
+
+    .wrap {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    /* ── Sidebar ── */
+    .side-nav {
+      position: sticky;
+      top: 14px;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 8px 22px rgba(14, 90, 82, 0.1);
+      padding: 12px;
+    }
+
+    .side-title {
+      margin: 0 0 8px;
+      font-size: 0.9rem;
+      color: var(--teal-1);
+      font-weight: 700;
+    }
+
+    .topic-link {
+      display: block;
+      width: 100%;
+      text-align: left;
+      border: 1px solid transparent;
+      border-radius: 9px;
+      padding: 8px 10px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.89rem;
+      text-transform: lowercase;
+      margin-bottom: 6px;
+      transition: all 0.2s ease;
+    }
+    .topic-link:hover {
+      background: #f0fffb;
+      color: var(--teal-1);
+      border-color: var(--border);
+    }
+    .topic-link.active {
+      background: #d8faf5;
+      color: var(--teal-1);
+      border-color: var(--teal-2);
+      font-weight: 700;
+    }
+
+    .side-divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 10px 0;
+    }
+
+    .side-section-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--teal-2);
+      padding: 4px 4px 6px;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      background: linear-gradient(135deg, var(--bg-soft) 0%, var(--accent-a) 55%, var(--accent-b) 100%);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow: 0 12px 30px rgba(14, 110, 100, 0.12);
+      margin-bottom: 22px;
+      animation: riseIn 0.75s ease both;
+    }
+
+    h1, h2, h3 { margin-top: 0; color: var(--teal-1); }
+    h1 { font-size: 2rem; margin-bottom: 8px; letter-spacing: 0.2px; }
+
+    .tag {
+      display: inline-block;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      background: var(--teal-3);
+      color: var(--teal-1);
+      border: 1px solid var(--border);
+      margin-bottom: 10px;
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--bg-soft);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 16px;
+      box-shadow: 0 7px 22px rgba(14, 90, 82, 0.08);
+      animation: riseIn 0.65s ease both;
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 13px 28px rgba(14, 90, 82, 0.15);
+    }
+
+    .topic-panel { display: none; }
+    .topic-panel.active { display: block; }
+
+    /* ── Code blocks ── */
+    .code {
+      background: var(--code-bg);
+      color: var(--code-text);
+      border-radius: 10px;
+      border: 1px solid #1e5c54;
+      padding: 14px;
+      overflow-x: auto;
+      margin: 10px 0 12px;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.94rem;
+      white-space: pre;
+    }
+    .code .k  { color: #5eead4; font-weight: 700; }
+    .code .t  { color: #c084fc; }
+    .code .c  { color: #6b7280; font-style: italic; }
+    .code .s  { color: #6ee7b7; }
+    .code .n  { color: #fb923c; }
+
+    /* ── Note / callout ── */
+    .note {
+      background: var(--mint);
+      border-left: 4px solid var(--teal-2);
+      padding: 10px 12px;
+      color: var(--muted);
+      margin: 8px 0 10px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+
+    /* ── Tables ── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      font-size: 0.93rem;
+      margin: 10px 0;
+    }
+    th, td { border-bottom: 1px solid #ccf0eb; padding: 10px; text-align: left; vertical-align: top; }
+    th { background: #d2faf5; color: #0b4b44; }
+    tr:last-child td { border-bottom: none; }
+
+    .result-title { margin: 12px 0 6px; color: var(--teal-1); font-size: 0.96rem; font-weight: 700; }
+    .big-result   { font-size: 1.5rem; margin: 8px 0 10px; color: var(--teal-1); font-weight: 800; }
+
+    /* ── Exercise card ── */
+    .exercise-card {
+      border: 1px solid #f5d68b;
+      background: linear-gradient(140deg, #fffdf7 0%, #fff9eb 100%);
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 20px;
+    }
+    .exercise-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    .exercise-q {
+      width: 52px; height: 52px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-size: 1.9rem;
+      font-weight: 800;
+      color: #92400e;
+      background: radial-gradient(circle at 30% 30%, #fde68a 0%, #fbbf24 100%);
+      border: 2px solid #f59e0b;
+      box-shadow: 0 6px 14px rgba(245,158,11,.25);
+      flex-shrink: 0;
+    }
+    .exercise-head h2 { margin: 0 0 4px; color: var(--teal-1); font-size: 1.1rem; }
+    .exercise-sub  { color: #7c2d12; font-weight: 700; font-size: .95rem; margin: 0; }
+    .exercise-steps {
+      margin: 8px 0 10px;
+      padding-left: 18px;
+    }
+    .exercise-steps li { color: #374151; margin-bottom: 5px; }
+
+    /* ── Q/A divider ── */
+    .qa-divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 20px 0 16px;
+      font-size: .75rem;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--teal-2);
+    }
+    .qa-divider::before, .qa-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── Solution card ── */
+    .solution-card {
+      background: linear-gradient(135deg, #ffffff 0%, #d9fdf7 100%);
+      border: 2px solid var(--teal-2);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 16px;
+      animation: riseIn 0.7s ease both;
+    }
+    .solution-head {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+    .solution-badge {
+      width: 42px; height: 42px;
+      border-radius: 10px;
+      background: var(--teal-2);
+      color: #fff;
+      font-weight: 900;
+      font-size: 1.1rem;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+
+    /* ── Bottom nav ── */
+    .nav-back {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--teal-2);
+      background: #d8faf5;
+      color: var(--teal-1);
+      text-decoration: none;
+      font-weight: 700;
+      transition: all 0.2s ease;
+      width: 100%;
+      text-align: center;
+    }
+    .nav-back:hover { background: #bff5ec; transform: translateY(-1px); }
+
+    .footer { text-align: center; color: var(--muted); font-size: 0.86rem; padding: 10px 0 16px; }
+
+    /* ── Homework card ── */
+    .hw-card {
+      background: linear-gradient(135deg, #ffffff 0%, #dcfbf4 100%);
+      border: 2px solid var(--teal-2);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 18px;
+    }
+    .hw-card h3 { color: var(--teal-1); margin-bottom: 8px; }
+    .hw-card ol { margin-top: 8px; padding-left: 20px; }
+    .hw-card li { margin-bottom: 6px; color: #374151; }
+    .hw-badge {
+      display: inline-block;
+      padding: 3px 12px;
+      border-radius: 999px;
+      font-size: .75rem;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      background: var(--teal-3);
+      color: var(--teal-1);
+      border: 1px solid var(--border);
+      margin-bottom: 10px;
+    }
+
+    .card:nth-of-type(1) { animation-delay: 0.05s; }
+    .card:nth-of-type(2) { animation-delay: 0.10s; }
+    .card:nth-of-type(3) { animation-delay: 0.15s; }
+    .card:nth-of-type(4) { animation-delay: 0.20s; }
+    .card:nth-of-type(5) { animation-delay: 0.25s; }
+
+    @keyframes riseIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes blobMove {
+      from { transform: translate(0, 0) scale(1); }
+      to   { transform: translate(24px, 18px) scale(1.06); }
+    }
+
+    @media (max-width: 760px) {
+      .wrap { padding: 14px; }
+      .layout { grid-template-columns: 1fr; }
+      .side-nav { position: static; }
+      h1 { font-size: 1.6rem; }
+      .code { font-size: 0.86rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+
+    <!-- Hero -->
+    <section class="hero">
+      <span class="tag">Lesson 4 — Apr 29, 2026</span>
+      <h1>Aggregations — Group &amp; Summarize</h1>
+      <p>Exercise solutions for COUNT, SUM / AVG / MIN / MAX, GROUP BY, HAVING, and ALTER TABLE. Homework covers COALESCE, ROUND, and the full aggregation report.</p>
+    </section>
+
+    <div class="layout">
+
+      <!-- Sidebar -->
+      <aside class="side-nav" aria-label="Topic navigation">
+        <h2 class="side-title">Exercise Solutions</h2>
+        <button class="topic-link active" data-target="t-sol-1">1) COUNT</button>
+        <button class="topic-link" data-target="t-sol-2">2) SUM / AVG / MIN / MAX</button>
+        <button class="topic-link" data-target="t-sol-3">3) GROUP BY</button>
+        <button class="topic-link" data-target="t-sol-4">4) HAVING</button>
+
+        <hr class="side-divider">
+        <div class="side-section-label">Homework</div>
+        <button class="topic-link" data-target="t-hw">Exercise</button>
+
+        <a class="nav-back" href="../../index.html">← back to sql module</a>
+      </aside>
+
+      <main>
+
+        <!-- ══════════ SOLUTION 1 — COUNT ══════════ -->
+        <section class="topic-panel active" id="t-sol-1">
+
+          <div class="exercise-card">
+            <div class="exercise-head">
+              <div class="exercise-q">?</div>
+              <div>
+                <h2>Exercise</h2>
+                <p class="exercise-sub">COUNT forms on the sales table</p>
+              </div>
+            </div>
+            <ol class="exercise-steps">
+              <li>Count how many distinct products are sold in the South region</li>
+              <li>How many different products did Dana sell?</li>
+              <li>How many laptops have been sold?</li>
+              <li>Bonus: in one query show total_rows, rows_with_amount, and missing_amount side by side</li>
+            </ol>
+          </div>
+
+          <div class="qa-divider">Solution</div>
+
+          <div class="solution-card">
+            <div class="solution-head">
+              <div class="solution-badge">1</div>
+              <div><h2 style="margin:0">Solution — COUNT</h2></div>
+            </div>
+
+            <h3>Setup — sales table used throughout Lesson 4</h3>
+            <div class="code"><span class="k">CREATE TABLE</span> sales (
+  id        <span class="t">INTEGER</span> <span class="k">PRIMARY KEY</span>,
+  rep_name  <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  region    <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  product   <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  amount    <span class="t">REAL</span>,
+  sale_date <span class="t">TEXT</span>    <span class="k">NOT NULL</span>
+);
+
+<span class="k">INSERT INTO</span> sales (id, rep_name, region, product, amount, sale_date) <span class="k">VALUES</span>
+  (<span class="n">1</span>,  <span class="s">'Dana'</span>, <span class="s">'North'</span>, <span class="s">'Laptop'</span>, <span class="n">1200.00</span>, <span class="s">'2026-01-10'</span>),
+  (<span class="n">2</span>,  <span class="s">'Omar'</span>, <span class="s">'South'</span>, <span class="s">'Phone'</span>,  <span class="n">650.00</span>,  <span class="s">'2026-01-12'</span>),
+  (<span class="n">3</span>,  <span class="s">'Dana'</span>, <span class="s">'North'</span>, <span class="s">'Tablet'</span>, <span class="k">NULL</span>,     <span class="s">'2026-01-15'</span>),
+  (<span class="n">4</span>,  <span class="s">'Noa'</span>,  <span class="s">'East'</span>,  <span class="s">'Laptop'</span>, <span class="n">1350.00</span>, <span class="s">'2026-01-18'</span>),
+  (<span class="n">5</span>,  <span class="s">'Omar'</span>, <span class="s">'South'</span>, <span class="s">'Laptop'</span>, <span class="n">1100.00</span>, <span class="s">'2026-01-20'</span>),
+  (<span class="n">6</span>,  <span class="s">'Dana'</span>, <span class="s">'North'</span>, <span class="s">'Phone'</span>,  <span class="n">720.00</span>,  <span class="s">'2026-01-22'</span>),
+  (<span class="n">7</span>,  <span class="s">'Noa'</span>,  <span class="s">'East'</span>,  <span class="s">'Phone'</span>,  <span class="n">690.00</span>,  <span class="s">'2026-01-25'</span>),
+  (<span class="n">8</span>,  <span class="s">'Liam'</span>, <span class="s">'West'</span>,  <span class="s">'Tablet'</span>, <span class="n">480.00</span>,  <span class="s">'2026-01-28'</span>),
+  (<span class="n">9</span>,  <span class="s">'Liam'</span>, <span class="s">'West'</span>,  <span class="s">'Laptop'</span>, <span class="n">1050.00</span>, <span class="s">'2026-02-01'</span>),
+  (<span class="n">10</span>, <span class="s">'Omar'</span>, <span class="s">'South'</span>, <span class="s">'Tablet'</span>, <span class="k">NULL</span>,     <span class="s">'2026-02-03'</span>);</div>
+
+            <h3>Query 1 — Distinct products in the South region</h3>
+            <div class="code"><span class="k">SELECT</span> <span class="k">COUNT</span>(<span class="k">DISTINCT</span> product) <span class="k">AS</span> distinct_south_products
+<span class="k">FROM</span> sales
+<span class="k">WHERE</span> region = <span class="s">'South'</span>;</div>
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>distinct_south_products</th></tr></thead>
+              <tbody><tr><td>3</td></tr></tbody>
+            </table>
+            <p class="note">South rows sell Phone, Laptop, and Tablet — all three distinct products.</p>
+
+            <h3>Query 2 — Different products Dana sold</h3>
+            <div class="code"><span class="k">SELECT</span> <span class="k">COUNT</span>(<span class="k">DISTINCT</span> product) <span class="k">AS</span> dana_products
+<span class="k">FROM</span> sales
+<span class="k">WHERE</span> rep_name = <span class="s">'Dana'</span>;</div>
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>dana_products</th></tr></thead>
+              <tbody><tr><td>3</td></tr></tbody>
+            </table>
+            <p class="note">Dana sold: Laptop (id 1), Tablet (id 3), Phone (id 6) — 3 different products.</p>
+
+            <h3>Query 3 — Laptops sold</h3>
+            <div class="code"><span class="k">SELECT</span> <span class="k">COUNT</span>(*) <span class="k">AS</span> laptops_sold
+<span class="k">FROM</span> sales
+<span class="k">WHERE</span> product = <span class="s">'Laptop'</span>;</div>
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>laptops_sold</th></tr></thead>
+              <tbody><tr><td>4</td></tr></tbody>
+            </table>
+            <p class="note">Laptop appears in rows 1 (Dana), 4 (Noa), 5 (Omar), 9 (Liam) — 4 rows total.</p>
+
+            <h3>Query 4 (Bonus) — total_rows, rows_with_amount, missing_amount in one query</h3>
+            <div class="code"><span class="k">SELECT</span>
+  <span class="k">COUNT</span>(*) <span class="k">AS</span> total_rows,
+  <span class="k">COUNT</span>(amount) <span class="k">AS</span> rows_with_amount,
+  <span class="k">COUNT</span>(*) - <span class="k">COUNT</span>(amount) <span class="k">AS</span> missing_amount
+<span class="k">FROM</span> sales;</div>
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>total_rows</th><th>rows_with_amount</th><th>missing_amount</th></tr></thead>
+              <tbody><tr><td>10</td><td>8</td><td>2</td></tr></tbody>
+            </table>
+            <p class="note">COUNT(*) counts every row; COUNT(amount) skips NULLs. Subtracting gives the count of missing values — rows 3 and 10 have NULL in amount.</p>
+          </div>
+        </section>
+
+        <!-- ══════════ SOLUTION 2 — SUM / AVG / MIN / MAX ══════════ -->
+        <section class="topic-panel" id="t-sol-2">
+
+          <div class="exercise-card">
+            <div class="exercise-head">
+              <div class="exercise-q">?</div>
+              <div>
+                <h2>Exercise</h2>
+                <p class="exercise-sub">Aggregate the sales table</p>
+              </div>
+            </div>
+            <ol class="exercise-steps">
+              <li>Find the total revenue, average sale, cheapest sale, and most expensive sale</li>
+              <li>Find the total revenue for the North region only</li>
+              <li>Find the most expensive Laptop sold</li>
+              <li>Find the average sale treating NULLs as zero (use SUM / COUNT(*))</li>
+              <li>Find the earliest and latest sale dates</li>
+            </ol>
+          </div>
+
+          <div class="qa-divider">Solution</div>
+
+          <div class="solution-card">
+            <div class="solution-head">
+              <div class="solution-badge">2</div>
+              <div><h2 style="margin:0">Solution — SUM / AVG / MIN / MAX</h2></div>
+            </div>
+
+            <h3>Query 1 — Total revenue, average, cheapest, most expensive</h3>
+            <div class="code"><span class="k">SELECT</span>
+  <span class="k">SUM</span>(amount)  <span class="k">AS</span> total_revenue,
+  <span class="k">AVG</span>(amount)  <span class="k">AS</span> avg_sale,
+  <span class="k">MIN</span>(amount)  <span class="k">AS</span> cheapest,
+  <span class="k">MAX</span>(amount)  <span class="k">AS</span> most_expensive
+<span class="k">FROM</span> sales;</div>
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>total_revenue</th><th>avg_sale</th><th>cheapest</th><th>most_expensive</th></tr></thead>
+              <tbody><tr><td>7240.00</td><td>905.00</td><td>480.00</td><td>1350.00</td></tr></tbody>
+            </table>
+            <p class="note">All four functions skip NULLs. AVG divides by 8 (non-null rows), not 10 — so 7240 ÷ 8 = 905.</p>
+
+            <h3>Query 2 — Total revenue for North region</h3>
+            <div class="code"><span class="k">SELECT</span> <span class="k">SUM</span>(amount) <span class="k">AS</span> north_revenue
+<span class="k">FROM</span> sales
+<span class="k">WHERE</span> region = <span class="s">'North'</span>;</div>
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>north_revenue</th></tr></thead>
+              <tbody><tr><td>1920.00</td></tr></tbody>
+            </table>
+            <p class="note">North rows: Laptop 1200, Tablet NULL (skipped), Phone 720 → 1200 + 720 = 1920.</p>
+
+            <h3>Query 3 — Most expensive Laptop</h3>
+            <div class="code"><span class="k">SELECT</span> <span class="k">MAX</span>(amount) <span class="k">AS</span> most_expensive_laptop
+<span class="k">FROM</span> sales
+<span class="k">WHERE</span> product = <span class="s">'Laptop'</span>;</div>
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>most_expensive_laptop</th></tr></thead>
+              <tbody><tr><td>1350.00</td></tr></tbody>
+            </table>
+            <p class="note">Laptop amounts: 1200, 1350, 1100, 1050 — maximum is 1350 (Noa's sale).</p>
+
+            <h3>Query 4 — Average treating NULLs as zero</h3>
+            <div class="code"><span class="k">SELECT</span> <span class="k">SUM</span>(amount) / <span class="k">COUNT</span>(*) <span class="k">AS</span> avg_incl_nulls
+<span class="k">FROM</span> sales;</div>
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>avg_incl_nulls</th></tr></thead>
+              <tbody><tr><td>724.00</td></tr></tbody>
+            </table>
+            <p class="note">SUM(amount) = 7240 (skips NULLs). COUNT(*) = 10 (counts all rows). 7240 ÷ 10 = 724. Compare to AVG(amount) = 905 which divides by 8.</p>
+
+            <h3>Query 5 — Earliest and latest sale dates</h3>
+            <div class="code"><span class="k">SELECT</span>
+  <span class="k">MIN</span>(sale_date) <span class="k">AS</span> earliest,
+  <span class="k">MAX</span>(sale_date) <span class="k">AS</span> latest
+<span class="k">FROM</span> sales;</div>
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>earliest</th><th>latest</th></tr></thead>
+              <tbody><tr><td>2026-01-10</td><td>2026-02-03</td></tr></tbody>
+            </table>
+            <p class="note">MIN/MAX work on text dates stored in ISO format (YYYY-MM-DD) because alphabetical order matches chronological order.</p>
+          </div>
+        </section>
+
+        <!-- ══════════ SOLUTION 3 — GROUP BY ══════════ -->
+        <section class="topic-panel" id="t-sol-3">
+
+          <div class="exercise-card">
+            <div class="exercise-head">
+              <div class="exercise-q">?</div>
+              <div>
+                <h2>Exercise</h2>
+                <p class="exercise-sub">Group and summarize the sales table</p>
+              </div>
+            </div>
+            <ol class="exercise-steps">
+              <li>Show total revenue per region, sorted highest first</li>
+              <li>Show the number of sales and average amount per product</li>
+              <li>Show revenue per rep_name, sorted by revenue descending — use an alias in ORDER BY</li>
+              <li>Show COUNT and SUM grouped by both region and rep_name</li>
+              <li>Bonus: find which rep sold the most Laptops (GROUP BY rep_name with WHERE product = 'Laptop')</li>
+            </ol>
+          </div>
+
+          <div class="qa-divider">Solution</div>
+
+          <div class="solution-card">
+            <div class="solution-head">
+              <div class="solution-badge">3</div>
+              <div><h2 style="margin:0">Solution — GROUP BY</h2></div>
+            </div>
+
+            <h3>Query 1 — Total revenue per region, highest first</h3>
+            <div class="code"><span class="k">SELECT</span>
+  region,
+  <span class="k">SUM</span>(amount) <span class="k">AS</span> total_revenue
+<span class="k">FROM</span> sales
+<span class="k">GROUP BY</span> region
+<span class="k">ORDER BY</span> total_revenue <span class="k">DESC</span>;</div>
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>region</th><th>total_revenue</th></tr></thead>
+              <tbody>
+                <tr><td>East</td><td>2040.00</td></tr>
+                <tr><td>North</td><td>1920.00</td></tr>
+                <tr><td>South</td><td>1750.00</td></tr>
+                <tr><td>West</td><td>1530.00</td></tr>
+              </tbody>
+            </table>
+            <p class="note">NULLs in amount are skipped by SUM. ORDER BY can reference the alias total_revenue.</p>
+
+            <h3>Query 2 — Sales count and average per product</h3>
+            <div class="code"><span class="k">SELECT</span>
+  product,
+  <span class="k">COUNT</span>(*) <span class="k">AS</span> num_sales,
+  <span class="k">AVG</span>(amount)  <span class="k">AS</span> avg_amount
+<span class="k">FROM</span> sales
+<span class="k">GROUP BY</span> product;</div>
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>product</th><th>num_sales</th><th>avg_amount</th></tr></thead>
+              <tbody>
+                <tr><td>Laptop</td><td>4</td><td>1175.00</td></tr>
+                <tr><td>Phone</td><td>3</td><td>686.67</td></tr>
+                <tr><td>Tablet</td><td>3</td><td>480.00</td></tr>
+              </tbody>
+            </table>
+            <p class="note">Tablet has 3 rows but 2 are NULL — AVG divides by 1 (only 1 non-null: 480), giving 480. COUNT(*) still counts all 3 rows.</p>
+
+            <h3>Query 3 — Revenue per rep, sorted descending with alias</h3>
+            <div class="code"><span class="k">SELECT</span>
+  rep_name,
+  <span class="k">SUM</span>(amount) <span class="k">AS</span> total_revenue
+<span class="k">FROM</span> sales
+<span class="k">GROUP BY</span> rep_name
+<span class="k">ORDER BY</span> total_revenue <span class="k">DESC</span>;</div>
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>rep_name</th><th>total_revenue</th></tr></thead>
+              <tbody>
+                <tr><td>Noa</td><td>2040.00</td></tr>
+                <tr><td>Dana</td><td>1920.00</td></tr>
+                <tr><td>Omar</td><td>1750.00</td></tr>
+                <tr><td>Liam</td><td>1530.00</td></tr>
+              </tbody>
+            </table>
+
+            <h3>Query 4 — COUNT and SUM grouped by region and rep_name</h3>
+            <div class="code"><span class="k">SELECT</span>
+  region,
+  rep_name,
+  <span class="k">COUNT</span>(*) <span class="k">AS</span> num_sales,
+  <span class="k">SUM</span>(amount) <span class="k">AS</span> total_revenue
+<span class="k">FROM</span> sales
+<span class="k">GROUP BY</span> region, rep_name;</div>
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>region</th><th>rep_name</th><th>num_sales</th><th>total_revenue</th></tr></thead>
+              <tbody>
+                <tr><td>East</td><td>Noa</td><td>2</td><td>2040.00</td></tr>
+                <tr><td>North</td><td>Dana</td><td>3</td><td>1920.00</td></tr>
+                <tr><td>South</td><td>Omar</td><td>3</td><td>1750.00</td></tr>
+                <tr><td>West</td><td>Liam</td><td>2</td><td>1530.00</td></tr>
+              </tbody>
+            </table>
+            <p class="note">Each rep only works in one region here, so region + rep_name produces the same groups as rep_name alone. In a real dataset reps can span regions, which is when the multi-column GROUP BY becomes important.</p>
+
+            <h3>Query 5 (Bonus) — Which rep sold the most Laptops</h3>
+            <div class="code"><span class="k">SELECT</span>
+  rep_name,
+  <span class="k">COUNT</span>(*) <span class="k">AS</span> laptop_count
+<span class="k">FROM</span> sales
+<span class="k">WHERE</span> product = <span class="s">'Laptop'</span>
+<span class="k">GROUP BY</span> rep_name
+<span class="k">ORDER BY</span> laptop_count <span class="k">DESC</span>
+<span class="k">LIMIT</span> <span class="n">1</span>;</div>
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>rep_name</th><th>laptop_count</th></tr></thead>
+              <tbody><tr><td>Dana</td><td>1</td></tr></tbody>
+            </table>
+            <p class="note">Every rep sold exactly 1 Laptop — it's a tie. SQLite returns the first in insertion order. To see all tied reps, remove LIMIT 1.</p>
+          </div>
+        </section>
+
+        <!-- ══════════ SOLUTION 4 — HAVING ══════════ -->
+        <section class="topic-panel" id="t-sol-4">
+
+          <div class="exercise-card">
+            <div class="exercise-head">
+              <div class="exercise-q">?</div>
+              <div>
+                <h2>Exercise</h2>
+                <p class="exercise-sub">Filter groups with HAVING</p>
+              </div>
+            </div>
+            <ol class="exercise-steps">
+              <li>Find regions where total revenue is above 1500</li>
+              <li>Find products sold 3 or more times (use HAVING COUNT(*) &gt;= 3)</li>
+              <li>Find reps whose average sale is above 900 (only count non-NULL amounts)</li>
+              <li>Combine: among Laptop and Phone rows only, find reps with more than 1 sale</li>
+              <li>Explain in a comment why you can't write WHERE SUM(amount) &gt; 1000</li>
+            </ol>
+          </div>
+
+          <div class="qa-divider">Solution</div>
+
+          <div class="solution-card">
+            <div class="solution-head">
+              <div class="solution-badge">4</div>
+              <div><h2 style="margin:0">Solution — HAVING</h2></div>
+            </div>
+
+            <h3>Query 1 — Regions with total revenue above 1500</h3>
+            <div class="code"><span class="k">SELECT</span>
+  region,
+  <span class="k">SUM</span>(amount) <span class="k">AS</span> total_revenue
+<span class="k">FROM</span> sales
+<span class="k">GROUP BY</span> region
+<span class="k">HAVING</span> <span class="k">SUM</span>(amount) &gt; <span class="n">1500</span>;</div>
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>region</th><th>total_revenue</th></tr></thead>
+              <tbody>
+                <tr><td>East</td><td>2040.00</td></tr>
+                <tr><td>North</td><td>1920.00</td></tr>
+                <tr><td>South</td><td>1750.00</td></tr>
+                <tr><td>West</td><td>1530.00</td></tr>
+              </tbody>
+            </table>
+            <p class="note">All four regions exceed 1500. The lowest is West at 1530.</p>
+
+            <h3>Query 2 — Products sold 3 or more times</h3>
+            <div class="code"><span class="k">SELECT</span>
+  product,
+  <span class="k">COUNT</span>(*) <span class="k">AS</span> num_sold
+<span class="k">FROM</span> sales
+<span class="k">GROUP BY</span> product
+<span class="k">HAVING</span> <span class="k">COUNT</span>(*) &gt;= <span class="n">3</span>;</div>
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>product</th><th>num_sold</th></tr></thead>
+              <tbody>
+                <tr><td>Laptop</td><td>4</td></tr>
+                <tr><td>Phone</td><td>3</td></tr>
+                <tr><td>Tablet</td><td>3</td></tr>
+              </tbody>
+            </table>
+            <p class="note">All three products qualify. Laptop appears 4 times, Phone and Tablet 3 times each.</p>
+
+            <h3>Query 3 — Reps with average sale above 900</h3>
+            <div class="code"><span class="k">SELECT</span>
+  rep_name,
+  <span class="k">AVG</span>(amount) <span class="k">AS</span> avg_sale
+<span class="k">FROM</span> sales
+<span class="k">GROUP BY</span> rep_name
+<span class="k">HAVING</span> <span class="k">AVG</span>(amount) &gt; <span class="n">900</span>;</div>
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>rep_name</th><th>avg_sale</th></tr></thead>
+              <tbody>
+                <tr><td>Dana</td><td>960.00</td></tr>
+                <tr><td>Noa</td><td>1020.00</td></tr>
+              </tbody>
+            </table>
+            <p class="note">AVG skips NULLs automatically. Dana: (1200 + 720) ÷ 2 = 960. Omar: (650 + 1100) ÷ 2 = 875 — below 900, excluded. Liam: (480 + 1050) ÷ 2 = 765 — excluded.</p>
+
+            <h3>Query 4 — Laptop/Phone rows only, reps with more than 1 sale</h3>
+            <div class="code"><span class="k">SELECT</span>
+  rep_name,
+  <span class="k">COUNT</span>(*) <span class="k">AS</span> num_sales
+<span class="k">FROM</span> sales
+<span class="k">WHERE</span> product <span class="k">IN</span> (<span class="s">'Laptop'</span>, <span class="s">'Phone'</span>)
+<span class="k">GROUP BY</span> rep_name
+<span class="k">HAVING</span> <span class="k">COUNT</span>(*) &gt; <span class="n">1</span>;</div>
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>rep_name</th><th>num_sales</th></tr></thead>
+              <tbody>
+                <tr><td>Dana</td><td>2</td></tr>
+                <tr><td>Noa</td><td>2</td></tr>
+                <tr><td>Omar</td><td>2</td></tr>
+              </tbody>
+            </table>
+            <p class="note">Liam only has 1 Laptop and no Phone row — excluded. The others each have 1 Laptop + 1 Phone.</p>
+
+            <h3>Query 5 — Why WHERE SUM(amount) &gt; 1000 doesn't work</h3>
+            <div class="code"><span class="c">-- This would be a syntax error:</span>
+<span class="c">-- SELECT rep_name FROM sales WHERE SUM(amount) > 1000;</span>
+<span class="c">--</span>
+<span class="c">-- WHERE runs before GROUP BY, on individual rows.</span>
+<span class="c">-- At that stage no groups exist yet, so SUM has no meaning.</span>
+<span class="c">-- HAVING runs after GROUP BY — use it to filter by aggregates.</span>
+
+<span class="k">SELECT</span>
+  rep_name,
+  <span class="k">SUM</span>(amount) <span class="k">AS</span> total
+<span class="k">FROM</span> sales
+<span class="k">GROUP BY</span> rep_name
+<span class="k">HAVING</span> <span class="k">SUM</span>(amount) &gt; <span class="n">1000</span>;</div>
+            <div class="big-result">Result:</div>
+            <table>
+              <thead><tr><th>rep_name</th><th>total</th></tr></thead>
+              <tbody>
+                <tr><td>Dana</td><td>1920.00</td></tr>
+                <tr><td>Liam</td><td>1530.00</td></tr>
+                <tr><td>Noa</td><td>2040.00</td></tr>
+                <tr><td>Omar</td><td>1750.00</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ══════════ HOMEWORK ══════════ -->
+        <section class="topic-panel" id="t-hw">
+
+          <div class="hw-card">
+            <p>Complete the exercises from these two pages:</p>
+            <ul style="padding-left:18px;margin-top:10px;">
+              <li style="margin-bottom:10px;"><a href="../../04_agg_graph/05-alter-table.html#exercise" style="color:var(--teal-2);font-weight:700;">Topic 5 — ALTER TABLE →</a></li>
+              <li style="margin-bottom:10px;">⭐ <strong style="color:#92400e;">BONUS</strong> ⭐ <a href="../../04_agg_graph/06-advanced-agg.html#exercise" style="color:var(--teal-2);font-weight:700;">Topic 6 — Advanced &amp; Mistakes →</a></li>
+            </ul>
+            <div class="note" style="margin-top:12px;">
+              <strong>Submit:</strong> your SQL script as a .sql text file &nbsp;|&nbsp;
+              <strong>Email:</strong> pythonai211225+sql4@gmail.com
+            </div>
+          </div>
+
+        </section>
+
+      </main>
+    </div>
+
+  </div><!-- /wrap -->
+
+  <script>
+    const links  = document.querySelectorAll('.topic-link');
+    const panels = document.querySelectorAll('.topic-panel');
+
+    function showTopic(id) {
+      panels.forEach(p => p.classList.toggle('active', p.id === id));
+      links.forEach(l  => l.classList.toggle('active', l.dataset.target === id));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    links.forEach(link => {
+      link.addEventListener('click', () => {
+        const targetId = link.dataset.target;
+        showTopic(targetId);
+        location.hash = targetId;
+      });
+    });
+
+    function applyHashTopic() {
+      const hash = location.hash.replace('#', '');
+      if (!hash) return;
+      if (document.getElementById(hash)) showTopic(hash);
+    }
+
+    applyHashTopic();
+    window.addEventListener('hashchange', applyHashTopic);
+  </script>
+</body>
+</html>
