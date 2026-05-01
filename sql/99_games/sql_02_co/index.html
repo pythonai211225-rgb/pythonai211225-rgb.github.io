@@ -1,0 +1,1466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SQL Aggregate Crossword</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/sql-wasm.js"></script>
+  <style>
+    :root {
+      --bg: #f4efe6;
+      --panel: #fffaf1;
+      --ink: #1f1a17;
+      --muted: #6d625a;
+      --line: #b6a690;
+      --accent: #cc6c36;
+      --accent-2: #2e8f79;
+      --black: #121212;
+      --cell: 40px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Space Grotesk", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 0 0, #fff 0, transparent 30%),
+        radial-gradient(circle at 100% 100%, #fbe8d7 0, transparent 35%),
+        var(--bg);
+    }
+
+    .app {
+      width: min(1500px, calc(100vw - 24px));
+      margin: 12px auto;
+      border: 2px solid var(--line);
+      border-radius: 18px;
+      background: var(--panel);
+      overflow: hidden;
+      box-shadow: 0 12px 30px rgba(42, 28, 17, 0.12);
+    }
+
+    .grid-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      margin-bottom: 10px;
+    }
+
+    .title h1 {
+      margin: 0;
+      font-size: 1.5rem;
+      letter-spacing: .02em;
+    }
+
+    button {
+      border: 2px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      background: #fff;
+      color: var(--ink);
+    }
+
+    button.primary {
+      border-color: #9d4f25;
+      background: linear-gradient(180deg, #da7f48, #cc6c36);
+      color: #fff;
+    }
+
+    button.good {
+      border-color: #1f6f5d;
+      background: linear-gradient(180deg, #39a88d, #2e8f79);
+      color: #fff;
+    }
+
+    #hint-btn:disabled {
+      background: #d8d8d8;
+      border-color: #c4c4c4;
+      color: #7a7a7a;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 760px;
+      min-height: 100vh;
+    }
+
+    .panel {
+      padding: 14px;
+      overflow: auto;
+    }
+
+    .panel-right {
+      border-left: 2px solid var(--line);
+    }
+
+    .panel h2 {
+      margin: 4px 0 12px;
+      font-size: 1rem;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+    }
+
+    .clue-group-title {
+      margin: 12px 0 8px;
+      color: var(--muted);
+      font-size: .84rem;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      font-weight: 700;
+    }
+
+    .clue-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .clue {
+      border: 2px solid #d4c6b1;
+      border-radius: 10px;
+      padding: 10px;
+      background: #fffcf7;
+      cursor: pointer;
+      transition: .15s ease;
+    }
+
+    .clue:hover { border-color: #b89974; }
+    .clue.active {
+      border-color: var(--accent);
+      background: #fff4ea;
+      box-shadow: inset 0 0 0 1px rgba(204,108,54,.15);
+    }
+
+    .clue-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .clue-num {
+      font-weight: 700;
+      font-family: "IBM Plex Mono", monospace;
+      color: var(--accent);
+    }
+
+    .clue-table {
+      font-size: .72rem;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid #ccb79b;
+      color: #745f49;
+      font-family: "IBM Plex Mono", monospace;
+      background: #fff;
+    }
+
+    .clue-text {
+      font-size: .88rem;
+      line-height: 1.35;
+    }
+
+    .grid-wrap {
+      padding: 18px 16px;
+      overflow: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background:
+        linear-gradient(180deg, #fff9ef 0%, #fff5e9 100%);
+    }
+
+    .grid {
+      display: grid;
+      gap: 1px;
+      padding: 6px;
+      background: #594735;
+      border: 3px solid #3f3225;
+      border-radius: 8px;
+      box-shadow: 0 14px 30px rgba(25, 16, 9, 0.25);
+    }
+
+    .cell {
+      width: var(--cell);
+      height: var(--cell);
+      background: #fff;
+      position: relative;
+      border: 1px solid #d3c5b1;
+      font-family: "IBM Plex Mono", monospace;
+      display: grid;
+      place-items: center;
+      font-size: 1.12rem;
+      font-weight: 700;
+      user-select: none;
+    }
+
+    .cell.playable {
+      cursor: pointer;
+    }
+
+    .cell.block {
+      background: var(--black);
+      border-color: #1f1f1f;
+    }
+
+    .cell.active {
+      background: #ffe8d6;
+      border-color: #d47d48;
+    }
+
+    .num {
+      position: absolute;
+      top: 1px;
+      left: 3px;
+      font-size: .62rem;
+      color: #6b5b4a;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .sql-card {
+      border: 2px solid #d8cbb8;
+      border-radius: 12px;
+      padding: 10px;
+      background: #fffefb;
+      margin-bottom: 12px;
+    }
+
+    .sql-card h3 {
+      margin: 0 0 8px;
+      font-size: .95rem;
+    }
+
+    .meta {
+      color: var(--muted);
+      font-size: .82rem;
+      margin-bottom: 6px;
+      font-family: "IBM Plex Mono", monospace;
+    }
+
+    textarea, input[type="text"] {
+      width: 100%;
+      border: 2px solid #d5c6b1;
+      border-radius: 10px;
+      background: #fff;
+      color: var(--ink);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: .9rem;
+      padding: 10px;
+      outline: none;
+    }
+
+    textarea:focus, input[type="text"]:focus {
+      border-color: #be845b;
+    }
+
+    textarea {
+      min-height: 130px;
+      resize: vertical;
+    }
+
+    .btn-row {
+      margin-top: 8px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .result {
+      margin-top: 10px;
+      border: 1px solid #dbcdb8;
+      border-radius: 10px;
+      overflow: auto;
+      max-height: 210px;
+      background: #fff;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      font-size: .82rem;
+      font-family: "IBM Plex Mono", monospace;
+    }
+
+    th, td {
+      border: 1px solid #e7ddcf;
+      padding: 6px 8px;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    th { background: #fbf2e5; }
+
+    .status {
+      margin-top: 10px;
+      padding: 9px 10px;
+      border-radius: 10px;
+      font-size: .86rem;
+      border: 1px solid transparent;
+      display: none;
+    }
+
+    .status.show { display: block; }
+    .status.ok {
+      background: #e7f8f3;
+      border-color: #8fd4c3;
+      color: #1b6655;
+    }
+    .status.bad {
+      background: #ffeceb;
+      border-color: #f0aaa4;
+      color: #8e3f38;
+    }
+
+    .victory-box {
+      margin-top: 10px;
+      padding: 12px;
+      border-radius: 10px;
+      border: 2px solid #5cbfa9;
+      background: #e9fbf5;
+      color: #165a4c;
+      font-weight: 700;
+      display: none;
+    }
+
+    .victory-box.show {
+      display: block;
+    }
+
+    #victory-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: rgba(0, 0, 0, 0.75);
+      align-items: center;
+      justify-content: center;
+    }
+
+    #victory-overlay.show {
+      display: flex;
+    }
+
+    #victory-panel {
+      width: 60vw;
+      height: 60vh;
+      background: #000;
+      border-radius: 16px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.7);
+    }
+
+    #victory-panel video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    #try-again-btn {
+      display: none;
+      margin-top: 18px;
+      padding: 14px 40px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      font-family: "Space Grotesk", sans-serif;
+      border: none;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #39a88d, #2e8f79);
+      color: #fff;
+      cursor: pointer;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+      letter-spacing: .03em;
+    }
+
+    #try-again-btn:hover {
+      background: linear-gradient(180deg, #44bfa2, #38a88d);
+    }
+
+    .cell.wrong {
+      border-color: #d93535 !important;
+      box-shadow: inset 0 0 0 2px #d93535;
+      background: #ffeaea;
+    }
+
+    .footer-note {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: .8rem;
+      line-height: 1.4;
+    }
+
+    @media (max-width: 1320px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+      .panel-right {
+        border-left: none;
+        border-top: 2px solid var(--line);
+      }
+      .grid-wrap { min-height: 420px; }
+      .grid-actions { justify-content: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <div id="victory-overlay">
+    <div style="display:flex;flex-direction:column;align-items:center;">
+      <div id="victory-panel">
+        <video id="victory-video" src="puzzle.mp4" preload="auto"></video>
+      </div>
+      <button id="try-again-btn" onclick="location.reload()">Play Again</button>
+    </div>
+  </div>
+
+  <div class="app">
+    <div class="layout">
+      <main class="grid-wrap">
+        <div id="grid" class="grid"></div>
+      </main>
+
+      <aside class="panel panel-right">
+        <div class="sql-card">
+          <h3 id="sel-title">Click a cell to select a clue</h3>
+          <div id="sel-meta" class="meta"></div>
+          <input id="word-input" type="text" placeholder="Type answer word (letters only)" />
+          <div class="btn-row">
+            <button class="good" onclick="applyWord()">Update</button>
+            <button onclick="clearSelectedWord()">Clear</button>
+          </div>
+          <div id="fill-status" class="status"></div>
+          <div id="victory-box" class="victory-box">Victory! All answers are correct.</div>
+          <div id="sel-question" style="font-size:.9rem; line-height:1.4; margin:10px 0 8px;"></div>
+          <textarea id="sql-editor" placeholder="Write SQL for the selected clue"></textarea>
+          <div class="btn-row">
+            <button class="primary" onclick="runSql()">Run SQL</button>
+            <button id="hint-btn" onclick="loadStarter()">Hint</button>
+          </div>
+          <div id="sql-status" class="status"></div>
+          <div id="result" class="result" style="display:none"></div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+<script>
+// All clues use the same "sales" table (100 rows, 4 reps, 4 regions, 3 products, 2 NULL amounts).
+// Topics covered: COUNT · SUM/AVG/MIN/MAX · GROUP BY · HAVING
+const BASE_CLUES = [
+  // ── COUNT ───────────────────────────────────────────────────────────────
+  {
+    id: 1,
+    table: 'sales',
+    answer: 'NORTH',
+    question: 'Which region has the most sales overall?',
+    starterQuery: 'SELECT region, COUNT(*) AS num_sales\nFROM sales\nGROUP BY region\nORDER BY num_sales DESC;'
+  },
+  {
+    id: 2,
+    table: 'sales',
+    answer: 'PHONE',
+    question: 'Which product appears exactly 22 times?',
+    starterQuery: 'SELECT product, COUNT(*) AS num_sales\nFROM sales\nGROUP BY product\nORDER BY num_sales DESC;'
+  },
+  {
+    id: 3,
+    table: 'sales',
+    answer: 'TABLET',
+    question: 'Which product has fewer non-NULL amounts than total rows? (Use HAVING)',
+    starterQuery: 'SELECT product,\n       COUNT(*)      AS total_rows,\n       COUNT(amount) AS non_null_rows\nFROM sales\nGROUP BY product\nHAVING COUNT(amount) < COUNT(*);'
+  },
+  // ── SUM / AVG / MIN / MAX ────────────────────────────────────────────────
+  {
+    id: 4,
+    table: 'sales',
+    answer: 'LAPTOP',
+    question: 'Which product made the most money in total?',
+    starterQuery: 'SELECT product, SUM(amount) AS total_revenue\nFROM sales\nGROUP BY product\nORDER BY total_revenue DESC;'
+  },
+  {
+    id: 5,
+    table: 'sales',
+    answer: 'NOA',
+    question: 'Which rep made the single biggest sale?',
+    starterQuery: 'SELECT rep_name, MAX(amount) AS best_sale\nFROM sales\nGROUP BY rep_name\nORDER BY best_sale DESC;'
+  },
+  {
+    id: 6,
+    table: 'sales',
+    answer: 'LIAM',
+    question: 'Which rep made the single smallest sale?',
+    starterQuery: 'SELECT rep_name, MIN(amount) AS lowest_sale\nFROM sales\nGROUP BY rep_name\nORDER BY lowest_sale ASC;'
+  },
+  {
+    id: 7,
+    table: 'sales',
+    answer: 'WEST',
+    question: 'Which region has the lowest average sale amount?',
+    starterQuery: 'SELECT region, AVG(amount) AS avg_sale\nFROM sales\nGROUP BY region\nORDER BY avg_sale ASC;'
+  },
+  // ── GROUP BY ─────────────────────────────────────────────────────────────
+  {
+    id: 8,
+    table: 'sales',
+    answer: 'DANA',
+    question: 'Which rep has the highest number of total sales (by count)?',
+    starterQuery: 'SELECT rep_name, COUNT(*) AS num_sales\nFROM sales\nGROUP BY rep_name\nORDER BY num_sales DESC;'
+  },
+  {
+    id: 9,
+    table: 'sales',
+    answer: 'SOUTH',
+    question: 'Which region has less than 11 sales?',
+    starterQuery: 'SELECT region, COUNT(*) AS num_sales\nFROM sales\nGROUP BY region\nORDER BY num_sales DESC;'
+  },
+  // ── HAVING ───────────────────────────────────────────────────────────────
+  {
+    id: 10,
+    table: 'sales',
+    answer: 'EAST',
+    question: 'Which region has exactly 30 sales? (Use HAVING)',
+    starterQuery: 'SELECT region, COUNT(*) AS num_sales\nFROM sales\nGROUP BY region\nHAVING COUNT(*) = 30;'
+  },
+  {
+    id: 11,
+    table: 'sales',
+    answer: 'OMAR',
+    question: 'Which rep has less than 11 sales?',
+    starterQuery: 'SELECT rep_name, COUNT(*) AS total_sales\nFROM sales\nGROUP BY rep_name\nHAVING COUNT(*) < 11\nORDER BY total_sales ASC;'
+  },
+  // ── COUNT — number words ──────────────────────────────────────────────────
+  {
+    id: 12,
+    table: 'sales',
+    answer: 'TEN',
+    question: 'How many sales are in the South region? Spell the number.',
+    starterQuery: 'SELECT COUNT(*) AS num_sales\nFROM sales\nWHERE region = \'South\';'
+  },
+  {
+    id: 13,
+    table: 'sales',
+    answer: 'EIGHT',
+    question: 'How many sales did Liam make? Spell the number.',
+    starterQuery: 'SELECT COUNT(*) AS num_sales\nFROM sales\nWHERE rep_name = \'Liam\';'
+  },
+  {
+    id: 14,
+    table: 'sales',
+    answer: 'TWO',
+    question: 'How many rows have a NULL amount? Spell the number.',
+    starterQuery: 'SELECT COUNT(*) AS null_rows\nFROM sales\nWHERE amount IS NULL;'
+  },
+  {
+    id: 15,
+    table: 'sales',
+    answer: 'FOUR',
+    question: 'How many distinct reps are there? Spell the number.',
+    starterQuery: 'SELECT COUNT(DISTINCT rep_name) AS distinct_reps\nFROM sales;'
+  },
+  {
+    id: 16,
+    table: 'sales',
+    answer: 'THREE',
+    question: 'How many distinct products are there? Spell the number.',
+    starterQuery: 'SELECT COUNT(DISTINCT product) AS distinct_products\nFROM sales;'
+  },
+  // ── WHERE ─────────────────────────────────────────────────────────────────
+  {
+    id: 17,
+    table: 'sales',
+    answer: 'FIVE',
+    question: 'How many Laptop sales are in the North region? Spell the number.',
+    starterQuery: 'SELECT COUNT(*) AS laptop_north\nFROM sales\nWHERE product = \'Laptop\' AND region = \'North\';'
+  },
+  // ── Meta ──────────────────────────────────────────────────────────────────
+  {
+    id: 18,
+    table: 'sales + rep_targets',
+    answer: 'SALES',
+    question: 'What is the table name?',
+    starterQuery: 'SELECT name FROM sqlite_schema WHERE type=\'table\';'
+  }
+];
+
+const INIT_SQL = `
+CREATE TABLE sales (
+  id        INTEGER PRIMARY KEY,
+  rep_name  TEXT    NOT NULL,
+  region    TEXT    NOT NULL,
+  product   TEXT    NOT NULL,
+  amount    REAL,
+  sale_date TEXT    NOT NULL
+);
+
+WITH RECURSIVE seq(n) AS (
+  SELECT 1
+  UNION ALL
+  SELECT n + 1 FROM seq WHERE n < 100
+)
+INSERT INTO sales (id, rep_name, region, product, amount, sale_date)
+SELECT
+  n AS id,
+  CASE
+    WHEN n <= 52 THEN 'Dana'
+    WHEN n <= 62 THEN 'Omar'
+    WHEN n <= 92 THEN 'Noa'
+    ELSE 'Liam'
+  END AS rep_name,
+  CASE
+    WHEN n <= 52 THEN 'North'
+    WHEN n <= 62 THEN 'South'
+    WHEN n <= 92 THEN 'East'
+    ELSE 'West'
+  END AS region,
+  CASE
+    WHEN n <= 52 THEN
+      CASE
+        WHEN n <= 5 THEN 'Laptop'
+        WHEN n <= 47 THEN 'Tablet'
+        ELSE 'Phone'
+      END
+    WHEN n <= 62 THEN
+      CASE
+        WHEN n <= 56 THEN 'Laptop'
+        WHEN n <= 59 THEN 'Phone'
+        ELSE 'Tablet'
+      END
+    WHEN n <= 92 THEN
+      CASE
+        WHEN n <= 72 THEN 'Laptop'
+        WHEN n <= 82 THEN 'Phone'
+        ELSE 'Tablet'
+      END
+    ELSE
+      CASE
+        WHEN n <= 94 THEN 'Laptop'
+        WHEN n <= 98 THEN 'Phone'
+        ELSE 'Tablet'
+      END
+  END AS product,
+  CASE
+    WHEN n <= 52 THEN
+      CASE
+        WHEN n IN (12, 33) THEN NULL
+        WHEN n <= 5 THEN 1400 + (n * 20)
+        WHEN n <= 47 THEN 320 + ((n * 7) % 180)
+        ELSE 360 + ((n * 11) % 120)
+      END
+    WHEN n <= 62 THEN
+      CASE
+        WHEN n <= 56 THEN 1150 + ((n * 13) % 120)
+        WHEN n <= 59 THEN 390 + ((n * 9) % 80)
+        ELSE 470 + ((n * 5) % 70)
+      END
+    WHEN n <= 92 THEN
+      CASE
+        WHEN n = 63 THEN 2200
+        WHEN n <= 72 THEN 1250 + ((n * 17) % 220)
+        WHEN n <= 82 THEN 420 + ((n * 7) % 110)
+        ELSE 500 + ((n * 3) % 140)
+      END
+    ELSE
+      CASE
+        WHEN n = 93 THEN 250
+        WHEN n <= 94 THEN 980 + ((n * 5) % 60)
+        WHEN n <= 98 THEN 380 + ((n * 4) % 70)
+        ELSE 430 + ((n * 6) % 90)
+      END
+  END AS amount,
+  date('2026-01-01', '+' || (n - 1) || ' day') AS sale_date
+FROM seq;
+
+CREATE TABLE rep_targets (
+  rep_name TEXT PRIMARY KEY,
+  target_amount REAL NOT NULL
+);
+
+INSERT INTO rep_targets VALUES
+('Dana', 50000),
+('Omar', 15000),
+('Noa', 32000),
+('Liam', 8000);
+`;
+
+let db;
+let crossword;
+let clues = [];
+let selectedClueId = null;
+let selectedDirPreference = 'across';
+const entries = {};
+const wrongCells = new Set();
+let hintUsed = false;
+
+function key(r, c) {
+  return `${r},${c}`;
+}
+
+function generateCrossword(answerClues) {
+  const words = answerClues.map(c => ({ ...c, answer: c.answer.toUpperCase() }));
+  const ordered = [...words].sort((a, b) => b.answer.length - a.answer.length);
+  const size = 16;
+  const minPlaced = 17;
+
+  function shuffle(arr) {
+    const out = [...arr];
+    for (let i = out.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = out[i];
+      out[i] = out[j];
+      out[j] = tmp;
+    }
+    return out;
+  }
+
+  function emptyBoard() {
+    return Array.from({ length: size }, () => Array(size).fill(null));
+  }
+
+  function inBounds(r, c) {
+    return r >= 0 && c >= 0 && r < size && c < size;
+  }
+
+  function attempt(wordOrder, strictNeighbors) {
+    const board = emptyBoard();
+    const placed = [];
+
+    function get(r, c) {
+      if (!inBounds(r, c)) return null;
+      return board[r][c];
+    }
+
+    function set(r, c, ch) {
+      board[r][c] = ch;
+    }
+
+    function canPlace(word, row, col, dir, requireIntersect) {
+      let intersects = 0;
+
+      for (let i = 0; i < word.length; i += 1) {
+        const rr = row + (dir === 'down' ? i : 0);
+        const cc = col + (dir === 'across' ? i : 0);
+
+        if (!inBounds(rr, cc)) return null;
+
+        const existing = get(rr, cc);
+        if (existing && existing !== word[i]) return null;
+        if (existing === word[i]) intersects += 1;
+
+        if (!existing && strictNeighbors) {
+          if (dir === 'across') {
+            if (get(rr - 1, cc) || get(rr + 1, cc)) return null;
+          } else {
+            if (get(rr, cc - 1) || get(rr, cc + 1)) return null;
+          }
+        }
+      }
+
+      const beforeR = row - (dir === 'down' ? 1 : 0);
+      const beforeC = col - (dir === 'across' ? 1 : 0);
+      const afterR = row + (dir === 'down' ? word.length : 0);
+      const afterC = col + (dir === 'across' ? word.length : 0);
+      if (strictNeighbors) {
+        if (inBounds(beforeR, beforeC) && get(beforeR, beforeC)) return null;
+        if (inBounds(afterR, afterC) && get(afterR, afterC)) return null;
+      }
+
+      if (requireIntersect && intersects === 0) return null;
+      return intersects;
+    }
+
+    function place(clue, row, col, dir) {
+      const word = clue.answer;
+      for (let i = 0; i < word.length; i += 1) {
+        const rr = row + (dir === 'down' ? i : 0);
+        const cc = col + (dir === 'across' ? i : 0);
+        set(rr, cc, word[i]);
+      }
+      placed.push({ clueId: clue.id, answer: word, row, col, dir });
+    }
+
+    const first = wordOrder[0];
+    const firstDir = Math.random() < 0.5 ? 'across' : 'down';
+    const center = Math.floor(size / 2);
+    const drift = () => Math.floor(Math.random() * 5) - 2;
+
+    let firstRow = center + drift();
+    let firstCol = center + drift();
+
+    if (firstDir === 'across') {
+      firstCol = Math.floor((size - first.answer.length) / 2) + drift();
+    } else {
+      firstRow = Math.floor((size - first.answer.length) / 2) + drift();
+    }
+
+    const maxStart = size - first.answer.length;
+    if (firstDir === 'across') {
+      firstRow = Math.max(1, Math.min(size - 2, firstRow));
+      firstCol = Math.max(1, Math.min(maxStart - 1, firstCol));
+    } else {
+      firstRow = Math.max(1, Math.min(maxStart - 1, firstRow));
+      firstCol = Math.max(1, Math.min(size - 2, firstCol));
+    }
+
+    place(first, firstRow, firstCol, firstDir);
+
+    for (let idx = 1; idx < wordOrder.length; idx += 1) {
+      const clue = wordOrder[idx];
+      const word = clue.answer;
+      const candidates = [];
+
+      for (const pw of placed) {
+        for (let i = 0; i < word.length; i += 1) {
+          for (let j = 0; j < pw.answer.length; j += 1) {
+            if (word[i] !== pw.answer[j]) continue;
+
+            const anchorR = pw.row + (pw.dir === 'down' ? j : 0);
+            const anchorC = pw.col + (pw.dir === 'across' ? j : 0);
+            const dir = pw.dir === 'across' ? 'down' : 'across';
+            const startR = anchorR - (dir === 'down' ? i : 0);
+            const startC = anchorC - (dir === 'across' ? i : 0);
+            const intersects = canPlace(word, startR, startC, dir, true);
+            if (intersects === null) continue;
+
+            const centerBias = Math.abs(startR - Math.floor(size / 2)) + Math.abs(startC - Math.floor(size / 2));
+            const score = intersects * 100 - centerBias;
+            candidates.push({ row: startR, col: startC, dir, score });
+          }
+        }
+      }
+
+      if (candidates.length === 0) {
+        return null;  // fail this ordering; outer loop will retry with different order
+      }
+
+      candidates.sort((a, b) => b.score - a.score);
+      const pickCount = Math.min(10, candidates.length);
+      const pick = candidates[Math.floor(Math.random() * pickCount)];
+
+      place(clue, pick.row, pick.col, pick.dir);
+    }
+
+    return buildResult();
+
+    function buildResult() {
+      const cells = {};
+      for (let r = 0; r < size; r += 1) {
+        for (let c = 0; c < size; c += 1) {
+          if (board[r][c]) cells[key(r, c)] = true;
+        }
+      }
+      const normalized = placed.map(p => ({
+        clueId: p.clueId, answer: p.answer, dir: p.dir, row: p.row, col: p.col
+      }));
+      return { rows: size, cols: size, cells, placements: normalized };
+    }
+  }
+
+  // Phase 1 – strict neighbors, require ALL words
+  for (let tries = 0; tries < 1200; tries += 1) {
+    const order = [ordered[0], ...shuffle(ordered.slice(1))];
+    const built = attempt(order, true);
+    if (built && built.placements.length === answerClues.length) return built;
+  }
+
+  // Phase 2 – relaxed neighbors, require ALL words
+  for (let tries = 0; tries < 1600; tries += 1) {
+    const order = [ordered[0], ...shuffle(ordered.slice(1))];
+    const built = attempt(order, false);
+    if (built && built.placements.length === answerClues.length) return built;
+  }
+
+  // Phase 3 – skip-mode fallback: allow skipping unplaceable words, accept >= minPlaced
+  function attemptSkip(wordOrder) {
+    const board = Array.from({ length: size }, () => Array(size).fill(null));
+    const placed = [];
+
+    function get(r, c) { return (r >= 0 && c >= 0 && r < size && c < size) ? board[r][c] : null; }
+    function set(r, c, ch) { board[r][c] = ch; }
+
+    function canPlaceRelaxed(word, row, col, dir) {
+      let intersects = 0;
+      for (let i = 0; i < word.length; i += 1) {
+        const rr = row + (dir === 'down' ? i : 0);
+        const cc = col + (dir === 'across' ? i : 0);
+        if (rr < 0 || cc < 0 || rr >= size || cc >= size) return null;
+        const ex = get(rr, cc);
+        if (ex && ex !== word[i]) return null;
+        if (ex === word[i]) intersects += 1;
+      }
+      const beforeR = row - (dir === 'down' ? 1 : 0);
+      const beforeC = col - (dir === 'across' ? 1 : 0);
+      const afterR  = row + (dir === 'down' ? word.length : 0);
+      const afterC  = col + (dir === 'across' ? word.length : 0);
+      if (inBounds(beforeR, beforeC) && get(beforeR, beforeC)) return null;
+      if (inBounds(afterR,  afterC)  && get(afterR,  afterC))  return null;
+      if (intersects === 0) return null;
+      return intersects;
+    }
+
+    const first = wordOrder[0];
+    const fd = Math.random() < 0.5 ? 'across' : 'down';
+    const center = Math.floor(size / 2);
+    const drift = () => Math.floor(Math.random() * 5) - 2;
+    let fr = center + drift(), fc = center + drift();
+    if (fd === 'across') fc = Math.max(1, Math.min(size - first.answer.length - 1, Math.floor((size - first.answer.length) / 2) + drift()));
+    else                 fr = Math.max(1, Math.min(size - first.answer.length - 1, Math.floor((size - first.answer.length) / 2) + drift()));
+    if (fd === 'across') fr = Math.max(1, Math.min(size - 2, fr));
+    else                 fc = Math.max(1, Math.min(size - 2, fc));
+    for (let i = 0; i < first.answer.length; i += 1) {
+      const rr = fr + (fd === 'down' ? i : 0), cc = fc + (fd === 'across' ? i : 0);
+      board[rr][cc] = first.answer[i];
+    }
+    placed.push({ clueId: first.id, answer: first.answer, row: fr, col: fc, dir: fd });
+
+    for (let idx = 1; idx < wordOrder.length; idx += 1) {
+      const clue = wordOrder[idx];
+      const word = clue.answer;
+      const candidates = [];
+      for (const pw of placed) {
+        for (let i = 0; i < word.length; i += 1) {
+          for (let j = 0; j < pw.answer.length; j += 1) {
+            if (word[i] !== pw.answer[j]) continue;
+            const anchorR = pw.row + (pw.dir === 'down' ? j : 0);
+            const anchorC = pw.col + (pw.dir === 'across' ? j : 0);
+            const dir = pw.dir === 'across' ? 'down' : 'across';
+            const startR = anchorR - (dir === 'down' ? i : 0);
+            const startC = anchorC - (dir === 'across' ? i : 0);
+            const sc = canPlaceRelaxed(word, startR, startC, dir);
+            if (sc === null) continue;
+            const bias = Math.abs(startR - Math.floor(size / 2)) + Math.abs(startC - Math.floor(size / 2));
+            candidates.push({ row: startR, col: startC, dir, score: sc * 100 - bias });
+          }
+        }
+      }
+      if (candidates.length === 0) continue;  // skip word – fallback only
+      candidates.sort((a, b) => b.score - a.score);
+      const pick = candidates[Math.floor(Math.random() * Math.min(10, candidates.length))];
+      for (let i = 0; i < word.length; i += 1) {
+        const rr = pick.row + (pick.dir === 'down' ? i : 0);
+        const cc = pick.col + (pick.dir === 'across' ? i : 0);
+        board[rr][cc] = word[i];
+      }
+      placed.push({ clueId: clue.id, answer: word, row: pick.row, col: pick.col, dir: pick.dir });
+    }
+
+    const cells = {};
+    for (let r = 0; r < size; r += 1)
+      for (let c = 0; c < size; c += 1)
+        if (board[r][c]) cells[key(r, c)] = true;
+    return { rows: size, cols: size, cells, placements: placed.map(p => ({ clueId: p.clueId, answer: p.answer, dir: p.dir, row: p.row, col: p.col })) };
+  }
+
+  let bestBuilt = null;
+  for (let tries = 0; tries < 3000; tries += 1) {
+    const order = [ordered[0], ...shuffle(ordered.slice(1))];
+    const built = attemptSkip(order);
+    if (!bestBuilt || built.placements.length > bestBuilt.placements.length) bestBuilt = built;
+    if (built.placements.length >= minPlaced) return built;
+  }
+
+  if (bestBuilt && bestBuilt.placements.length >= minPlaced) return bestBuilt;
+
+  const got = bestBuilt ? bestBuilt.placements.length : 0;
+  throw new Error(`Could not generate crossword with at least ${minPlaced} clues (best: ${got}).`);
+}
+
+function assignNumbers(cw, allClues) {
+  const placementsById = {};
+  cw.placements.forEach(p => {
+    placementsById[p.clueId] = p;
+  });
+
+  const numberAt = {};
+  let n = 1;
+
+  for (let r = 0; r < cw.rows; r += 1) {
+    for (let c = 0; c < cw.cols; c += 1) {
+      if (!cw.cells[key(r, c)]) continue;
+      const startAcross = !cw.cells[key(r, c - 1)] && cw.cells[key(r, c + 1)];
+      const startDown = !cw.cells[key(r - 1, c)] && cw.cells[key(r + 1, c)];
+      if (startAcross || startDown) {
+        numberAt[key(r, c)] = n;
+        n += 1;
+      }
+    }
+  }
+
+  const merged = allClues.filter(cl => placementsById[cl.id]).map(cl => {
+    const p = placementsById[cl.id];
+    const number = numberAt[key(p.row, p.col)] || 0;
+    return {
+      ...cl,
+      dir: p.dir,
+      row: p.row,
+      col: p.col,
+      number,
+      length: cl.answer.length
+    };
+  });
+
+  merged.sort((a, b) => a.number - b.number || a.dir.localeCompare(b.dir));
+  return { numberAt, clues: merged };
+}
+
+function clueCells(clue) {
+  const arr = [];
+  for (let i = 0; i < clue.answer.length; i += 1) {
+    arr.push({
+      r: clue.row + (clue.dir === 'down' ? i : 0),
+      c: clue.col + (clue.dir === 'across' ? i : 0),
+      letter: clue.answer[i]
+    });
+  }
+  return arr;
+}
+
+function getSelectedClue() {
+  return clues.find(c => c.id === selectedClueId) || null;
+}
+
+function clearStatus(id) {
+  const el = document.getElementById(id);
+  el.className = 'status';
+  el.textContent = '';
+}
+
+function showStatus(id, ok, msg) {
+  const el = document.getElementById(id);
+  el.className = `status show ${ok ? 'ok' : 'bad'}`;
+  el.textContent = msg;
+}
+
+function renderClues() {
+  const across = document.getElementById('across-list');
+  const down = document.getElementById('down-list');
+  if (!across || !down) return;
+
+  across.innerHTML = '';
+  down.innerHTML = '';
+
+  for (const clue of clues) {
+    const div = document.createElement('div');
+    div.className = `clue${clue.id === selectedClueId ? ' active' : ''}`;
+    div.onclick = () => selectClue(clue.id);
+
+    div.innerHTML = `
+      <div class="clue-head">
+        <div class="clue-num">${clue.number}. ${clue.dir.toUpperCase()} (${clue.length})</div>
+        <div class="clue-table">${clue.table}</div>
+      </div>
+      <div class="clue-text">${clue.question}</div>
+    `;
+
+    if (clue.dir === 'across') {
+      across.appendChild(div);
+    } else {
+      down.appendChild(div);
+    }
+  }
+}
+
+function buildLetterMap(skipId = null) {
+  const letters = {};
+
+  for (const clue of clues) {
+    if (!entries[clue.id]) continue;
+    if (skipId && clue.id === skipId) continue;
+    const word = entries[clue.id];
+    const cells = clueCells(clue);
+
+    for (let i = 0; i < cells.length; i += 1) {
+      letters[key(cells[i].r, cells[i].c)] = word[i] || '';
+    }
+  }
+
+  return letters;
+}
+
+function cluesAtCell(r, c) {
+  return clues.filter(clue => clueCells(clue).some(cell => cell.r === r && cell.c === c));
+}
+
+function selectFromCell(r, c) {
+  const match = cluesAtCell(r, c);
+  if (match.length === 0) return;
+
+  let chosen = match[0];
+
+  if (match.length === 1) {
+    chosen = match[0];
+  } else {
+    const across = match.find(m => m.dir === 'across');
+    const down = match.find(m => m.dir === 'down');
+
+    if (selectedClueId && match.some(m => m.id === selectedClueId)) {
+      const current = match.find(m => m.id === selectedClueId);
+      chosen = current.dir === 'across' ? (down || current) : (across || current);
+    } else {
+      chosen = selectedDirPreference === 'across' ? (across || match[0]) : (down || match[0]);
+    }
+  }
+
+  selectClue(chosen.id);
+}
+
+function renderGrid() {
+  const grid = document.getElementById('grid');
+  grid.style.gridTemplateColumns = `repeat(${crossword.cols}, var(--cell))`;
+  grid.innerHTML = '';
+
+  const letters = buildLetterMap();
+  const selected = getSelectedClue();
+  const selectedSet = new Set();
+  if (selected) {
+    clueCells(selected).forEach(c => selectedSet.add(key(c.r, c.c)));
+  }
+
+  for (let r = 0; r < crossword.rows; r += 1) {
+    for (let c = 0; c < crossword.cols; c += 1) {
+      const k = key(r, c);
+      const div = document.createElement('div');
+
+      if (!crossword.cells[k]) {
+        div.className = 'cell block';
+      } else {
+        div.className = `cell playable${selectedSet.has(k) ? ' active' : ''}${wrongCells.has(k) ? ' wrong' : ''}` ;
+        div.onclick = () => selectFromCell(r, c);
+
+        const ch = letters[k] || '';
+        div.textContent = ch;
+
+        const n = crossword.numberAt[k];
+        if (n) {
+          const num = document.createElement('span');
+          num.className = 'num';
+          num.textContent = n;
+          div.appendChild(num);
+        }
+      }
+
+      grid.appendChild(div);
+    }
+  }
+}
+
+function selectClue(id) {
+  selectedClueId = id;
+  clearStatus('fill-status');
+  clearStatus('sql-status');
+
+  const clue = getSelectedClue();
+  selectedDirPreference = clue.dir;
+  document.getElementById('sel-title').textContent = `${clue.number}. ${clue.dir.toUpperCase()} — ${clue.length} letters`;
+  document.getElementById('sel-meta').textContent = `Table: ${clue.table}`;
+  document.getElementById('sel-question').textContent = clue.question;
+  document.getElementById('word-input').value = entries[clue.id] || '';
+
+  // Show table preview query on selection (original behavior)
+  if (clue.id === 18) {
+    document.getElementById('sql-editor').value = clue.starterQuery;
+  } else {
+    document.getElementById('sql-editor').value = `SELECT *\nFROM ${clue.table};`;
+  }
+  document.getElementById('result').style.display = 'none';
+  document.getElementById('result').innerHTML = '';
+  runSql();
+
+  renderClues();
+  renderGrid();
+}
+
+function loadStarter() {
+  const clue = getSelectedClue();
+  if (!clue) return;
+
+  if (hintUsed) {
+    showStatus('sql-status', false, 'Hint already used in this game.');
+    return;
+  }
+
+  document.getElementById('sql-editor').value = clue.starterQuery || `SELECT *\nFROM ${clue.table};`;
+  hintUsed = true;
+  updateHintButtonState();
+  showStatus('sql-status', true, 'Hint used (1/1).');
+}
+
+function updateHintButtonState() {
+  const hintBtn = document.getElementById('hint-btn');
+  if (!hintBtn) return;
+
+  hintBtn.disabled = hintUsed;
+  hintBtn.textContent = hintUsed ? 'Hint Used' : 'Hint';
+}
+
+function showTableData() {
+  const clue = getSelectedClue();
+  if (!clue) {
+    showStatus('sql-status', false, 'Select a clue first.');
+    return;
+  }
+
+  if (clue.id === 18) {
+    document.getElementById('sql-editor').value = clue.starterQuery;
+  } else {
+    document.getElementById('sql-editor').value = `SELECT *\nFROM ${clue.table};`;
+  }
+  runSql();
+}
+
+function renderResult(res) {
+  const wrap = document.getElementById('result');
+  wrap.style.display = 'block';
+
+  if (!res || res.length === 0) {
+    wrap.innerHTML = '<div style="padding:12px;color:#6d625a;">Query ran successfully. No rows returned.</div>';
+    return;
+  }
+
+  const r = res[0];
+  let html = '<table><thead><tr>';
+  for (const col of r.columns) html += `<th>${col}</th>`;
+  html += '</tr></thead><tbody>';
+
+  for (const row of r.values) {
+    html += '<tr>';
+    for (const v of row) html += `<td>${v === null ? 'NULL' : String(v)}</td>`;
+    html += '</tr>';
+  }
+
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+function runSql() {
+  const sql = document.getElementById('sql-editor').value.trim();
+  if (!sql) {
+    showStatus('sql-status', false, 'Write a SQL query first.');
+    return;
+  }
+
+  try {
+    const res = db.exec(sql);
+    renderResult(res);
+    showStatus('sql-status', true, 'Query executed.');
+  } catch (err) {
+    document.getElementById('result').style.display = 'none';
+    showStatus('sql-status', false, `SQL error: ${err.message}`);
+  }
+}
+
+function applyWord() {
+  const clue = getSelectedClue();
+  if (!clue) {
+    showStatus('fill-status', false, 'Select a clue first.');
+    return;
+  }
+
+  const raw = document.getElementById('word-input').value;
+  const word = raw.toUpperCase().replace(/[^A-Z]/g, '');
+
+  if (word.length !== clue.length) {
+    showStatus('fill-status', false, `Word must be exactly ${clue.length} letters.`);
+    return;
+  }
+
+  const otherLetters = buildLetterMap(clue.id);
+  const cells = clueCells(clue);
+
+  for (let i = 0; i < cells.length; i += 1) {
+    const k = key(cells[i].r, cells[i].c);
+    const existing = otherLetters[k];
+    if (existing && existing !== word[i]) {
+      showStatus('fill-status', false, `Blocked: letter conflict at intersection (${cells[i].r + 1}, ${cells[i].c + 1}).`);
+      return;
+    }
+  }
+
+  entries[clue.id] = word;
+  showStatus('fill-status', true, `Filled ${clue.number} ${clue.dir}.`);
+  renderGrid();
+  renderClues();
+  checkCompletionOnUpdate();
+}
+
+function clearSelectedWord() {
+  const clue = getSelectedClue();
+  if (!clue) {
+    showStatus('fill-status', false, 'Select a clue first.');
+    return;
+  }
+
+  delete entries[clue.id];
+  document.getElementById('word-input').value = '';
+  hideVictoryBox();
+  clearWrongCells();
+  showStatus('fill-status', true, `Cleared ${clue.number} ${clue.dir}.`);
+  renderGrid();
+  renderClues();
+}
+
+function resetEntries() {
+  for (const k of Object.keys(entries)) {
+    delete entries[k];
+  }
+  hintUsed = false;
+  updateHintButtonState();
+  clearStatus('fill-status');
+  clearStatus('sql-status');
+  hideVictoryBox();
+  clearWrongCells();
+  document.getElementById('result').style.display = 'none';
+  document.getElementById('result').innerHTML = '';
+  if (selectedClueId) {
+    document.getElementById('word-input').value = '';
+  }
+  renderGrid();
+  renderClues();
+}
+
+function showVictoryBox(msg) {
+  const box = document.getElementById('victory-box');
+  box.textContent = msg;
+  box.className = 'victory-box show';
+
+  const overlay = document.getElementById('victory-overlay');
+  const video   = document.getElementById('victory-video');
+  overlay.classList.add('show');
+  video.currentTime = 0;
+  video.play();
+  video.onended = () => {
+    document.getElementById('try-again-btn').style.display = 'block';
+  };
+}
+
+function hideVictoryBox() {
+  const box = document.getElementById('victory-box');
+  box.className = 'victory-box';
+}
+
+function clearWrongCells() {
+  wrongCells.clear();
+}
+
+function isGridFull() {
+  const letters = buildLetterMap();
+  const filled = Object.values(letters).filter(ch => ch && ch.length === 1).length;
+  const totalPlayable = Object.keys(crossword.cells).length;
+  return filled === totalPlayable;
+}
+
+function checkCompletionOnUpdate() {
+  if (!isGridFull()) {
+    hideVictoryBox();
+    return;
+  }
+
+  const wrong = [];
+  for (const clue of clues) {
+    const got = (entries[clue.id] || '').toUpperCase();
+    const expected = clue.answer.toUpperCase();
+    if (got !== expected) {
+      wrong.push(`${clue.number}${clue.dir[0].toUpperCase()}`);
+    }
+  }
+
+  wrongCells.clear();
+
+  if (wrong.length === 0) {
+    clearStatus('fill-status');
+    showVictoryBox('Victory! All squares are filled and all answers are correct.');
+  } else {
+    // Mark cells of wrong answers red
+    for (const clue of clues) {
+      const got = (entries[clue.id] || '').toUpperCase();
+      if (got !== clue.answer.toUpperCase()) {
+        clueCells(clue).forEach(cell => wrongCells.add(key(cell.r, cell.c)));
+      }
+    }
+    hideVictoryBox();
+    showStatus('fill-status', false, 'All squares are filled, but there are mistakes.');
+  }
+  renderGrid();
+}
+
+function checkFinal() {
+  const wrong = [];
+  const missing = [];
+
+  for (const clue of clues) {
+    const got = (entries[clue.id] || '').toUpperCase();
+    const expected = clue.answer.toUpperCase();
+
+    if (!got) {
+      missing.push(`${clue.number}${clue.dir[0].toUpperCase()}`);
+    } else if (got !== expected) {
+      wrong.push(`${clue.number}${clue.dir[0].toUpperCase()}`);
+    }
+  }
+
+  if (missing.length === 0 && wrong.length === 0) {
+    showStatus('fill-status', true, 'Perfect. All crossword answers are correct.');
+    return;
+  }
+
+  const parts = [];
+  if (missing.length) parts.push(`Missing: ${missing.join(', ')}`);
+  if (wrong.length) parts.push(`Wrong: ${wrong.join(', ')}`);
+  showStatus('fill-status', false, parts.join(' | '));
+}
+
+async function init() {
+  try {
+    const SQL = await initSqlJs({
+      locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/${file}`
+    });
+
+    db = new SQL.Database();
+    db.run(INIT_SQL);
+
+    crossword = generateCrossword(BASE_CLUES);
+    const numbered = assignNumbers(crossword, BASE_CLUES);
+    crossword.numberAt = numbered.numberAt;
+    clues = numbered.clues;
+
+    renderClues();
+    renderGrid();
+
+    if (clues.length) {
+      selectClue(clues[0].id);
+    }
+
+    updateHintButtonState();
+
+    const wordInput = document.getElementById('word-input');
+    wordInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        applyWord();
+      }
+    });
+  } catch (err) {
+    alert(`Initialization failed: ${err.message}`);
+  }
+}
+
+window.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    runSql();
+  }
+});
+
+init();
+</script>
+</body>
+</html>
