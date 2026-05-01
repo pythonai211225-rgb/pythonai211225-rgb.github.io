@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Lesson 5 — SQL JOINs</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%23080e1c'/><text x='32' y='45' text-anchor='middle' font-family='Arial, sans-serif' font-size='42' font-weight='700' fill='%232dd4bf'>db</text></svg>">
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+  <nav class="top-nav">
+    <div class="wrap">
+      <a class="nav-home" href="../index.html">Home</a>
+      <div class="brand">Lesson 5</div>
+      <a class="nav-link" href="01-inner-join.html">1. INNER JOIN</a>
+      <a class="nav-link" href="02-left-join.html">2. LEFT JOIN</a>
+      <a class="nav-link" href="03-right-join.html">3. RIGHT JOIN</a>
+      <a class="nav-link" href="04-full-outer-join.html">4. FULL OUTER</a>
+      <a class="nav-link" href="05-cross-join.html">5. CROSS JOIN</a>
+      <a class="nav-link" href="06-self-join.html">6. Self-Join</a>
+      <a class="nav-link" href="07-multi-table.html">7. 3+ Tables</a>
+    </div>
+  </nav>
+
+  <main class="container">
+    <section class="hero reveal">
+      <span class="tag">SQLite · Lesson 5</span>
+      <h1>JOINs — Connecting Tables</h1>
+      <p class="lead">Combine rows from two or more tables using a shared column. Master INNER, LEFT, RIGHT, FULL OUTER, CROSS, self-join, and multi-table chains.</p>
+
+      <div class="glow-divider" style="margin-top:20px;"></div>
+
+      <div class="stat-grid" style="margin-top:16px;">
+        <div class="stat-card reveal-scale d1">
+          <div class="stat-num" style="color:var(--teal)"><span class="count-up" data-val="7">7</span></div>
+          <div class="stat-label">Topics</div>
+        </div>
+        <div class="stat-card reveal-scale d2">
+          <div class="stat-num" style="color:var(--amber)"><span class="count-up" data-val="2">2</span></div>
+          <div class="stat-label">Practice Tables</div>
+          <div class="stat-sub">employees + departments</div>
+        </div>
+        <div class="stat-card reveal-scale d3">
+          <div class="stat-num" style="color:var(--violet)"><span class="count-up" data-val="1">1</span></div>
+          <div class="stat-label">NULL dept_id</div>
+          <div class="stat-sub">Rina, no department</div>
+        </div>
+        <div class="stat-card reveal-scale d4">
+          <div class="stat-num" style="color:var(--coral)"><span class="count-up" data-val="1">1</span></div>
+          <div class="stat-label">Empty dept</div>
+          <div class="stat-sub">HR, no employees</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Venn overview -->
+    <section class="section card reveal">
+      <h2>JOIN Types at a Glance</h2>
+      <p style="color:var(--muted);">Each diagram shows which rows survive into the result set.</p>
+      <div class="venn-overview">
+
+        <!-- INNER JOIN -->
+        <div class="venn-card reveal-scale d1">
+          <svg viewBox="0 0 200 110" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <clipPath id="clip-inner">
+                <circle cx="70" cy="55" r="50"/>
+              </clipPath>
+            </defs>
+            <circle cx="70"  cy="55" r="50" fill="rgba(45,212,191,0.10)"/>
+            <circle cx="130" cy="55" r="50" fill="rgba(167,139,250,0.10)"/>
+            <!-- amber only where B overlaps A -->
+            <circle cx="130" cy="55" r="50" fill="rgba(251,191,36,0.75)" clip-path="url(#clip-inner)"/>
+            <circle cx="70"  cy="55" r="50" fill="none" stroke="#2dd4bf" stroke-width="2"/>
+            <circle cx="130" cy="55" r="50" fill="none" stroke="#a78bfa" stroke-width="2"/>
+            <text x="45" y="59" fill="#e8f0fe" font-family="Inter,sans-serif" font-size="13" font-weight="700">A</text>
+            <text x="155" y="59" fill="#e8f0fe" font-family="Inter,sans-serif" font-size="13" font-weight="700">B</text>
+          </svg>
+          <div class="venn-label">INNER JOIN</div>
+          <div class="venn-note">only matched rows</div>
+        </div>
+
+        <!-- LEFT JOIN -->
+        <div class="venn-card reveal-scale d2">
+          <svg viewBox="0 0 200 110" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="70" cy="55" r="50" fill="rgba(251,191,36,0.55)"/>
+            <circle cx="130" cy="55" r="50" fill="rgba(167,139,250,0.10)" stroke="#a78bfa" stroke-width="2"/>
+            <circle cx="70" cy="55" r="50" fill="none" stroke="#2dd4bf" stroke-width="2"/>
+            <text x="45" y="59" fill="#e8f0fe" font-family="Inter,sans-serif" font-size="13" font-weight="700">A</text>
+            <text x="155" y="59" fill="#e8f0fe" font-family="Inter,sans-serif" font-size="13" font-weight="700">B</text>
+          </svg>
+          <div class="venn-label">LEFT JOIN</div>
+          <div class="venn-note">all left rows</div>
+        </div>
+
+        <!-- LEFT EXCLUSIVE -->
+        <div class="venn-card reveal-scale d3">
+          <svg viewBox="0 0 200 110" xmlns="http://www.w3.org/2000/svg">
+            <path d="M 100 15 A 50 50 0 1 0 100 95 A 50 50 0 0 1 100 15 Z" fill="rgba(251,191,36,0.55)"/>
+            <circle cx="70" cy="55" r="50" fill="none" stroke="#2dd4bf" stroke-width="2"/>
+            <circle cx="130" cy="55" r="50" fill="rgba(167,139,250,0.10)" stroke="#a78bfa" stroke-width="2"/>
+            <text x="45" y="59" fill="#e8f0fe" font-family="Inter,sans-serif" font-size="13" font-weight="700">A</text>
+            <text x="155" y="59" fill="#e8f0fe" font-family="Inter,sans-serif" font-size="13" font-weight="700">B</text>
+          </svg>
+          <div class="venn-label">LEFT EXCLUSIVE</div>
+          <div class="venn-note">A only, no match in B</div>
+        </div>
+
+        <!-- RIGHT JOIN -->
+        <div class="venn-card reveal-scale d4">
+          <svg viewBox="0 0 200 110" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="70" cy="55" r="50" fill="rgba(45,212,191,0.10)" stroke="#2dd4bf" stroke-width="2"/>
+            <circle cx="130" cy="55" r="50" fill="rgba(251,191,36,0.55)"/>
+            <circle cx="130" cy="55" r="50" fill="none" stroke="#a78bfa" stroke-width="2"/>
+            <text x="45" y="59" fill="#e8f0fe" font-family="Inter,sans-serif" font-size="13" font-weight="700">A</text>
+            <text x="155" y="59" fill="#e8f0fe" font-family="Inter,sans-serif" font-size="13" font-weight="700">B</text>
+          </svg>
+          <div class="venn-label">RIGHT JOIN</div>
+          <div class="venn-note">all right rows</div>
+        </div>
+
+        <!-- FULL OUTER -->
+        <div class="venn-card reveal-scale d5">
+          <svg viewBox="0 0 200 110" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="70" cy="55" r="50" fill="rgba(251,191,36,0.45)"/>
+            <circle cx="130" cy="55" r="50" fill="rgba(251,191,36,0.45)"/>
+            <circle cx="70" cy="55" r="50" fill="none" stroke="#2dd4bf" stroke-width="2"/>
+            <circle cx="130" cy="55" r="50" fill="none" stroke="#a78bfa" stroke-width="2"/>
+            <text x="45" y="59" fill="#e8f0fe" font-family="Inter,sans-serif" font-size="13" font-weight="700">A</text>
+            <text x="155" y="59" fill="#e8f0fe" font-family="Inter,sans-serif" font-size="13" font-weight="700">B</text>
+          </svg>
+          <div class="venn-label">FULL OUTER</div>
+          <div class="venn-note">all rows, NULLs where no match</div>
+        </div>
+
+        <!-- CROSS JOIN -->
+        <div class="venn-card reveal-scale d6">
+          <svg viewBox="0 0 200 110" xmlns="http://www.w3.org/2000/svg">
+            <rect x="20" y="20" width="70" height="70" rx="8" fill="rgba(45,212,191,0.15)" stroke="#2dd4bf" stroke-width="2"/>
+            <rect x="110" y="20" width="70" height="70" rx="8" fill="rgba(167,139,250,0.15)" stroke="#a78bfa" stroke-width="2"/>
+            <text x="55" y="58" text-anchor="middle" fill="#2dd4bf" font-family="'JetBrains Mono',monospace" font-size="14" font-weight="700">N</text>
+            <text x="100" y="58" text-anchor="middle" fill="#fbbf24" font-family="'JetBrains Mono',monospace" font-size="14" font-weight="700">×</text>
+            <text x="145" y="58" text-anchor="middle" fill="#a78bfa" font-family="'JetBrains Mono',monospace" font-size="14" font-weight="700">M</text>
+          </svg>
+          <div class="venn-label">CROSS JOIN</div>
+          <div class="venn-note">every A row × every B row</div>
+        </div>
+
+      </div>
+    </section>
+
+    <div class="grid">
+      <a href="01-inner-join.html" class="topic-link card reveal d1">
+        <div class="chip chip-teal" style="margin-bottom:8px;">Topic 1</div>
+        <h3>INNER JOIN</h3>
+        <p>Only rows that match in BOTH tables — the strictest join.</p>
+      </a>
+      <a href="02-left-join.html" class="topic-link card reveal d2">
+        <div class="chip chip-amber" style="margin-bottom:8px;">Topic 2</div>
+        <h3>LEFT JOIN</h3>
+        <p>All left rows + matched right rows (NULL if no match).</p>
+      </a>
+      <a href="03-right-join.html" class="topic-link card reveal d3">
+        <div class="chip chip-violet" style="margin-bottom:8px;">Topic 3</div>
+        <h3>RIGHT JOIN</h3>
+        <p>All right-table rows plus matched left rows — mirror of LEFT JOIN.</p>
+      </a>
+      <a href="04-full-outer-join.html" class="topic-link card reveal d4">
+        <div class="chip chip-coral" style="margin-bottom:8px;">Topic 4</div>
+        <h3>FULL OUTER JOIN</h3>
+        <p>Keep everything from both tables — NULLs where no match exists.</p>
+      </a>
+      <a href="05-cross-join.html" class="topic-link card reveal d5">
+        <div class="chip chip-teal" style="margin-bottom:8px;">Topic 5</div>
+        <h3>CROSS JOIN</h3>
+        <p>Every row from A paired with every row from B (Cartesian product).</p>
+      </a>
+      <a href="06-self-join.html" class="topic-link card reveal d6">
+        <div class="chip chip-amber" style="margin-bottom:8px;">Topic 6</div>
+        <h3>Self-Join</h3>
+        <p>Join a table to itself — great for hierarchies like employees &amp; managers.</p>
+      </a>
+      <a href="07-multi-table.html" class="topic-link card reveal d7">
+        <div class="chip chip-violet" style="margin-bottom:8px;">Topic 7</div>
+        <h3>3+ Tables</h3>
+        <p>Chain multiple JOINs in one query across employees, departments, and projects.</p>
+      </a>
+    </div>
+
+    <section class="section card reveal" style="margin-top:24px;">
+      <h2>Lesson 5 Roadmap</h2>
+      <div class="two-col" style="margin-top:10px;">
+        <ul class="simple">
+          <li>INNER JOIN — match on both sides</li>
+          <li>LEFT JOIN — keep all left rows</li>
+          <li>RIGHT JOIN — keep all right rows</li>
+          <li>FULL OUTER JOIN — keep everything</li>
+          <li>NULL handling with IS NULL trick</li>
+          <li>CROSS JOIN &amp; Cartesian products</li>
+        </ul>
+        <ul class="simple">
+          <li>Self-join with table aliases</li>
+          <li>Hierarchical data (manager tree)</li>
+          <li>Chaining 3+ JOINs in one query</li>
+          <li>Mixing INNER and LEFT JOINs</li>
+          <li>COALESCE for NULL replacement</li>
+          <li>SQLite workarounds for unsupported JOINs</li>
+        </ul>
+      </div>
+    </section>
+
+    <div class="lesson-nav reveal">
+      <span></span>
+      <a class="btn primary" href="01-inner-join.html">Start Topic 1 →</a>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

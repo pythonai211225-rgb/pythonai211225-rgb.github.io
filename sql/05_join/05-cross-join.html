@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Topic 5 — CROSS JOIN</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%23080e1c'/><text x='32' y='45' text-anchor='middle' font-family='Arial, sans-serif' font-size='42' font-weight='700' fill='%232dd4bf'>db</text></svg>">
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    .setup-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:14px; }
+    @media(max-width:760px){ .setup-grid{ grid-template-columns:1fr; } }
+    .setup-card {
+      position:relative; border:1px solid var(--border); border-radius:12px;
+      overflow:hidden; background:var(--surface2); transition:border-color .2s;
+    }
+    .setup-card:hover, .setup-card:focus-within { border-color:var(--teal); }
+    .setup-card-header { padding:14px 16px 12px; }
+    .setup-table-name {
+      font-size:1rem; font-weight:700; color:var(--teal);
+      font-family:'JetBrains Mono',monospace;
+    }
+    .setup-cols {
+      font-size:.75rem; color:var(--muted); margin-top:4px;
+      font-family:'JetBrains Mono',monospace;
+    }
+    .setup-rows-badge {
+      display:inline-block; margin-top:8px; font-size:.68rem; font-weight:700;
+      color:var(--dim); background:rgba(148,180,255,0.07);
+      border:1px solid var(--border); border-radius:4px; padding:2px 7px;
+      text-transform:uppercase; letter-spacing:.06em;
+    }
+    .setup-hint {
+      font-size:.72rem; color:var(--dim); margin-top:8px;
+      transition:opacity .2s;
+    }
+    .setup-card:hover .setup-hint,
+    .setup-card:focus-within .setup-hint { opacity:0; }
+    .setup-sql-wrap {
+      max-height:0; overflow:hidden;
+      transition:max-height .35s ease;
+      border-top:0px solid transparent;
+    }
+    .setup-card:hover .setup-sql-wrap,
+    .setup-card:focus-within .setup-sql-wrap {
+      max-height:560px;
+      border-top:1px solid var(--border);
+    }
+    .setup-pre {
+      font-family:'JetBrains Mono',monospace; font-size:.78rem; line-height:1.6;
+      color:var(--text); padding:12px 48px 14px 16px; margin:0;
+      background:transparent; white-space:pre-wrap; overflow-x:hidden;
+    }
+    .setup-copy-btn {
+      position:absolute; top:8px; right:10px;
+      font-size:.7rem; font-weight:700; font-family:'Inter',sans-serif;
+      color:var(--teal); background:rgba(45,212,191,0.1);
+      border:1px solid rgba(45,212,191,0.25); border-radius:5px;
+      padding:3px 10px; cursor:pointer; transition:background .15s, color .15s;
+      z-index:2;
+    }
+    .setup-copy-btn:hover { background:rgba(45,212,191,0.2); }
+    .setup-copy-btn.copied {
+      color:var(--green); background:rgba(74,222,128,0.12);
+      border-color:rgba(74,222,128,0.3);
+    }
+    .exercise-visuals { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:14px; }
+    @media(max-width:760px){ .exercise-visuals{ grid-template-columns:1fr; } }
+    .visual-card {
+      border:1px solid var(--border); border-radius:12px; padding:12px;
+      background:linear-gradient(160deg, rgba(15,26,44,0.95), rgba(18,33,58,0.92));
+    }
+    .visual-title {
+      font-size:.78rem; font-weight:700; color:var(--dim); text-transform:uppercase;
+      letter-spacing:.07em; margin-bottom:8px;
+    }
+    .visual-caption { font-size:.82rem; color:var(--muted); margin-top:8px; }
+    .visual-caption strong { color:var(--text); font-weight:700; }
+    .visual-img {
+      width:100%; max-width:360px; height:170px; object-fit:cover;
+      display:block; margin:0 auto; border:1px solid var(--border); border-radius:10px;
+    }
+  </style>
+</head>
+<body>
+  <nav class="top-nav">
+    <div class="wrap">
+      <a class="nav-home" href="../index.html">Home</a>
+      <div class="brand">Lesson 5</div>
+      <a class="nav-link" href="01-inner-join.html">1. INNER JOIN</a>
+      <a class="nav-link" href="02-left-join.html">2. LEFT JOIN</a>
+      <a class="nav-link" href="03-right-join.html">3. RIGHT JOIN</a>
+      <a class="nav-link" href="04-full-outer-join.html">4. FULL OUTER</a>
+      <a class="nav-link" href="05-cross-join.html">5. CROSS JOIN</a>
+      <a class="nav-link" href="06-self-join.html">6. Self-Join</a>
+      <a class="nav-link" href="07-multi-table.html">7. 3+ Tables</a>
+    </div>
+  </nav>
+
+  <main class="container">
+    <section class="hero reveal">
+      <span class="tag">Topic 5</span>
+      <h1>CROSS JOIN — Every Combination</h1>
+      <p class="lead">CROSS JOIN (Cartesian product) combines every row from Table A with every row from Table B. No ON condition needed. If A has N rows and B has M rows, the result has N×M rows.</p>
+
+      <!-- Matrix visual instead of Venn -->
+      <div style="display:flex;justify-content:center;margin-top:20px;">
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:18px 24px;text-align:center;">
+          <div style="font-size:0.75rem;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">Cartesian Product</div>
+          <div style="font-size:2.2rem;font-weight:800;font-family:'JetBrains Mono',monospace;">
+            <span style="color:var(--teal);">N</span>
+            <span style="color:var(--muted);margin:0 8px;">×</span>
+            <span style="color:var(--violet);">M</span>
+            <span style="color:var(--muted);margin-left:10px;font-size:1.4rem;">=</span>
+            <span style="color:var(--amber);margin-left:10px;">rows</span>
+          </div>
+          <div style="font-size:0.82rem;color:var(--dim);margin-top:8px;">every row in A paired with every row in B</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Small example: sizes × colors -->
+    <section class="section card reveal">
+      <h2>Example — T-shirt Sizes × Colors</h2>
+      <div class="code">
+        <div class="label">Setup + Query</div>
+        <pre><span class="k">CREATE TABLE</span> sizes  (size  <span class="t">TEXT</span>);
+<span class="k">CREATE TABLE</span> colors (color <span class="t">TEXT</span>);
+<span class="k">INSERT INTO</span> sizes  <span class="k">VALUES</span> (<span class="c">'S'</span>),(<span class="c">'M'</span>),(<span class="c">'L'</span>);
+<span class="k">INSERT INTO</span> colors <span class="k">VALUES</span> (<span class="c">'Red'</span>),(<span class="c">'Blue'</span>),(<span class="c">'Green'</span>);
+
+<span class="k">SELECT</span> size, color <span class="k">FROM</span> sizes <span class="k">CROSS JOIN</span> colors;</pre>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:14px;" class="reveal">
+        <!-- Result table -->
+        <div>
+          <table class="table">
+            <thead><tr><th>size</th><th>color</th></tr></thead>
+            <tbody>
+              <tr><td>S</td><td>Red</td></tr>
+              <tr><td>S</td><td>Blue</td></tr>
+              <tr><td>S</td><td>Green</td></tr>
+              <tr><td>M</td><td>Red</td></tr>
+              <tr><td>M</td><td>Blue</td></tr>
+              <tr><td>M</td><td>Green</td></tr>
+              <tr><td>L</td><td>Red</td></tr>
+              <tr><td>L</td><td>Blue</td></tr>
+              <tr><td>L</td><td>Green</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Matrix grid -->
+        <div>
+          <div style="font-size:0.75rem;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;">Visual matrix (3×3 = 9 combos)</div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;">
+            <!-- Header row -->
+            <div style="background:transparent;"></div>
+            <div style="background:#0f1929;border-radius:6px;padding:6px 4px;text-align:center;font-size:0.78rem;font-weight:700;color:var(--coral);">Red</div>
+            <div style="background:#0f1929;border-radius:6px;padding:6px 4px;text-align:center;font-size:0.78rem;font-weight:700;color:var(--blue);">Blue</div>
+            <div style="background:#0f1929;border-radius:6px;padding:6px 4px;text-align:center;font-size:0.78rem;font-weight:700;color:var(--green);">Green</div>
+            <!-- S row -->
+            <div style="background:#0f1929;border-radius:6px;padding:6px 4px;text-align:center;font-size:0.78rem;font-weight:700;color:var(--teal);">S</div>
+            <div style="background:rgba(248,113,113,0.18);border-radius:6px;padding:6px 4px;text-align:center;font-size:0.75rem;color:var(--text);">S·Red</div>
+            <div style="background:rgba(96,165,250,0.18);border-radius:6px;padding:6px 4px;text-align:center;font-size:0.75rem;color:var(--text);">S·Blue</div>
+            <div style="background:rgba(74,222,128,0.18);border-radius:6px;padding:6px 4px;text-align:center;font-size:0.75rem;color:var(--text);">S·Green</div>
+            <!-- M row -->
+            <div style="background:#0f1929;border-radius:6px;padding:6px 4px;text-align:center;font-size:0.78rem;font-weight:700;color:var(--teal);">M</div>
+            <div style="background:rgba(248,113,113,0.18);border-radius:6px;padding:6px 4px;text-align:center;font-size:0.75rem;color:var(--text);">M·Red</div>
+            <div style="background:rgba(96,165,250,0.18);border-radius:6px;padding:6px 4px;text-align:center;font-size:0.75rem;color:var(--text);">M·Blue</div>
+            <div style="background:rgba(74,222,128,0.18);border-radius:6px;padding:6px 4px;text-align:center;font-size:0.75rem;color:var(--text);">M·Green</div>
+            <!-- L row -->
+            <div style="background:#0f1929;border-radius:6px;padding:6px 4px;text-align:center;font-size:0.78rem;font-weight:700;color:var(--teal);">L</div>
+            <div style="background:rgba(248,113,113,0.18);border-radius:6px;padding:6px 4px;text-align:center;font-size:0.75rem;color:var(--text);">L·Red</div>
+            <div style="background:rgba(96,165,250,0.18);border-radius:6px;padding:6px 4px;text-align:center;font-size:0.75rem;color:var(--text);">L·Blue</div>
+            <div style="background:rgba(74,222,128,0.18);border-radius:6px;padding:6px 4px;text-align:center;font-size:0.75rem;color:var(--text);">L·Green</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Scale warning with our tables -->
+    <section class="section card reveal">
+      <h2>Scale Warning — Our Tables</h2>
+      <p style="color:var(--muted);">employees (6 rows) × departments (4 rows) = 24 rows. Count first to avoid surprises.</p>
+
+      <div class="code">
+        <div class="label">Count before you cross join</div>
+        <pre><span class="k">SELECT</span> <span class="fn">COUNT</span>(*) <span class="k">FROM</span> employees <span class="k">CROSS JOIN</span> departments;
+<span class="c">-- Result: 24</span></pre>
+      </div>
+
+      <p style="color:var(--muted);margin-top:14px;">First 4 rows (every employee paired with every department):</p>
+      <table class="table" style="margin-top:8px;">
+        <thead><tr><th>emp name</th><th>dept_name</th></tr></thead>
+        <tbody>
+          <tr><td>Dana</td><td>Engineering</td></tr>
+          <tr><td>Dana</td><td>Marketing</td></tr>
+          <tr><td>Dana</td><td>Sales</td></tr>
+          <tr><td>Dana</td><td>HR</td></tr>
+          <tr><td style="color:var(--dim);font-style:italic;" colspan="2">… 20 more rows (Omar×4, Noa×4, Liam×4, Rina×4, Kai×4)</td></tr>
+        </tbody>
+      </table>
+
+      <div class="stat-grid" style="margin-top:16px;">
+        <div class="stat-card reveal-scale d1">
+          <div class="stat-num" style="color:var(--teal)"><span class="count-up" data-val="6">6</span></div>
+          <div class="stat-label">Employees</div>
+        </div>
+        <div class="stat-card reveal-scale d2">
+          <div class="stat-num" style="color:var(--violet)"><span class="count-up" data-val="4">4</span></div>
+          <div class="stat-label">Departments</div>
+        </div>
+        <div class="stat-card reveal-scale d3">
+          <div class="stat-num" style="color:var(--amber)"><span class="count-up" data-val="24">24</span></div>
+          <div class="stat-label">Cross product</div>
+          <div class="stat-sub">6 × 4 = 24</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Use cases -->
+    <section class="section card reveal">
+      <h2>When to Use CROSS JOIN</h2>
+      <div class="two-col">
+        <div class="card good">
+          <h4>Good use cases</h4>
+          <ul class="simple">
+            <li>Generate test data — all possible combinations</li>
+            <li>Scheduling — every employee × every time slot</li>
+            <li>Pricing grids — every product × every region</li>
+            <li>Seating plans — rows × columns</li>
+          </ul>
+        </div>
+        <div class="card bad">
+          <h4>Be careful</h4>
+          <ul class="simple">
+            <li>Result size = N × M — grows fast</li>
+            <li>1000 rows × 1000 rows = 1,000,000 rows</li>
+            <li>No ON clause means no filter — everything pairs</li>
+            <li>Accidental CROSS JOIN can crash a query</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Exercise -->
+    <section class="section card reveal exercise-card" id="exercise">
+      <div class="exercise-head">
+        <div class="exercise-q">?</div>
+        <div>
+          <h2>Exercise</h2>
+          <p class="exercise-sub">Practice CROSS JOIN — Cartesian products</p>
+        </div>
+      </div>
+
+      <div class="setup-grid">
+        <div class="setup-card" tabindex="0">
+          <div class="setup-card-header">
+            <div class="setup-table-name">Pastries + Toppings</div>
+            <div class="setup-cols">PastryName &nbsp;·&nbsp; ToppingName</div>
+            <div class="setup-rows-badge">3 x 4 tables</div>
+            <div class="setup-hint">hover to reveal SQL ↓</div>
+          </div>
+          <div class="setup-sql-wrap" style="position:relative;">
+            <button class="setup-copy-btn" onclick="copySetupSQL('sql-setup-dessert',this)">Copy</button>
+            <pre id="sql-setup-dessert" class="setup-pre"><span class="c">-- Tables for combinations</span>
+<span class="k">CREATE TABLE</span> Pastries (PastryName <span class="t">VARCHAR(50)</span>);
+<span class="k">CREATE TABLE</span> Toppings (ToppingName <span class="t">VARCHAR(50)</span>);
+
+<span class="k">INSERT INTO</span> Pastries <span class="k">VALUES</span> (<span class="c">'Croissant'</span>), (<span class="c">'Muffin'</span>), (<span class="c">'Donut'</span>);
+<span class="k">INSERT INTO</span> Toppings <span class="k">VALUES</span> (<span class="c">'Chocolate'</span>), (<span class="c">'Glaze'</span>), (<span class="c">'Sprinkles'</span>), (<span class="c">'Caramel'</span>);</pre>
+          </div>
+        </div>
+
+        <div class="setup-card" tabindex="0">
+          <div class="setup-card-header">
+            <div class="setup-table-name">Baristas + Shifts</div>
+            <div class="setup-cols">Name &nbsp;·&nbsp; HourlyRate &nbsp;·&nbsp; ShiftType &nbsp;·&nbsp; Income</div>
+            <div class="setup-rows-badge">4 x 3 tables</div>
+            <div class="setup-hint">hover to reveal SQL ↓</div>
+          </div>
+          <div class="setup-sql-wrap" style="position:relative;">
+            <button class="setup-copy-btn" onclick="copySetupSQL('sql-setup-staff',this)">Copy</button>
+            <pre id="sql-setup-staff" class="setup-pre"><span class="c">-- Tables for business logic</span>
+<span class="k">CREATE TABLE</span> Baristas (Name <span class="t">VARCHAR(50)</span>, HourlyRate <span class="t">DECIMAL(10,2)</span>);
+<span class="k">CREATE TABLE</span> Shifts (ShiftType <span class="t">VARCHAR(20)</span>, Income <span class="t">DECIMAL(10,2)</span>);
+
+<span class="k">INSERT INTO</span> Baristas <span class="k">VALUES</span> (<span class="c">'Alice'</span>, <span class="c">18.00</span>), (<span class="c">'Bob'</span>, <span class="c">22.00</span>), (<span class="c">'Charlie'</span>, <span class="c">15.00</span>), (<span class="c">'Diana'</span>, <span class="c">25.00</span>);
+<span class="k">INSERT INTO</span> Shifts <span class="k">VALUES</span> (<span class="c">'Morning'</span>, <span class="c">95.00</span>), (<span class="c">'Afternoon'</span>, <span class="c">85.00</span>), (<span class="c">'Evening'</span>, <span class="c">70.00</span>);</pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="exercise-visuals">
+        <div class="visual-card">
+          <div class="visual-title">Dessert Combinations</div>
+          <img class="visual-img" src="desserts.png" alt="Desserts combinations visual"/>
+          <div class="visual-caption"><strong>Menu Generator:</strong> every pastry paired with every topping.</div>
+        </div>
+
+        <div class="visual-card">
+          <div class="visual-title">Barista Shift Matrix</div>
+          <img class="visual-img" src="baristas.png" alt="Baristas and shifts visual"/>
+          <div class="visual-caption"><strong>Profit Check:</strong> compare total barista cost per shift against shift income.</div>
+        </div>
+      </div>
+
+      <ol class="exercise-steps">
+        <li>Generate a Menu: Write a CROSS JOIN between Pastries and Toppings to show all 12 possible dessert combinations</li>
+        <li>Roster Capacity: Count how many rows result from Baristas CROSS JOIN Shifts (to see the total number of possible assignments)</li>
+        <li>Premium Staffing: List only the barista/shift combinations where the Barista.HourlyRate &gt; 20.00 (adding a WHERE clause to your CROSS JOIN)</li>
+        <li>Concept Check: Explain the difference between CROSS JOIN and INNER JOIN — when does a CROSS JOIN produce the exact same result as an INNER JOIN?</li>
+        <li>Profit Check: For each shift, assume all baristas work that shift. Find which shifts are still profitable where total barista cost is less than shift income (<code style="color:var(--teal)">cost &lt; income</code>)</li>
+      </ol>
+    </section>
+
+    <div class="lesson-nav reveal">
+      <a class="btn" href="04-full-outer-join.html">← FULL OUTER JOIN</a>
+      <a class="btn primary" href="06-self-join.html">Next: Self-Join →</a>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+    function copySetupSQL(id, btn) {
+      const text = document.getElementById(id).innerText;
+      navigator.clipboard.writeText(text).then(() => {
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = 'Copy';
+          btn.classList.remove('copied');
+        }, 1800);
+      });
+    }
+  </script>
+</body>
+</html>

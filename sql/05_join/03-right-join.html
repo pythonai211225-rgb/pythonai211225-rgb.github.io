@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Topic 3 — RIGHT JOIN</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%23080e1c'/><text x='32' y='45' text-anchor='middle' font-family='Arial, sans-serif' font-size='42' font-weight='700' fill='%232dd4bf'>db</text></svg>">
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    /* ── Join diagram ── */
+    .jd-wrap   { margin-top:16px; }
+    .jd-tables { display:flex; gap:24px; align-items:flex-start; }
+    .jd-side   { flex:1; min-width:0; }
+    .jd-lbl    { font-size:.7rem; font-weight:700; color:var(--dim); text-transform:uppercase;
+                 letter-spacing:.08em; margin-bottom:8px; padding:0 2px; }
+    .jd-box    { border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+    .jd-tbl    { width:100%; border-collapse:collapse; background:var(--surface2); }
+    .jd-tbl th { padding:8px 12px; font-size:.68rem; font-weight:700; color:var(--dim);
+                 text-transform:uppercase; letter-spacing:.06em;
+                 border-bottom:1px solid var(--border); text-align:left; background:var(--surface); }
+    .jd-tbl td { padding:9px 12px; font-size:.87rem; color:var(--text);
+                 border-bottom:1px solid rgba(255,255,255,.04); }
+    .jd-tbl tr:last-child td { border-bottom:none; }
+    .jd-t td:first-child { border-left:3px solid #2dd4bf; } .jd-t { background:rgba(45,212,191,.09);  }
+    .jd-v td:first-child { border-left:3px solid #a78bfa; } .jd-v { background:rgba(167,139,250,.09); }
+    .jd-a td:first-child { border-left:3px solid #fbbf24; } .jd-a { background:rgba(251,191,36,.09);  }
+    .jd-r td:first-child { border-left:3px solid #f87171; } .jd-r { background:rgba(248,113,113,.09); }
+    .jd-x  { opacity:.3; }
+    .jd-ex { color:var(--coral) !important; font-weight:700; }
+    @media(max-width:620px){ .jd-tables{ flex-direction:column; gap:12px; } }
+
+    /* ── Table Setup Panel ── */
+    .setup-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    @media(max-width:680px){ .setup-grid{ grid-template-columns:1fr; } }
+    .setup-card {
+      position:relative; border:1px solid var(--border); border-radius:12px;
+      overflow:hidden; background:var(--surface2); transition:border-color .2s;
+    }
+    .setup-card:hover, .setup-card:focus-within { border-color:var(--teal); }
+    .setup-card-header { padding:14px 16px 12px; }
+    .setup-table-name {
+      font-size:1rem; font-weight:700; color:var(--teal);
+      font-family:'JetBrains Mono',monospace;
+    }
+    .setup-cols {
+      font-size:.75rem; color:var(--muted); margin-top:4px;
+      font-family:'JetBrains Mono',monospace;
+    }
+    .setup-rows-badge {
+      display:inline-block; margin-top:8px; font-size:.68rem; font-weight:700;
+      color:var(--dim); background:rgba(148,180,255,0.07);
+      border:1px solid var(--border); border-radius:4px; padding:2px 7px;
+      text-transform:uppercase; letter-spacing:.06em;
+    }
+    .setup-hint {
+      font-size:.72rem; color:var(--dim); margin-top:8px;
+      transition:opacity .2s;
+    }
+    .setup-card:hover .setup-hint,
+    .setup-card:focus-within .setup-hint { opacity:0; }
+    .setup-sql-wrap {
+      max-height:0; overflow:hidden;
+      transition:max-height .35s ease;
+      border-top:0px solid transparent;
+    }
+    .setup-card:hover .setup-sql-wrap,
+    .setup-card:focus-within .setup-sql-wrap {
+      max-height:420px;
+      border-top:1px solid var(--border);
+    }
+    .setup-pre {
+      font-family:'JetBrains Mono',monospace; font-size:.78rem; line-height:1.6;
+      color:var(--text); padding:12px 48px 14px 16px; margin:0;
+      background:transparent; white-space:pre-wrap; overflow-x:hidden;
+    }
+    .setup-copy-btn {
+      position:absolute; top:8px; right:10px;
+      font-size:.7rem; font-weight:700; font-family:'Inter',sans-serif;
+      color:var(--teal); background:rgba(45,212,191,0.1);
+      border:1px solid rgba(45,212,191,0.25); border-radius:5px;
+      padding:3px 10px; cursor:pointer; transition:background .15s, color .15s;
+      z-index:2;
+    }
+    .setup-copy-btn:hover { background:rgba(45,212,191,0.2); }
+    .setup-copy-btn.copied {
+      color:var(--green); background:rgba(74,222,128,0.12);
+      border-color:rgba(74,222,128,0.3);
+    }
+  </style>
+</head>
+<body>
+  <nav class="top-nav">
+    <div class="wrap">
+      <a class="nav-home" href="../index.html">Home</a>
+      <div class="brand">Lesson 5</div>
+      <a class="nav-link" href="01-inner-join.html">1. INNER JOIN</a>
+      <a class="nav-link" href="02-left-join.html">2. LEFT JOIN</a>
+      <a class="nav-link" href="03-right-join.html">3. RIGHT JOIN</a>
+      <a class="nav-link" href="04-full-outer-join.html">4. FULL OUTER</a>
+      <a class="nav-link" href="05-cross-join.html">5. CROSS JOIN</a>
+      <a class="nav-link" href="06-self-join.html">6. Self-Join</a>
+      <a class="nav-link" href="07-multi-table.html">7. 3+ Tables</a>
+    </div>
+  </nav>
+
+  <main class="container">
+    <section class="hero reveal">
+      <span class="tag">Topic 3</span>
+      <h1>RIGHT JOIN</h1>
+      <p class="lead">RIGHT JOIN keeps all rows from the RIGHT table and only matched rows from the left. Non-matching left rows become NULL.</p>
+
+      <div class="venn-hero">
+        <svg viewBox="0 0 200 110" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="70" cy="55" r="50" fill="rgba(45,212,191,0.10)" stroke="#2dd4bf" stroke-width="2"/>
+          <circle cx="130" cy="55" r="50" fill="rgba(251,191,36,0.55)"/>
+          <circle cx="130" cy="55" r="50" fill="none" stroke="#a78bfa" stroke-width="2"/>
+          <text x="45" y="59" fill="#e8f0fe" font-family="Inter,sans-serif" font-size="13" font-weight="700">A</text>
+          <text x="155" y="59" fill="#e8f0fe" font-family="Inter,sans-serif" font-size="13" font-weight="700">B</text>
+        </svg>
+      </div>
+    </section>
+
+    <!-- Table Setup Panel -->
+    <section class="section card reveal">
+      <div class="setup-grid">
+
+        <!-- departments -->
+        <div class="setup-card" tabindex="0">
+          <div class="setup-card-header">
+            <div class="setup-table-name">departments</div>
+            <div class="setup-cols">id &nbsp;·&nbsp; dept_name &nbsp;·&nbsp; budget</div>
+            <div class="setup-rows-badge">4 rows</div>
+            <div class="setup-hint">hover to reveal SQL ↓</div>
+          </div>
+          <div class="setup-sql-wrap" style="position:relative;">
+            <button class="setup-copy-btn" onclick="copySetupSQL('sql-setup-dept',this)">Copy</button>
+            <pre id="sql-setup-dept" class="setup-pre"><span class="k">CREATE TABLE</span> departments (
+  id        <span class="t">INTEGER</span> <span class="k">PRIMARY KEY</span>,
+  dept_name <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  budget    <span class="t">REAL</span>    <span class="k">NOT NULL</span>
+);
+
+<span class="k">INSERT INTO</span> departments <span class="k">VALUES</span>
+  (1,'Engineering',150000),
+  (2,'Marketing',80000),
+  (3,'Sales',60000),
+  (4,'HR',45000);</pre>
+          </div>
+        </div>
+
+        <!-- employees -->
+        <div class="setup-card" tabindex="0">
+          <div class="setup-card-header">
+            <div class="setup-table-name">employees</div>
+            <div class="setup-cols">id &nbsp;·&nbsp; name &nbsp;·&nbsp; dept_id &nbsp;·&nbsp; salary</div>
+            <div class="setup-rows-badge">6 rows</div>
+            <div class="setup-hint">hover to reveal SQL ↓</div>
+          </div>
+          <div class="setup-sql-wrap" style="position:relative;">
+            <button class="setup-copy-btn" onclick="copySetupSQL('sql-setup-emp',this)">Copy</button>
+            <pre id="sql-setup-emp" class="setup-pre"><span class="k">CREATE TABLE</span> employees (
+  id         <span class="t">INTEGER</span> <span class="k">PRIMARY KEY</span>,
+  name       <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  dept_id    <span class="t">INTEGER</span>,
+  salary     <span class="t">REAL</span>    <span class="k">NOT NULL</span>,
+  <span class="k">FOREIGN KEY</span> (dept_id) <span class="k">REFERENCES</span> departments(id)
+);
+
+<span class="k">INSERT INTO</span> employees <span class="k">VALUES</span>
+  (1,'Dana',1,9000),
+  (2,'Omar',2,7200),
+  (3,'Noa',1,6800),
+  (4,'Liam',3,5500),
+  (5,'Rina',NULL,6000),
+  (6,'Kai',2,7000);</pre>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- RIGHT JOIN -->
+    <section class="section card reveal">
+      <h2>Syntax</h2>
+      <p style="color:var(--muted);">RIGHT JOIN is the mirror of LEFT JOIN — it keeps all rows from the RIGHT table. Can always be rewritten as LEFT JOIN by swapping table order.</p>
+
+      <p style="color:var(--muted);margin-top:16px;margin-bottom:14px;">Step 1 — Colour-coded rows show matches. HR has no employees so it appears with NULLs (coral). Rina has no dept_id — she won't appear in the result.</p>
+
+      <div class="jd-wrap">
+        <div class="jd-tables">
+          <div class="jd-side">
+            <div class="jd-lbl">employees (left table)</div>
+            <div class="jd-box">
+              <table class="jd-tbl">
+                <thead><tr><th>id</th><th>name</th><th>dept_id</th></tr></thead>
+                <tbody>
+                  <tr class="jd-t"><td>1</td><td>Dana</td><td>1</td></tr>
+                  <tr class="jd-v"><td>2</td><td>Omar</td><td>2</td></tr>
+                  <tr class="jd-t"><td>3</td><td>Noa</td><td>1</td></tr>
+                  <tr class="jd-a"><td>4</td><td>Liam</td><td>3</td></tr>
+                  <tr class="jd-x"><td>5</td><td><span class="jd-ex">Rina</span></td><td class="null-val">NULL</td></tr>
+                  <tr class="jd-v"><td>6</td><td>Kai</td><td>2</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="jd-side">
+            <div class="jd-lbl">departments (right table)</div>
+            <div class="jd-box">
+              <table class="jd-tbl">
+                <thead><tr><th>id</th><th>dept_name</th><th>budget</th></tr></thead>
+                <tbody>
+                  <tr class="jd-t"><td>1</td><td>Engineering</td><td>150,000</td></tr>
+                  <tr class="jd-v"><td>2</td><td>Marketing</td><td>80,000</td></tr>
+                  <tr class="jd-a"><td>3</td><td>Sales</td><td>60,000</td></tr>
+                  <tr class="jd-r"><td>4</td><td><span class="jd-ex">HR</span></td><td>45,000</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="code" style="margin-top:16px;">
+        <div class="label">SQL</div>
+        <pre><span class="k">SELECT</span> e.name, d.dept_name
+<span class="k">FROM</span>   employees e
+<span class="k">RIGHT JOIN</span> departments d
+       <span class="k">ON</span> e.dept_id <span class="op">=</span> d.id;</pre>
+      </div>
+
+      <p style="color:var(--muted);margin-top:14px;">Result — 6 rows (HR shows NULL for employee name):</p>
+      <table class="table" style="margin-top:8px;">
+        <thead><tr><th>name</th><th>dept_name</th></tr></thead>
+        <tbody>
+          <tr><td>Dana</td><td>Engineering</td></tr>
+          <tr><td>Noa</td><td>Engineering</td></tr>
+          <tr><td>Omar</td><td>Marketing</td></tr>
+          <tr><td>Kai</td><td>Marketing</td></tr>
+          <tr><td>Liam</td><td>Sales</td></tr>
+          <tr style="background:rgba(248,113,113,0.07);">
+            <td class="null-val">NULL</td>
+            <td><span class="null-match">HR</span></td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="note">HR (id 4) has no employees — the RIGHT JOIN keeps it and fills the employee name with NULL. Rina is excluded because her dept_id is NULL (no right-table match).</p>
+    </section>
+
+    <!-- IS NULL trick -->
+    <section class="section card reveal">
+      <h2>Find Departments With No Employees</h2>
+      <p style="color:var(--muted);">Add <code style="color:var(--teal)">WHERE e.id IS NULL</code> to isolate only the unmatched right-table rows.</p>
+
+      <div class="code">
+        <div class="label">Only departments that have no employees</div>
+        <pre><span class="k">SELECT</span> d.dept_name
+<span class="k">FROM</span>   employees e
+<span class="k">RIGHT JOIN</span> departments d <span class="k">ON</span> e.dept_id <span class="op">=</span> d.id
+<span class="k">WHERE</span>  e.id <span class="k">IS NULL</span>;
+<span class="c">-- Result: HR</span></pre>
+      </div>
+
+      <table class="table" style="margin-top:12px;">
+        <thead><tr><th>dept_name</th></tr></thead>
+        <tbody>
+          <tr><td><span class="null-match">HR</span></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Quick reference -->
+    <section class="section card reveal">
+      <h2>RIGHT JOIN vs LEFT JOIN — Same Result, Different Perspective</h2>
+      <table class="table" style="margin-top:10px;">
+        <thead><tr><th>Write as…</th><th>What stays?</th><th>What gets NULLed?</th></tr></thead>
+        <tbody>
+          <tr><td><code style="color:var(--teal)">A RIGHT JOIN B</code></td><td>All rows from B</td><td>Missing A rows → NULL</td></tr>
+          <tr><td><code style="color:var(--teal)">B LEFT JOIN A</code></td><td>All rows from B (same!)</td><td>Missing A rows → NULL (same!)</td></tr>
+        </tbody>
+      </table>
+      <p class="note note-amber" style="margin-top:10px;">Prefer LEFT JOIN in practice — it reads left-to-right and most query planners optimise it identically.</p>
+    </section>
+
+    <div class="lesson-nav reveal">
+      <a class="btn" href="02-left-join.html">← LEFT JOIN</a>
+      <a class="btn primary" href="04-full-outer-join.html">Next: FULL OUTER JOIN →</a>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+    function copySetupSQL(id, btn) {
+      const pre = document.getElementById(id);
+      const text = pre.innerText;
+      navigator.clipboard.writeText(text).then(() => {
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1800);
+      });
+    }
+  </script>
+</body>
+</html>

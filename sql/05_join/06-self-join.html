@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Topic 6 — Self-Join</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%23080e1c'/><text x='32' y='45' text-anchor='middle' font-family='Arial, sans-serif' font-size='42' font-weight='700' fill='%232dd4bf'>db</text></svg>">
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    /* ── Table Setup Panel ── */
+    .setup-grid { display:grid; grid-template-columns:1fr; gap:16px; max-width:520px; }
+    .setup-card {
+      position:relative; border:1px solid var(--border); border-radius:12px;
+      overflow:hidden; background:var(--surface2); transition:border-color .2s;
+    }
+    .setup-card:hover, .setup-card:focus-within { border-color:var(--teal); }
+    .setup-card-header { padding:14px 16px 12px; }
+    .setup-table-name {
+      font-size:1rem; font-weight:700; color:var(--teal);
+      font-family:'JetBrains Mono',monospace;
+    }
+    .setup-cols {
+      font-size:.75rem; color:var(--muted); margin-top:4px;
+      font-family:'JetBrains Mono',monospace;
+    }
+    .setup-rows-badge {
+      display:inline-block; margin-top:8px; font-size:.68rem; font-weight:700;
+      color:var(--dim); background:rgba(148,180,255,0.07);
+      border:1px solid var(--border); border-radius:4px; padding:2px 7px;
+      text-transform:uppercase; letter-spacing:.06em;
+    }
+    .setup-hint {
+      font-size:.72rem; color:var(--dim); margin-top:8px;
+      transition:opacity .2s;
+    }
+    .setup-card:hover .setup-hint,
+    .setup-card:focus-within .setup-hint { opacity:0; }
+    .setup-sql-wrap {
+      max-height:0; overflow:hidden;
+      transition:max-height .35s ease;
+      border-top:0px solid transparent;
+    }
+    .setup-card:hover .setup-sql-wrap,
+    .setup-card:focus-within .setup-sql-wrap {
+      max-height:420px;
+      border-top:1px solid var(--border);
+    }
+    .setup-pre {
+      font-family:'JetBrains Mono',monospace; font-size:.78rem; line-height:1.6;
+      color:var(--text); padding:12px 48px 14px 16px; margin:0;
+      background:transparent; white-space:pre-wrap; overflow-x:hidden;
+    }
+    .setup-copy-btn {
+      position:absolute; top:8px; right:10px;
+      font-size:.7rem; font-weight:700; font-family:'Inter',sans-serif;
+      color:var(--teal); background:rgba(45,212,191,0.1);
+      border:1px solid rgba(45,212,191,0.25); border-radius:5px;
+      padding:3px 10px; cursor:pointer; transition:background .15s, color .15s;
+      z-index:2;
+    }
+    .setup-copy-btn:hover { background:rgba(45,212,191,0.2); }
+    .setup-copy-btn.copied {
+      color:var(--green); background:rgba(74,222,128,0.12);
+      border-color:rgba(74,222,128,0.3);
+    }
+    .exercise-media {
+      margin:0 0 18px;
+      border:1px solid var(--border);
+      border-radius:12px;
+      overflow:hidden;
+      background:var(--surface2);
+    }
+    .exercise-media img {
+      width:100%;
+      max-height:260px;
+      object-fit:cover;
+      display:block;
+    }
+    .exercise-media figcaption {
+      font-size:.8rem;
+      color:var(--muted);
+      padding:8px 12px 10px;
+    }
+  </style>
+<body>
+  <nav class="top-nav">
+    <div class="wrap">
+      <a class="nav-home" href="../index.html">Home</a>
+      <div class="brand">Lesson 5</div>
+      <a class="nav-link" href="01-inner-join.html">1. INNER JOIN</a>
+      <a class="nav-link" href="02-left-join.html">2. LEFT JOIN</a>
+      <a class="nav-link" href="03-right-join.html">3. RIGHT JOIN</a>
+      <a class="nav-link" href="04-full-outer-join.html">4. FULL OUTER</a>
+      <a class="nav-link" href="05-cross-join.html">5. CROSS JOIN</a>
+      <a class="nav-link" href="06-self-join.html">6. Self-Join</a>
+      <a class="nav-link" href="07-multi-table.html">7. 3+ Tables</a>
+    </div>
+  </nav>
+
+  <main class="container">
+    <section class="hero reveal">
+      <span class="tag">Topic 6</span>
+      <h1>Self-Join — A Table Joined to Itself</h1>
+      <p class="lead">A self-join uses two different aliases for the same table. Useful for hierarchical data like employees and their managers.</p>
+
+      <!-- Venn hero: lens, both circles labeled "employees" -->
+      <div class="venn-hero">
+        <svg viewBox="0 0 240 110" xmlns="http://www.w3.org/2000/svg">
+          <path d="M 120 15 A 50 50 0 0 1 120 95 A 50 50 0 0 0 120 15 Z" fill="rgba(251,191,36,0.45)"/>
+          <circle cx="90" cy="55" r="50" fill="rgba(45,212,191,0.10)" stroke="#2dd4bf" stroke-width="2"/>
+          <circle cx="150" cy="55" r="50" fill="rgba(167,139,250,0.10)" stroke="#a78bfa" stroke-width="2"/>
+          <text x="74" y="48" text-anchor="middle" fill="#2dd4bf" font-family="Inter,sans-serif" font-size="9" font-weight="700">employees</text>
+          <text x="74" y="60" text-anchor="middle" fill="#2dd4bf" font-family="Inter,sans-serif" font-size="9" font-weight="700">alias: e</text>
+          <text x="166" y="48" text-anchor="middle" fill="#a78bfa" font-family="Inter,sans-serif" font-size="9" font-weight="700">employees</text>
+          <text x="166" y="60" text-anchor="middle" fill="#a78bfa" font-family="Inter,sans-serif" font-size="9" font-weight="700">alias: m</text>
+        </svg>
+      </div>
+    </section>
+
+    <!-- Table Setup Panel -->
+    <section class="section card reveal">
+      <div class="setup-grid">
+
+        <!-- employees -->
+        <div class="setup-card" tabindex="0">
+          <div class="setup-card-header">
+            <div class="setup-table-name">employees</div>
+            <div class="setup-cols">id &nbsp;·&nbsp; name &nbsp;·&nbsp; dept_id &nbsp;·&nbsp; manager_id &nbsp;·&nbsp; salary</div>
+            <div class="setup-rows-badge">6 rows</div>
+            <div class="setup-hint">hover to reveal SQL ↓</div>
+          </div>
+          <div class="setup-sql-wrap" style="position:relative;">
+            <button class="setup-copy-btn" onclick="copySetupSQL('sql-setup-emp',this)">Copy</button>
+            <pre id="sql-setup-emp" class="setup-pre"><span class="k">CREATE TABLE</span> employees (
+  id         <span class="t">INTEGER</span> <span class="k">PRIMARY KEY</span>,
+  name       <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  dept_id    <span class="t">INTEGER</span>,
+  manager_id <span class="t">INTEGER</span>,
+  salary     <span class="t">REAL</span>    <span class="k">NOT NULL</span>,
+  <span class="k">FOREIGN KEY</span> (dept_id) <span class="k">REFERENCES</span> departments(id),
+  <span class="k">FOREIGN KEY</span> (manager_id) <span class="k">REFERENCES</span> employees(id)
+);
+
+<span class="k">INSERT INTO</span> employees <span class="k">VALUES</span>
+  (1,'Dana',1,NULL,9000),
+  (2,'Omar',2,1,7200),
+  (3,'Noa',1,1,6800),
+  (4,'Liam',3,2,5500),
+  (5,'Rina',NULL,1,6000),
+  (6,'Kai',2,2,7000);</pre>
+          </div>
+        </div>
+
+      </div>
+    </section>
+    </section>
+
+    <!-- employees table reminder -->
+    <section class="section card reveal">
+      <h2>The employees Table — with manager_id</h2>
+      <p style="color:var(--muted);">The <code style="color:var(--teal)">manager_id</code> column references <code style="color:var(--teal)">employees.id</code> — that's what makes a self-join possible.</p>
+      <table class="table" style="margin-top:12px;">
+        <thead><tr><th>id</th><th>name</th><th>dept_id</th><th>manager_id</th><th>salary</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td><span class="matched-val">Dana</span></td><td>1</td><td class="null-val">NULL</td><td>9000</td></tr>
+          <tr><td>2</td><td>Omar</td><td>2</td><td>1 → Dana</td><td>7200</td></tr>
+          <tr><td>3</td><td>Noa</td><td>1</td><td>1 → Dana</td><td>6800</td></tr>
+          <tr><td>4</td><td>Liam</td><td>3</td><td>2 → Omar</td><td>5500</td></tr>
+          <tr><td>5</td><td>Rina</td><td class="null-val">NULL</td><td>1 → Dana</td><td>6000</td></tr>
+          <tr><td>6</td><td>Kai</td><td>2</td><td>2 → Omar</td><td>7000</td></tr>
+        </tbody>
+      </table>
+      <p class="note">Dana (id 1) has manager_id = NULL — she's the top of the hierarchy. Everyone else's manager_id points to another employee's id.</p>
+    </section>
+
+    <!-- Example 1: Employee + Manager -->
+    <section class="section card reveal">
+      <h2>Example 1 — Employee with Their Manager</h2>
+      <div class="code">
+        <div class="label">Query</div>
+        <pre><span class="k">SELECT</span>
+  e.name       <span class="k">AS</span> employee,
+  m.name       <span class="k">AS</span> manager,
+  e.salary     <span class="k">AS</span> emp_salary
+<span class="k">FROM</span>   employees e
+<span class="k">LEFT JOIN</span> employees m <span class="k">ON</span> e.manager_id <span class="op">=</span> m.id;</pre>
+      </div>
+
+      <table class="table" style="margin-top:12px;">
+        <thead><tr><th>employee</th><th>manager</th><th>emp_salary</th></tr></thead>
+        <tbody>
+          <tr><td><span class="matched-val">Dana</span></td><td class="null-val">NULL</td><td>9000</td></tr>
+          <tr><td>Omar</td><td>Dana</td><td>7200</td></tr>
+          <tr><td>Noa</td><td>Dana</td><td>6800</td></tr>
+          <tr><td>Liam</td><td>Omar</td><td>5500</td></tr>
+          <tr><td>Rina</td><td>Dana</td><td>6000</td></tr>
+          <tr><td>Kai</td><td>Omar</td><td>7000</td></tr>
+        </tbody>
+      </table>
+      <p class="note">Dana is the top manager — LEFT JOIN shows her with NULL manager. Using INNER JOIN would hide her row entirely.</p>
+    </section>
+
+    <!-- Example 2: Employees managed by Omar -->
+    <section class="section card reveal">
+      <h2>Example 2 — Employees Managed by Omar</h2>
+      <div class="code">
+        <div class="label">Query</div>
+        <pre><span class="k">SELECT</span> e.name, e.salary
+<span class="k">FROM</span>   employees e
+<span class="k">JOIN</span>   employees m <span class="k">ON</span> e.manager_id <span class="op">=</span> m.id
+<span class="k">WHERE</span>  m.name <span class="op">=</span> <span class="c">'Omar'</span>;</pre>
+      </div>
+      <table class="table" style="margin-top:12px;">
+        <thead><tr><th>name</th><th>salary</th></tr></thead>
+        <tbody>
+          <tr><td>Liam</td><td>5500</td></tr>
+          <tr><td>Kai</td><td>7000</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Example 3: Count direct reports -->
+    <section class="section card reveal">
+      <h2>Example 3 — Direct Reports Per Manager</h2>
+      <div class="code">
+        <div class="label">Query</div>
+        <pre><span class="k">SELECT</span>
+  m.name          <span class="k">AS</span> manager,
+  <span class="fn">COUNT</span>(e.id)     <span class="k">AS</span> direct_reports
+<span class="k">FROM</span>   employees m
+<span class="k">LEFT JOIN</span> employees e <span class="k">ON</span> e.manager_id <span class="op">=</span> m.id
+<span class="k">GROUP BY</span> m.id, m.name
+<span class="k">HAVING</span>  <span class="fn">COUNT</span>(e.id) <span class="op">&gt;</span> <span class="c">0</span>
+<span class="k">ORDER BY</span> direct_reports <span class="k">DESC</span>;</pre>
+      </div>
+      <table class="table" style="margin-top:12px;">
+        <thead><tr><th>manager</th><th>direct_reports</th></tr></thead>
+        <tbody>
+          <tr><td><span class="matched-val">Dana</span></td><td>3</td></tr>
+          <tr><td>Omar</td><td>2</td></tr>
+        </tbody>
+      </table>
+
+      <div class="bar-chart" style="margin-top:16px;">
+        <div class="bar-chart-title">Direct reports per manager</div>
+        <div class="bar-row">
+          <span class="bar-label">Dana</span>
+          <div class="bar-track"><div class="bar-fill bar-teal" data-pct="100"></div></div>
+          <span class="bar-val">3</span>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">Omar</span>
+          <div class="bar-track"><div class="bar-fill bar-violet" data-pct="67"></div></div>
+          <span class="bar-val">2</span>
+        </div>
+      </div>
+      <p class="note">The key technique: alias the same table twice — <code style="color:var(--teal)">e</code> for employees, <code style="color:var(--teal)">m</code> for managers. The ON condition bridges manager_id to the manager's id.</p>
+    </section>
+
+    <!-- Exercise -->
+    <section class="section card reveal exercise-card" id="exercise">
+      <div class="exercise-head">
+        <div class="exercise-q">?</div>
+        <div>
+          <h2>Exercise</h2>
+          <p class="exercise-sub">Practice self-joins on the flights table</p>
+        </div>
+      </div>
+
+      <div class="setup-grid" style="max-width:100%;margin-bottom:20px;">
+        <div class="setup-card" tabindex="0">
+          <div class="setup-card-header">
+            <div class="setup-table-name">flights</div>
+            <div class="setup-cols">id &nbsp;·&nbsp; flight_no &nbsp;·&nbsp; origin &nbsp;·&nbsp; destination &nbsp;·&nbsp; prev_flight_id</div>
+            <div class="setup-rows-badge">12 rows</div>
+            <div class="setup-hint">hover to reveal SQL ↓</div>
+          </div>
+          <div class="setup-sql-wrap" style="position:relative;">
+            <button class="setup-copy-btn" onclick="copySetupSQL('sql-setup-flights',this)">Copy</button>
+            <pre id="sql-setup-flights" class="setup-pre"><span class="k">CREATE TABLE</span> flights (
+  id             <span class="t">INTEGER</span> <span class="k">PRIMARY KEY</span>,
+  flight_no      <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  origin         <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  destination    <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  prev_flight_id <span class="t">INTEGER</span>,
+  <span class="k">FOREIGN KEY</span> (prev_flight_id) <span class="k">REFERENCES</span> flights(id)
+);
+
+<span class="k">INSERT INTO</span> flights <span class="k">VALUES</span>
+  (1,'TK101','NYC','London',NULL),
+  (2,'TK102','London','Dubai',1),
+  (3,'TK103','Dubai','Tokyo',2),
+  (4,'TK104','Tokyo','Seoul',3),
+  (5,'TK105','Tokyo','Sydney',3),
+  (6,'AA201','LA','Chicago',NULL),
+  (7,'AA202','Chicago','NYC',6),
+  (8,'AA203','NYC','Miami',7),
+  (9,'AA204','NYC','Boston',7),
+  (10,'BA301','Paris','Rome',NULL),
+  (11,'LH401','Frankfurt','Berlin',NULL),
+  (12,'LH402','Amsterdam','London',11);</pre>
+          </div>
+        </div>
+      </div>
+      <figure style="margin:0 0 20px; text-align:left;">
+        <img src="flights.png" alt="Flights routes and connection map for self-join practice" style="width:33%; border-radius:8px;"/>
+      </figure>
+      <ol class="exercise-steps">
+        <li>Show every flight with its predecessor flight number — use LEFT JOIN so origin flights (no predecessor) appear with <code style="color:var(--teal)">NULL</code></li>
+        <li>Show only flights that directly follow <code style="color:var(--teal)">'TK101'</code> (i.e. where the predecessor flight is TK101)</li>
+        <li>Count how many onward connections each flight has (how many flights list it as predecessor), sorted descending</li>
+        <li>Find flights where the predecessor's <code style="color:var(--teal)">destination</code> doesn't match the current flight's <code style="color:var(--teal)">origin</code> — a data-inconsistency check</li>
+      </ol>
+    </section>
+
+    <div class="lesson-nav reveal">
+      <a class="btn" href="05-cross-join.html">← CROSS JOIN</a>
+      <a class="btn primary" href="07-multi-table.html">Next: 3+ Tables →</a>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+    function copySetupSQL(id, btn) {
+      const text = document.getElementById(id).innerText;
+      navigator.clipboard.writeText(text).then(() => {
+        btn.textContent = 'Copied!'; btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1800);
+      });
+    }
+  </script>
+</body>
+</html>

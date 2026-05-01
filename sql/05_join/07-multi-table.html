@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Topic 7 — Joining 3+ Tables</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%23080e1c'/><text x='32' y='45' text-anchor='middle' font-family='Arial, sans-serif' font-size='42' font-weight='700' fill='%232dd4bf'>db</text></svg>">
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    .setup-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; }
+    @media(max-width:980px){ .setup-grid{ grid-template-columns:1fr 1fr; } }
+    @media(max-width:680px){ .setup-grid{ grid-template-columns:1fr; } }
+    .setup-card {
+      position:relative; border:1px solid var(--border); border-radius:12px;
+      overflow:hidden; background:var(--surface2); transition:border-color .2s;
+    }
+    .setup-card:hover, .setup-card:focus-within { border-color:var(--teal); }
+    .setup-card-header { padding:14px 16px 12px; }
+    .setup-table-name {
+      font-size:1rem; font-weight:700; color:var(--teal);
+      font-family:'JetBrains Mono',monospace;
+    }
+    .setup-cols {
+      font-size:.75rem; color:var(--muted); margin-top:4px;
+      font-family:'JetBrains Mono',monospace;
+    }
+    .setup-rows-badge {
+      display:inline-block; margin-top:8px; font-size:.68rem; font-weight:700;
+      color:var(--dim); background:rgba(148,180,255,0.07);
+      border:1px solid var(--border); border-radius:4px; padding:2px 7px;
+      text-transform:uppercase; letter-spacing:.06em;
+    }
+    .setup-hint {
+      font-size:.72rem; color:var(--dim); margin-top:8px;
+      transition:opacity .2s;
+    }
+    .setup-card:hover .setup-hint,
+    .setup-card:focus-within .setup-hint { opacity:0; }
+    .setup-sql-wrap {
+      max-height:0; overflow:hidden;
+      transition:max-height .35s ease;
+      border-top:0px solid transparent;
+    }
+    .setup-card:hover .setup-sql-wrap,
+    .setup-card:focus-within .setup-sql-wrap {
+      max-height:460px;
+      border-top:1px solid var(--border);
+    }
+    .setup-pre {
+      font-family:'JetBrains Mono',monospace; font-size:.78rem; line-height:1.6;
+      color:var(--text); padding:12px 48px 14px 16px; margin:0;
+      background:transparent; white-space:pre-wrap; overflow-x:hidden;
+    }
+    .setup-copy-btn {
+      position:absolute; top:8px; right:10px;
+      font-size:.7rem; font-weight:700; font-family:'Inter',sans-serif;
+      color:var(--teal); background:rgba(45,212,191,0.1);
+      border:1px solid rgba(45,212,191,0.25); border-radius:5px;
+      padding:3px 10px; cursor:pointer; transition:background .15s, color .15s;
+      z-index:2;
+    }
+    .setup-copy-btn:hover { background:rgba(45,212,191,0.2); }
+    .setup-copy-btn.copied {
+      color:var(--green); background:rgba(74,222,128,0.12);
+      border-color:rgba(74,222,128,0.3);
+    }
+  </style>
+</head>
+<body>
+  <nav class="top-nav">
+    <div class="wrap">
+      <a class="nav-home" href="../index.html">Home</a>
+      <div class="brand">Lesson 5</div>
+      <a class="nav-link" href="01-inner-join.html">1. INNER JOIN</a>
+      <a class="nav-link" href="02-left-join.html">2. LEFT JOIN</a>
+      <a class="nav-link" href="03-right-join.html">3. RIGHT JOIN</a>
+      <a class="nav-link" href="04-full-outer-join.html">4. FULL OUTER</a>
+      <a class="nav-link" href="05-cross-join.html">5. CROSS JOIN</a>
+      <a class="nav-link" href="06-self-join.html">6. Self-Join</a>
+      <a class="nav-link" href="07-multi-table.html">7. 3+ Tables</a>
+    </div>
+  </nav>
+
+  <main class="container">
+    <section class="hero reveal">
+      <span class="tag">Topic 7</span>
+      <h1>Joining 3+ Tables</h1>
+      <p class="lead">Chain JOIN clauses one after another. Each JOIN adds another table. Order matters for readability; the SQL engine optimizes internally.</p>
+
+      <!-- Three-circle chain SVG -->
+      <div class="venn-hero">
+        <svg viewBox="0 0 360 110" xmlns="http://www.w3.org/2000/svg" style="width:360px;">
+          <circle cx="70"  cy="55" r="46" fill="rgba(45,212,191,0.12)"  stroke="#2dd4bf" stroke-width="2.5"/>
+          <circle cx="180" cy="55" r="46" fill="rgba(251,191,36,0.12)"  stroke="#fbbf24" stroke-width="2.5"/>
+          <circle cx="290" cy="55" r="46" fill="rgba(167,139,250,0.12)" stroke="#a78bfa" stroke-width="2.5"/>
+          <text x="70"  y="59" text-anchor="middle" fill="#2dd4bf" font-family="Inter,sans-serif" font-size="10" font-weight="700">projects (p)</text>
+          <text x="180" y="59" text-anchor="middle" fill="#fbbf24" font-family="Inter,sans-serif" font-size="10" font-weight="700">employees (e)</text>
+          <text x="290" y="59" text-anchor="middle" fill="#a78bfa" font-family="Inter,sans-serif" font-size="10" font-weight="700">departments (d)</text>
+          <!-- arrows -->
+          <line x1="118" y1="55" x2="132" y2="55" stroke="#fbbf24" stroke-width="2.5" marker-end="url(#arr)"/>
+          <line x1="228" y1="55" x2="242" y2="55" stroke="#a78bfa" stroke-width="2.5" marker-end="url(#arr2)"/>
+          <defs>
+            <marker id="arr"  markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L6,3 L0,6 Z" fill="#fbbf24"/>
+            </marker>
+            <marker id="arr2" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L6,3 L0,6 Z" fill="#a78bfa"/>
+            </marker>
+          </defs>
+        </svg>
+      </div>
+    </section>
+
+    <!-- Table Setup Panel -->
+    <section class="section card reveal">
+      <div class="setup-grid">
+
+        <!-- projects -->
+        <div class="setup-card" tabindex="0">
+          <div class="setup-card-header">
+            <div class="setup-table-name">projects</div>
+            <div class="setup-cols">id &nbsp;·&nbsp; project_name &nbsp;·&nbsp; lead_id</div>
+            <div class="setup-rows-badge">4 rows</div>
+            <div class="setup-hint">hover to reveal SQL ↓</div>
+          </div>
+          <div class="setup-sql-wrap" style="position:relative;">
+            <button class="setup-copy-btn" onclick="copySetupSQL('sql-setup-proj-07',this)">Copy</button>
+            <pre id="sql-setup-proj-07" class="setup-pre"><span class="k">CREATE TABLE</span> projects (
+  id <span class="t">INTEGER</span> <span class="k">PRIMARY KEY</span>,
+  project_name <span class="t">TEXT</span> <span class="k">NOT NULL</span>,
+  lead_id <span class="t">INTEGER</span> <span class="k">NOT NULL</span>,
+  <span class="k">FOREIGN KEY</span> (lead_id) <span class="k">REFERENCES</span> employees(id)
+);
+
+<span class="k">INSERT INTO</span> projects <span class="k">VALUES</span>
+  (1,'App Redesign',3),
+  (2,'Q3 Campaign',2),
+  (3,'Sales Drive',4),
+  (4,'Internal Tool',1);</pre>
+          </div>
+        </div>
+
+        <!-- employees -->
+        <div class="setup-card" tabindex="0">
+          <div class="setup-card-header">
+            <div class="setup-table-name">employees</div>
+            <div class="setup-cols">id &nbsp;·&nbsp; name &nbsp;·&nbsp; dept_id &nbsp;·&nbsp; salary</div>
+            <div class="setup-rows-badge">6 rows</div>
+            <div class="setup-hint">hover to reveal SQL ↓</div>
+          </div>
+          <div class="setup-sql-wrap" style="position:relative;">
+            <button class="setup-copy-btn" onclick="copySetupSQL('sql-setup-emp-07',this)">Copy</button>
+            <pre id="sql-setup-emp-07" class="setup-pre"><span class="k">CREATE TABLE</span> employees (
+  id      <span class="t">INTEGER</span> <span class="k">PRIMARY KEY</span>,
+  name    <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  dept_id <span class="t">INTEGER</span>,
+  salary  <span class="t">REAL</span>    <span class="k">NOT NULL</span>,
+  <span class="k">FOREIGN KEY</span> (dept_id) <span class="k">REFERENCES</span> departments(id)
+);
+
+<span class="k">INSERT INTO</span> employees <span class="k">VALUES</span>
+  (1,'Dana',1,9000),
+  (2,'Omar',2,7200),
+  (3,'Noa',1,6800),
+  (4,'Liam',3,5500),
+  (5,'Rina',NULL,6000),
+  (6,'Kai',2,7000);</pre>
+          </div>
+        </div>
+
+        <!-- departments -->
+        <div class="setup-card" tabindex="0">
+          <div class="setup-card-header">
+            <div class="setup-table-name">departments</div>
+            <div class="setup-cols">id &nbsp;·&nbsp; dept_name &nbsp;·&nbsp; budget</div>
+            <div class="setup-rows-badge">4 rows</div>
+            <div class="setup-hint">hover to reveal SQL ↓</div>
+          </div>
+          <div class="setup-sql-wrap" style="position:relative;">
+            <button class="setup-copy-btn" onclick="copySetupSQL('sql-setup-dept-07',this)">Copy</button>
+            <pre id="sql-setup-dept-07" class="setup-pre"><span class="k">CREATE TABLE</span> departments (
+  id        <span class="t">INTEGER</span> <span class="k">PRIMARY KEY</span>,
+  dept_name <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  budget    <span class="t">REAL</span>    <span class="k">NOT NULL</span>
+);
+
+<span class="k">INSERT INTO</span> departments <span class="k">VALUES</span>
+  (1,'Engineering',150000),
+  (2,'Marketing',80000),
+  (3,'Sales',60000),
+  (4,'HR',45000);</pre>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Example 1: 3-table join -->
+    <section class="section card reveal">
+      <h2>Example 1 — 3-Table JOIN: projects + employees + departments</h2>
+      <div class="code">
+        <div class="label">Query</div>
+        <pre><span class="k">SELECT</span>
+  p.project_name  <span class="k">AS</span> project,
+  e.name          <span class="k">AS</span> lead,
+  d.dept_name     <span class="k">AS</span> department,
+  d.budget        <span class="k">AS</span> dept_budget
+<span class="k">FROM</span>   projects p
+<span class="k">JOIN</span>   employees   e <span class="k">ON</span> p.lead_id <span class="op">=</span> e.id
+<span class="k">JOIN</span>   departments d <span class="k">ON</span> e.dept_id <span class="op">=</span> d.id;</pre>
+      </div>
+
+      <table class="table" style="margin-top:12px;">
+        <thead><tr><th>project</th><th>lead</th><th>department</th><th>dept_budget</th></tr></thead>
+        <tbody>
+          <tr class="match-row"><td>App Redesign</td><td><span class="matched-val">Noa</span></td><td>Engineering</td><td>150000</td></tr>
+          <tr class="match-row"><td>Q3 Campaign</td><td><span class="matched-val">Omar</span></td><td>Marketing</td><td>80000</td></tr>
+          <tr class="match-row"><td>Sales Drive</td><td><span class="matched-val">Liam</span></td><td>Sales</td><td>60000</td></tr>
+          <tr class="match-row"><td>Internal Tool</td><td><span class="matched-val">Dana</span></td><td>Engineering</td><td>150000</td></tr>
+        </tbody>
+      </table>
+      <p class="note">Each JOIN adds a new table. The engine first joins projects → employees, then joins the result → departments.</p>
+    </section>
+
+    <!-- Example 2: Mixed LEFT JOINs -->
+    <section class="section card reveal">
+      <h2>Example 2 — Mix of LEFT JOINs: all employees + optional dept + optional project</h2>
+      <div class="code">
+        <div class="label">Query</div>
+        <pre><span class="k">SELECT</span>
+  e.name         <span class="k">AS</span> employee,
+  d.dept_name    <span class="k">AS</span> department,
+  p.project_name <span class="k">AS</span> project_led
+<span class="k">FROM</span>   employees   e
+<span class="k">LEFT JOIN</span> departments d <span class="k">ON</span> e.dept_id <span class="op">=</span> d.id
+<span class="k">LEFT JOIN</span> projects    p <span class="k">ON</span> p.lead_id <span class="op">=</span> e.id;</pre>
+      </div>
+
+      <table class="table" style="margin-top:12px;">
+        <thead><tr><th>employee</th><th>department</th><th>project_led</th></tr></thead>
+        <tbody>
+          <tr><td>Dana</td><td>Engineering</td><td>Internal Tool</td></tr>
+          <tr><td>Omar</td><td>Marketing</td><td>Q3 Campaign</td></tr>
+          <tr><td>Noa</td><td>Engineering</td><td>App Redesign</td></tr>
+          <tr><td>Liam</td><td>Sales</td><td>Sales Drive</td></tr>
+          <tr style="background:rgba(248,113,113,0.07);">
+            <td><span class="null-match">Rina</span></td>
+            <td class="null-val">NULL</td>
+            <td class="null-val">NULL</td>
+          </tr>
+          <tr><td>Kai</td><td>Marketing</td><td class="null-val">NULL</td></tr>
+        </tbody>
+      </table>
+      <p class="note">Rina: no dept and no project — both LEFT JOINs produce NULL. Kai: in Marketing but doesn't lead any project — second LEFT JOIN produces NULL.</p>
+    </section>
+
+    <!-- Example 3: Aggregation with JOIN -->
+    <section class="section card reveal">
+      <h2>Example 3 — Aggregation: total spend per customer</h2>
+      <div class="code">
+        <div class="label">Query</div>
+        <pre><span class="k">SELECT</span>
+  c.name                              <span class="k">AS</span> customer,
+  <span class="k">SUM</span>(p.price <span class="op">*</span> o.quantity)           <span class="k">AS</span> total_spent
+<span class="k">FROM</span>   orders    o
+<span class="k">JOIN</span>   customers c <span class="k">ON</span> o.customer_id <span class="op">=</span> c.id
+<span class="k">JOIN</span>   products  p <span class="k">ON</span> o.product_id  <span class="op">=</span> p.id
+<span class="k">GROUP BY</span> c.id, c.name
+<span class="k">ORDER BY</span> total_spent <span class="k">DESC</span>;</pre>
+      </div>
+
+      <table class="table" style="margin-top:12px;">
+        <thead><tr><th>customer</th><th>total_spent</th></tr></thead>
+        <tbody>
+          <tr class="match-row"><td>Alice</td><td>79.46</td></tr>
+          <tr class="match-row"><td>Dan</td><td>75.95</td></tr>
+          <tr class="match-row"><td>Eva</td><td>69.98</td></tr>
+          <tr class="match-row"><td>Bob</td><td>139.96</td></tr>
+          <tr class="match-row"><td>Carol</td><td>69.98</td></tr>
+        </tbody>
+      </table>
+      <p class="note">Multiply <code style="color:var(--teal)">price × quantity</code> per row, then <code style="color:var(--teal)">SUM()</code> aggregates all rows per customer. <code style="color:var(--amber)">ORDER BY total_spent DESC</code> puts the top spender first.</p>
+    </section>
+
+    <!-- Tips -->
+    <section class="section card reveal">
+      <h2>Order of JOINs — Tips</h2>
+      <div class="two-col">
+        <div class="card good">
+          <h4>Good patterns</h4>
+          <ul class="simple">
+            <li>Start with the "anchor" table (most rows, central FK)</li>
+            <li>Use INNER JOIN for required relationships</li>
+            <li>Use LEFT JOIN for optional relationships</li>
+            <li>Put conditions in ON, not WHERE, for LEFT JOINs</li>
+          </ul>
+        </div>
+        <div class="card bad">
+          <h4>Common mistakes</h4>
+          <ul class="simple">
+            <li>Forgetting an ON clause (creates accidental CROSS JOIN)</li>
+            <li>Using the wrong key column in ON</li>
+            <li>Moving a LEFT JOIN's ON condition to WHERE (turns it into INNER JOIN)</li>
+            <li>1-to-many JOINs producing duplicate rows</li>
+          </ul>
+        </div>
+      </div>
+
+      <p class="note" style="margin-top:14px;">The SQL engine reorders JOINs internally for performance — the logical order you write only matters for readability and correctness of LEFT/RIGHT semantics.</p>
+    </section>
+
+    <!-- Exercise -->
+    <section class="section card reveal exercise-card" id="exercise">
+      <div class="exercise-head">
+        <div class="exercise-q">?</div>
+        <div>
+          <h2>Exercise</h2>
+          <p class="exercise-sub">Practice 3-table JOINs with customers, orders, and products</p>
+        </div>
+      </div>
+
+      <div class="setup-grid" style="margin-bottom:24px;">
+
+        <!-- customers -->
+        <div class="setup-card" tabindex="0">
+          <div class="setup-card-header">
+            <div class="setup-table-name">customers</div>
+            <div class="setup-cols">id &nbsp;·&nbsp; name &nbsp;·&nbsp; email</div>
+            <div class="setup-rows-badge">6 rows</div>
+            <div class="setup-hint">hover to reveal SQL ↓</div>
+          </div>
+          <div class="setup-sql-wrap" style="position:relative;">
+            <button class="setup-copy-btn" onclick="copySetupSQL('sql-ex-customers',this)">Copy</button>
+            <pre id="sql-ex-customers" class="setup-pre"><span class="k">CREATE TABLE</span> customers (
+  id    <span class="t">INTEGER</span> <span class="k">PRIMARY KEY</span>,
+  name  <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  email <span class="t">TEXT</span>    <span class="k">NOT NULL</span>
+);
+
+<span class="k">INSERT INTO</span> customers <span class="k">VALUES</span>
+  (1,'Alice','alice@mail.com'),
+  (2,'Bob','bob@mail.com'),
+  (3,'Carol','carol@mail.com'),
+  (4,'Dan','dan@mail.com'),
+  (5,'Eva','eva@mail.com'),
+  (6,'Frank','frank@mail.com');</pre>
+          </div>
+        </div>
+
+        <!-- orders -->
+        <div class="setup-card" tabindex="0">
+          <div class="setup-card-header">
+            <div class="setup-table-name">orders</div>
+            <div class="setup-cols">id &nbsp;·&nbsp; customer_id &nbsp;·&nbsp; product_id &nbsp;·&nbsp; quantity &nbsp;·&nbsp; order_date</div>
+            <div class="setup-rows-badge">9 rows</div>
+            <div class="setup-hint">hover to reveal SQL ↓</div>
+          </div>
+          <div class="setup-sql-wrap" style="position:relative;">
+            <button class="setup-copy-btn" onclick="copySetupSQL('sql-ex-orders',this)">Copy</button>
+            <pre id="sql-ex-orders" class="setup-pre"><span class="k">CREATE TABLE</span> orders (
+  id          <span class="t">INTEGER</span> <span class="k">PRIMARY KEY</span>,
+  customer_id <span class="t">INTEGER</span> <span class="k">NOT NULL</span>,
+  product_id  <span class="t">INTEGER</span> <span class="k">NOT NULL</span>,
+  quantity    <span class="t">INTEGER</span> <span class="k">NOT NULL</span>,
+  order_date  <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  <span class="k">FOREIGN KEY</span> (customer_id) <span class="k">REFERENCES</span> customers(id),
+  <span class="k">FOREIGN KEY</span> (product_id)  <span class="k">REFERENCES</span> products(id)
+);
+
+<span class="k">INSERT INTO</span> orders <span class="k">VALUES</span>
+  (1,1,3,2,'2024-01-05'),
+  (2,1,7,1,'2024-01-18'),
+  (3,2,1,3,'2024-02-02'),
+  (4,2,10,1,'2024-02-14'),
+  (5,3,5,2,'2024-03-01'),
+  (6,4,2,1,'2024-03-15'),
+  (7,4,8,4,'2024-03-22'),
+  (8,1,4,1,'2024-04-10'),
+  (9,5,6,2,'2024-04-18');</pre>
+          </div>
+        </div>
+
+        <!-- products -->
+        <div class="setup-card" tabindex="0">
+          <div class="setup-card-header">
+            <div class="setup-table-name">products</div>
+            <div class="setup-cols">id &nbsp;·&nbsp; product_name &nbsp;·&nbsp; price &nbsp;·&nbsp; category</div>
+            <div class="setup-rows-badge">11 rows</div>
+            <div class="setup-hint">hover to reveal SQL ↓</div>
+          </div>
+          <div class="setup-sql-wrap" style="position:relative;">
+            <button class="setup-copy-btn" onclick="copySetupSQL('sql-ex-products',this)">Copy</button>
+            <pre id="sql-ex-products" class="setup-pre"><span class="k">CREATE TABLE</span> products (
+  id <span class="t">INTEGER</span> <span class="k">PRIMARY KEY</span>,
+  product_name <span class="t">TEXT</span> <span class="k">NOT NULL</span>,
+  price <span class="t">REAL</span> <span class="k">NOT NULL</span>,
+  category <span class="t">TEXT</span> <span class="k">NOT NULL</span>
+);
+
+<span class="k">INSERT INTO</span> products <span class="k">VALUES</span>
+  (1,'Wireless Mouse',29.99,'Electronics'),
+  (2,'USB-C Hub',49.99,'Electronics'),
+  (3,'Notebook',5.99,'Stationery'),
+  (4,'Gel Pen Set',8.49,'Stationery'),
+  (5,'Desk Lamp',34.99,'Furniture'),
+  (6,'Whiteboard',59.99,'Furniture'),
+  (7,'Coffee Mug',12.99,'Kitchen'),
+  (8,'Water Bottle',18.99,'Kitchen'),
+  (9,'Backpack',74.99,'Bags'),
+  (10,'Tote Bag',22.99,'Bags'),
+  (11,'Keyboard',89.99,'Electronics');</pre>
+          </div>
+        </div>
+
+      </div>
+
+      <ol class="exercise-steps">
+        <li>List all orders with the customer's name and product name (3-table JOIN: orders + customers + products)</li>
+        <li>Show only orders for Electronics products — include customer name, product name, and price</li>
+        <li>Find all customers and any orders they have placed — show NULL for customers with no orders</li>
+        <li>Count how many orders each product has received (JOIN orders + products, GROUP BY product_name)</li>
+        <li>Find the customer who made the highest total purchase (SUM price × quantity, ORDER BY + LIMIT 1)</li>
+      </ol>
+    </section>
+
+    <div class="lesson-nav reveal">
+      <a class="btn" href="06-self-join.html">← Self-Join</a>
+      <a class="btn primary" href="index.html">← Back to Lesson 5 home</a>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+    function copySetupSQL(id, btn) {
+      const text = document.getElementById(id).innerText;
+      navigator.clipboard.writeText(text).then(() => {
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = 'Copy';
+          btn.classList.remove('copied');
+        }, 1800);
+      });
+    }
+  </script>
+</body>
+</html>
