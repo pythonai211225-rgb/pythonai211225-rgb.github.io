@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SQL Lesson 5 - Alter + Join Solutions</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='white'/><text x='32' y='45' text-anchor='middle' font-family='Arial, sans-serif' font-size='42' font-weight='700' fill='%232dd4bf'>db</text></svg>">
+  <style>
+    :root {
+      --bg-soft:   #ffffff;
+      --teal-1:    #0e5a52;
+      --teal-2:    #1a9e8f;
+      --teal-3:    #d2f6f2;
+      --mint:      #e6fffc;
+      --text:      #0f2622;
+      --muted:     #3d7a72;
+      --border:    #9adcd4;
+      --code-bg:   #07201d;
+      --code-text: #cef9f3;
+      --accent-a:  #d9fdf7;
+      --accent-b:  #e8fff8;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Trebuchet MS", "Lucida Sans", "Segoe UI", sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at 15% 10%, #ddfff8 0%, transparent 35%),
+                  radial-gradient(circle at 85% 18%, #e8fff3 0%, transparent 36%),
+                  linear-gradient(180deg, #f0fffb 0%, #ffffff 45%, #e8fff9 100%);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      width: 240px; height: 240px;
+      z-index: -1;
+      border-radius: 999px;
+      filter: blur(2px);
+      opacity: 0.35;
+      animation: blobMove 8s ease-in-out infinite alternate;
+    }
+    body::before { background: #9ef5eb; top: -30px; left: -40px; }
+    body::after  { background: #b8ffe0; bottom: -40px; right: -40px; animation-delay: 1.4s; }
+
+    .wrap {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .side-nav {
+      position: sticky;
+      top: 14px;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 8px 22px rgba(14, 90, 82, 0.1);
+      padding: 12px;
+    }
+
+    .side-title {
+      margin: 0 0 8px;
+      font-size: 0.9rem;
+      color: var(--teal-1);
+      font-weight: 700;
+    }
+
+    .topic-link {
+      display: block;
+      width: 100%;
+      text-align: left;
+      border: 1px solid transparent;
+      border-radius: 9px;
+      padding: 8px 10px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.89rem;
+      text-transform: lowercase;
+      margin-bottom: 6px;
+      transition: all 0.2s ease;
+    }
+    .topic-link:hover {
+      background: #f0fffb;
+      color: var(--teal-1);
+      border-color: var(--border);
+    }
+    .topic-link.active {
+      background: #d8faf5;
+      color: var(--teal-1);
+      border-color: var(--teal-2);
+      font-weight: 700;
+    }
+
+    .side-divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 10px 0;
+    }
+
+    .side-section-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--teal-2);
+      padding: 4px 4px 6px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, var(--bg-soft) 0%, var(--accent-a) 55%, var(--accent-b) 100%);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow: 0 12px 30px rgba(14, 110, 100, 0.12);
+      margin-bottom: 22px;
+      animation: riseIn 0.75s ease both;
+    }
+
+    h1, h2, h3 { margin-top: 0; color: var(--teal-1); }
+    h1 { font-size: 2rem; margin-bottom: 8px; letter-spacing: 0.2px; }
+
+    .tag {
+      display: inline-block;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      background: var(--teal-3);
+      color: var(--teal-1);
+      border: 1px solid var(--border);
+      margin-bottom: 10px;
+    }
+
+    .card {
+      background: var(--bg-soft);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 16px;
+      box-shadow: 0 7px 22px rgba(14, 90, 82, 0.08);
+      animation: riseIn 0.65s ease both;
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 13px 28px rgba(14, 90, 82, 0.15);
+    }
+
+    .topic-panel { display: none; }
+    .topic-panel.active { display: block; }
+
+    .code {
+      background: var(--code-bg);
+      color: var(--code-text);
+      border-radius: 10px;
+      border: 1px solid #1e5c54;
+      padding: 14px;
+      overflow-x: auto;
+      margin: 10px 0 12px;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.94rem;
+      white-space: pre;
+    }
+    .code .k  { color: #5eead4; font-weight: 700; }
+    .code .t  { color: #c084fc; }
+    .code .c  { color: #6b7280; font-style: italic; }
+    .code .s  { color: #6ee7b7; }
+    .code .n  { color: #fb923c; }
+
+    .note {
+      background: var(--mint);
+      border-left: 4px solid var(--teal-2);
+      padding: 10px 12px;
+      color: var(--muted);
+      margin: 8px 0 10px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      font-size: 0.93rem;
+      margin: 10px 0;
+    }
+    th, td { border-bottom: 1px solid #ccf0eb; padding: 10px; text-align: left; vertical-align: top; }
+    th { background: #d2faf5; color: #0b4b44; }
+    tr:last-child td { border-bottom: none; }
+
+    .big-result { font-size: 1.1rem; margin: 8px 0 10px; color: var(--teal-1); font-weight: 800; }
+
+    .exercise-card {
+      border: 1px solid #f5d68b;
+      background: linear-gradient(140deg, #fffdf7 0%, #fff9eb 100%);
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 20px;
+    }
+    .exercise-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    .exercise-q {
+      width: 52px; height: 52px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-size: 1.9rem;
+      font-weight: 800;
+      color: #92400e;
+      background: radial-gradient(circle at 30% 30%, #fde68a 0%, #fbbf24 100%);
+      border: 2px solid #f59e0b;
+      box-shadow: 0 6px 14px rgba(245,158,11,.25);
+      flex-shrink: 0;
+    }
+    .exercise-head h2 { margin: 0 0 4px; color: var(--teal-1); font-size: 1.1rem; }
+    .exercise-sub  { color: #7c2d12; font-weight: 700; font-size: .95rem; margin: 0; }
+    .exercise-steps {
+      margin: 8px 0 10px;
+      padding-left: 18px;
+    }
+    .exercise-steps li { color: #374151; margin-bottom: 5px; }
+
+    .qa-divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 20px 0 16px;
+      font-size: .75rem;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--teal-2);
+    }
+    .qa-divider::before, .qa-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .solution-card {
+      background: linear-gradient(135deg, #ffffff 0%, #d9fdf7 100%);
+      border: 2px solid var(--teal-2);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 16px;
+      animation: riseIn 0.7s ease both;
+    }
+    .solution-head {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+    .solution-badge {
+      width: 42px; height: 42px;
+      border-radius: 10px;
+      background: var(--teal-2);
+      color: #fff;
+      font-weight: 900;
+      font-size: 1.1rem;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+
+    .nav-back {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--teal-2);
+      background: #d8faf5;
+      color: var(--teal-1);
+      text-decoration: none;
+      font-weight: 700;
+      transition: all 0.2s ease;
+      width: 100%;
+      text-align: center;
+    }
+    .nav-back:hover { background: #bff5ec; transform: translateY(-1px); }
+
+    .hw-card {
+      background: linear-gradient(135deg, #ffffff 0%, #dcfbf4 100%);
+      border: 2px solid var(--teal-2);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 18px;
+    }
+
+    @keyframes riseIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes blobMove {
+      from { transform: translate(0, 0) scale(1); }
+      to   { transform: translate(24px, 18px) scale(1.06); }
+    }
+
+    @media (max-width: 760px) {
+      .wrap { padding: 14px; }
+      .layout { grid-template-columns: 1fr; }
+      .side-nav { position: static; }
+      h1 { font-size: 1.6rem; }
+      .code { font-size: 0.86rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+
+    <section class="hero">
+      <span class="tag">Lesson 5 - May 3, 2026</span>
+      <h1>Alter + Join - Exercise Solutions</h1>
+      <p>Built from the exercises in ALTER TABLE, Advanced Aggregates, INNER JOIN, and LEFT JOIN. Advanced Aggregates includes only questions 1 to 3.</p>
+    </section>
+
+    <div class="layout">
+
+      <aside class="side-nav" aria-label="Topic navigation">
+        <h2 class="side-title">Exercise Solutions</h2>
+        <button class="topic-link active" data-target="t-sol-1">1) alter table</button>
+        <button class="topic-link" data-target="t-sol-2">2) advanced agg (q1-3)</button>
+        <button class="topic-link" data-target="t-sol-3">3) inner join</button>
+        <button class="topic-link" data-target="t-sol-4">4) left join</button>
+
+        <hr class="side-divider">
+        <div class="side-section-label">Practice</div>
+        <button class="topic-link" data-target="t-hw">source pages</button>
+
+        <a class="nav-back" href="../../index.html"><- back to sql module</a>
+      </aside>
+
+      <main>
+
+        <section class="topic-panel active" id="t-sol-1">
+          <div class="exercise-card">
+            <div class="exercise-head">
+              <div class="exercise-q">?</div>
+              <div>
+                <h2>Exercise</h2>
+                <p class="exercise-sub">Modify the sales table</p>
+              </div>
+            </div>
+            <ol class="exercise-steps">
+              <li>Add a TEXT column called tier, then fill it: high where amount > 1000, low otherwise</li>
+              <li>Add a REAL column tax with DEFAULT 0, then update tax to amount * 0.07 where amount IS NOT NULL</li>
+              <li>Rename sales to sales_backup, then rename back to sales</li>
+              <li>Rename product column to item</li>
+              <li>Drop tier, then run PRAGMA table_info(sales)</li>
+            </ol>
+          </div>
+
+          <div class="qa-divider">Solution</div>
+
+          <div class="solution-card">
+            <div class="solution-head">
+              <div class="solution-badge">1</div>
+              <div><h2 style="margin:0">Solution - ALTER TABLE</h2></div>
+            </div>
+
+            <h3>Setup - sales table</h3>
+            <div class="code"><span class="k">CREATE TABLE</span> sales (
+  id        <span class="t">INTEGER</span> <span class="k">PRIMARY KEY</span>,
+  rep_name  <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  region    <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  product   <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  amount    <span class="t">REAL</span>,
+  sale_date <span class="t">TEXT</span>    <span class="k">NOT NULL</span>
+);
+
+<span class="k">INSERT INTO</span> sales (id, rep_name, region, product, amount, sale_date) <span class="k">VALUES</span>
+  (<span class="n">1</span>,  <span class="s">'Dana'</span>, <span class="s">'North'</span>, <span class="s">'Laptop'</span>, <span class="n">1200.00</span>, <span class="s">'2026-01-10'</span>),
+  (<span class="n">2</span>,  <span class="s">'Omar'</span>, <span class="s">'South'</span>, <span class="s">'Phone'</span>,  <span class="n">650.00</span>,  <span class="s">'2026-01-12'</span>),
+  (<span class="n">3</span>,  <span class="s">'Dana'</span>, <span class="s">'North'</span>, <span class="s">'Tablet'</span>, <span class="k">NULL</span>,     <span class="s">'2026-01-15'</span>),
+  (<span class="n">4</span>,  <span class="s">'Noa'</span>,  <span class="s">'East'</span>,  <span class="s">'Laptop'</span>, <span class="n">1350.00</span>, <span class="s">'2026-01-18'</span>),
+  (<span class="n">5</span>,  <span class="s">'Omar'</span>, <span class="s">'South'</span>, <span class="s">'Laptop'</span>, <span class="n">1100.00</span>, <span class="s">'2026-01-20'</span>),
+  (<span class="n">6</span>,  <span class="s">'Dana'</span>, <span class="s">'North'</span>, <span class="s">'Phone'</span>,  <span class="n">720.00</span>,  <span class="s">'2026-01-22'</span>),
+  (<span class="n">7</span>,  <span class="s">'Noa'</span>,  <span class="s">'East'</span>,  <span class="s">'Phone'</span>,  <span class="n">690.00</span>,  <span class="s">'2026-01-25'</span>),
+  (<span class="n">8</span>,  <span class="s">'Liam'</span>, <span class="s">'West'</span>,  <span class="s">'Tablet'</span>, <span class="n">480.00</span>,  <span class="s">'2026-01-28'</span>),
+  (<span class="n">9</span>,  <span class="s">'Liam'</span>, <span class="s">'West'</span>,  <span class="s">'Laptop'</span>, <span class="n">1050.00</span>, <span class="s">'2026-02-01'</span>),
+  (<span class="n">10</span>, <span class="s">'Omar'</span>, <span class="s">'South'</span>, <span class="s">'Tablet'</span>, <span class="k">NULL</span>,     <span class="s">'2026-02-03'</span>);</div>
+
+            <h3>1) Add a TEXT column called tier, then fill it: high where amount &gt; 1000, low otherwise</h3>
+            <div class="code"><span class="k">ALTER TABLE</span> sales
+<span class="k">ADD COLUMN</span> tier <span class="t">TEXT</span>;
+
+<span class="k">UPDATE</span> sales
+<span class="k">SET</span> tier =
+  <span class="k">CASE</span>
+    <span class="k">WHEN</span> amount &gt; <span class="n">1000</span> <span class="k">THEN</span> <span class="s">'high'</span>
+    <span class="k">ELSE</span> <span class="s">'low'</span>
+  <span class="k">END</span>;</div>
+
+            <h3>2) Add a REAL column tax with DEFAULT 0, then update tax to amount * 0.07 where amount IS NOT NULL</h3>
+            <div class="code"><span class="k">ALTER TABLE</span> sales
+<span class="k">ADD COLUMN</span> tax <span class="t">REAL</span> <span class="k">DEFAULT</span> <span class="n">0</span>;
+
+<span class="k">UPDATE</span> sales
+<span class="k">SET</span> tax = amount * <span class="n">0.07</span>
+<span class="k">WHERE</span> amount <span class="k">IS NOT NULL</span>;</div>
+            <p class="note">Rows with NULL amount keep tax = 0 because of DEFAULT and WHERE IS NOT NULL.</p>
+
+            <h3>3) Rename sales to sales_backup, then rename back to sales</h3>
+            <div class="code"><span class="k">ALTER TABLE</span> sales <span class="k">RENAME TO</span> sales_backup;
+<span class="k">ALTER TABLE</span> sales_backup <span class="k">RENAME TO</span> sales;</div>
+
+            <h3>4) Rename product column to item</h3>
+            <div class="code"><span class="k">ALTER TABLE</span> sales
+<span class="k">RENAME COLUMN</span> product <span class="k">TO</span> item;</div>
+
+            <h3>5) Drop tier, then run PRAGMA table_info(sales)</h3>
+            <div class="code"><span class="k">ALTER TABLE</span> sales
+<span class="k">DROP COLUMN</span> tier;
+
+<span class="k">PRAGMA</span> table_info(sales);</div>
+            <div class="big-result">Expected check: the column tier is no longer listed.</div>
+          </div>
+        </section>
+
+        <section class="topic-panel" id="t-sol-2">
+          <div class="exercise-card">
+            <div class="exercise-head">
+              <div class="exercise-q">?</div>
+              <div>
+                <h2>Exercise</h2>
+                <p class="exercise-sub">Advanced aggregation patterns (questions 1-3 only)</p>
+              </div>
+            </div>
+            <ol class="exercise-steps">
+              <li>Use COALESCE to show revenue per rep</li>
+              <li>Show average amount per product, rounded to 2 decimals, sorted highest first</li>
+              <li>For each rep show total sales, count of Phone sales, count of sales above 1000</li>
+            </ol>
+          </div>
+
+          <div class="qa-divider">Solution</div>
+
+          <div class="solution-card">
+            <div class="solution-head">
+              <div class="solution-badge">2</div>
+              <div><h2 style="margin:0">Solution - Advanced Aggregates (Q1-3)</h2></div>
+            </div>
+
+            <h3>Setup - sales table</h3>
+            <div class="code"><span class="k">CREATE TABLE</span> sales (
+  id        <span class="t">INTEGER</span> <span class="k">PRIMARY KEY</span>,
+  rep_name  <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  region    <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  product   <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  amount    <span class="t">REAL</span>,
+  sale_date <span class="t">TEXT</span>    <span class="k">NOT NULL</span>
+);
+
+<span class="k">INSERT INTO</span> sales (id, rep_name, region, product, amount, sale_date) <span class="k">VALUES</span>
+  (<span class="n">1</span>,  <span class="s">'Dana'</span>, <span class="s">'North'</span>, <span class="s">'Laptop'</span>, <span class="n">1200.00</span>, <span class="s">'2026-01-10'</span>),
+  (<span class="n">2</span>,  <span class="s">'Omar'</span>, <span class="s">'South'</span>, <span class="s">'Phone'</span>,  <span class="n">650.00</span>,  <span class="s">'2026-01-12'</span>),
+  (<span class="n">3</span>,  <span class="s">'Dana'</span>, <span class="s">'North'</span>, <span class="s">'Tablet'</span>, <span class="k">NULL</span>,     <span class="s">'2026-01-15'</span>),
+  (<span class="n">4</span>,  <span class="s">'Noa'</span>,  <span class="s">'East'</span>,  <span class="s">'Laptop'</span>, <span class="n">1350.00</span>, <span class="s">'2026-01-18'</span>),
+  (<span class="n">5</span>,  <span class="s">'Omar'</span>, <span class="s">'South'</span>, <span class="s">'Laptop'</span>, <span class="n">1100.00</span>, <span class="s">'2026-01-20'</span>),
+  (<span class="n">6</span>,  <span class="s">'Dana'</span>, <span class="s">'North'</span>, <span class="s">'Phone'</span>,  <span class="n">720.00</span>,  <span class="s">'2026-01-22'</span>),
+  (<span class="n">7</span>,  <span class="s">'Noa'</span>,  <span class="s">'East'</span>,  <span class="s">'Phone'</span>,  <span class="n">690.00</span>,  <span class="s">'2026-01-25'</span>),
+  (<span class="n">8</span>,  <span class="s">'Liam'</span>, <span class="s">'West'</span>,  <span class="s">'Tablet'</span>, <span class="n">480.00</span>,  <span class="s">'2026-01-28'</span>),
+  (<span class="n">9</span>,  <span class="s">'Liam'</span>, <span class="s">'West'</span>,  <span class="s">'Laptop'</span>, <span class="n">1050.00</span>, <span class="s">'2026-02-01'</span>),
+  (<span class="n">10</span>, <span class="s">'Omar'</span>, <span class="s">'South'</span>, <span class="s">'Tablet'</span>, <span class="k">NULL</span>,     <span class="s">'2026-02-03'</span>);</div>
+
+            <h3>1) Use COALESCE to show revenue per rep</h3>
+            <div class="code"><span class="k">SELECT</span>
+  rep_name,
+  <span class="k">COALESCE</span>(<span class="k">SUM</span>(amount), <span class="n">0</span>) <span class="k">AS</span> revenue
+<span class="k">FROM</span> sales
+<span class="k">GROUP BY</span> rep_name
+<span class="k">ORDER BY</span> revenue <span class="k">DESC</span>;</div>
+            <table>
+              <thead><tr><th>rep_name</th><th>revenue</th></tr></thead>
+              <tbody>
+                <tr><td>Noa</td><td>2040.00</td></tr>
+                <tr><td>Dana</td><td>1920.00</td></tr>
+                <tr><td>Omar</td><td>1750.00</td></tr>
+                <tr><td>Liam</td><td>1530.00</td></tr>
+              </tbody>
+            </table>
+
+            <h3>2) Show average amount per product, rounded to 2 decimals, sorted highest first</h3>
+            <div class="code"><span class="k">SELECT</span>
+  product,
+  <span class="k">ROUND</span>(<span class="k">AVG</span>(amount), <span class="n">2</span>) <span class="k">AS</span> avg_amount
+<span class="k">FROM</span> sales
+<span class="k">GROUP BY</span> product
+<span class="k">ORDER BY</span> avg_amount <span class="k">DESC</span>;</div>
+            <table>
+              <thead><tr><th>product</th><th>avg_amount</th></tr></thead>
+              <tbody>
+                <tr><td>Laptop</td><td>1175.00</td></tr>
+                <tr><td>Phone</td><td>686.67</td></tr>
+                <tr><td>Tablet</td><td>480.00</td></tr>
+              </tbody>
+            </table>
+
+            <h3>3) For each rep show total sales, count of Phone sales, count of sales above 1000</h3>
+            <div class="code"><span class="k">SELECT</span>
+  rep_name,
+  <span class="k">COUNT</span>(*) <span class="k">AS</span> total_sales,
+  <span class="k">COUNT</span>(<span class="k">CASE WHEN</span> product = <span class="s">'Phone'</span> <span class="k">THEN</span> <span class="n">1</span> <span class="k">END</span>) <span class="k">AS</span> phone_sales,
+  <span class="k">COUNT</span>(<span class="k">CASE WHEN</span> amount &gt; <span class="n">1000</span> <span class="k">THEN</span> <span class="n">1</span> <span class="k">END</span>) <span class="k">AS</span> big_sales
+<span class="k">FROM</span> sales
+<span class="k">GROUP BY</span> rep_name
+<span class="k">ORDER BY</span> rep_name;</div>
+            <table>
+              <thead><tr><th>rep_name</th><th>total_sales</th><th>phone_sales</th><th>big_sales</th></tr></thead>
+              <tbody>
+                <tr><td>Dana</td><td>3</td><td>1</td><td>1</td></tr>
+                <tr><td>Liam</td><td>2</td><td>0</td><td>1</td></tr>
+                <tr><td>Noa</td><td>2</td><td>1</td><td>1</td></tr>
+                <tr><td>Omar</td><td>3</td><td>1</td><td>1</td></tr>
+              </tbody>
+            </table>
+            <p class="note">Questions 4 and 5 from the original page were intentionally skipped.</p>
+          </div>
+        </section>
+
+        <section class="topic-panel" id="t-sol-3">
+          <div class="exercise-card">
+            <div class="exercise-head">
+              <div class="exercise-q">?</div>
+              <div>
+                <h2>Exercise</h2>
+                <p class="exercise-sub">Practice INNER JOIN with employees and departments</p>
+              </div>
+            </div>
+            <ol class="exercise-steps">
+              <li>Show each employee name with department name (sorted by employee name)</li>
+              <li>Show employees in departments with budget above 70,000</li>
+              <li>Show average salary per department name</li>
+              <li>Count employees in each department, sorted highest first</li>
+            </ol>
+          </div>
+
+          <div class="qa-divider">Solution</div>
+
+          <div class="solution-card">
+            <div class="solution-head">
+              <div class="solution-badge">3</div>
+              <div><h2 style="margin:0">Solution - INNER JOIN</h2></div>
+            </div>
+
+            <h3>Setup used in the JOIN lessons</h3>
+            <div class="code"><span class="k">CREATE TABLE</span> departments (
+  id <span class="t">INTEGER</span> <span class="k">PRIMARY KEY</span>,
+  dept_name <span class="t">TEXT</span> <span class="k">NOT NULL</span>,
+  budget <span class="t">REAL</span> <span class="k">NOT NULL</span>
+);
+
+<span class="k">INSERT INTO</span> departments <span class="k">VALUES</span>
+  (<span class="n">1</span>,<span class="s">'Engineering'</span>,<span class="n">150000</span>),
+  (<span class="n">2</span>,<span class="s">'Marketing'</span>,<span class="n">80000</span>),
+  (<span class="n">3</span>,<span class="s">'Sales'</span>,<span class="n">60000</span>),
+  (<span class="n">4</span>,<span class="s">'HR'</span>,<span class="n">45000</span>);
+
+<span class="k">CREATE TABLE</span> employees (
+  id <span class="t">INTEGER</span> <span class="k">PRIMARY KEY</span>,
+  name <span class="t">TEXT</span> <span class="k">NOT NULL</span>,
+  dept_id <span class="t">INTEGER</span>,
+  salary <span class="t">REAL</span> <span class="k">NOT NULL</span>
+);
+
+<span class="k">INSERT INTO</span> employees <span class="k">VALUES</span>
+  (<span class="n">1</span>,<span class="s">'Dana'</span>,<span class="n">1</span>,<span class="n">9000</span>),
+  (<span class="n">2</span>,<span class="s">'Omar'</span>,<span class="n">2</span>,<span class="n">7200</span>),
+  (<span class="n">3</span>,<span class="s">'Noa'</span>,<span class="n">1</span>,<span class="n">6800</span>),
+  (<span class="n">4</span>,<span class="s">'Liam'</span>,<span class="n">3</span>,<span class="n">5500</span>),
+  (<span class="n">5</span>,<span class="s">'Rina'</span>,<span class="k">NULL</span>,<span class="n">6000</span>),
+  (<span class="n">6</span>,<span class="s">'Kai'</span>,<span class="n">2</span>,<span class="n">7000</span>);</div>
+
+            <h3>1) Show each employee name with department name (sorted by employee name)</h3>
+            <div class="code"><span class="k">SELECT</span> e.name, d.dept_name
+<span class="k">FROM</span> employees e
+<span class="k">INNER JOIN</span> departments d <span class="k">ON</span> e.dept_id = d.id
+<span class="k">ORDER BY</span> e.name;</div>
+            <table>
+              <thead><tr><th>name</th><th>dept_name</th></tr></thead>
+              <tbody>
+                <tr><td>Dana</td><td>Engineering</td></tr>
+                <tr><td>Kai</td><td>Marketing</td></tr>
+                <tr><td>Liam</td><td>Sales</td></tr>
+                <tr><td>Noa</td><td>Engineering</td></tr>
+                <tr><td>Omar</td><td>Marketing</td></tr>
+              </tbody>
+            </table>
+
+            <h3>2) Show employees in departments with budget above 70,000</h3>
+            <div class="code"><span class="k">SELECT</span> e.name, d.dept_name, d.budget
+<span class="k">FROM</span> employees e
+<span class="k">INNER JOIN</span> departments d <span class="k">ON</span> e.dept_id = d.id
+<span class="k">WHERE</span> d.budget &gt; <span class="n">70000</span>
+<span class="k">ORDER BY</span> e.name;</div>
+
+            <h3>3) Show average salary per department name</h3>
+            <div class="code"><span class="k">SELECT</span> d.dept_name, <span class="k">ROUND</span>(<span class="k">AVG</span>(e.salary), <span class="n">2</span>) <span class="k">AS</span> avg_salary
+<span class="k">FROM</span> employees e
+<span class="k">INNER JOIN</span> departments d <span class="k">ON</span> e.dept_id = d.id
+<span class="k">GROUP BY</span> d.dept_name
+<span class="k">ORDER BY</span> d.dept_name;</div>
+            <table>
+              <thead><tr><th>dept_name</th><th>avg_salary</th></tr></thead>
+              <tbody>
+                <tr><td>Engineering</td><td>7900.00</td></tr>
+                <tr><td>Marketing</td><td>7100.00</td></tr>
+                <tr><td>Sales</td><td>5500.00</td></tr>
+              </tbody>
+            </table>
+
+            <h3>4) Count employees in each department, sorted highest first</h3>
+            <div class="code"><span class="k">SELECT</span> d.dept_name, <span class="k">COUNT</span>(*) <span class="k">AS</span> employee_count
+<span class="k">FROM</span> employees e
+<span class="k">INNER JOIN</span> departments d <span class="k">ON</span> e.dept_id = d.id
+<span class="k">GROUP BY</span> d.dept_name
+<span class="k">ORDER BY</span> employee_count <span class="k">DESC</span>, d.dept_name;</div>
+            <table>
+              <thead><tr><th>dept_name</th><th>employee_count</th></tr></thead>
+              <tbody>
+                <tr><td>Engineering</td><td>2</td></tr>
+                <tr><td>Marketing</td><td>2</td></tr>
+                <tr><td>Sales</td><td>1</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="topic-panel" id="t-sol-4">
+          <div class="exercise-card">
+            <div class="exercise-head">
+              <div class="exercise-q">?</div>
+              <div>
+                <h2>Exercise</h2>
+                <p class="exercise-sub">Practice LEFT JOIN</p>
+              </div>
+            </div>
+            <ol class="exercise-steps">
+              <li>Show all drivers with their car model (NULL if no car)</li>
+              <li>Find drivers who have no car</li>
+              <li>Show cars that have no driver ownership</li>
+              <li>Show all departments with employee count, including 0 employees</li>
+              <li>Use COALESCE to replace NULL budget with 0 for employees with no department</li>
+            </ol>
+          </div>
+
+          <div class="qa-divider">Solution</div>
+
+          <div class="solution-card">
+            <div class="solution-head">
+              <div class="solution-badge">4</div>
+              <div><h2 style="margin:0">Solution - LEFT JOIN</h2></div>
+            </div>
+
+            <h3>Drivers/Cars setup for Q1-Q3</h3>
+            <div class="code"><span class="k">CREATE TABLE</span> drivers (
+  id <span class="t">INTEGER</span> <span class="k">PRIMARY KEY</span>,
+  name <span class="t">TEXT</span> <span class="k">NOT NULL</span>,
+  car_id <span class="t">INTEGER</span>
+);
+
+<span class="k">INSERT INTO</span> drivers <span class="k">VALUES</span>
+  (<span class="n">1</span>,<span class="s">'Dana'</span>,<span class="n">1</span>),
+  (<span class="n">2</span>,<span class="s">'Omar'</span>,<span class="n">2</span>),
+  (<span class="n">3</span>,<span class="s">'Noa'</span>,<span class="k">NULL</span>),
+  (<span class="n">4</span>,<span class="s">'Liam'</span>,<span class="n">3</span>),
+  (<span class="n">5</span>,<span class="s">'Rina'</span>,<span class="k">NULL</span>);
+
+<span class="k">CREATE TABLE</span> cars (
+  id <span class="t">INTEGER</span> <span class="k">PRIMARY KEY</span>,
+  model <span class="t">TEXT</span> <span class="k">NOT NULL</span>,
+  price <span class="t">REAL</span> <span class="k">NOT NULL</span>
+);
+
+<span class="k">INSERT INTO</span> cars <span class="k">VALUES</span>
+  (<span class="n">1</span>,<span class="s">'Toyota Corolla'</span>,<span class="n">22000</span>),
+  (<span class="n">2</span>,<span class="s">'Honda Civic'</span>,<span class="n">24000</span>),
+  (<span class="n">3</span>,<span class="s">'Ford Focus'</span>,<span class="n">19000</span>),
+  (<span class="n">4</span>,<span class="s">'Tesla Model 3'</span>,<span class="n">42000</span>);</div>
+
+            <h3>1) Show all drivers with their car model (NULL if no car)</h3>
+            <div class="code"><span class="k">SELECT</span> d.name, c.model
+<span class="k">FROM</span> drivers d
+<span class="k">LEFT JOIN</span> cars c <span class="k">ON</span> d.car_id = c.id
+<span class="k">ORDER BY</span> d.name;</div>
+            <table>
+              <thead><tr><th>name</th><th>model</th></tr></thead>
+              <tbody>
+                <tr><td>Dana</td><td>Toyota Corolla</td></tr>
+                <tr><td>Liam</td><td>Ford Focus</td></tr>
+                <tr><td>Noa</td><td>NULL</td></tr>
+                <tr><td>Omar</td><td>Honda Civic</td></tr>
+                <tr><td>Rina</td><td>NULL</td></tr>
+              </tbody>
+            </table>
+
+            <h3>2) Find drivers who have no car</h3>
+            <div class="code"><span class="k">SELECT</span> d.name
+<span class="k">FROM</span> drivers d
+<span class="k">LEFT JOIN</span> cars c <span class="k">ON</span> d.car_id = c.id
+<span class="k">WHERE</span> c.id <span class="k">IS NULL</span>;</div>
+            <div class="big-result">Result: Noa, Rina</div>
+
+            <h3>3) Show cars that have no driver ownership</h3>
+            <div class="code"><span class="k">SELECT</span> c.model
+<span class="k">FROM</span> cars c
+<span class="k">LEFT JOIN</span> drivers d <span class="k">ON</span> d.car_id = c.id
+<span class="k">WHERE</span> d.id <span class="k">IS NULL</span>;</div>
+            <div class="big-result">Result: Tesla Model 3</div>
+
+            <h3>4) Show all departments with employee count, including 0 employees</h3>
+            <div class="code"><span class="k">SELECT</span> d.dept_name, <span class="k">COUNT</span>(e.id) <span class="k">AS</span> employee_count
+<span class="k">FROM</span> departments d
+<span class="k">LEFT JOIN</span> employees e <span class="k">ON</span> e.dept_id = d.id
+<span class="k">GROUP BY</span> d.dept_name
+<span class="k">ORDER BY</span> employee_count <span class="k">DESC</span>, d.dept_name;</div>
+            <table>
+              <thead><tr><th>dept_name</th><th>employee_count</th></tr></thead>
+              <tbody>
+                <tr><td>Engineering</td><td>2</td></tr>
+                <tr><td>Marketing</td><td>2</td></tr>
+                <tr><td>Sales</td><td>1</td></tr>
+                <tr><td>HR</td><td>0</td></tr>
+              </tbody>
+            </table>
+
+            <h3>5) Use COALESCE to replace NULL budget with 0 for employees with no department</h3>
+            <div class="code"><span class="k">SELECT</span>
+  e.name,
+  <span class="k">COALESCE</span>(d.budget, <span class="n">0</span>) <span class="k">AS</span> budget_or_zero
+<span class="k">FROM</span> employees e
+<span class="k">LEFT JOIN</span> departments d <span class="k">ON</span> e.dept_id = d.id
+<span class="k">ORDER BY</span> e.name;</div>
+            <p class="note">Rina has no department, so her budget_or_zero is 0 instead of NULL.</p>
+          </div>
+        </section>
+
+        <section class="topic-panel" id="t-hw">
+          <div class="hw-card">
+            <h3>Exercise</h3>
+            <ul style="padding-left:18px;margin-top:10px;">
+              <li style="margin-bottom:10px;"><a href="../../05_join/04-full-outer-join.html#exercise" style="color:var(--teal-2);font-weight:700;">05_join/04-full-outer-join.html</a></li>
+            </ul>
+            <div class="note" style="margin-top:12px;">
+              <strong>Submit:</strong> your SQL script as a .sql text file &nbsp;|&nbsp;
+              <strong>Email:</strong> pythonai211225+sql5@gmail.com
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <script>
+    const links  = document.querySelectorAll('.topic-link');
+    const panels = document.querySelectorAll('.topic-panel');
+
+    function showTopic(id) {
+      panels.forEach(p => p.classList.toggle('active', p.id === id));
+      links.forEach(l  => l.classList.toggle('active', l.dataset.target === id));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    links.forEach(link => {
+      link.addEventListener('click', () => {
+        const targetId = link.dataset.target;
+        showTopic(targetId);
+        location.hash = targetId;
+      });
+    });
+
+    function applyHashTopic() {
+      const hash = location.hash.replace('#', '');
+      if (!hash) return;
+      if (document.getElementById(hash)) showTopic(hash);
+    }
+
+    applyHashTopic();
+    window.addEventListener('hashchange', applyHashTopic);
+  </script>
+</body>
+</html>
