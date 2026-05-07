@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SQL Lesson 6 - Full Outer Join + Cross Join Solutions</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='white'/><text x='32' y='45' text-anchor='middle' font-family='Arial, sans-serif' font-size='42' font-weight='700' fill='%232dd4bf'>db</text></svg>">
+  <style>
+    :root {
+      --bg-soft:   #ffffff;
+      --teal-1:    #0e5a52;
+      --teal-2:    #1a9e8f;
+      --teal-3:    #d2f6f2;
+      --mint:      #e6fffc;
+      --text:      #0f2622;
+      --muted:     #3d7a72;
+      --border:    #9adcd4;
+      --code-bg:   #07201d;
+      --code-text: #cef9f3;
+      --accent-a:  #d9fdf7;
+      --accent-b:  #e8fff8;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Trebuchet MS", "Lucida Sans", "Segoe UI", sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at 15% 10%, #ddfff8 0%, transparent 35%),
+                  radial-gradient(circle at 85% 18%, #e8fff3 0%, transparent 36%),
+                  linear-gradient(180deg, #f0fffb 0%, #ffffff 45%, #e8fff9 100%);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      width: 240px; height: 240px;
+      z-index: -1;
+      border-radius: 999px;
+      filter: blur(2px);
+      opacity: 0.35;
+      animation: blobMove 8s ease-in-out infinite alternate;
+    }
+    body::before { background: #9ef5eb; top: -30px; left: -40px; }
+    body::after  { background: #b8ffe0; bottom: -40px; right: -40px; animation-delay: 1.4s; }
+
+    .wrap {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .side-nav {
+      position: sticky;
+      top: 14px;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 8px 22px rgba(14, 90, 82, 0.1);
+      padding: 12px;
+    }
+
+    .side-title {
+      margin: 0 0 8px;
+      font-size: 0.9rem;
+      color: var(--teal-1);
+      font-weight: 700;
+    }
+
+    .topic-link {
+      display: block;
+      width: 100%;
+      text-align: left;
+      border: 1px solid transparent;
+      border-radius: 9px;
+      padding: 8px 10px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.89rem;
+      text-transform: lowercase;
+      margin-bottom: 6px;
+      transition: all 0.2s ease;
+    }
+    .topic-link:hover {
+      background: #f0fffb;
+      color: var(--teal-1);
+      border-color: var(--border);
+    }
+    .topic-link.active {
+      background: #d8faf5;
+      color: var(--teal-1);
+      border-color: var(--teal-2);
+      font-weight: 700;
+    }
+
+    .side-divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 10px 0;
+    }
+
+    .side-section-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--teal-2);
+      padding: 4px 4px 6px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, var(--bg-soft) 0%, var(--accent-a) 55%, var(--accent-b) 100%);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow: 0 12px 30px rgba(14, 110, 100, 0.12);
+      margin-bottom: 22px;
+      animation: riseIn 0.75s ease both;
+    }
+
+    h1, h2, h3 { margin-top: 0; color: var(--teal-1); }
+    h1 { font-size: 2rem; margin-bottom: 8px; letter-spacing: 0.2px; }
+
+    .tag {
+      display: inline-block;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      background: var(--teal-3);
+      color: var(--teal-1);
+      border: 1px solid var(--border);
+      margin-bottom: 10px;
+    }
+
+    .card {
+      background: var(--bg-soft);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 16px;
+      box-shadow: 0 7px 22px rgba(14, 90, 82, 0.08);
+      animation: riseIn 0.65s ease both;
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 13px 28px rgba(14, 90, 82, 0.15);
+    }
+
+    .topic-panel { display: none; }
+    .topic-panel.active { display: block; }
+
+    .code {
+      background: var(--code-bg);
+      color: var(--code-text);
+      border-radius: 10px;
+      border: 1px solid #1e5c54;
+      padding: 14px;
+      overflow-x: auto;
+      margin: 10px 0 12px;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.94rem;
+      white-space: pre;
+    }
+    .code .k  { color: #5eead4; font-weight: 700; }
+    .code .t  { color: #c084fc; }
+    .code .c  { color: #6b7280; font-style: italic; }
+    .code .s  { color: #6ee7b7; }
+    .code .n  { color: #fb923c; }
+
+    .note {
+      background: var(--mint);
+      border-left: 4px solid var(--teal-2);
+      padding: 10px 12px;
+      color: var(--muted);
+      margin: 8px 0 10px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      font-size: 0.93rem;
+      margin: 10px 0;
+    }
+    th, td { border-bottom: 1px solid #ccf0eb; padding: 10px; text-align: left; vertical-align: top; }
+    th { background: #d2faf5; color: #0b4b44; }
+    tr:last-child td { border-bottom: none; }
+
+    .big-result { font-size: 1.1rem; margin: 8px 0 10px; color: var(--teal-1); font-weight: 800; }
+
+    .exercise-card {
+      border: 1px solid #f5d68b;
+      background: linear-gradient(140deg, #fffdf7 0%, #fff9eb 100%);
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 20px;
+    }
+    .exercise-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    .exercise-q {
+      width: 52px; height: 52px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-size: 1.9rem;
+      font-weight: 800;
+      color: #92400e;
+      background: radial-gradient(circle at 30% 30%, #fde68a 0%, #fbbf24 100%);
+      border: 2px solid #f59e0b;
+      box-shadow: 0 6px 14px rgba(245,158,11,.25);
+      flex-shrink: 0;
+    }
+    .exercise-head h2 { margin: 0 0 4px; color: var(--teal-1); font-size: 1.1rem; }
+    .exercise-sub  { color: #7c2d12; font-weight: 700; font-size: .95rem; margin: 0; }
+    .exercise-steps {
+      margin: 8px 0 10px;
+      padding-left: 18px;
+    }
+    .exercise-steps li { color: #374151; margin-bottom: 5px; }
+
+    .qa-divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 20px 0 16px;
+      font-size: .75rem;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--teal-2);
+    }
+    .qa-divider::before, .qa-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .solution-card {
+      background: linear-gradient(135deg, #ffffff 0%, #d9fdf7 100%);
+      border: 2px solid var(--teal-2);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 16px;
+      animation: riseIn 0.7s ease both;
+    }
+    .solution-head {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+    .solution-badge {
+      width: 42px; height: 42px;
+      border-radius: 10px;
+      background: var(--teal-2);
+      color: #fff;
+      font-weight: 900;
+      font-size: 1.1rem;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+
+    .nav-back {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--teal-2);
+      background: #d8faf5;
+      color: var(--teal-1);
+      text-decoration: none;
+      font-weight: 700;
+      transition: all 0.2s ease;
+      width: 100%;
+      text-align: center;
+    }
+    .nav-back:hover { background: #bff5ec; transform: translateY(-1px); }
+
+    .hw-card {
+      background: linear-gradient(135deg, #ffffff 0%, #dcfbf4 100%);
+      border: 2px solid var(--teal-2);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 18px;
+    }
+
+    td.null-val { color: #9ca3af; font-style: italic; }
+
+    @keyframes riseIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes blobMove {
+      from { transform: translate(0, 0) scale(1); }
+      to   { transform: translate(24px, 18px) scale(1.06); }
+    }
+
+    @media (max-width: 760px) {
+      .wrap { padding: 14px; }
+      .layout { grid-template-columns: 1fr; }
+      .side-nav { position: static; }
+      h1 { font-size: 1.6rem; }
+      .code { font-size: 0.86rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+
+    <section class="hero">
+      <span class="tag">Lesson 6 - May 7, 2026</span>
+      <h1>Full Outer Join + Cross Join - Exercise Solutions</h1>
+      <p>Built from the exercises in FULL OUTER JOIN and CROSS JOIN. Homework covers Self-Join (topic 6) and Joining 3+ Tables (topic 7).</p>
+    </section>
+
+    <div class="layout">
+
+      <aside class="side-nav" aria-label="Topic navigation">
+        <h2 class="side-title">Exercise Solutions</h2>
+        <button class="topic-link active" data-target="t-sol-1">1) full outer join</button>
+        <button class="topic-link" data-target="t-sol-2">2) cross join</button>
+
+        <hr class="side-divider">
+        <div class="side-section-label">Homework</div>
+        <button class="topic-link" data-target="t-hw">exercise</button>
+
+        <a class="nav-back" href="../../index.html">&larr; back to sql module</a>
+      </aside>
+
+      <main>
+
+        <!-- ─── FULL OUTER JOIN ─── -->
+        <section class="topic-panel active" id="t-sol-1">
+          <div class="exercise-card">
+            <div class="exercise-head">
+              <div class="exercise-q">?</div>
+              <div>
+                <h2>Exercise</h2>
+                <p class="exercise-sub">Practice FULL OUTER JOIN with drivers &amp; cars</p>
+              </div>
+            </div>
+            <ol class="exercise-steps">
+              <li>Write a FULL OUTER JOIN to show all drivers and all cars in one result set</li>
+              <li>From the full-outer result, find only the unmatched rows on EITHER side — drivers with no car AND cars with no driver — add a WHERE clause</li>
+              <li>Use COALESCE to replace NULL car prices with <code>0</code> for drivers who have no car assigned</li>
+              <li>Which single join type lets you find drivers WITHOUT a car AND cars WITHOUT a driver in one query?</li>
+            </ol>
+          </div>
+
+          <div class="qa-divider">Solution</div>
+
+          <div class="solution-card">
+            <div class="solution-head">
+              <div class="solution-badge">1</div>
+              <div><h2 style="margin:0">Solution - FULL OUTER JOIN</h2></div>
+            </div>
+
+            <h3>Setup — drivers &amp; cars tables</h3>
+            <div class="code"><span class="k">CREATE TABLE</span> drivers (
+  id     <span class="t">INTEGER</span> <span class="k">PRIMARY KEY</span>,
+  name   <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  car_id <span class="t">INTEGER</span>
+);
+
+<span class="k">INSERT INTO</span> drivers <span class="k">VALUES</span>
+  (<span class="n">1</span>,<span class="s">'Dana'</span>,<span class="n">1</span>),
+  (<span class="n">2</span>,<span class="s">'Omar'</span>,<span class="n">2</span>),
+  (<span class="n">3</span>,<span class="s">'Noa'</span>,<span class="k">NULL</span>),
+  (<span class="n">4</span>,<span class="s">'Liam'</span>,<span class="n">3</span>),
+  (<span class="n">5</span>,<span class="s">'Rina'</span>,<span class="k">NULL</span>);
+
+<span class="k">CREATE TABLE</span> cars (
+  id    <span class="t">INTEGER</span> <span class="k">PRIMARY KEY</span>,
+  model <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  price <span class="t">REAL</span>    <span class="k">NOT NULL</span>
+);
+
+<span class="k">INSERT INTO</span> cars <span class="k">VALUES</span>
+  (<span class="n">1</span>,<span class="s">'Toyota Corolla'</span>,<span class="n">22000</span>),
+  (<span class="n">2</span>,<span class="s">'Honda Civic'</span>,<span class="n">24000</span>),
+  (<span class="n">3</span>,<span class="s">'Ford Focus'</span>,<span class="n">19000</span>),
+  (<span class="n">4</span>,<span class="s">'Tesla Model 3'</span>,<span class="n">42000</span>);</div>
+
+            <h3>1) Write a FULL OUTER JOIN to show all drivers and all cars in one result set</h3>
+
+            <p class="note"><strong>SQLite ≥ 3.39.0 (released 2022-07-21)</strong> supports native FULL OUTER JOIN. Use the native syntax when possible; fall back to the UNION ALL approach on older versions.</p>
+
+            <div class="code"><span class="c">-- ✅ Native FULL OUTER JOIN (SQLite ≥ 3.39.0)</span>
+<span class="k">SELECT</span> d.name, c.model, c.price
+<span class="k">FROM</span>   drivers d
+<span class="k">FULL OUTER JOIN</span> cars c <span class="k">ON</span> d.car_id = c.id;</div>
+
+            <div class="code"><span class="c">-- ♻️  Compatible fallback (all SQLite versions)</span>
+<span class="c">-- All drivers with their car (NULL if no car)</span>
+<span class="k">SELECT</span> d.name, c.model, c.price
+<span class="k">FROM</span>   drivers d
+<span class="k">LEFT JOIN</span> cars c <span class="k">ON</span> d.car_id = c.id
+
+<span class="k">UNION ALL</span>
+
+<span class="c">-- Cars with no driver (right-side only rows)</span>
+<span class="k">SELECT</span> <span class="k">NULL</span> <span class="k">AS</span> name, c.model, c.price
+<span class="k">FROM</span>   cars c
+<span class="k">LEFT JOIN</span> drivers d <span class="k">ON</span> d.car_id = c.id
+<span class="k">WHERE</span>  d.id <span class="k">IS NULL</span>;</div>
+
+            <table>
+              <thead><tr><th>name</th><th>model</th><th>price</th></tr></thead>
+              <tbody>
+                <tr><td>Dana</td><td>Toyota Corolla</td><td>22000</td></tr>
+                <tr><td>Omar</td><td>Honda Civic</td><td>24000</td></tr>
+                <tr><td>Noa</td><td class="null-val">NULL</td><td class="null-val">NULL</td></tr>
+                <tr><td>Liam</td><td>Ford Focus</td><td>19000</td></tr>
+                <tr><td>Rina</td><td class="null-val">NULL</td><td class="null-val">NULL</td></tr>
+                <tr style="background:rgba(248,113,113,0.07);"><td class="null-val">NULL</td><td>Tesla Model 3</td><td>42000</td></tr>
+              </tbody>
+            </table>
+            <p class="note">6 rows total: 5 drivers (2 with no car) + 1 car with no driver (Tesla Model 3). Both queries produce the exact same result — the native syntax is cleaner; the UNION ALL fallback works everywhere.</p>
+
+            <h3>2) Find only the unmatched rows on EITHER side</h3>
+            <div class="code"><span class="c">-- Wrap the full-outer result and filter for NULLs on either side</span>
+<span class="k">SELECT</span> d.name, c.model
+<span class="k">FROM</span>   drivers d
+<span class="k">LEFT JOIN</span> cars c <span class="k">ON</span> d.car_id = c.id
+<span class="k">WHERE</span>  c.id <span class="k">IS NULL</span>
+
+<span class="k">UNION ALL</span>
+
+<span class="k">SELECT</span> <span class="k">NULL</span> <span class="k">AS</span> name, c.model
+<span class="k">FROM</span>   cars c
+<span class="k">LEFT JOIN</span> drivers d <span class="k">ON</span> d.car_id = c.id
+<span class="k">WHERE</span>  d.id <span class="k">IS NULL</span>;</div>
+            <table>
+              <thead><tr><th>name</th><th>model</th></tr></thead>
+              <tbody>
+                <tr><td>Noa</td><td class="null-val">NULL</td></tr>
+                <tr><td>Rina</td><td class="null-val">NULL</td></tr>
+                <tr><td class="null-val">NULL</td><td>Tesla Model 3</td></tr>
+              </tbody>
+            </table>
+            <div class="big-result">3 unmatched rows — Noa &amp; Rina (no car) and Tesla Model 3 (no driver)</div>
+
+            <h3>3) Use COALESCE to replace NULL car prices with 0</h3>
+            <div class="code"><span class="k">SELECT</span>
+  d.name,
+  <span class="k">COALESCE</span>(c.model, <span class="s">'— no car —'</span>) <span class="k">AS</span> model,
+  <span class="k">COALESCE</span>(c.price, <span class="n">0</span>)              <span class="k">AS</span> price
+<span class="k">FROM</span>   drivers d
+<span class="k">LEFT JOIN</span> cars c <span class="k">ON</span> d.car_id = c.id
+<span class="k">ORDER BY</span> d.name;</div>
+            <table>
+              <thead><tr><th>name</th><th>model</th><th>price</th></tr></thead>
+              <tbody>
+                <tr><td>Dana</td><td>Toyota Corolla</td><td>22000</td></tr>
+                <tr><td>Liam</td><td>Ford Focus</td><td>19000</td></tr>
+                <tr><td>Noa</td><td>— no car —</td><td>0</td></tr>
+                <tr><td>Omar</td><td>Honda Civic</td><td>24000</td></tr>
+                <tr><td>Rina</td><td>— no car —</td><td>0</td></tr>
+              </tbody>
+            </table>
+            <p class="note">COALESCE(c.price, 0) replaces NULL with 0 for drivers who have no car. Same technique works on any nullable column.</p>
+
+            <h3>4) Which single join type lets you find drivers WITHOUT a car AND cars WITHOUT a driver in one query?</h3>
+            <div class="big-result">Answer: FULL OUTER JOIN</div>
+            <p class="note">FULL OUTER JOIN keeps all rows from both sides — NULLs appear wherever there is no match. In SQLite this is simulated with LEFT JOIN + UNION ALL. INNER JOIN drops unmatched rows. LEFT JOIN only keeps unmatched rows from the left table. RIGHT JOIN only from the right.</p>
+          </div>
+        </section>
+
+        <!-- ─── CROSS JOIN ─── -->
+        <section class="topic-panel" id="t-sol-2">
+          <div class="exercise-card">
+            <div class="exercise-head">
+              <div class="exercise-q">?</div>
+              <div>
+                <h2>Exercise</h2>
+                <p class="exercise-sub">Practice CROSS JOIN — Cartesian products</p>
+              </div>
+            </div>
+            <ol class="exercise-steps">
+              <li>Generate a Menu: Write a CROSS JOIN between Pastries and Toppings to show all 12 possible dessert combinations</li>
+              <li>Roster Capacity: Count how many rows result from Baristas CROSS JOIN Shifts (to see the total number of possible assignments)</li>
+              <li>Premium Staffing: List only the barista/shift combinations where HourlyRate &gt; 20.00</li>
+              <li>Concept Check: Explain the difference between CROSS JOIN and INNER JOIN — when does a CROSS JOIN produce the exact same result as an INNER JOIN?</li>
+              <li>Profit Check: For each shift, find which shifts are still profitable — total barista cost (SUM of all HourlyRates) must be less than shift income</li>
+            </ol>
+          </div>
+
+          <div class="qa-divider">Solution</div>
+
+          <div class="solution-card">
+            <div class="solution-head">
+              <div class="solution-badge">2</div>
+              <div><h2 style="margin:0">Solution - CROSS JOIN</h2></div>
+            </div>
+
+            <h3>Setup — Pastries, Toppings, Baristas, Shifts tables</h3>
+            <div class="code"><span class="k">CREATE TABLE</span> Pastries (PastryName <span class="t">VARCHAR(50)</span>);
+<span class="k">CREATE TABLE</span> Toppings (ToppingName <span class="t">VARCHAR(50)</span>);
+
+<span class="k">INSERT INTO</span> Pastries <span class="k">VALUES</span>
+  (<span class="s">'Croissant'</span>), (<span class="s">'Muffin'</span>), (<span class="s">'Donut'</span>);
+
+<span class="k">INSERT INTO</span> Toppings <span class="k">VALUES</span>
+  (<span class="s">'Chocolate'</span>), (<span class="s">'Glaze'</span>), (<span class="s">'Sprinkles'</span>), (<span class="s">'Caramel'</span>);
+
+<span class="k">CREATE TABLE</span> Baristas (Name <span class="t">VARCHAR(50)</span>, HourlyRate <span class="t">DECIMAL(10,2)</span>);
+<span class="k">CREATE TABLE</span> Shifts   (ShiftType <span class="t">VARCHAR(20)</span>, Income <span class="t">DECIMAL(10,2)</span>);
+
+<span class="k">INSERT INTO</span> Baristas <span class="k">VALUES</span>
+  (<span class="s">'Alice'</span>,<span class="n">18.00</span>), (<span class="s">'Bob'</span>,<span class="n">22.00</span>),
+  (<span class="s">'Charlie'</span>,<span class="n">15.00</span>), (<span class="s">'Diana'</span>,<span class="n">25.00</span>);
+
+<span class="k">INSERT INTO</span> Shifts <span class="k">VALUES</span>
+  (<span class="s">'Morning'</span>,<span class="n">95.00</span>), (<span class="s">'Afternoon'</span>,<span class="n">85.00</span>), (<span class="s">'Evening'</span>,<span class="n">70.00</span>);</div>
+
+            <h3>1) Generate a Menu: all 12 dessert combinations</h3>
+            <div class="code"><span class="k">SELECT</span> PastryName, ToppingName
+<span class="k">FROM</span>   Pastries
+<span class="k">CROSS JOIN</span> Toppings
+<span class="k">ORDER BY</span> PastryName, ToppingName;</div>
+            <table>
+              <thead><tr><th>PastryName</th><th>ToppingName</th></tr></thead>
+              <tbody>
+                <tr><td>Croissant</td><td>Caramel</td></tr>
+                <tr><td>Croissant</td><td>Chocolate</td></tr>
+                <tr><td>Croissant</td><td>Glaze</td></tr>
+                <tr><td>Croissant</td><td>Sprinkles</td></tr>
+                <tr><td>Donut</td><td>Caramel</td></tr>
+                <tr><td>Donut</td><td>Chocolate</td></tr>
+                <tr><td>Donut</td><td>Glaze</td></tr>
+                <tr><td>Donut</td><td>Sprinkles</td></tr>
+                <tr><td>Muffin</td><td>Caramel</td></tr>
+                <tr><td>Muffin</td><td>Chocolate</td></tr>
+                <tr><td>Muffin</td><td>Glaze</td></tr>
+                <tr><td>Muffin</td><td>Sprinkles</td></tr>
+              </tbody>
+            </table>
+            <div class="big-result">3 pastries × 4 toppings = 12 combinations</div>
+
+            <h3>2) Roster Capacity: count total rows from Baristas CROSS JOIN Shifts</h3>
+            <div class="code"><span class="k">SELECT</span> <span class="k">COUNT</span>(*) <span class="k">AS</span> total_assignments
+<span class="k">FROM</span>   Baristas
+<span class="k">CROSS JOIN</span> Shifts;</div>
+            <div class="big-result">Result: 12 — (4 baristas × 3 shifts)</div>
+
+            <h3>3) Premium Staffing: barista/shift combinations where HourlyRate &gt; 20.00</h3>
+            <div class="code"><span class="k">SELECT</span> b.Name, b.HourlyRate, s.ShiftType
+<span class="k">FROM</span>   Baristas b
+<span class="k">CROSS JOIN</span> Shifts s
+<span class="k">WHERE</span>  b.HourlyRate &gt; <span class="n">20.00</span>
+<span class="k">ORDER BY</span> b.Name, s.ShiftType;</div>
+            <table>
+              <thead><tr><th>Name</th><th>HourlyRate</th><th>ShiftType</th></tr></thead>
+              <tbody>
+                <tr><td>Bob</td><td>22.00</td><td>Afternoon</td></tr>
+                <tr><td>Bob</td><td>22.00</td><td>Evening</td></tr>
+                <tr><td>Bob</td><td>22.00</td><td>Morning</td></tr>
+                <tr><td>Diana</td><td>25.00</td><td>Afternoon</td></tr>
+                <tr><td>Diana</td><td>25.00</td><td>Evening</td></tr>
+                <tr><td>Diana</td><td>25.00</td><td>Morning</td></tr>
+              </tbody>
+            </table>
+            <p class="note">Only Bob (22.00) and Diana (25.00) pass the HourlyRate &gt; 20 filter — 2 baristas × 3 shifts = 6 rows.</p>
+
+            <h3>4) Concept Check: CROSS JOIN vs INNER JOIN</h3>
+            <div class="big-result">Answer: CROSS JOIN produces all possible row pairs — no ON condition. INNER JOIN filters pairs by a matching condition (ON clause).</div>
+            <p class="note">A CROSS JOIN produces the exact same result as an INNER JOIN only when every row in Table A matches every row in Table B — for example, if the ON condition is always TRUE (e.g. <code style="color: var(--teal-2)">ON 1=1</code>). In practice, CROSS JOIN is intentional (menu generators, scheduling matrices), while an accidental missing ON clause in a JOIN silently behaves like a CROSS JOIN.</p>
+
+            <h3>5) Profit Check: which shifts are profitable?</h3>
+            <p class="note">Assume all baristas work every shift. Total cost per shift = SUM of all HourlyRates (18 + 22 + 15 + 25 = 80). Compare against each shift's Income.</p>
+            <div class="code"><span class="k">SELECT</span>
+  s.ShiftType,
+  s.Income,
+  <span class="k">SUM</span>(b.HourlyRate) <span class="k">AS</span> total_cost
+<span class="k">FROM</span>   Baristas b
+<span class="k">CROSS JOIN</span> Shifts s
+<span class="k">GROUP BY</span> s.ShiftType, s.Income
+<span class="k">HAVING</span> <span class="k">SUM</span>(b.HourlyRate) &lt; s.Income
+<span class="k">ORDER BY</span> s.Income <span class="k">DESC</span>;</div>
+            <table>
+              <thead><tr><th>ShiftType</th><th>Income</th><th>total_cost</th></tr></thead>
+              <tbody>
+                <tr><td>Morning</td><td>95.00</td><td>80.00</td></tr>
+                <tr><td>Afternoon</td><td>85.00</td><td>80.00</td></tr>
+              </tbody>
+            </table>
+            <div class="big-result">Morning and Afternoon are profitable — Evening (income 70 &lt; cost 80) is not.</div>
+            <p class="note">Total cost is always 80 (same four baristas in every group). The HAVING clause keeps only shifts where Income &gt; 80. Evening (70) is filtered out.</p>
+          </div>
+        </section>
+
+        <!-- ─── HOMEWORK ─── -->
+        <section class="topic-panel" id="t-hw">
+          <div class="hw-card">
+            <h3>Homework</h3>
+            <p style="color: var(--muted); margin: 4px 0 14px;">Complete the exercises on the following pages:</p>
+            <ul style="padding-left:18px; margin-top:10px;">
+              <li style="margin-bottom:14px;">
+                <a href="../../05_join/06-self-join.html#exercise" style="color:var(--teal-2);font-weight:700;">05_join / 06-self-join.html</a>
+                <br>
+                <span style="color:var(--muted);font-size:0.88rem;">Questions 1–4 — self-join on the <strong>flights</strong> table (predecessor flights, connection counts, data-inconsistency check)</span>
+              </li>
+              <li style="margin-bottom:14px;">
+                <a href="../../05_join/07-multi-table.html#exercise" style="color:var(--teal-2);font-weight:700;">05_join / 07-multi-table.html</a>
+                <br>
+                <span style="color:var(--muted);font-size:0.88rem;">Questions 1–5 — 3-table JOIN on <strong>customers + orders + products</strong> (list orders, filter by category, left join, aggregation, top spender)</span>
+              </li>
+            </ul>
+            <div class="note" style="margin-top:16px;">
+              <strong>Submit:</strong> your SQL script as a .sql text file &nbsp;|&nbsp;
+              <strong>Email:</strong> pythonai211225+sql6@gmail.com
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <script>
+    const links  = document.querySelectorAll('.topic-link');
+    const panels = document.querySelectorAll('.topic-panel');
+
+    function showTopic(id) {
+      panels.forEach(p => p.classList.toggle('active', p.id === id));
+      links.forEach(l  => l.classList.toggle('active', l.dataset.target === id));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    links.forEach(link => {
+      link.addEventListener('click', () => {
+        const targetId = link.dataset.target;
+        showTopic(targetId);
+        location.hash = targetId;
+      });
+    });
+
+    function applyHashTopic() {
+      const hash = location.hash.replace('#', '');
+      if (!hash) return;
+      if (document.getElementById(hash)) showTopic(hash);
+    }
+
+    applyHashTopic();
+    window.addEventListener('hashchange', applyHashTopic);
+  </script>
+</body>
+</html>
