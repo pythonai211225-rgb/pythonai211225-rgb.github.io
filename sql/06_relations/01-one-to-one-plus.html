@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+        <meta charset="UTF-8"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+        <title>1:1+ Relationship Example (with Separate ID and FK)</title>
+        <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%23080e1c'/><text x='32' y='45' text-anchor='middle' font-family='Arial, sans-serif' font-size='42' font-weight='700' fill='%232dd4bf'>db</text></svg>">
+        <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="wrap">
+            <a class="nav-home" href="../index.html">Home</a>
+            <div class="brand">Lesson 6</div>
+            <a class="nav-link" href="01-one-to-one.html">1. 1:1</a>
+            <a class="nav-link" href="01-one-to-one-plus.html">2. 1:1+</a>
+            <a class="nav-link" href="02-one-to-many.html">3. 1:N</a>
+            <a class="nav-link" href="03-many-to-many.html">4. N:M</a>
+            <a class="nav-link" href="04-normalization-1nf.html">5. 1NF</a>
+            <a class="nav-link" href="05-normalization-2nf.html">6. 2NF</a>
+            <a class="nav-link" href="06-normalization-3nf.html">7. 3NF</a>
+        </div>
+    </nav>
+
+    <main class="container">
+
+        <section class="hero reveal">
+            <span class="tag">Lesson 6 · Relationships</span>
+            <h1>One-to-One Plus <span style="color:var(--teal)">1:1+</span></h1>
+            <p class="lead">A strict one-to-one model where the child table has <strong>its own primary key</strong> and a separate <strong>UNIQUE foreign key</strong> to the parent.</p>
+        </section>
+
+        <section class="section card reveal">
+            <h2>When to use 1:1+</h2>
+            <div class="two-col" style="margin-top:16px;">
+                <div>
+                    <p style="color:var(--muted);line-height:1.7;">Use 1:1+ when the child table needs an independent identity while still staying one-to-one with the parent.</p>
+                    <ul class="simple" style="margin-top:10px;">
+                        <li>You want a child PK for auditing, integrations, or imports</li>
+                        <li>You still need one child row per parent row only</li>
+                        <li>You want clean parent and child lifecycle separation</li>
+                    </ul>
+                </div>
+                <div class="note" style="align-self:start;">
+                    <strong>Real-world examples</strong><br/>
+                    <span style="color:var(--muted);">
+                        citizens ↔ passports<br/>
+                        employees ↔ security_badges<br/>
+                        vehicles ↔ registration_cards
+                    </span>
+                </div>
+            </div>
+        </section>
+
+        <section class="section card reveal">
+            <h2>Diagram</h2>
+            <p style="color:var(--muted);margin-bottom:18px;">The child has its own PK, while <strong>citizen_ref</strong> is a UNIQUE FK that enforces one passport per citizen.</p>
+
+            <div class="rd-wrap">
+                <div class="rd-table">
+                    <div class="rd-header" style="background:rgba(45,212,191,0.08);color:var(--teal);">citizens</div>
+                    <div class="rd-row"><span class="rd-pk">PK</span> <span style="color:var(--text);">citizen_id</span> <span class="rd-col">INTEGER</span></div>
+                    <div class="rd-row"><span class="rd-col" style="width:30px;"></span><span style="color:var(--text);">full_name</span> <span class="rd-col">TEXT</span></div>
+                    <div class="rd-row"><span class="rd-col" style="width:30px;"></span><span style="color:var(--text);">birth_place</span> <span class="rd-col">TEXT</span></div>
+                </div>
+
+                <div class="rd-line">
+                    <span class="rd-cardinality">1</span>
+                    <div class="rd-connector"></div>
+                    <span class="rd-cardinality">1</span>
+                </div>
+
+                <div class="rd-table">
+                    <div class="rd-header" style="background:rgba(251,191,36,0.08);color:var(--amber);">passports</div>
+                    <div class="rd-row"><span class="rd-pk">PK</span> <span style="color:var(--text);">passport_id</span> <span class="rd-col">INTEGER</span></div>
+                    <div class="rd-row"><span class="rd-fk">FK</span> <span style="color:var(--text);">citizen_ref</span> <span class="rd-col">UNIQUE → citizens.citizen_id</span></div>
+                    <div class="rd-row"><span class="rd-col" style="width:30px;"></span><span style="color:var(--text);">passport_no</span> <span class="rd-col">TEXT</span></div>
+                    <div class="rd-row"><span class="rd-col" style="width:30px;"></span><span style="color:var(--text);">issued_on</span> <span class="rd-col">DATE</span></div>
+                </div>
+            </div>
+
+            <div class="note" style="margin-top:16px;">
+                <strong>Key rule:</strong> <code>passports.citizen_ref</code> must be <strong>UNIQUE</strong> plus <strong>FOREIGN KEY</strong>. That combination gives 1:1, while <code>passport_id</code> remains a separate identity key.
+            </div>
+        </section>
+
+        <section class="section card reveal">
+            <h2>SQL Syntax</h2>
+            <div class="glow-divider"></div>
+            <pre class="code"><span class="k">CREATE TABLE</span> <span class="t">citizens</span> (
+    citizen_id   <span class="t">INTEGER</span>  <span class="k">PRIMARY KEY</span> <span class="k">AUTOINCREMENT</span>,
+    full_name    <span class="t">TEXT</span>     <span class="k">NOT NULL</span>,
+    birth_place  <span class="t">TEXT</span>
+);
+
+<span class="k">CREATE TABLE</span> <span class="t">passports</span> (
+    passport_id  <span class="t">INTEGER</span>  <span class="k">PRIMARY KEY</span> <span class="k">AUTOINCREMENT</span>,
+    citizen_ref  <span class="t">INTEGER</span>  <span class="k">UNIQUE NOT NULL</span>,
+    passport_no  <span class="t">TEXT</span>     <span class="k">UNIQUE NOT NULL</span>,
+    issued_on    <span class="t">DATE</span>,
+    expires_on   <span class="t">DATE</span>,
+    <span class="k">FOREIGN KEY</span> (citizen_ref) <span class="k">REFERENCES</span> <span class="t">citizens</span>(citizen_id)
+        <span class="k">ON DELETE CASCADE</span>
+);</pre>
+        </section>
+
+        <section class="section card reveal">
+            <h2>Step-by-Step Example</h2>
+
+            <p style="color:var(--muted);margin-bottom:14px;"><strong>Step 1</strong> — Insert citizens</p>
+            <pre class="code"><span class="k">INSERT INTO</span> <span class="t">citizens</span> (full_name, birth_place)
+<span class="k">VALUES</span>
+    (<span class="c">'Lina Haddad'</span>, <span class="c">'Amman'</span>),
+    (<span class="c">'Omar Nasser'</span>, <span class="c">'Zarqa'</span>),
+    (<span class="c">'Maya Khalil'</span>, <span class="c">'Irbid'</span>);</pre>
+
+            <p style="color:var(--muted);margin:14px 0 10px;"><strong>Step 2</strong> — Insert passports with separate PK + FK</p>
+            <pre class="code"><span class="k">INSERT INTO</span> <span class="t">passports</span> (citizen_ref, passport_no, issued_on, expires_on)
+<span class="k">VALUES</span>
+    (<span class="c">1</span>, <span class="c">'P-A10293'</span>, <span class="c">'2022-03-01'</span>, <span class="c">'2032-03-01'</span>),
+    (<span class="c">2</span>, <span class="c">'P-B77811'</span>, <span class="c">'2023-07-15'</span>, <span class="c">'2033-07-15'</span>);</pre>
+
+            <p style="color:var(--muted);margin:14px 0 10px;"><strong>Step 3</strong> — Query citizens with passports (LEFT JOIN)</p>
+            <pre class="code"><span class="k">SELECT</span>
+    c.citizen_id,
+    c.full_name,
+    p.passport_id,
+    p.passport_no,
+    <span class="fn">COALESCE</span>(p.expires_on, <span class="c">'No passport'</span>) <span class="k">AS</span> expires_on
+<span class="k">FROM</span> <span class="t">citizens</span> c
+<span class="k">LEFT JOIN</span> <span class="t">passports</span> p <span class="k">ON</span> p.citizen_ref = c.citizen_id;</pre>
+        </section>
+
+        <section class="section card exercise-card reveal">
+            <div class="exercise-head">
+                <div class="exercise-q">✏</div>
+                <div>
+                    <div class="exercise-sub">Exercise</div>
+                    <h3>Build a Patients ↔ Medical Files schema (1:1+)</h3>
+                </div>
+            </div>
+            <ol class="exercise-steps">
+                <li>Create a <code>patients</code> table with: <code>patient_id</code> (PK AUTOINCREMENT), <code>patient_name</code>, <code>blood_type</code>.</li>
+                <li>Create a <code>medical_files</code> table with: <code>file_id</code> (PK AUTOINCREMENT), <code>patient_ref</code> (UNIQUE FK to <code>patients(patient_id)</code>), <code>allergies</code>, <code>emergency_contact</code>.</li>
+                <li>Insert 3 patients and only 2 medical files.</li>
+                <li>Write a LEFT JOIN query to list all patients and their file data.</li>
+                <li>Try adding a second file for the same patient_ref. Explain the error.</li>
+            </ol>
+        </section>
+
+        <div class="lesson-nav reveal">
+            <a class="btn" href="index.html">← Overview</a>
+            <a class="btn" href="01-one-to-one.html">← Back: 1:1</a>
+            <a class="btn primary" href="02-one-to-many.html">Next: 1:N →</a>
+        </div>
+
+    </main>
+    <script src="app.js"></script>
+</body>
+</html>
