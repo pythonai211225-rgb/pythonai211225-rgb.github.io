@@ -1332,9 +1332,7 @@ function openQuestion(cp) {
     btn.type = "button";
     btn.className = "answer-btn";
     const isCorrect = i === activeCorrectIndex;
-    const correctMark = isCorrect ? " ✓" : "";
-    btn.innerHTML = `<strong>${i + 1}.</strong> ${answer}${correctMark}`;
-    if (isCorrect) btn.classList.add("test-correct");
+    btn.innerHTML = `<strong>${i + 1}.</strong> ${answer}`;
     btn.addEventListener("click", () => answerCheckpoint(i));
     answersEl.appendChild(btn);
   });
