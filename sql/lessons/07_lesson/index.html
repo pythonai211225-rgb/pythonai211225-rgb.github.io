@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SQL Lesson 7 - 1:1 and 1:1+ Solutions + Relationship Exercises</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='white'/><text x='32' y='45' text-anchor='middle' font-family='Arial, sans-serif' font-size='42' font-weight='700' fill='%232dd4bf'>db</text></svg>">
+  <style>
+    :root {
+      --bg-soft:   #ffffff;
+      --teal-1:    #0e5a52;
+      --teal-2:    #1a9e8f;
+      --teal-3:    #d2f6f2;
+      --mint:      #e6fffc;
+      --text:      #0f2622;
+      --muted:     #3d7a72;
+      --border:    #9adcd4;
+      --code-bg:   #07201d;
+      --code-text: #cef9f3;
+      --accent-a:  #d9fdf7;
+      --accent-b:  #e8fff8;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Trebuchet MS", "Lucida Sans", "Segoe UI", sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at 15% 10%, #ddfff8 0%, transparent 35%),
+                  radial-gradient(circle at 85% 18%, #e8fff3 0%, transparent 36%),
+                  linear-gradient(180deg, #f0fffb 0%, #ffffff 45%, #e8fff9 100%);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      width: 240px; height: 240px;
+      z-index: -1;
+      border-radius: 999px;
+      filter: blur(2px);
+      opacity: 0.35;
+      animation: blobMove 8s ease-in-out infinite alternate;
+    }
+    body::before { background: #9ef5eb; top: -30px; left: -40px; }
+    body::after  { background: #b8ffe0; bottom: -40px; right: -40px; animation-delay: 1.4s; }
+
+    .wrap {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .side-nav {
+      position: sticky;
+      top: 14px;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 8px 22px rgba(14, 90, 82, 0.1);
+      padding: 12px;
+    }
+
+    .side-title {
+      margin: 0 0 8px;
+      font-size: 0.9rem;
+      color: var(--teal-1);
+      font-weight: 700;
+    }
+
+    .topic-link {
+      display: block;
+      width: 100%;
+      text-align: left;
+      border: 1px solid transparent;
+      border-radius: 9px;
+      padding: 8px 10px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.89rem;
+      text-transform: lowercase;
+      margin-bottom: 6px;
+      transition: all 0.2s ease;
+    }
+    .topic-link:hover {
+      background: #f0fffb;
+      color: var(--teal-1);
+      border-color: var(--border);
+    }
+    .topic-link.active {
+      background: #d8faf5;
+      color: var(--teal-1);
+      border-color: var(--teal-2);
+      font-weight: 700;
+    }
+
+    .side-divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 10px 0;
+    }
+
+    .side-section-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--teal-2);
+      padding: 4px 4px 6px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, var(--bg-soft) 0%, var(--accent-a) 55%, var(--accent-b) 100%);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow: 0 12px 30px rgba(14, 110, 100, 0.12);
+      margin-bottom: 22px;
+      animation: riseIn 0.75s ease both;
+    }
+
+    h1, h2, h3 { margin-top: 0; color: var(--teal-1); }
+    h1 { font-size: 2rem; margin-bottom: 8px; letter-spacing: 0.2px; }
+
+    .tag {
+      display: inline-block;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      background: var(--teal-3);
+      color: var(--teal-1);
+      border: 1px solid var(--border);
+      margin-bottom: 10px;
+    }
+
+    .card {
+      background: var(--bg-soft);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 16px;
+      box-shadow: 0 7px 22px rgba(14, 90, 82, 0.08);
+      animation: riseIn 0.65s ease both;
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 13px 28px rgba(14, 90, 82, 0.15);
+    }
+
+    .topic-panel { display: none; }
+    .topic-panel.active { display: block; }
+
+    .code {
+      background: var(--code-bg);
+      color: var(--code-text);
+      border-radius: 10px;
+      border: 1px solid #1e5c54;
+      padding: 14px;
+      overflow-x: auto;
+      margin: 10px 0 12px;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.94rem;
+      white-space: pre;
+    }
+    .code .k  { color: #5eead4; font-weight: 700; }
+    .code .t  { color: #c084fc; }
+    .code .c  { color: #6b7280; font-style: italic; }
+    .code .s  { color: #6ee7b7; }
+    .code .n  { color: #fb923c; }
+
+    .note {
+      background: var(--mint);
+      border-left: 4px solid var(--teal-2);
+      padding: 10px 12px;
+      color: var(--muted);
+      margin: 8px 0 10px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      font-size: 0.93rem;
+      margin: 10px 0;
+    }
+    th, td { border-bottom: 1px solid #ccf0eb; padding: 10px; text-align: left; vertical-align: top; }
+    th { background: #d2faf5; color: #0b4b44; }
+    tr:last-child td { border-bottom: none; }
+
+    .big-result { font-size: 1.1rem; margin: 8px 0 10px; color: var(--teal-1); font-weight: 800; }
+
+    .exercise-card {
+      border: 1px solid #f5d68b;
+      background: linear-gradient(140deg, #fffdf7 0%, #fff9eb 100%);
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 20px;
+    }
+    .exercise-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    .exercise-q {
+      width: 52px; height: 52px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-size: 1.9rem;
+      font-weight: 800;
+      color: #92400e;
+      background: radial-gradient(circle at 30% 30%, #fde68a 0%, #fbbf24 100%);
+      border: 2px solid #f59e0b;
+      box-shadow: 0 6px 14px rgba(245,158,11,.25);
+      flex-shrink: 0;
+    }
+    .exercise-head h2 { margin: 0 0 4px; color: var(--teal-1); font-size: 1.1rem; }
+    .exercise-sub  { color: #7c2d12; font-weight: 700; font-size: .95rem; margin: 0; }
+    .exercise-steps {
+      margin: 8px 0 10px;
+      padding-left: 18px;
+    }
+    .exercise-steps li { color: #374151; margin-bottom: 5px; }
+
+    .qa-divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 20px 0 16px;
+      font-size: .75rem;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--teal-2);
+    }
+    .qa-divider::before, .qa-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .solution-card {
+      background: linear-gradient(135deg, #ffffff 0%, #d9fdf7 100%);
+      border: 2px solid var(--teal-2);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 16px;
+      animation: riseIn 0.7s ease both;
+    }
+    .solution-head {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+    .solution-badge {
+      width: 42px; height: 42px;
+      border-radius: 10px;
+      background: var(--teal-2);
+      color: #fff;
+      font-weight: 900;
+      font-size: 1.1rem;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+
+    .nav-back {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--teal-2);
+      background: #d8faf5;
+      color: var(--teal-1);
+      text-decoration: none;
+      font-weight: 700;
+      transition: all 0.2s ease;
+      width: 100%;
+      text-align: center;
+    }
+    .nav-back:hover { background: #bff5ec; transform: translateY(-1px); }
+
+    .hw-card {
+      background: linear-gradient(135deg, #ffffff 0%, #dcfbf4 100%);
+      border: 2px solid var(--teal-2);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 18px;
+    }
+
+    td.null-val { color: #9ca3af; font-style: italic; }
+
+    .src-link {
+      display: inline-block;
+      margin-top: 10px;
+      color: var(--teal-2);
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    @keyframes riseIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes blobMove {
+      from { transform: translate(0, 0) scale(1); }
+      to   { transform: translate(24px, 18px) scale(1.06); }
+    }
+
+    @media (max-width: 760px) {
+      .wrap { padding: 14px; }
+      .layout { grid-template-columns: 1fr; }
+      .side-nav { position: static; }
+      h1 { font-size: 1.6rem; }
+      .code { font-size: 0.86rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+
+    <section class="hero">
+      <span class="tag">Lesson 7 - May 10, 2026</span>
+      <h1>Relationship Modeling - 1:1 + 1:1+ Solutions</h1>
+      <p>This lesson solves the One-to-One and One-to-One+ topics, then assigns the bottom exercises from One-to-Many and Many-to-Many, including delete cascade practice.</p>
+    </section>
+
+    <div class="layout">
+
+      <aside class="side-nav" aria-label="Topic navigation">
+        <h2 class="side-title">Lesson 7</h2>
+        <button class="topic-link active" data-target="t-sol-1">1) 1:1</button>
+        <button class="topic-link" data-target="t-sol-2">2) 1:1+</button>
+
+        <hr class="side-divider">
+        <div class="side-section-label">Exercises</div>
+        <button class="topic-link" data-target="t-hw">3) exercise</button>
+
+        <a class="nav-back" href="../../index.html">&larr; back to sql module</a>
+      </aside>
+
+      <main>
+
+        <section class="topic-panel active" id="t-sol-1">
+          <div class="exercise-card">
+            <div class="exercise-head">
+              <div class="exercise-q">?</div>
+              <div>
+                <h2>Exercise Source</h2>
+                <p class="exercise-sub">From 06_relations / 01-one-to-one.html</p>
+              </div>
+            </div>
+            <ol class="exercise-steps">
+              <li>Create <code>citizens</code> and <code>id_cards</code> with shared PK/FK and <code>ON DELETE CASCADE</code>.</li>
+              <li>Insert citizens and cards (leave one citizen without card).</li>
+              <li>Write INNER JOIN and LEFT JOIN outputs.</li>
+              <li>Try duplicate card for same citizen and explain error.</li>
+              <li>Delete a citizen and verify cascading delete in <code>id_cards</code>.</li>
+            </ol>
+            <a class="src-link" href="../../06_relations/01-one-to-one.html">Open original page</a>
+          </div>
+
+          <div class="qa-divider">Solution</div>
+
+          <div class="solution-card">
+            <div class="solution-head">
+              <div class="solution-badge">1</div>
+              <div><h2 style="margin:0">Solution - One-to-One (Shared PK)</h2></div>
+            </div>
+
+            <h3>Setup</h3>
+            <div class="code"><span class="k">CREATE TABLE</span> citizens (
+  citizen_id <span class="t">INTEGER</span> <span class="k">PRIMARY KEY</span> <span class="k">AUTOINCREMENT</span>,
+  full_name  <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  city       <span class="t">TEXT</span>
+);
+
+<span class="k">CREATE TABLE</span> id_cards (
+  citizen_id  <span class="t">INTEGER</span> <span class="k">PRIMARY KEY</span>,
+  card_number <span class="t">TEXT</span>    <span class="k">UNIQUE NOT NULL</span>,
+  expires     <span class="t">TEXT</span>,
+  <span class="k">FOREIGN KEY</span> (citizen_id) <span class="k">REFERENCES</span> citizens(citizen_id)
+    <span class="k">ON DELETE CASCADE</span>
+);
+
+<span class="k">INSERT INTO</span> citizens (full_name, city) <span class="k">VALUES</span>
+  (<span class="s">'Sophia Martinez'</span>, <span class="s">'Barcelona'</span>),
+  (<span class="s">'James Chen'</span>, <span class="s">'Toronto'</span>),
+  (<span class="s">'Amira Hassan'</span>, <span class="s">'Cairo'</span>);
+
+<span class="k">INSERT INTO</span> id_cards (citizen_id, card_number, expires) <span class="k">VALUES</span>
+  (<span class="n">1</span>, <span class="s">'ID-2024-5521'</span>, <span class="s">'2032-12-15'</span>),
+  (<span class="n">2</span>, <span class="s">'ID-2023-7744'</span>, <span class="s">'2031-08-22'</span>);</div>
+
+            <h3>INNER JOIN result (only citizens with cards)</h3>
+            <div class="code"><span class="k">SELECT</span>
+  c.citizen_id,
+  c.full_name,
+  i.card_number
+<span class="k">FROM</span> citizens c
+<span class="k">INNER JOIN</span> id_cards i <span class="k">ON</span> i.citizen_id = c.citizen_id
+<span class="k">ORDER BY</span> c.citizen_id;</div>
+            <table>
+              <thead><tr><th>citizen_id</th><th>full_name</th><th>card_number</th></tr></thead>
+              <tbody>
+                <tr><td>1</td><td>Sophia Martinez</td><td>ID-2024-5521</td></tr>
+                <tr><td>2</td><td>James Chen</td><td>ID-2023-7744</td></tr>
+              </tbody>
+            </table>
+
+            <h3>LEFT JOIN result with fallback text</h3>
+            <div class="code"><span class="k">SELECT</span>
+  c.citizen_id,
+  c.full_name,
+  <span class="k">COALESCE</span>(i.card_number, <span class="s">'No card'</span>) <span class="k">AS</span> card_number
+<span class="k">FROM</span> citizens c
+<span class="k">LEFT JOIN</span> id_cards i <span class="k">ON</span> i.citizen_id = c.citizen_id
+<span class="k">ORDER BY</span> c.citizen_id;</div>
+            <table>
+              <thead><tr><th>citizen_id</th><th>full_name</th><th>card_number</th></tr></thead>
+              <tbody>
+                <tr><td>1</td><td>Sophia Martinez</td><td>ID-2024-5521</td></tr>
+                <tr><td>2</td><td>James Chen</td><td>ID-2023-7744</td></tr>
+                <tr><td>3</td><td>Amira Hassan</td><td class="null-val">No card</td></tr>
+              </tbody>
+            </table>
+
+            <h3>Delete cascade check</h3>
+            <div class="code"><span class="k">DELETE FROM</span> citizens <span class="k">WHERE</span> citizen_id = <span class="n">1</span>;
+
+<span class="k">SELECT</span> * <span class="k">FROM</span> id_cards <span class="k">ORDER BY</span> citizen_id;</div>
+            <p class="note">Citizen 1 is deleted, and card row for citizen 1 is deleted automatically because of <code>ON DELETE CASCADE</code>.</p>
+          </div>
+        </section>
+
+        <section class="topic-panel" id="t-sol-2">
+          <div class="exercise-card">
+            <div class="exercise-head">
+              <div class="exercise-q">?</div>
+              <div>
+                <h2>Exercise Source</h2>
+                <p class="exercise-sub">From 06_relations / 01-one-to-one-plus.html</p>
+              </div>
+            </div>
+            <ol class="exercise-steps">
+              <li>Create parent table <code>citizens</code>.</li>
+              <li>Create child table <code>passports</code> with own PK and <code>citizen_ref UNIQUE</code> FK.</li>
+              <li>Insert citizens, then passports for only some rows.</li>
+              <li>Use LEFT JOIN + COALESCE for missing passport rows.</li>
+              <li>Try duplicate passport for same citizen and explain UNIQUE violation.</li>
+              <li>Delete citizen and verify passport row is deleted by cascade.</li>
+            </ol>
+            <a class="src-link" href="../../06_relations/01-one-to-one-plus.html">Open original page</a>
+          </div>
+
+          <div class="qa-divider">Solution</div>
+
+          <div class="solution-card">
+            <div class="solution-head">
+              <div class="solution-badge">2</div>
+              <div><h2 style="margin:0">Solution - One-to-One Plus (Separate PK + UNIQUE FK)</h2></div>
+            </div>
+
+            <h3>Setup</h3>
+            <div class="code"><span class="k">CREATE TABLE</span> citizens (
+  citizen_id  <span class="t">INTEGER</span> <span class="k">PRIMARY KEY</span> <span class="k">AUTOINCREMENT</span>,
+  full_name   <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  birth_place <span class="t">TEXT</span>
+);
+
+<span class="k">CREATE TABLE</span> passports (
+  passport_id <span class="t">INTEGER</span> <span class="k">PRIMARY KEY</span> <span class="k">AUTOINCREMENT</span>,
+  citizen_ref <span class="t">INTEGER</span> <span class="k">UNIQUE NOT NULL</span>,
+  passport_no <span class="t">TEXT</span>    <span class="k">UNIQUE NOT NULL</span>,
+  expires_on  <span class="t">DATE</span>,
+  <span class="k">FOREIGN KEY</span> (citizen_ref) <span class="k">REFERENCES</span> citizens(citizen_id)
+    <span class="k">ON DELETE CASCADE</span>
+);
+
+<span class="k">INSERT INTO</span> citizens (full_name, birth_place) <span class="k">VALUES</span>
+  (<span class="s">'Lina Haddad'</span>, <span class="s">'Amman'</span>),
+  (<span class="s">'Omar Nasser'</span>, <span class="s">'Zarqa'</span>),
+  (<span class="s">'Maya Khalil'</span>, <span class="s">'Irbid'</span>);
+
+<span class="k">INSERT INTO</span> passports (citizen_ref, passport_no, expires_on) <span class="k">VALUES</span>
+  (<span class="n">1</span>, <span class="s">'P-A10293'</span>, <span class="s">'2032-03-01'</span>),
+  (<span class="n">2</span>, <span class="s">'P-B77811'</span>, <span class="s">'2033-07-15'</span>);</div>
+
+            <h3>Output query</h3>
+            <div class="code"><span class="k">SELECT</span>
+  c.citizen_id,
+  c.full_name,
+  p.passport_id,
+  <span class="k">COALESCE</span>(p.passport_no, <span class="s">'No passport'</span>) <span class="k">AS</span> passport_no
+<span class="k">FROM</span> citizens c
+<span class="k">LEFT JOIN</span> passports p <span class="k">ON</span> p.citizen_ref = c.citizen_id
+<span class="k">ORDER BY</span> c.citizen_id;</div>
+            <table>
+              <thead><tr><th>citizen_id</th><th>full_name</th><th>passport_id</th><th>passport_no</th></tr></thead>
+              <tbody>
+                <tr><td>1</td><td>Lina Haddad</td><td>1</td><td>P-A10293</td></tr>
+                <tr><td>2</td><td>Omar Nasser</td><td>2</td><td>P-B77811</td></tr>
+                <tr><td>3</td><td>Maya Khalil</td><td class="null-val">NULL</td><td class="null-val">No passport</td></tr>
+              </tbody>
+            </table>
+
+            <div class="note">
+              <strong>Why 1:1+ works:</strong> <code>passports.passport_id</code> is the child identity key, while <code>passports.citizen_ref</code> is both <strong>UNIQUE</strong> and <strong>FK</strong>. This enforces one passport row per citizen.
+            </div>
+          </div>
+        </section>
+
+        <section class="topic-panel" id="t-hw">
+          <div class="hw-card">
+            <p>Complete the exercise section from these two pages:</p>
+            <ul style="padding-left:18px;margin-top:10px;">
+              <li style="margin-bottom:10px;"><a href="../../06_relations/02-one-to-many.html" style="color:var(--teal-2);font-weight:700;">Topic 3 - One-to-Many (1:N) exercise -></a></li>
+              <li style="margin-bottom:10px;"><a href="../../06_relations/03-many-to-many.html" style="color:var(--teal-2);font-weight:700;">Topic 4 - Many-to-Many (N:M) exercise -></a></li>
+            </ul>
+            <div class="note" style="margin-top:12px;">
+              <strong>Submit:</strong> your SQL script as a .sql text file &nbsp;|&nbsp;
+              <strong>Email:</strong> pythonai211225+sql7@gmail.com
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <script>
+    const links  = document.querySelectorAll('.topic-link');
+    const panels = document.querySelectorAll('.topic-panel');
+
+    function showTopic(id) {
+      panels.forEach(p => p.classList.toggle('active', p.id === id));
+      links.forEach(l  => l.classList.toggle('active', l.dataset.target === id));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    links.forEach(link => {
+      link.addEventListener('click', () => {
+        const targetId = link.dataset.target;
+        showTopic(targetId);
+        location.hash = targetId;
+      });
+    });
+
+    function applyHashTopic() {
+      const hash = location.hash.replace('#', '');
+      if (!hash) return;
+      if (document.getElementById(hash)) showTopic(hash);
+    }
+
+    applyHashTopic();
+    window.addEventListener('hashchange', applyHashTopic);
+  </script>
+</body>
+</html>
