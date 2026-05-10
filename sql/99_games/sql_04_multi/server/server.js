@@ -58,6 +58,21 @@ function broadcastExcept(senderId, msg) {
   }
 }
 
+function removePlayer(id) {
+  const existed = players.delete(id);
+  if (existed) {
+    broadcastExcept(id, { type: "player_leave", id });
+  }
+}
+
+function pruneStalePlayers() {
+  for (const [pid, p] of players.entries()) {
+    if (!p || !p.ws || p.ws.readyState !== p.ws.OPEN) {
+      removePlayer(pid);
+    }
+  }
+}
+
 wss.on("connection", (ws) => {
   const id = genId();
 
@@ -70,10 +85,19 @@ wss.on("connection", (ws) => {
     }
 
     if (msg.type === "join") {
+      pruneStalePlayers();
+
       // Reject duplicate join
       if (players.has(id)) return;
 
       const name = sanitizeName(msg.name);
+
+      // Reject if name already taken by another connected player
+      const nameTaken = [...players.values()].some(p => p.name.toLowerCase() === name.toLowerCase());
+      if (nameTaken) {
+        sendTo(ws, { type: "name_taken", name });
+        return;
+      }
       players.set(id, { ws, name, floor: 0, x: 0, y: 0 });
 
       // Send this player their id + all current peers
@@ -105,15 +129,34 @@ wss.on("connection", (ws) => {
       broadcastExcept(id, { type: "player_update", player: snapshot(id) });
       return;
     }
+
+    if (msg.type === "game_event") {
+      const p = players.get(id);
+      if (!p) return;
+      const allowed = ["ghost", "trophy", "win", "floor"];
+      const ev = allowed.includes(msg.event) ? msg.event : null;
+      if (!ev) return;
+      const floor = Math.max(0, Math.round(Number(msg.floor) || 0));
+      const extra = {};
+      if (ev === "win") {
+        if (msg.gold != null) extra.gold = Math.round(Number(msg.gold) || 0);
+        if (msg.time)         extra.time = String(msg.time).slice(0, 10);
+      }
+      // broadcast to ALL players including sender
+      const json = JSON.stringify({ type: "game_event", name: p.name, event: ev, floor, ...extra });
+      for (const [, peer] of players) {
+        if (peer.ws.readyState === peer.ws.OPEN) peer.ws.send(json);
+      }
+      return;
+    }
   });
 
   ws.on("close", () => {
-    players.delete(id);
-    broadcastExcept(id, { type: "player_leave", id });
+    removePlayer(id);
   });
 
   ws.on("error", () => {
-    players.delete(id);
+    removePlayer(id);
   });
 });
 

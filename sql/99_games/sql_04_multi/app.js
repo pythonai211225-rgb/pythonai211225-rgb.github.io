@@ -994,12 +994,32 @@ function tryMove(dx, dy) {
 
 function triggerWin() {
   isTransitioning = true;
-  flashEl.classList.add("on");
-  window.setTimeout(() => {
-    flashEl.classList.remove("on");
-    document.getElementById("winPanel").classList.remove("hidden");
-    setStateText("You completed all floors! Congratulations!");
-  }, 400);
+  stairVideoFrameEl.classList.remove("hidden");
+  playerEl.classList.add("video-hidden");
+  stairVideoEl.src = "game_over.mp4";
+  stairVideoEl.load();
+  stairVideoEl.controls = false;
+  stairVideoEl.playbackRate = 1;
+  stairVideoEl.currentTime = 0;
+
+  let finished = false;
+  const finishWin = () => {
+    if (finished) return;
+    finished = true;
+    hideStairVideo();
+    flashEl.classList.add("on");
+    window.setTimeout(() => {
+      flashEl.classList.remove("on");
+      document.getElementById("winPanel").classList.remove("hidden");
+      setStateText("You completed all floors! Congratulations!");
+    }, 400);
+  };
+
+  stairVideoEl.onended = finishWin;
+  const playPromise = stairVideoEl.play();
+  if (playPromise && typeof playPromise.catch === "function") {
+    playPromise.catch(() => finishWin());
+  }
 }
 
 function resetGame() {

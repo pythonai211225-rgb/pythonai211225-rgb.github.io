@@ -1,0 +1,242 @@
+{
+  "quiz": "SQL Quiz – Hard Level",
+  "level": "hard",
+  "dialect": "SQLite",
+  "tables": {
+    "customers": {
+      "columns": ["customer_id", "name", "city", "country"],
+      "rows": [
+        [1, "Alice",  "New York", "USA"],
+        [2, "Bob",    "London",   "UK"],
+        [3, "Carol",  "New York", "USA"],
+        [4, "David",  "Paris",    "France"],
+        [5, "Eve",    "London",   "UK"]
+      ]
+    },
+    "orders": {
+      "columns": ["order_id", "customer_id", "amount", "order_date", "status"],
+      "rows": [
+        [1, 1, 300, "2024-01-05", "shipped"],
+        [2, 1, 150, "2024-01-10", "pending"],
+        [3, 2, 500, "2024-01-12", "shipped"],
+        [4, 3, 200, "2024-01-15", "cancelled"],
+        [5, 1, 400, "2024-01-20", "shipped"]
+      ]
+    },
+    "order_items": {
+      "columns": ["item_id", "order_id", "product_name", "qty", "unit_price"],
+      "rows": [
+        [1, 1, "Laptop",   1, 300],
+        [2, 2, "Mouse",    3,  50],
+        [3, 3, "Laptop",   1, 300],
+        [4, 3, "Keyboard", 2, 100],
+        [5, 5, "Monitor",  2, 200]
+      ]
+    },
+    "reviews": {
+      "columns": ["review_id", "customer_id", "rating", "review_date"],
+      "rows": [
+        [1, 1, 5, "2024-02-01"],
+        [2, 2, 4, "2024-02-03"],
+        [3, 1, 3, "2024-02-10"]
+      ]
+    }
+  },
+  "questions": [
+    {
+      "number": 1,
+      "topic": "Subquery – IN",
+      "question": "Which query returns the names of customers who have placed at least one order?",
+      "tables": ["customers", "orders"],
+      "options": {
+        "A": "SELECT name FROM customers WHERE customer_id = ANY (SELECT customer_id FROM orders GROUP BY customer_id);",
+        "B": "SELECT name FROM customers WHERE customer_id IN (SELECT customer_id FROM orders);",
+        "C": "SELECT name FROM customers INNER JOIN orders ON customers.customer_id = orders.order_id;",
+        "D": "SELECT name FROM customers WHERE customer_id IN (SELECT order_id FROM orders);"
+      },
+      "answer": "B"
+    },
+    {
+      "number": 2,
+      "topic": "Subquery – NOT IN",
+      "question": "Which query returns the names of customers who have never placed an order?",
+      "tables": ["customers", "orders"],
+      "options": {
+        "A": "SELECT name FROM customers WHERE customer_id NOT IN (SELECT order_id FROM orders);",
+        "B": "SELECT name FROM customers LEFT JOIN orders ON customers.customer_id = orders.customer_id WHERE orders.order_id IS NULL;",
+        "C": "SELECT name FROM customers WHERE customer_id NOT IN (SELECT customer_id FROM orders);",
+        "D": "SELECT name FROM customers WHERE customer_id != (SELECT customer_id FROM orders);"
+      },
+      "answer": "C"
+    },
+    {
+      "number": 3,
+      "topic": "3-Table JOIN + GROUP BY + SUM",
+      "question": "Which query returns each customer's name and the total quantity of items they have ordered across all their orders?",
+      "tables": ["customers", "orders", "order_items"],
+      "options": {
+        "A": "SELECT c.name, SUM(oi.qty) AS total_qty FROM customers c JOIN orders o ON c.customer_id = o.customer_id JOIN order_items oi ON o.order_id = oi.order_id GROUP BY c.name;",
+        "B": "SELECT c.name, COUNT(oi.qty) AS total_qty FROM customers c JOIN orders o ON c.customer_id = o.customer_id JOIN order_items oi ON o.order_id = oi.order_id GROUP BY c.name;",
+        "C": "SELECT c.name, SUM(oi.qty) AS total_qty FROM customers c JOIN order_items oi ON c.customer_id = oi.item_id GROUP BY c.name;",
+        "D": "SELECT c.name, SUM(oi.qty) AS total_qty FROM customers c JOIN orders o ON c.customer_id = o.customer_id JOIN order_items oi ON o.order_id = oi.order_id;"
+      },
+      "answer": "A"
+    },
+    {
+      "number": 4,
+      "topic": "JOIN + ORDER BY + LIMIT",
+      "question": "Which query returns the customer name and amount of the single most expensive order?",
+      "tables": ["customers", "orders"],
+      "options": {
+        "A": "SELECT c.name, MAX(o.amount) FROM customers c JOIN orders o ON c.customer_id = o.customer_id;",
+        "B": "SELECT c.name, o.amount FROM customers c JOIN orders o ON c.customer_id = o.customer_id ORDER BY o.amount DESC;",
+        "C": "SELECT c.name, o.amount FROM customers c JOIN orders o ON c.customer_id = o.customer_id WHERE o.amount = MAX(o.amount);",
+        "D": "SELECT c.name, o.amount FROM customers c JOIN orders o ON c.customer_id = o.customer_id ORDER BY o.amount DESC LIMIT 1;"
+      },
+      "answer": "D"
+    },
+    {
+      "number": 5,
+      "topic": "Correlated Subquery",
+      "question": "Which query returns orders whose amount is above the average order amount?",
+      "tables": ["orders"],
+      "options": {
+        "A": "SELECT order_id, amount FROM orders WHERE amount > AVG(amount);",
+        "B": "SELECT order_id, amount FROM orders WHERE amount > (SELECT MAX(amount) FROM orders);",
+        "C": "SELECT order_id, amount FROM orders WHERE amount > (SELECT AVG(amount) FROM orders);",
+        "D": "SELECT order_id, amount FROM orders HAVING amount > AVG(amount);"
+      },
+      "answer": "C"
+    },
+    {
+      "number": 6,
+      "topic": "SELECT DISTINCT + JOIN",
+      "question": "Which query returns the distinct countries of customers who have placed at least one order, with no duplicate rows?",
+      "tables": ["customers", "orders"],
+      "options": {
+        "A": "SELECT DISTINCT c.country FROM customers c JOIN orders o ON c.customer_id = o.customer_id;",
+        "B": "SELECT c.country FROM customers c JOIN orders o ON c.customer_id = o.customer_id;",
+        "C": "SELECT DISTINCT country FROM customers;",
+        "D": "SELECT DISTINCT c.country FROM customers c LEFT JOIN orders o ON c.customer_id = o.customer_id;"
+      },
+      "answer": "A"
+    },
+    {
+      "number": 7,
+      "topic": "INNER JOIN + WHERE (joined column)",
+      "question": "Which query returns the name and order amount for every shipped order?",
+      "tables": ["customers", "orders"],
+      "options": {
+        "A": "SELECT c.name, o.amount FROM customers c INNER JOIN orders o ON c.customer_id = o.customer_id WHERE o.status = 'shipped';",
+        "B": "SELECT c.name, o.amount FROM customers c INNER JOIN orders o ON c.customer_id = o.customer_id AND o.status = 'shipped' WHERE c.name IS NOT NULL;",
+        "C": "SELECT c.name, o.amount FROM customers c LEFT JOIN orders o ON c.customer_id = o.customer_id WHERE o.status = 'shipped';",
+        "D": "SELECT c.name, o.amount FROM customers c INNER JOIN orders o ON c.customer_id = o.order_id WHERE o.status = 'shipped';"
+      },
+      "answer": "A"
+    },
+    {
+      "number": 8,
+      "topic": "LEFT JOIN + IS NULL",
+      "question": "Which query returns the names of customers who have never placed an order, using a LEFT JOIN?",
+      "tables": ["customers", "orders"],
+      "options": {
+        "A": "SELECT c.name FROM customers c LEFT JOIN orders o ON c.customer_id = o.customer_id WHERE o.order_id IS NOT NULL;",
+        "B": "SELECT c.name FROM customers c INNER JOIN orders o ON c.customer_id = o.customer_id WHERE o.order_id IS NULL;",
+        "C": "SELECT c.name FROM orders o LEFT JOIN customers c ON c.customer_id = o.customer_id WHERE o.order_id IS NULL;",
+        "D": "SELECT c.name FROM customers c LEFT JOIN orders o ON c.customer_id = o.customer_id WHERE o.order_id IS NULL;"
+      },
+      "answer": "D"
+    },
+    {
+      "number": 9,
+      "topic": "Self-Join",
+      "question": "Which query finds pairs of customers who live in the same city (without repeating the same pair twice and without pairing a customer with themselves)?",
+      "tables": ["customers"],
+      "options": {
+        "A": "SELECT a.name, b.name, a.city FROM customers a JOIN customers b ON a.city = b.city;",
+        "B": "SELECT a.name, b.name, a.city FROM customers a JOIN customers b ON a.city = b.city AND a.customer_id = b.customer_id;",
+        "C": "SELECT a.name, b.name, a.city FROM customers a JOIN customers b ON a.city = b.city AND a.customer_id < b.customer_id;",
+        "D": "SELECT a.name, b.name FROM customers a CROSS JOIN customers b WHERE a.city = b.city AND a.customer_id != b.customer_id ORDER BY a.customer_id;"
+      },
+      "answer": "C"
+    },
+    {
+      "number": 10,
+      "topic": "Conditional Aggregation",
+      "question": "Which query counts, per customer, how many orders are 'shipped' and how many are 'pending' — in two separate columns?",
+      "tables": ["orders"],
+      "options": {
+        "A": "SELECT customer_id, COUNT(*) AS shipped, COUNT(*) AS pending FROM orders GROUP BY customer_id, status;",
+        "B": "SELECT customer_id, SUM(CASE WHEN status = 'shipped' THEN 1 ELSE 0 END) AS shipped, SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending FROM orders GROUP BY customer_id;",
+        "C": "SELECT customer_id, COUNT(status = 'shipped') AS shipped, COUNT(status = 'pending') AS pending FROM orders GROUP BY customer_id;",
+        "D": "SELECT customer_id, CASE WHEN status = 'shipped' THEN COUNT(*) END AS shipped FROM orders GROUP BY customer_id;"
+      },
+      "answer": "B"
+    },
+    {
+      "number": 11,
+      "topic": "3-Table JOIN + WHERE",
+      "question": "Which query returns the customer name and product name for all shipped orders?",
+      "tables": ["customers", "orders", "order_items"],
+      "options": {
+        "A": "SELECT c.name, oi.product_name FROM customers c JOIN orders o ON c.customer_id = o.customer_id JOIN order_items oi ON o.order_id = oi.order_id WHERE o.status = 'shipped';",
+        "B": "SELECT c.name, oi.product_name FROM customers c JOIN order_items oi ON c.customer_id = oi.item_id JOIN orders o ON o.order_id = oi.order_id WHERE o.status = 'shipped';",
+        "C": "SELECT c.name, oi.product_name FROM customers c JOIN orders o ON c.customer_id = o.order_id JOIN order_items oi ON o.order_id = oi.order_id WHERE o.status = 'shipped';",
+        "D": "SELECT c.name, oi.product_name FROM customers c, orders o, order_items oi WHERE o.status = 'shipped';"
+      },
+      "answer": "A"
+    },
+    {
+      "number": 12,
+      "topic": "JOIN + GROUP BY + HAVING",
+      "question": "Which query returns customer names who have placed more than 1 order?",
+      "tables": ["customers", "orders"],
+      "options": {
+        "A": "SELECT c.name, COUNT(o.order_id) AS total FROM customers c JOIN orders o ON c.customer_id = o.customer_id GROUP BY c.name HAVING COUNT(o.order_id) > 1;",
+        "B": "SELECT c.name FROM customers c JOIN orders o ON c.customer_id = o.customer_id WHERE COUNT(o.order_id) > 1 GROUP BY c.name;",
+        "C": "SELECT c.name FROM customers c JOIN orders o ON c.customer_id = o.customer_id GROUP BY c.name HAVING o.order_id > 1;",
+        "D": "SELECT c.name, COUNT(*) AS total FROM customers c LEFT JOIN orders o ON c.customer_id = o.customer_id HAVING total > 1;"
+      },
+      "answer": "A"
+    },
+    {
+      "number": 13,
+      "topic": "JOIN + Subquery in WHERE",
+      "question": "Which query returns the name and amount of the single highest-amount order, using a subquery?",
+      "tables": ["customers", "orders"],
+      "options": {
+        "A": "SELECT c.name, o.amount FROM customers c JOIN orders o ON c.customer_id = o.customer_id WHERE o.amount = MAX(o.amount);",
+        "B": "SELECT c.name, o.amount FROM customers c JOIN orders o ON c.customer_id = o.customer_id ORDER BY o.amount DESC LIMIT 1;",
+        "C": "SELECT c.name, o.amount FROM customers c JOIN orders o ON c.customer_id = o.customer_id WHERE o.amount = (SELECT MAX(amount) FROM orders);",
+        "D": "SELECT c.name, MAX(o.amount) FROM customers c JOIN orders o ON c.customer_id = o.customer_id;"
+      },
+      "answer": "C"
+    },
+    {
+      "number": 14,
+      "topic": "JOIN + LEFT JOIN – mixed",
+      "question": "Which query returns all customers, their orders (if any), and the item count per order — including customers with no orders (showing NULL)?",
+      "tables": ["customers", "orders", "order_items"],
+      "options": {
+        "A": "SELECT c.name, o.order_id, COUNT(oi.item_id) AS item_count FROM customers c LEFT JOIN orders o ON c.customer_id = o.customer_id LEFT JOIN order_items oi ON o.order_id = oi.order_id GROUP BY c.name, o.order_id;",
+        "B": "SELECT c.name, o.order_id, COUNT(oi.item_id) AS item_count FROM customers c INNER JOIN orders o ON c.customer_id = o.customer_id LEFT JOIN order_items oi ON o.order_id = oi.order_id GROUP BY c.name, o.order_id;",
+        "C": "SELECT c.name, o.order_id, COUNT(oi.item_id) AS item_count FROM customers c LEFT JOIN orders o ON c.customer_id = o.customer_id INNER JOIN order_items oi ON o.order_id = oi.order_id GROUP BY c.name, o.order_id;",
+        "D": "SELECT c.name, o.order_id, COUNT(*) AS item_count FROM customers c LEFT JOIN orders o ON c.customer_id = o.customer_id LEFT JOIN order_items oi ON o.order_id = oi.order_id;"
+      },
+      "answer": "A"
+    },
+    {
+      "number": 15,
+      "topic": "3-Table JOIN + GROUP BY + SUM",
+      "question": "Which query returns each customer's name and their total revenue (calculated as qty × unit_price across all their order items)?",
+      "tables": ["customers", "orders", "order_items"],
+      "options": {
+        "A": "SELECT c.name, SUM(oi.qty * oi.unit_price) AS revenue FROM customers c JOIN orders o ON c.customer_id = o.customer_id JOIN order_items oi ON o.order_id = oi.order_id GROUP BY c.name;",
+        "B": "SELECT c.name, SUM(oi.qty * oi.unit_price) AS revenue FROM customers c JOIN order_items oi ON c.customer_id = oi.item_id GROUP BY c.name;",
+        "C": "SELECT c.name, SUM(o.amount) AS revenue FROM customers c JOIN orders o ON c.customer_id = o.customer_id JOIN order_items oi ON o.order_id = oi.order_id GROUP BY c.name;",
+        "D": "SELECT c.name, SUM(oi.qty * oi.unit_price) AS revenue FROM customers c JOIN orders o ON c.customer_id = o.customer_id JOIN order_items oi ON o.order_id = oi.order_id;"
+      },
+      "answer": "A"
+    }
+  ]
+}

@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>1:1 Relationship — Lesson 6</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%23080e1c'/><text x='32' y='45' text-anchor='middle' font-family='Arial, sans-serif' font-size='42' font-weight='700' fill='%232dd4bf'>db</text></svg>">
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+  <nav class="top-nav">
+    <div class="wrap">
+      <a class="nav-home" href="../index.html">Home</a>
+      <div class="brand">Lesson 6</div>
+      <a class="nav-link" href="01-one-to-one.html">1. 1:1</a>
+      <a class="nav-link" href="02-one-to-many.html">2. 1:N</a>
+      <a class="nav-link" href="03-many-to-many.html">3. N:M</a>
+      <a class="nav-link" href="04-normalization-1nf.html">4. 1NF</a>
+      <a class="nav-link" href="05-normalization-2nf.html">5. 2NF</a>
+      <a class="nav-link" href="06-normalization-3nf.html">6. 3NF</a>
+    </div>
+  </nav>
+
+  <main class="container">
+
+    <!-- Hero -->
+    <section class="hero reveal">
+      <span class="tag">Lesson 6 · Relationships</span>
+      <h1>One-to-One <span style="color:var(--teal)">1:1</span></h1>
+      <p class="lead">Each row in Table A corresponds to <strong>at most one</strong> row in Table B — and each row in B corresponds to at most one row in A.</p>
+    </section>
+
+    <!-- Concept -->
+    <section class="section card reveal">
+      <h2>When to use 1:1</h2>
+      <div class="two-col" style="margin-top:16px;">
+        <div>
+          <p style="color:var(--muted);line-height:1.7;">A 1:1 relationship splits one large entity into two tables. Common reasons:</p>
+          <ul class="simple" style="margin-top:10px;">
+            <li>Keep optional / rarely-accessed columns separate to speed up the main table</li>
+            <li>Isolate sensitive data (e.g. passwords, biometric info) in a restricted table</li>
+            <li>Extend a table you cannot modify (e.g. a vendor-supplied schema)</li>
+          </ul>
+        </div>
+        <div class="note" style="align-self:start;">
+          <strong>Real-world examples</strong><br/>
+          <span style="color:var(--muted);">
+            users ↔ user_profiles<br/>
+            employees ↔ contracts<br/>
+            products ↔ product_details<br/>
+            accounts ↔ account_settings
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Diagram -->
+    <section class="section card reveal">
+      <h2>Diagram</h2>
+      <p style="color:var(--muted);margin-bottom:18px;">The "many" side holds a FOREIGN KEY that is also UNIQUE, enforcing the 1:1 constraint.</p>
+
+      <div class="rd-wrap">
+        <div class="rd-table">
+          <div class="rd-header" style="background:rgba(45,212,191,0.08);color:var(--teal);">users</div>
+          <div class="rd-row"><span class="rd-pk">PK</span> <span style="color:var(--text);">id</span> <span class="rd-col">INTEGER</span></div>
+          <div class="rd-row"><span class="rd-col" style="width:30px;"></span><span style="color:var(--text);">name</span> <span class="rd-col">TEXT</span></div>
+          <div class="rd-row"><span class="rd-col" style="width:30px;"></span><span style="color:var(--text);">email</span> <span class="rd-col">TEXT</span></div>
+        </div>
+
+        <div class="rd-line">
+          <span class="rd-cardinality">1</span>
+          <div class="rd-connector"></div>
+          <span class="rd-cardinality">1</span>
+        </div>
+
+        <div class="rd-table">
+          <div class="rd-header" style="background:rgba(251,191,36,0.08);color:var(--amber);">user_profiles</div>
+          <div class="rd-row"><span class="rd-pk">PK</span> <span style="color:var(--text);">user_id</span> <span class="rd-col">INTEGER</span></div>
+          <div class="rd-row"><span class="rd-fk">FK</span> <span style="color:var(--text);">user_id</span> <span class="rd-col">→ users.id</span></div>
+          <div class="rd-row"><span class="rd-col" style="width:30px;"></span><span style="color:var(--text);">bio</span> <span class="rd-col">TEXT</span></div>
+          <div class="rd-row"><span class="rd-col" style="width:30px;"></span><span style="color:var(--text);">avatar_url</span> <span class="rd-col">TEXT</span></div>
+        </div>
+      </div>
+
+      <div class="note" style="margin-top:16px;">
+        <strong>Key rule:</strong> In <code>user_profiles</code>, the column <code>user_id</code> is <strong>both</strong> the PRIMARY KEY and a FOREIGN KEY referencing <code>users(id)</code>. The PK constraint automatically ensures UNIQUE — so one user can have exactly one profile.
+      </div>
+    </section>
+
+    <!-- Syntax -->
+    <section class="section card reveal">
+      <h2>SQL Syntax</h2>
+      <div class="glow-divider"></div>
+
+      <p style="color:var(--muted);margin-bottom:10px;"><strong>Option A</strong> — shared primary key (most common for 1:1)</p>
+      <pre class="code"><span class="k">CREATE TABLE</span> <span class="t">users</span> (
+  id    <span class="t">INTEGER</span>  <span class="k">PRIMARY KEY</span> <span class="k">AUTOINCREMENT</span>,
+  name  <span class="t">TEXT</span>     <span class="k">NOT NULL</span>,
+  email <span class="t">TEXT</span>     <span class="k">UNIQUE NOT NULL</span>
+);
+
+<span class="k">CREATE TABLE</span> <span class="t">user_profiles</span> (
+  user_id    <span class="t">INTEGER</span>  <span class="k">PRIMARY KEY</span>,  <span class="c">-- PK ensures uniqueness</span>
+  bio        <span class="t">TEXT</span>,
+  avatar_url <span class="t">TEXT</span>,
+  <span class="k">FOREIGN KEY</span> (user_id) <span class="k">REFERENCES</span> <span class="t">users</span>(id)
+    <span class="k">ON DELETE CASCADE</span>
+);</pre>
+
+      <div class="glow-divider" style="margin-top:20px;"></div>
+      <p style="color:var(--muted);margin-bottom:10px;margin-top:6px;"><strong>Option B</strong> — UNIQUE foreign key (when the child needs its own PK)</p>
+      <pre class="code"><span class="k">CREATE TABLE</span> <span class="t">user_profiles</span> (
+  id         <span class="t">INTEGER</span>  <span class="k">PRIMARY KEY</span> <span class="k">AUTOINCREMENT</span>,
+  user_id    <span class="t">INTEGER</span>  <span class="k">UNIQUE NOT NULL</span>,  <span class="c">-- UNIQUE enforces 1:1</span>
+  bio        <span class="t">TEXT</span>,
+  avatar_url <span class="t">TEXT</span>,
+  <span class="k">FOREIGN KEY</span> (user_id) <span class="k">REFERENCES</span> <span class="t">users</span>(id)
+    <span class="k">ON DELETE CASCADE</span>
+);</pre>
+    </section>
+
+    <!-- Example -->
+    <section class="section card reveal">
+      <h2>Step-by-Step Example</h2>
+
+      <p style="color:var(--muted);margin-bottom:14px;"><strong>Step 1</strong> — Insert into the parent table first</p>
+      <pre class="code"><span class="k">INSERT INTO</span> <span class="t">users</span> (name, email)
+<span class="k">VALUES</span>
+  (<span class="c">'Alice'</span>, <span class="c">'alice@example.com'</span>),
+  (<span class="c">'Bob'</span>,   <span class="c">'bob@example.com'</span>),
+  (<span class="c">'Carol'</span>, <span class="c">'carol@example.com'</span>);</pre>
+
+      <p style="color:var(--muted);margin:14px 0 10px;"><strong>Step 2</strong> — Insert into the child table using the parent's id</p>
+      <pre class="code"><span class="k">INSERT INTO</span> <span class="t">user_profiles</span> (user_id, bio, avatar_url)
+<span class="k">VALUES</span>
+  (<span class="c">1</span>, <span class="c">'Love hiking and SQL'</span>, <span class="c">'/img/alice.png'</span>),
+  (<span class="c">2</span>, <span class="c">'Backend developer'</span>,   <span class="c">'/img/bob.png'</span>);</pre>
+
+      <p style="color:var(--muted);margin:14px 0 10px;"><strong>Step 3</strong> — Query with INNER JOIN (only users that HAVE a profile)</p>
+      <pre class="code"><span class="k">SELECT</span>
+  u.id, u.name, u.email,
+  p.bio, p.avatar_url
+<span class="k">FROM</span> <span class="t">users</span> u
+<span class="k">INNER JOIN</span> <span class="t">user_profiles</span> p <span class="k">ON</span> p.user_id = u.id;</pre>
+
+      <p style="color:var(--muted);margin:14px 0 10px;">Result:</p>
+      <div style="overflow-x:auto;">
+        <table class="table">
+          <thead><tr><th>id</th><th>name</th><th>email</th><th>bio</th><th>avatar_url</th></tr></thead>
+          <tbody>
+            <tr class="match-row"><td class="matched-val">1</td><td>Alice</td><td>alice@example.com</td><td>Love hiking and SQL</td><td>/img/alice.png</td></tr>
+            <tr class="match-row"><td class="matched-val">2</td><td>Bob</td><td>bob@example.com</td><td>Backend developer</td><td>/img/bob.png</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="color:var(--dim);font-size:.82rem;margin-top:8px;">Carol has no profile row → not in the result (use LEFT JOIN to include her).</p>
+
+      <p style="color:var(--muted);margin:14px 0 10px;"><strong>Step 4</strong> — LEFT JOIN to include users without a profile</p>
+      <pre class="code"><span class="k">SELECT</span>
+  u.name,
+  <span class="fn">COALESCE</span>(p.bio, <span class="c">'No profile yet'</span>) <span class="k">AS</span> bio
+<span class="k">FROM</span> <span class="t">users</span> u
+<span class="k">LEFT JOIN</span> <span class="t">user_profiles</span> p <span class="k">ON</span> p.user_id = u.id;</pre>
+
+      <div style="overflow-x:auto;margin-top:10px;">
+        <table class="table">
+          <thead><tr><th>name</th><th>bio</th></tr></thead>
+          <tbody>
+            <tr class="match-row"><td>Alice</td><td>Love hiking and SQL</td></tr>
+            <tr class="match-row"><td>Bob</td><td>Backend developer</td></tr>
+            <tr><td>Carol</td><td class="null-match">No profile yet</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Exercise -->
+    <section class="section card exercise-card reveal">
+      <div class="exercise-head">
+        <div class="exercise-q">✏</div>
+        <div>
+          <div class="exercise-sub">Exercise</div>
+          <h3>Build a Users ↔ Passports schema</h3>
+        </div>
+      </div>
+      <ol class="exercise-steps">
+        <li>Create a <code>users</code> table with columns: <code>id</code> (PK AUTOINCREMENT), <code>name</code> TEXT NOT NULL, <code>country</code> TEXT.</li>
+        <li>Create a <code>passports</code> table with <code>user_id</code> as both PK and FK referencing <code>users(id)</code> with ON DELETE CASCADE. Also add <code>passport_no</code> TEXT UNIQUE NOT NULL and <code>expires</code> TEXT.</li>
+        <li>Insert 3 users and 2 passports (leave one user without a passport).</li>
+        <li>Write an INNER JOIN query to list users with a passport number.</li>
+        <li>Write a LEFT JOIN query to show ALL users — displaying <code>'No passport'</code> for those without one.</li>
+        <li>Try inserting a second passport for user id 1. What error do you get and why?</li>
+      </ol>
+    </section>
+
+    <!-- Lesson nav -->
+    <div class="lesson-nav reveal">
+      <a class="btn" href="index.html">← Overview</a>
+      <a class="btn primary" href="02-one-to-many.html">Next: 1:N →</a>
+    </div>
+
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

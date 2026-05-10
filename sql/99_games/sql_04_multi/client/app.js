@@ -18,6 +18,9 @@ const questionTablesEl  = document.getElementById("questionTables");
 const questionTableNamesEl = document.getElementById("questionTableNames");
 const questionTablePreviewEl = document.getElementById("questionTablePreview");
 const answersEl         = document.getElementById("answers");
+const paySkipWrapEl     = document.getElementById("paySkipWrap");
+const paySkipBtnEl      = document.getElementById("paySkipBtn");
+const paySkipHintEl     = document.getElementById("paySkipHint");
 const onlineTextEl      = document.getElementById("onlineText");
 const restartBtn        = document.getElementById("restartBtn");
 const scoreValueEl      = document.getElementById("scoreValue");
@@ -27,15 +30,26 @@ const tablePanelHintEl  = document.getElementById("tablePanelHint");
 const loginOverlayEl    = document.getElementById("loginOverlay");
 const loginFormEl       = document.getElementById("loginForm");
 const nameInputEl       = document.getElementById("nameInput");
+const nameErrorEl       = document.getElementById("nameError");
 const playerNameEl      = playerEl.querySelector(".player-name");
+const refreshConfirmModalEl = document.getElementById("refreshConfirmModal");
+const refreshCancelBtnEl = document.getElementById("refreshCancelBtn");
+const refreshConfirmBtnEl = document.getElementById("refreshConfirmBtn");
+const reloadBlockOverlayEl = document.getElementById("reloadBlockOverlay");
+const lobbyBarEl           = document.getElementById("lobbyBar");
+const eventLogEl           = document.getElementById("eventLog");
+const ghostEl              = document.getElementById("ghost");
+const ghost2El             = document.getElementById("ghost2");
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const COLS = 16;
 const ROWS = 10;
 const TROPHY_FLOOR_INDEX = 2;
 const TROPHY_POS = { x: 8, y: 5 };
+const FINAL_FLOOR_INDEX = 3;
 const GAME_OVER_LEVEL = 4;
 const GRAIL_BONUS = 10000;
+const PAY_TO_SKIP_COST = { medium: 300, hard: 500 };
 
 // ── Table data ─────────────────────────────────────────────────────────────────
 const TABLE_DATA = {
@@ -229,6 +243,26 @@ const TABLE_DATA = {
       [13, 14, 9,  "delivered", "2024-05-03"],
       [14, 15, 11, "pending",   "2024-05-12"],
       [15, 7,  4,  "cancelled", "2024-03-06"],
+    ]
+  },
+  colors: {
+    columns: ["id", "name"],
+    rows: [
+      [1, "Red"],
+      [2, "Blue"],
+      [3, "Green"],
+      [4, "Black"],
+    ]
+  },
+  sizes: {
+    columns: ["id", "label"],
+    rows: [
+      [1, "XS"],
+      [2, "S"],
+      [3, "M"],
+      [4, "L"],
+      [5, "XL"],
+      [6, "XXL"],
     ]
   },
 };
@@ -541,7 +575,32 @@ const FLOOR_CONFIGS = [
       { type: "easy",   x: 2,  y: 8 },
       { type: "medium", x: 10, y: 6 },
       { type: "medium", x: 12, y: 3 },
-      { type: "hard",   x: 8,  y: 8 }
+      { type: "hard",   x: 8,  y: 8 },
+      { type: "hard",   x: 8,  y: 4 },
+      { type: "hard",   x: 8,  y: 6 }
+    ]
+  },
+  {
+    start: { x: 13, y: 8 },
+    stair: { x: 1, y: 1 },
+    layout: [
+      "################",
+      "#....#.........#",
+      "###.#.#####.##.#",
+      "#...#.....#....#",
+      "#.#####.#.###..#",
+      "#.....#.#...#..#",
+      "#.###.#.###.#..#",
+      "#...#...#...#..#",
+      "#..............#",
+      "################"
+    ],
+    checkpoints: [
+      { type: "hard", x: 10, y: 1 },
+      { type: "hard", x: 3,  y: 3 },
+      { type: "hard", x: 13, y: 3 },
+      { type: "hard", x: 5,  y: 5 },
+      { type: "hard", x: 9,  y: 7 }
     ]
   }
 ];
@@ -552,6 +611,14 @@ let checkpointByPosition = {};
 let currentFloor         = 0;
 let player               = { x: 1, y: 8 };
 let floorCheckpoints     = [];
+
+// ── Ghost state ────────────────────────────────────────────────────────────────
+const GHOST_DIRS  = [[1,0],[-1,0],[0,1],[0,-1]];
+const GHOST_SPEED = 500; // ms per step
+let ghost         = { x: 0, y: 0, dx: 1, dy: 0 };
+let ghostTimerId  = null;
+let ghost2        = { x: 0, y: 0, dx: -1, dy: 0 };
+let ghost2TimerId = null;
 // Set of question indexes answered correctly this session (not reset on floor advance)
 const correctlyAnswered  = { easy: new Set(), medium: new Set(), hard: new Set() };
 // Tracks every question index already shown (wrong or right) so we don't repeat until all seen
@@ -610,16 +677,117 @@ let myName = "";
 let ws     = null;
 const remotePlayers = new Map();
 
+const QUESTION_TYPES = ["easy", "medium", "hard"];
+let questionBankReadyPromise = null;
+
+function isValidLoadedQuestion(q) {
+  return !!q
+    && typeof q.prompt === "string"
+    && Array.isArray(q.answers)
+    && q.answers.length === 4
+    && Number.isInteger(q.correctIndex)
+    && q.correctIndex >= 0
+    && q.correctIndex < 4;
+}
+
+function applyLoadedQuestionBank(loaded) {
+  if (!loaded || typeof loaded !== "object") return false;
+
+  let appliedAny = false;
+  QUESTION_TYPES.forEach((type) => {
+    const list = loaded[type];
+    if (!Array.isArray(list)) return;
+    const normalized = list
+      .filter(isValidLoadedQuestion)
+      .map((q, idx) => ({
+        id: q.id || `${type}_${idx + 1}`,
+        prompt: q.prompt,
+        answers: q.answers,
+        correctIndex: q.correctIndex,
+        tables: getQuestionTables(q)
+      }));
+
+    if (normalized.length > 0) {
+      QUESTION_BANK[type] = normalized;
+      appliedAny = true;
+    }
+  });
+
+  return appliedAny;
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function inferTablesFromQuestion(q) {
+  const tableNames = Object.keys(TABLE_DATA);
+  const textBlob = [q.prompt, ...(q.answers || [])].join(" ").toLowerCase();
+  const found = [];
+
+  tableNames.forEach((name) => {
+    const variants = [name];
+    if (name.endsWith("s") && name.length > 1) variants.push(name.slice(0, -1));
+    const matched = variants.some((variant) => {
+      const rx = new RegExp(`\\b${escapeRegExp(variant)}\\b`, "i");
+      return rx.test(textBlob);
+    });
+    if (matched) found.push(name);
+  });
+
+  return found;
+}
+
+function getQuestionTables(q) {
+  const explicit = Array.isArray(q.tables) ? q.tables.filter((name) => !!TABLE_DATA[name]) : [];
+  if (explicit.length) return [...new Set(explicit)];
+  return inferTablesFromQuestion(q);
+}
+
+async function ensureQuestionBankLoaded() {
+  if (questionBankReadyPromise) return questionBankReadyPromise;
+
+  questionBankReadyPromise = (async () => {
+    try {
+      const res = await fetch("questions.json", { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const loaded = await res.json();
+      applyLoadedQuestionBank(loaded);
+    } catch (err) {
+      console.warn("Failed to load questions.json; using built-in QUESTION_BANK.", err);
+    }
+
+    // Ensure built-in questions also get table inference when JSON has no table tags.
+    QUESTION_TYPES.forEach((type) => {
+      QUESTION_BANK[type] = QUESTION_BANK[type].map((q, idx) => ({
+        id: q.id || `${type}_${idx + 1}`,
+        prompt: q.prompt,
+        answers: q.answers,
+        correctIndex: q.correctIndex,
+        tables: getQuestionTables(q)
+      }));
+    });
+  })();
+
+  return questionBankReadyPromise;
+}
+
 // ── Login ──────────────────────────────────────────────────────────────────────
-loginFormEl.addEventListener("submit", (e) => {
+loginFormEl.addEventListener("submit", async (e) => {
   e.preventDefault();
   const raw = nameInputEl.value.trim().replace(/[<>&"']/g, "").slice(0, 20);
   if (!raw) return;
+
+  await ensureQuestionBankLoaded();
+
+  nameErrorEl.classList.add("hidden");
+  nameErrorEl.textContent = "";
   myName = raw;
   playerNameEl.textContent = myName;
   loginOverlayEl.classList.add("hidden");
   connectWS();
   resetGame();
+  window.setTimeout(() => new Audio("level-start.mp3").play().catch(() => {}), 200);
 });
 
 // ── WebSocket ──────────────────────────────────────────────────────────────────
@@ -635,6 +803,12 @@ function connectWS() {
 function sendPos() {
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ type: "move", x: player.x, y: player.y, floor: currentFloor }));
+  }
+}
+
+function sendGameEvent(event, extra) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: "game_event", event, floor: currentFloor, ...extra }));
   }
 }
 
@@ -674,7 +848,10 @@ function upsertRemotePlayer({ id, name, floor, x, y }) {
   entry.x = x;
   entry.y = y;
   applyRemotePos(entry.el, x, y);
-  entry.el.classList.toggle("off-floor", floor !== currentFloor);
+  // hide in-maze avatar if player is at start (0,0) or on a different floor
+  const inLobby = (x === 0 && y === 0);
+  entry.el.classList.toggle("off-floor", floor !== currentFloor || inLobby);
+  refreshLobbyBar();
 }
 
 function removeRemotePlayer(id) {
@@ -683,17 +860,61 @@ function removeRemotePlayer(id) {
     entry.el.remove();
     remotePlayers.delete(id);
     updateOnlineCount();
+    refreshLobbyBar();
+  }
+}
+
+function refreshLobbyBar() {
+  // keep the label, rebuild avatars
+  lobbyBarEl.querySelectorAll(".lobby-avatar").forEach(el => el.remove());
+  for (const entry of remotePlayers.values()) {
+    if (entry.x === 0 && entry.y === 0) {
+      const av = document.createElement("span");
+      av.className = "lobby-avatar";
+      av.textContent = entry.name;
+      lobbyBarEl.appendChild(av);
+    }
   }
 }
 
 function refreshRemoteVisibility() {
   for (const entry of remotePlayers.values()) {
-    entry.el.classList.toggle("off-floor", entry.floor !== currentFloor);
+    const inLobby = (entry.x === 0 && entry.y === 0);
+    entry.el.classList.toggle("off-floor", entry.floor !== currentFloor || inLobby);
   }
+  refreshLobbyBar();
 }
 
 function updateOnlineCount() {
   onlineTextEl.textContent = String(remotePlayers.size + 1);
+}
+
+// ── Event Console ─────────────────────────────────────────────────────────────
+const EVENT_ICONS = {
+  join:    "🟢",
+  leave:   "🔴",
+  floor:   "🪜",
+  ghost:   "👻",
+  trophy:  "🏆",
+  win:     "🎉",
+};
+
+function logEvent(type, html) {
+  const now = new Date();
+  const ts  = String(now.getHours()).padStart(2,"0") + ":" +
+              String(now.getMinutes()).padStart(2,"0") + ":" +
+              String(now.getSeconds()).padStart(2,"0");
+  const entry = document.createElement("div");
+  entry.className = "event-entry";
+  entry.innerHTML =
+    `<span class="event-time">${ts}</span>` +
+    `<span class="event-icon">${EVENT_ICONS[type] || "•"}</span>` +
+    `<span class="event-text">${html}</span>`;
+  eventLogEl.appendChild(entry);
+  // keep scroll pinned to bottom
+  eventLogEl.scrollTop = eventLogEl.scrollHeight;
+  // cap log at 200 entries
+  while (eventLogEl.children.length > 200) eventLogEl.removeChild(eventLogEl.firstChild);
 }
 
 function setStateText(message) {
@@ -703,15 +924,58 @@ function setStateText(message) {
 
 // ── Server message handler ─────────────────────────────────────────────────────
 function handleServerMessage(msg) {
+  if (msg.type === "name_taken") {
+    // Show login overlay again with error
+    loginOverlayEl.classList.remove("hidden");
+    nameErrorEl.textContent = `"${msg.name}" is already taken. Choose a different name.`;
+    nameErrorEl.classList.remove("hidden");
+    nameInputEl.focus();
+    if (ws) { ws.onclose = null; ws.close(); ws = null; }
+    return;
+  }
   if (msg.type === "init") {
     myId = msg.id;
     for (const peer of (msg.peers || [])) upsertRemotePlayer(peer);
     updateOnlineCount();
+    logEvent("join", `<span class="ev-name">You</span> joined the game`);
     return;
   }
-  if (msg.type === "player_join")   { upsertRemotePlayer(msg.player); return; }
-  if (msg.type === "player_update") { upsertRemotePlayer(msg.player); return; }
-  if (msg.type === "player_leave")  { removeRemotePlayer(msg.id); }
+  if (msg.type === "player_join") {
+    logEvent("join", `<span class="ev-name">${msg.player.name}</span> joined the game`);
+    upsertRemotePlayer(msg.player);
+    return;
+  }
+  if (msg.type === "player_update") {
+    const prev = remotePlayers.get(msg.player.id);
+    const prevFloor = prev ? prev.floor : 0;
+    upsertRemotePlayer(msg.player);
+    if (msg.player.floor > prevFloor) {
+      logEvent("floor", `<span class="ev-name">${msg.player.name}</span> climbed to <span class="ev-floor">Floor ${msg.player.floor + 1}</span>`);
+    }
+    return;
+  }
+  if (msg.type === "player_leave") {
+    const entry = remotePlayers.get(msg.id);
+    if (entry) logEvent("leave", `<span class="ev-name">${entry.name}</span> left the game`);
+    removeRemotePlayer(msg.id);
+    return;
+  }
+  if (msg.type === "game_event") {
+    const isMe = msg.name === myName;
+    const who = isMe ? `<span class="ev-name">You</span>` : `<span class="ev-name">${msg.name}</span>`;
+    if (msg.event === "ghost") {
+      logEvent("ghost", `${who} got caught by a <span class="ev-ghost">ghost</span>! <span class="ev-gold">-50 gold</span>`);
+    } else if (msg.event === "trophy") {
+      logEvent("trophy", `${who} picked up the <span class="ev-gold">🏆 Trophy</span>!`);
+    } else if (msg.event === "win") {
+      const gold = msg.gold != null ? ` · <span class="ev-gold">⬡ ${Number(msg.gold).toLocaleString()} gold</span>` : "";
+      const time = msg.time ? ` · <span class="ev-floor">${msg.time}</span>` : "";
+      logEvent("win", `${who} <span class="ev-win">finished the game!</span> 🎉${gold}${time}`);
+    } else if (msg.event === "floor") {
+      logEvent("floor", `${who} climbed to <span class="ev-floor">Floor ${msg.floor + 1}</span>`);
+    }
+    return;
+  }
 }
 
 // ── Game helpers ───────────────────────────────────────────────────────────────
@@ -775,6 +1039,26 @@ function pickQuestion(type) {
   return { q: pool[idx], index: idx };
 }
 
+// ── Shuffle answers while tracking correct answer index ──────────────────────
+function shuffleAnswers(answers, correctIndex) {
+  // Create array with indices to track original positions
+  const indexed = answers.map((answer, i) => ({ answer, origIndex: i }));
+  
+  // Fisher-Yates shuffle
+  for (let i = indexed.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [indexed[i], indexed[j]] = [indexed[j], indexed[i]];
+  }
+  
+  // Find new index of the correct answer
+  const newCorrectIndex = indexed.findIndex(item => item.origIndex === correctIndex);
+  
+  return {
+    shuffledAnswers: indexed.map(item => item.answer),
+    newCorrectIndex: newCorrectIndex
+  };
+}
+
 function canStepInto(x, y) {
   if (x < 0 || y < 0 || x >= COLS || y >= ROWS) return false;
   return currentFloorConfig().layout[y][x] !== "#";
@@ -826,10 +1110,15 @@ function updatePlayerPosition() {
 function positionQuestionPanel() {
   const onLeft = player.x < COLS / 2;
   const onTop  = player.y < ROWS / 2;
-  questionPanelEl.style.left   = onLeft ? "" : "18px";
-  questionPanelEl.style.right  = onLeft ? "18px" : "";
-  questionPanelEl.style.top    = onTop  ? "" : "18px";
+  questionPanelEl.style.width     = "47%";
+  questionPanelEl.style.transform = "none";
+  questionPanelEl.style.right     = "";
+  // horizontal: panel appears on OPPOSITE side from player
+  // panel is 47% wide; right side = left edge at calc(53% - 18px)
+  questionPanelEl.style.left   = onLeft ? "calc(53% - 18px)" : "18px";
+  // vertical: panel appears on OPPOSITE side from player
   questionPanelEl.style.bottom = onTop  ? "18px" : "";
+  questionPanelEl.style.top    = onTop  ? "" : "18px";
 }
 
 // ── Table panel ────────────────────────────────────────────────────────────────
@@ -932,6 +1221,8 @@ function showQuestionTablePreview(nameEl, tableName) {
   questionTablePreviewEl.classList.remove("hidden");
 }
 
+questionPanelEl.addEventListener("mouseleave", hideQuestionTablePreview);
+
 function renderQuestionTableNames(tableNames) {
   questionTableNamesEl.innerHTML = "";
   hideQuestionTablePreview();
@@ -953,6 +1244,70 @@ function renderQuestionTableNames(tableNames) {
   });
 }
 
+function refreshPaySkipUi() {
+  const type = activeCheckpoint?.type;
+  const cost = type ? PAY_TO_SKIP_COST[type] : null;
+
+  if (!cost) {
+    paySkipWrapEl.classList.add("hidden");
+    paySkipBtnEl.disabled = true;
+    paySkipHintEl.textContent = "";
+    return;
+  }
+
+  paySkipWrapEl.classList.remove("hidden");
+  paySkipBtnEl.innerHTML = `<img src="gold.png" class="pay-skip-coin" alt=""> Pay ${cost} points to skip this question`;
+  if (score >= cost) {
+    paySkipBtnEl.disabled = false;
+    paySkipHintEl.textContent = `Current score: ${score.toLocaleString()}`;
+  } else {
+    paySkipBtnEl.disabled = true;
+    const needed = cost - score;
+    paySkipHintEl.textContent = `Need ${needed.toLocaleString()} more points.`;
+  }
+}
+
+function payToSkipQuestion() {
+  if (!activeCheckpoint || !activeQuestion) return;
+  const cost = PAY_TO_SKIP_COST[activeCheckpoint.type];
+  if (!cost || score < cost) {
+    refreshPaySkipUi();
+    return;
+  }
+
+  const btns = [...answersEl.querySelectorAll("button")];
+  btns.forEach((b) => { b.disabled = true; });
+  paySkipBtnEl.disabled = true;
+
+  updateScore(-cost);
+  activeCheckpoint.state = "cleared";
+  refreshCheckpointCell(activeCheckpoint);
+  refreshStairCell();
+  window.setTimeout(closeQuestion, 140);
+}
+
+paySkipBtnEl.addEventListener("click", payToSkipQuestion);
+
+// ── Helper: Shuffle answers array while tracking correct answer's new index ─────
+function shuffleAnswers(answers, correctIndex) {
+  // Create array with indices to track original positions
+  const indexed = answers.map((answer, i) => ({ answer, origIndex: i }));
+  
+  // Fisher-Yates shuffle
+  for (let i = indexed.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [indexed[i], indexed[j]] = [indexed[j], indexed[i]];
+  }
+  
+  // Find new index of the correct answer
+  const newCorrectIndex = indexed.findIndex(item => item.origIndex === correctIndex);
+  
+  return {
+    shuffledAnswers: indexed.map(item => item.answer),
+    newCorrectIndex: newCorrectIndex
+  };
+}
+
 // ── Question logic ─────────────────────────────────────────────────────────────
 function openQuestion(cp) {
   const { q, index } = pickQuestion(cp.type);
@@ -960,18 +1315,23 @@ function openQuestion(cp) {
   activeQuestion      = q;
   activeQuestionIndex = index;
 
+  // Shuffle the answers and get the new correct index
+  const { shuffledAnswers, newCorrectIndex } = shuffleAnswers(q.answers, q.correctIndex);
+  activeCorrectIndex = newCorrectIndex;
+
   positionQuestionPanel();
   questionPanelEl.classList.remove("hidden");
   doorTopicEl.textContent     = cp.type.charAt(0).toUpperCase() + cp.type.slice(1) + " checkpoint";
   questionTitleEl.textContent = "Checkpoint Question";
   questionTextEl.textContent  = q.prompt;
+  speakQuestion(q.prompt);
   answersEl.innerHTML = "";
 
-  q.answers.forEach((answer, i) => {
+  shuffledAnswers.forEach((answer, i) => {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "answer-btn";
-    const isCorrect = i === q.correctIndex;
+    const isCorrect = i === activeCorrectIndex;
     const correctMark = isCorrect ? " ✓" : "";
     btn.innerHTML = `<strong>${i + 1}.</strong> ${answer}${correctMark}`;
     if (isCorrect) btn.classList.add("test-correct");
@@ -981,18 +1341,54 @@ function openQuestion(cp) {
 
   renderTablePanel(q.tables || []);
   renderQuestionTableNames(q.tables || []);
+  refreshPaySkipUi();
+}
+
+function speakFeedback(text) {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.rate = 1.0;
+  utter.pitch = 1.2;
+  const voices = window.speechSynthesis.getVoices();
+  const female = voices.find(v => /female|woman|girl/i.test(v.name))
+              || voices.find(v => /zira|susan|samantha|victoria|karen|moira|fiona|tessa|google uk english female|google us english/i.test(v.name))
+              || voices[0];
+  if (female) utter.voice = female;
+  window.speechSynthesis.speak(utter);
+}
+
+function speakQuestion(text) {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.rate = 0.95;
+  utter.pitch = 1.1;
+  // Pick a female voice; fall back to default if none found
+  const voices = window.speechSynthesis.getVoices();
+  const female = voices.find(v => /female|woman|girl/i.test(v.name))
+              || voices.find(v => /zira|susan|samantha|victoria|karen|moira|fiona|tessa|google uk english female|google us english/i.test(v.name))
+              || voices.find(v => v.name.toLowerCase().includes('female'))
+              || voices[0];
+  if (female) utter.voice = female;
+  window.speechSynthesis.speak(utter);
 }
 
 function closeQuestion() {
-  activeCheckpoint    = null;
-  activeQuestion      = null;
-  activeQuestionIndex = -1;
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  activeCheckpoint      = null;
+  activeQuestion        = null;
+  activeQuestionIndex   = -1;
+  activeCorrectIndex    = -1;
   questionPanelEl.classList.add("hidden");
   answersEl.innerHTML = "";
   clearTablePanel();
   questionTablesEl.classList.add("hidden");
   questionTableNamesEl.innerHTML = "";
   hideQuestionTablePreview();
+  paySkipWrapEl.classList.add("hidden");
+  paySkipBtnEl.disabled = true;
+  paySkipHintEl.textContent = "";
 }
 
 function refreshCheckpointCell(cp) {
@@ -1030,8 +1426,9 @@ function answerCheckpoint(index) {
   if (!activeCheckpoint || !activeQuestion) return;
   const btns = [...answersEl.querySelectorAll("button")];
   btns.forEach(b => { b.disabled = true; });
+  paySkipBtnEl.disabled = true;
 
-  const correct = index === activeQuestion.correctIndex;
+  const correct = index === activeCorrectIndex;
   btns[index]?.classList.add(correct ? "correct" : "wrong");
   // Wrong answer: do NOT reveal the correct one in green
 
@@ -1044,12 +1441,14 @@ function answerCheckpoint(index) {
     // Firework burst from the checkpoint cell
     const srcCell = getCell(activeCheckpoint.x, activeCheckpoint.y);
     if (srcCell) spawnFireworks(srcCell);
+    new Audio("correct.mp3").play().catch(() => {});
     window.setTimeout(closeQuestion, 220);
     return;
   }
 
   updateScore(-SCORE_PENALTY);
   explodeCheckpoint(activeCheckpoint);
+  new Audio("wrong.mp3").play().catch(() => {});
   window.setTimeout(() => {
     closeQuestion();
     resetToFloorStart();
@@ -1058,12 +1457,14 @@ function answerCheckpoint(index) {
 
 function advanceFloor() {
   currentFloor += 1;
+  sendGameEvent("floor");
   floorCheckpoints = createFloorCheckpoints();
   player = { ...currentFloorConfig().start };
   buildMaze();
   updatePlayerPosition();
   refreshRemoteVisibility();
   sendPos();
+  startGhost();
 }
 
 function runFloorUpAnimation(onDone) {
@@ -1079,6 +1480,7 @@ function runFloorUpAnimation(onDone) {
       window.setTimeout(() => {
         mazeEl.style.transition = "";
         isTransitioning = false;
+        new Audio("level-start.mp3").play().catch(() => {});
       }, 900);
     }, 3000);
   }));
@@ -1112,6 +1514,8 @@ function hideStairVideo() {
   stairVideoEl.currentTime = 0;
   stairVideoEl.onended = null;
   playerEl.classList.remove("video-hidden");
+  if (ghostTimerId !== null && !isGameWon) ghostEl.classList.remove("hidden");
+  if (ghost2TimerId !== null && !isGameWon) ghost2El.classList.remove("hidden");
 }
 
 function hideFinalVideo() {
@@ -1121,6 +1525,8 @@ function hideFinalVideo() {
   finalVideoEl.onended = null;
   finalVideoEl.src = "./trophy.mp4";
   playerEl.classList.remove("video-hidden");
+  if (ghostTimerId !== null && !isGameWon) ghostEl.classList.remove("hidden");
+  if (ghost2TimerId !== null && !isGameWon) ghost2El.classList.remove("hidden");
 }
 
 function playFinalVideo(src, onEnded) {
@@ -1130,6 +1536,8 @@ function playFinalVideo(src, onEnded) {
   }
   finalVideoFrameEl.classList.remove("hidden");
   playerEl.classList.add("video-hidden");
+  ghostEl.classList.add("hidden");
+  ghost2El.classList.add("hidden");
   finalVideoEl.controls = false;
   finalVideoEl.playbackRate = 1;
   finalVideoEl.currentTime = 0;
@@ -1147,10 +1555,12 @@ function playFinalVideo(src, onEnded) {
 }
 
 function showGameOver() {
+  stopGhost();
   finalScoreValueEl.textContent = score.toLocaleString();
   finalTimeValueEl.textContent = formatTime(elapsedSeconds);
   boardEl.classList.add("game-ended");
   gameOverPanelEl.classList.remove("hidden");
+  new Audio("finish.mp3").play().catch(() => {});
 }
 
 function hideGameOver() {
@@ -1163,11 +1573,16 @@ function triggerWin() {
   isTransitioning = true;
   clearPendingStairClimb();
   closeQuestion();
+  sendGameEvent("trophy");
   // Trophy pickup on level 3: play trophy video and grant bonus only.
   playFinalVideo("./trophy.mp4", () => {
     hideFinalVideo();
     hasTrophy = true;
     updateScore(GRAIL_BONUS);
+    // Fireworks bursting from the score display for ~1 second
+    [0, 180, 360, 560, 800].forEach(delay =>
+      window.setTimeout(() => spawnFireworks(scoreValueEl), delay)
+    );
     buildMaze();
     updatePlayerPosition();
     isTransitioning = false;
@@ -1176,22 +1591,66 @@ function triggerWin() {
 
 function playStairVideoThenAdvance() {
   clearPendingStairClimb();
+
+  // Final staircase on level 4: play game_over.mp4, then show panel.
+  if (currentFloor === FINAL_FLOOR_INDEX) {
+    isTransitioning = true;
+    stairVideoFrameEl.classList.remove("hidden");
+    playerEl.classList.add("video-hidden");
+    ghostEl.classList.add("hidden");
+    ghost2El.classList.add("hidden");
+    stairVideoEl.src = "./game_over.mp4";
+    stairVideoEl.load();
+    stairVideoEl.controls = false;
+    stairVideoEl.playbackRate = 1;
+    stairVideoEl.currentTime = 0;
+
+    let finished = false;
+    const finishGameOver = () => {
+      if (finished) return;
+      finished = true;
+      // Keep last frame visible behind panel
+      stairVideoEl.pause();
+      stairVideoEl.onended = null;
+      playerEl.classList.remove("video-hidden");
+      isTransitioning = false;
+      isGameWon = true;
+      stopTimer();
+      sendGameEvent("win", { gold: score, time: formatTime(elapsedSeconds) });
+      showGameOver();
+    };
+
+    stairVideoEl.onended = finishGameOver;
+    const pv = stairVideoEl.play();
+    if (pv && typeof pv.catch === "function") pv.catch(finishGameOver);
+    return;
+  }
+
+  // No stair video when moving from level 3 to level 4.
+  if (currentFloor === FINAL_FLOOR_INDEX - 1) {
+    hideStairVideo();
+    runFloorUpAnimation(advanceFloor);
+    return;
+  }
+
   isTransitioning = true;
   stairVideoFrameEl.classList.remove("hidden");
   playerEl.classList.add("video-hidden");
+  ghostEl.classList.add("hidden");
+  ghost2El.classList.add("hidden");
 
   // Select video based on floor transition.
   // floor 1->2: go_up.mp4
   // floor 2->3: up2.mp4
-  // floor 3 staircase (after trophy): final.mp4 and game ends
+  // floor 3->4: no video (handled above)
+  // floor 4 staircase: direct game over (handled above)
   let videoSrc = "./go_up.mp4";
   if (currentFloor === 1) videoSrc = "./up2.mp4";
-  if (currentFloor === TROPHY_FLOOR_INDEX) videoSrc = "./final.mp4";
   stairVideoEl.src = videoSrc;
   stairVideoEl.load();
 
-  // Keep level 2->3 and final staircase videos at regular speed.
-  const playbackRate = (currentFloor === 1 || currentFloor === TROPHY_FLOOR_INDEX) ? 1 : 1.5;
+  // Keep level 2->3 video at regular speed.
+  const playbackRate = currentFloor === 1 ? 1 : 1.5;
   stairVideoEl.controls     = false;
   stairVideoEl.playbackRate = playbackRate;
   stairVideoEl.currentTime  = 0;
@@ -1201,13 +1660,6 @@ function playStairVideoThenAdvance() {
     if (finished) return;
     finished = true;
     hideStairVideo();
-    if (currentFloor === TROPHY_FLOOR_INDEX) {
-      isTransitioning = false;
-      isGameWon = true;
-      stopTimer();
-      showGameOver();
-      return;
-    }
     runFloorUpAnimation(advanceFloor);
   };
 
@@ -1256,6 +1708,208 @@ function tryMove(dx, dy) {
 }
 
 // ── Reset ──────────────────────────────────────────────────────────────────────
+// ── Ghost ──────────────────────────────────────────────────────────────────────
+function updateGhostPosition() {
+  ghostEl.style.left = `calc(10px + ${ghost.x} * ((100% - 20px) / ${COLS}) + ((100% - 20px) / ${COLS}) * 0.08)`;
+  ghostEl.style.top  = `calc(10px + ${ghost.y} * ((100% - 20px) / ${ROWS}) + ((100% - 20px) / ${ROWS}) * 0.05)`;
+}
+
+function updateGhostFacing() {
+  if (ghost.dx < 0) ghostEl.style.setProperty("--ghost-face-scale", "-1");
+  else if (ghost.dx > 0) ghostEl.style.setProperty("--ghost-face-scale", "1");
+}
+
+function moveGhost() {
+  // Pause while player is answering a question
+  if (activeCheckpoint || isTransitioning) return;
+
+  const layout = currentFloorConfig().layout;
+  const dist = Math.abs(ghost.x - player.x) + Math.abs(ghost.y - player.y);
+  let dx = ghost.dx, dy = ghost.dy;
+
+  if (dist <= 2) {
+    // Chase mode: step toward player
+    const bestDx = Math.sign(player.x - ghost.x);
+    const bestDy = Math.sign(player.y - ghost.y);
+    // Prefer the axis with the larger gap, then try other options
+    const chase = [];
+    if (Math.abs(player.x - ghost.x) >= Math.abs(player.y - ghost.y)) {
+      chase.push([bestDx, 0], [0, bestDy], [-bestDx, 0], [0, -bestDy]);
+    } else {
+      chase.push([0, bestDy], [bestDx, 0], [0, -bestDy], [-bestDx, 0]);
+    }
+    for (const [ddx, ddy] of chase) {
+      if (ddx === 0 && ddy === 0) continue;
+      const nx = ghost.x + ddx, ny = ghost.y + ddy;
+      if (nx >= 0 && ny >= 0 && nx < COLS && ny < ROWS && layout[ny][nx] !== "#") {
+        ghost.x = nx; ghost.y = ny; ghost.dx = ddx; ghost.dy = ddy;
+        updateGhostFacing();
+        break;
+      }
+    }
+  } else {
+    // Wander mode: 20% chance to voluntarily change direction
+    if (Math.random() < 0.2) {
+      const shuffled = [...GHOST_DIRS].sort(() => Math.random() - 0.5);
+      [dx, dy] = shuffled[0];
+    }
+    // Try to move in preferred direction
+    const nx = ghost.x + dx, ny = ghost.y + dy;
+    const canContinue = nx >= 0 && ny >= 0 && nx < COLS && ny < ROWS && layout[ny][nx] !== "#";
+    if (canContinue) {
+      ghost.x = nx; ghost.y = ny; ghost.dx = dx; ghost.dy = dy;
+      updateGhostFacing();
+    } else {
+      // Hit a wall — 90% turn (not reverse), 10% reverse
+      const reverse   = [[-dx, -dy]];
+      const turns     = GHOST_DIRS.filter(([ddx, ddy]) => !(ddx === dx && ddy === dy) && !(ddx === -dx && ddy === -dy))
+                                   .sort(() => Math.random() - 0.5);
+      const candidates = Math.random() < 0.9
+        ? [...turns, ...reverse]       // prefer turns
+        : [...reverse, ...turns];      // prefer reverse
+      for (const [ddx, ddy] of candidates) {
+        const nnx = ghost.x + ddx, nny = ghost.y + ddy;
+        if (nnx >= 0 && nny >= 0 && nnx < COLS && nny < ROWS && layout[nny][nnx] !== "#") {
+          ghost.x = nnx; ghost.y = nny; ghost.dx = ddx; ghost.dy = ddy;
+          updateGhostFacing();
+          break;
+        }
+      }
+    }
+  }
+
+  updateGhostPosition();
+
+  // Collision with player
+  if (ghost.x === player.x && ghost.y === player.y) {
+    const stair = currentFloorConfig().stair;
+    ghost.x = stair.x;
+    ghost.y = stair.y;
+    updateGhostPosition();
+    if (score >= 50) updateScore(-50);
+    sendGameEvent("ghost");
+    new Audio("ghost.mp3").play().catch(() => {});
+    closeQuestion();
+    resetToFloorStart();
+  }
+}
+
+function updateGhost2Position() {
+  ghost2El.style.left = `calc(10px + ${ghost2.x} * ((100% - 20px) / ${COLS}) + ((100% - 20px) / ${COLS}) * 0.08)`;
+  ghost2El.style.top  = `calc(10px + ${ghost2.y} * ((100% - 20px) / ${ROWS}) + ((100% - 20px) / ${ROWS}) * 0.05)`;
+}
+
+function updateGhost2Facing() {
+  if (ghost2.dx < 0) ghost2El.style.setProperty("--ghost-face-scale", "-1");
+  else if (ghost2.dx > 0) ghost2El.style.setProperty("--ghost-face-scale", "1");
+}
+
+function moveGhost2() {
+  if (activeCheckpoint || isTransitioning) return;
+
+  const layout = currentFloorConfig().layout;
+  const dist = Math.abs(ghost2.x - player.x) + Math.abs(ghost2.y - player.y);
+  let dx = ghost2.dx, dy = ghost2.dy;
+
+  if (dist <= 2) {
+    const bestDx = Math.sign(player.x - ghost2.x);
+    const bestDy = Math.sign(player.y - ghost2.y);
+    const chase = [];
+    if (Math.abs(player.x - ghost2.x) >= Math.abs(player.y - ghost2.y)) {
+      chase.push([bestDx, 0], [0, bestDy], [-bestDx, 0], [0, -bestDy]);
+    } else {
+      chase.push([0, bestDy], [bestDx, 0], [0, -bestDy], [-bestDx, 0]);
+    }
+    for (const [ddx, ddy] of chase) {
+      if (ddx === 0 && ddy === 0) continue;
+      const nx = ghost2.x + ddx, ny = ghost2.y + ddy;
+      if (nx >= 0 && ny >= 0 && nx < COLS && ny < ROWS && layout[ny][nx] !== "#") {
+        ghost2.x = nx; ghost2.y = ny; ghost2.dx = ddx; ghost2.dy = ddy;
+        updateGhost2Facing();
+        break;
+      }
+    }
+  } else {
+    if (Math.random() < 0.2) {
+      const shuffled = [...GHOST_DIRS].sort(() => Math.random() - 0.5);
+      [dx, dy] = shuffled[0];
+    }
+    const nx = ghost2.x + dx, ny = ghost2.y + dy;
+    const canContinue = nx >= 0 && ny >= 0 && nx < COLS && ny < ROWS && layout[ny][nx] !== "#";
+    if (canContinue) {
+      ghost2.x = nx; ghost2.y = ny; ghost2.dx = dx; ghost2.dy = dy;
+      updateGhost2Facing();
+    } else {
+      const reverse   = [[-dx, -dy]];
+      const turns     = GHOST_DIRS.filter(([ddx, ddy]) => !(ddx === dx && ddy === dy) && !(ddx === -dx && ddy === -dy))
+                                   .sort(() => Math.random() - 0.5);
+      const candidates = Math.random() < 0.9 ? [...turns, ...reverse] : [...reverse, ...turns];
+      for (const [ddx, ddy] of candidates) {
+        const nnx = ghost2.x + ddx, nny = ghost2.y + ddy;
+        if (nnx >= 0 && nny >= 0 && nnx < COLS && nny < ROWS && layout[nny][nnx] !== "#") {
+          ghost2.x = nnx; ghost2.y = nny; ghost2.dx = ddx; ghost2.dy = ddy;
+          updateGhost2Facing();
+          break;
+        }
+      }
+    }
+  }
+
+  updateGhost2Position();
+
+  if (ghost2.x === player.x && ghost2.y === player.y) {
+    const stair = currentFloorConfig().stair;
+    ghost2.x = stair.x;
+    ghost2.y = stair.y;
+    updateGhost2Position();
+    if (score >= 50) updateScore(-50);
+    sendGameEvent("ghost");
+    new Audio("ghost.mp3").play().catch(() => {});
+    closeQuestion();
+    resetToFloorStart();
+  }
+}
+
+function stopGhost() {
+  if (ghostTimerId  !== null) { clearInterval(ghostTimerId);  ghostTimerId  = null; }
+  if (ghost2TimerId !== null) { clearInterval(ghost2TimerId); ghost2TimerId = null; }
+  ghostEl.classList.add("hidden");
+  ghost2El.classList.add("hidden");
+}
+
+function startGhost() {
+  stopGhost();
+  const layout = currentFloorConfig().layout;
+  const open = [];
+  for (let y = 0; y < ROWS; y++)
+    for (let x = 0; x < COLS; x++)
+      if (layout[y][x] !== "#") open.push([x, y]);
+  // Pick a random open cell that is not the player start
+  const start = currentFloorConfig().start;
+  const choices = open.filter(([x, y]) => !(x === start.x && y === start.y));
+  const [sx, sy] = choices[Math.floor(Math.random() * choices.length)];
+  ghost.x = sx; ghost.y = sy;
+  const dir = GHOST_DIRS[Math.floor(Math.random() * GHOST_DIRS.length)];
+  ghost.dx = dir[0]; ghost.dy = dir[1];
+  updateGhostFacing();
+  updateGhostPosition();
+  ghostEl.classList.remove("hidden");
+  ghostTimerId = setInterval(moveGhost, GHOST_SPEED);
+
+  // Second ghost only on floor 4 (index 3)
+  if (currentFloor === 3) {
+    const choices2 = choices.filter(([x, y]) => !(x === sx && y === sy));
+    const [sx2, sy2] = choices2[Math.floor(Math.random() * choices2.length)];
+    ghost2.x = sx2; ghost2.y = sy2;
+    const dir2 = GHOST_DIRS[Math.floor(Math.random() * GHOST_DIRS.length)];
+    ghost2.dx = dir2[0]; ghost2.dy = dir2[1];
+    updateGhost2Facing();
+    updateGhost2Position();
+    ghost2El.classList.remove("hidden");
+    ghost2TimerId = setInterval(moveGhost2, GHOST_SPEED + 80);
+  }
+}
+
 function resetGame() {
   currentFloor = 0;
   isTransitioning = false;
@@ -1280,6 +1934,7 @@ function resetGame() {
   player = { ...currentFloorConfig().start };
   buildMaze();
   updatePlayerPosition();
+  playerEl.classList.remove("video-hidden");
   refreshRemoteVisibility();
   updateOnlineCount();
   flashEl.classList.remove("on");
@@ -1291,6 +1946,7 @@ function resetGame() {
   hideStairVideo();
   hideFinalVideo();
   sendPos();
+  startGhost();
 }
 
 // ── Input ──────────────────────────────────────────────────────────────────────
@@ -1312,6 +1968,79 @@ window.addEventListener("keydown", (e) => {
 });
 
 restartBtn.addEventListener("click", () => { if (myName) resetGame(); });
+
+// ── Refresh confirmation ───────────────────────────────────────────────────────
+let allowRefresh = false;
+let isRefreshAttempted = false;
+
+// Intercept all reload shortcuts BEFORE the browser processes them
+document.addEventListener("keydown", (e) => {
+  if (!myName || allowRefresh) return; // Only protect during active game
+  
+  // F5 - refresh
+  if (e.key === "F5" || e.code === "F5") {
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    isRefreshAttempted = true;
+    refreshConfirmModalEl.classList.remove("hidden");
+    return false;
+  }
+  
+  // Ctrl+R or Cmd+R - refresh
+  if ((e.ctrlKey || e.metaKey) && (e.key === "r" || e.key === "R")) {
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    isRefreshAttempted = true;
+    refreshConfirmModalEl.classList.remove("hidden");
+    return false;
+  }
+  
+  // Ctrl+Shift+R or Cmd+Shift+R - hard refresh
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === "r" || e.key === "R")) {
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    isRefreshAttempted = true;
+    refreshConfirmModalEl.classList.remove("hidden");
+    return false;
+  }
+}, true); // Use capture phase to intercept before other handlers
+
+window.addEventListener("beforeunload", (e) => {
+  if (!allowRefresh && myName) {
+    isRefreshAttempted = true;
+    e.preventDefault();
+    e.returnValue = "";
+    
+    // Immediately show blocking overlay to prevent white screen flash
+    reloadBlockOverlayEl.classList.remove("hidden");
+    
+    // Show modal on top of overlay
+    refreshConfirmModalEl.classList.remove("hidden");
+    
+    // Stop page loading/navigation
+    window.stop();
+    
+    return "";
+  }
+});
+
+refreshCancelBtnEl.addEventListener("click", () => {
+  refreshConfirmModalEl.classList.add("hidden");
+  reloadBlockOverlayEl.classList.add("hidden");
+  isRefreshAttempted = false;
+  allowRefresh = false;
+});
+
+refreshConfirmBtnEl.addEventListener("click", () => {
+  allowRefresh = true;
+  window.location.reload();
+});
+
+// Preload questions in the background so the first checkpoint uses the latest bank.
+void ensureQuestionBankLoaded();
 
 // ── Fireworks ──────────────────────────────────────────────────────────────────
 (function () {
