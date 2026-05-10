@@ -25,8 +25,8 @@ const onlineTextEl      = document.getElementById("onlineText");
 const restartBtn        = document.getElementById("restartBtn");
 const scoreValueEl      = document.getElementById("scoreValue");
 const timerValueEl      = document.getElementById("timerValue");
-const tableCardsEl      = document.getElementById("tableCards");
-const tablePanelHintEl  = document.getElementById("tablePanelHint");
+// const tableCardsEl      = document.getElementById("tableCards");
+// const tablePanelHintEl  = document.getElementById("tablePanelHint");
 const loginOverlayEl    = document.getElementById("loginOverlay");
 const loginFormEl       = document.getElementById("loginForm");
 const nameInputEl       = document.getElementById("nameInput");
@@ -676,6 +676,9 @@ let myId   = null;
 let myName = "";
 let ws     = null;
 const remotePlayers = new Map();
+let pendingName = "";
+let joinInFlight = false;
+let shouldReconnect = false;
 
 const QUESTION_TYPES = ["easy", "medium", "hard"];
 let questionBankReadyPromise = null;
@@ -776,27 +779,33 @@ async function ensureQuestionBankLoaded() {
 loginFormEl.addEventListener("submit", async (e) => {
   e.preventDefault();
   const raw = nameInputEl.value.trim().replace(/[<>&"']/g, "").slice(0, 20);
-  if (!raw) return;
+  if (!raw || joinInFlight) return;
 
   await ensureQuestionBankLoaded();
 
   nameErrorEl.classList.add("hidden");
   nameErrorEl.textContent = "";
-  myName = raw;
-  playerNameEl.textContent = myName;
-  loginOverlayEl.classList.add("hidden");
+  pendingName = raw;
+  joinInFlight = true;
+  nameInputEl.disabled = true;
+  shouldReconnect = false;
   connectWS();
-  resetGame();
-  window.setTimeout(() => new Audio("level-start.mp3").play().catch(() => {}), 200);
 });
 
 // ── WebSocket ──────────────────────────────────────────────────────────────────
 function connectWS() {
+  if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) return;
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
   ws = new WebSocket(`${proto}//${location.host}`);
-  ws.onopen    = () => ws.send(JSON.stringify({ type: "join", name: myName }));
+  ws.onopen    = () => ws.send(JSON.stringify({ type: "join", name: pendingName || myName }));
   ws.onmessage = (e) => { try { handleServerMessage(JSON.parse(e.data)); } catch { /* ignore */ } };
-  ws.onclose   = () => window.setTimeout(connectWS, 3000);
+  ws.onclose   = () => {
+    if (shouldReconnect && myName) window.setTimeout(connectWS, 3000);
+    if (joinInFlight) {
+      joinInFlight = false;
+      nameInputEl.disabled = false;
+    }
+  };
   ws.onerror   = () => ws.close();
 }
 
@@ -837,56 +846,50 @@ function applyRemotePos(el, x, y) {
 }
 
 function upsertRemotePlayer({ id, name, floor, x, y }) {
-  let entry = remotePlayers.get(id);
-  if (!entry) {
-    const el = createRemoteEl(id, name);
-    entry = { el, name, floor, x, y };
-    remotePlayers.set(id, entry);
-    updateOnlineCount();
+  let el = remotePlayers.get(id);
+  if (!el) {
+    el = createRemoteEl(id, name);
+    remotePlayers.set(id, el);
   }
-  entry.floor = floor;
-  entry.x = x;
-  entry.y = y;
-  applyRemotePos(entry.el, x, y);
-  // hide in-maze avatar if player is at start (0,0) or on a different floor
-  const inLobby = (x === 0 && y === 0);
-  entry.el.classList.toggle("off-floor", floor !== currentFloor || inLobby);
-  refreshLobbyBar();
+  el.querySelector('.player-name').textContent = name;
+  el.dataset.floor = String(floor ?? 0);
+  el.style.display = floor === currentFloor ? '' : 'none';
+  applyRemotePos(el, x, y);
 }
 
 function removeRemotePlayer(id) {
-  const entry = remotePlayers.get(id);
-  if (entry) {
-    entry.el.remove();
+  const el = remotePlayers.get(id);
+  if (el) {
+    el.remove();
     remotePlayers.delete(id);
-    updateOnlineCount();
-    refreshLobbyBar();
   }
 }
 
-function refreshLobbyBar() {
-  // keep the label, rebuild avatars
-  lobbyBarEl.querySelectorAll(".lobby-avatar").forEach(el => el.remove());
-  for (const entry of remotePlayers.values()) {
-    if (entry.x === 0 && entry.y === 0) {
-      const av = document.createElement("span");
-      av.className = "lobby-avatar";
-      av.textContent = entry.name;
-      lobbyBarEl.appendChild(av);
-    }
-  }
+function refreshLobbyBar(peers) {
+  if (!lobbyBarEl) return;
+  lobbyBarEl.innerHTML = '';
+  const label = document.createElement('span');
+  label.className = 'lobby-bar-label';
+  label.textContent = 'Online:';
+  lobbyBarEl.appendChild(label);
+  peers.forEach(p => {
+    const avatar = document.createElement('span');
+    avatar.className = 'lobby-avatar';
+    avatar.textContent = p.name;
+    avatar.style.setProperty('--player-hue', hueFromId(p.id));
+    lobbyBarEl.appendChild(avatar);
+  });
 }
 
 function refreshRemoteVisibility() {
-  for (const entry of remotePlayers.values()) {
-    const inLobby = (entry.x === 0 && entry.y === 0);
-    entry.el.classList.toggle("off-floor", entry.floor !== currentFloor || inLobby);
-  }
-  refreshLobbyBar();
+  remotePlayers.forEach((el) => {
+    el.style.display = Number(el.dataset.floor || 0) === currentFloor ? '' : 'none';
+  });
 }
 
-function updateOnlineCount() {
-  onlineTextEl.textContent = String(remotePlayers.size + 1);
+function updateOnlineCount(count) {
+  const total = Number.isFinite(count) ? count : (myId ? remotePlayers.size + 1 : 0);
+  if (onlineTextEl) onlineTextEl.textContent = `Online: ${total}`;
 }
 
 // ── Event Console ─────────────────────────────────────────────────────────────
@@ -918,62 +921,69 @@ function logEvent(type, html) {
 }
 
 function setStateText(message) {
-  tablePanelHintEl.textContent = message;
-  tablePanelHintEl.style.display = "";
+  // No-op: table panel hint removed in new UI
 }
 
 // ── Server message handler ─────────────────────────────────────────────────────
 function handleServerMessage(msg) {
-  if (msg.type === "name_taken") {
-    // Show login overlay again with error
-    loginOverlayEl.classList.remove("hidden");
-    nameErrorEl.textContent = `"${msg.name}" is already taken. Choose a different name.`;
-    nameErrorEl.classList.remove("hidden");
-    nameInputEl.focus();
-    if (ws) { ws.onclose = null; ws.close(); ws = null; }
-    return;
-  }
-  if (msg.type === "init") {
+  if (msg.type === 'init') {
+    shouldReconnect = true;
     myId = msg.id;
-    for (const peer of (msg.peers || [])) upsertRemotePlayer(peer);
-    updateOnlineCount();
-    logEvent("join", `<span class="ev-name">You</span> joined the game`);
+    if (!myName) myName = pendingName;
+    pendingName = "";
+    joinInFlight = false;
+    nameInputEl.disabled = false;
+    playerNameEl.textContent = myName;
+    if (!loginOverlayEl.classList.contains('hidden')) {
+      loginOverlayEl.classList.add("hidden");
+      resetGame();
+      window.setTimeout(() => new Audio("level-start.mp3").play().catch(() => {}), 200);
+    }
+    refreshLobbyBar([ { id: myId, name: myName }, ...msg.peers ]);
+    msg.peers.forEach(upsertRemotePlayer);
+    updateOnlineCount(msg.peers.length + 1);
+    logEvent('join', `<b>${myName}</b> enters the dungeon!`);
     return;
   }
-  if (msg.type === "player_join") {
-    logEvent("join", `<span class="ev-name">${msg.player.name}</span> joined the game`);
-    upsertRemotePlayer(msg.player);
-    return;
-  }
-  if (msg.type === "player_update") {
-    const prev = remotePlayers.get(msg.player.id);
-    const prevFloor = prev ? prev.floor : 0;
-    upsertRemotePlayer(msg.player);
-    if (msg.player.floor > prevFloor) {
-      logEvent("floor", `<span class="ev-name">${msg.player.name}</span> climbed to <span class="ev-floor">Floor ${msg.player.floor + 1}</span>`);
+  if (msg.type === 'name_taken') {
+    shouldReconnect = false;
+    myId = null;
+    myName = "";
+    joinInFlight = false;
+    nameInputEl.disabled = false;
+    nameErrorEl.classList.remove("hidden");
+    nameErrorEl.textContent = `Name \"${msg.name}\" is already taken. Choose another name.`;
+    if (ws) {
+      try { ws.close(); } catch {}
+      ws = null;
     }
     return;
   }
-  if (msg.type === "player_leave") {
-    const entry = remotePlayers.get(msg.id);
-    if (entry) logEvent("leave", `<span class="ev-name">${entry.name}</span> left the game`);
+  if (msg.type === 'player_join') {
+    upsertRemotePlayer(msg.player);
+    refreshLobbyBar([ { id: myId, name: myName }, ...Array.from(remotePlayers.keys()).map(id => ({ id, name: remotePlayers.get(id).querySelector('.player-name').textContent })) ]);
+    updateOnlineCount(remotePlayers.size + 1);
+    logEvent('join', `<b>${msg.player.name}</b> enters the dungeon!`);
+    return;
+  }
+  if (msg.type === 'player_leave') {
     removeRemotePlayer(msg.id);
+    refreshLobbyBar([ { id: myId, name: myName }, ...Array.from(remotePlayers.keys()).map(id => ({ id, name: remotePlayers.get(id).querySelector('.player-name').textContent })) ]);
+    updateOnlineCount(remotePlayers.size + 1);
+    logEvent('leave', `A player left the dungeon.`);
     return;
   }
-  if (msg.type === "game_event") {
-    const isMe = msg.name === myName;
-    const who = isMe ? `<span class="ev-name">You</span>` : `<span class="ev-name">${msg.name}</span>`;
-    if (msg.event === "ghost") {
-      logEvent("ghost", `${who} got caught by a <span class="ev-ghost">ghost</span>! <span class="ev-gold">-50 gold</span>`);
-    } else if (msg.event === "trophy") {
-      logEvent("trophy", `${who} picked up the <span class="ev-gold">🏆 Trophy</span>!`);
-    } else if (msg.event === "win") {
-      const gold = msg.gold != null ? ` · <span class="ev-gold">⬡ ${Number(msg.gold).toLocaleString()} gold</span>` : "";
-      const time = msg.time ? ` · <span class="ev-floor">${msg.time}</span>` : "";
-      logEvent("win", `${who} <span class="ev-win">finished the game!</span> 🎉${gold}${time}`);
-    } else if (msg.event === "floor") {
-      logEvent("floor", `${who} climbed to <span class="ev-floor">Floor ${msg.floor + 1}</span>`);
-    }
+  if (msg.type === 'player_update') {
+    upsertRemotePlayer(msg.player);
+    return;
+  }
+  if (msg.type === 'game_event') {
+    let html = '';
+    if (msg.event === 'floor') html = `<b>${msg.name}</b> reached Level ${msg.floor + 1}`;
+    if (msg.event === 'win') html = `<b>${msg.name}</b> finished with <b>${msg.gold}</b> gold in <b>${msg.time}</b>`;
+    if (msg.event === 'ghost') html = `<b>${msg.name}</b> was caught by a ghost!`;
+    if (msg.event === 'trophy') html = `<b>${msg.name}</b> found the trophy!`;
+    logEvent(msg.event, html);
     return;
   }
 }
@@ -1170,8 +1180,7 @@ function renderTablePanel(tableNames) {
 }
 
 function clearTablePanel() {
-  tableCardsEl.innerHTML = "";
-  tablePanelHintEl.style.display = "";
+  // No-op: table panel removed in new UI
 }
 
 function makePreviewTable(data) {
@@ -1201,70 +1210,7 @@ function makePreviewTable(data) {
 }
 
 function hideQuestionTablePreview() {
-  questionTablePreviewEl.classList.add("hidden");
-  questionTablePreviewEl.innerHTML = "";
-}
-
-function showQuestionTablePreview(nameEl, tableName) {
-  const data = TABLE_DATA[tableName];
-  if (!data) return;
-  questionTablePreviewEl.innerHTML = "";
-  questionTablePreviewEl.appendChild(makePreviewTable(data));
-
-  const hostRect = questionPanelEl.getBoundingClientRect();
-  const nameRect = nameEl.getBoundingClientRect();
-  const left = Math.max(8, Math.min(nameRect.left - hostRect.left, hostRect.width - 260));
-  const top = Math.max(58, nameRect.bottom - hostRect.top + 8);
-
-  questionTablePreviewEl.style.left = `${left}px`;
-  questionTablePreviewEl.style.top = `${top}px`;
-  questionTablePreviewEl.classList.remove("hidden");
-}
-
-questionPanelEl.addEventListener("mouseleave", hideQuestionTablePreview);
-
-function renderQuestionTableNames(tableNames) {
-  questionTableNamesEl.innerHTML = "";
-  hideQuestionTablePreview();
-
-  if (!tableNames.length) {
-    questionTablesEl.classList.add("hidden");
-    return;
-  }
-
-  questionTablesEl.classList.remove("hidden");
-
-  tableNames.forEach((tableName) => {
-    const nameEl = document.createElement("span");
-    nameEl.className = "q-table-name";
-    nameEl.textContent = tableName;
-    nameEl.addEventListener("mouseenter", () => showQuestionTablePreview(nameEl, tableName));
-    nameEl.addEventListener("mouseleave", hideQuestionTablePreview);
-    questionTableNamesEl.appendChild(nameEl);
-  });
-}
-
-function refreshPaySkipUi() {
-  const type = activeCheckpoint?.type;
-  const cost = type ? PAY_TO_SKIP_COST[type] : null;
-
-  if (!cost) {
-    paySkipWrapEl.classList.add("hidden");
-    paySkipBtnEl.disabled = true;
-    paySkipHintEl.textContent = "";
-    return;
-  }
-
-  paySkipWrapEl.classList.remove("hidden");
-  paySkipBtnEl.innerHTML = `<img src="gold.png" class="pay-skip-coin" alt=""> Pay ${cost} points to skip this question`;
-  if (score >= cost) {
-    paySkipBtnEl.disabled = false;
-    paySkipHintEl.textContent = `Current score: ${score.toLocaleString()}`;
-  } else {
-    paySkipBtnEl.disabled = true;
-    const needed = cost - score;
-    paySkipHintEl.textContent = `Need ${needed.toLocaleString()} more points.`;
-  }
+  if (questionTablePreviewEl) questionTablePreviewEl.classList.add("hidden");
 }
 
 function payToSkipQuestion() {
@@ -1460,6 +1406,8 @@ function advanceFloor() {
   player = { ...currentFloorConfig().start };
   buildMaze();
   updatePlayerPosition();
+  // Log level up event
+  logEvent("floor", `<b>${myName}</b> reached Level ${currentFloor + 1}`);
   refreshRemoteVisibility();
   sendPos();
   startGhost();
@@ -1615,6 +1563,8 @@ function playStairVideoThenAdvance() {
       isGameWon = true;
       stopTimer();
       sendGameEvent("win", { gold: score, time: formatTime(elapsedSeconds) });
+      // Log win event
+      logEvent("win", `<b>${myName}</b> finished with <b>${score}</b> gold in <b>${formatTime(elapsedSeconds)}</b>`);
       showGameOver();
     };
 
@@ -1934,7 +1884,7 @@ function resetGame() {
   updatePlayerPosition();
   playerEl.classList.remove("video-hidden");
   refreshRemoteVisibility();
-  updateOnlineCount();
+  updateOnlineCount(remotePlayers.size + (myId ? 1 : 0));
   flashEl.classList.remove("on");
   boardEl.classList.remove("shake");
   mazeEl.style.transition = "";
@@ -1965,7 +1915,9 @@ window.addEventListener("keydown", (e) => {
   if (moves[key]) { e.preventDefault(); tryMove(...moves[key]); }
 });
 
-restartBtn.addEventListener("click", () => { if (myName) resetGame(); });
+if (restartBtn) {
+  restartBtn.addEventListener("click", () => { if (myName) resetGame(); });
+}
 
 // ── Refresh confirmation ───────────────────────────────────────────────────────
 let allowRefresh = false;

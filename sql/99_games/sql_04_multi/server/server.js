@@ -16,8 +16,8 @@ const wss = new WebSocketServer({ server });
 // Serve static client files
 app.use(express.static(path.join(__dirname, "../client")));
 
-// Expose sql_04_co assets (staircase image + video) under /co-assets/
-app.use("/co-assets", express.static(path.join(__dirname, "../../sql_04_co")));
+// Expose sql_04_multi root assets under /co-assets/ for compatibility
+app.use("/co-assets", express.static(path.join(__dirname, "..")));
 
 // players: Map<id, { ws, name, floor, x, y }>
 const players = new Map();
