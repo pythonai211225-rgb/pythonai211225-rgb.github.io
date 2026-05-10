@@ -6,6 +6,83 @@
   <title>N:M Relationship — Lesson 6</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%23080e1c'/><text x='32' y='45' text-anchor='middle' font-family='Arial, sans-serif' font-size='42' font-weight='700' fill='%232dd4bf'>db</text></svg>">
   <link rel="stylesheet" href="style.css"/>
+  <style>
+    .setup-card {
+      position: relative;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      background: var(--surface2);
+      transition: border-color .2s;
+      margin-top: 8px;
+    }
+    .setup-card:hover, .setup-card:focus-within { border-color: var(--teal); }
+    .setup-card-header { padding: 12px 14px 10px; }
+    .setup-table-name {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--teal);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .setup-cols {
+      font-size: .75rem;
+      color: var(--muted);
+      margin-top: 4px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .setup-hint {
+      font-size: .72rem;
+      color: var(--dim);
+      margin-top: 8px;
+      transition: opacity .2s;
+    }
+    .setup-card:hover .setup-hint,
+    .setup-card:focus-within .setup-hint { opacity: 0; }
+    .setup-sql-wrap {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height .35s ease;
+      border-top: 0 solid transparent;
+    }
+    .setup-card:hover .setup-sql-wrap,
+    .setup-card:focus-within .setup-sql-wrap {
+      max-height: 980px;
+      border-top: 1px solid var(--border);
+    }
+    .setup-pre {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .78rem;
+      line-height: 1.6;
+      color: var(--text);
+      padding: 12px 48px 14px 16px;
+      margin: 0;
+      background: transparent;
+      white-space: pre-wrap;
+      overflow-x: hidden;
+    }
+    .setup-copy-btn {
+      position: absolute;
+      top: 8px;
+      right: 10px;
+      font-size: .7rem;
+      font-weight: 700;
+      font-family: 'Inter', sans-serif;
+      color: var(--teal);
+      background: rgba(45,212,191,0.1);
+      border: 1px solid rgba(45,212,191,0.25);
+      border-radius: 5px;
+      padding: 3px 10px;
+      cursor: pointer;
+      transition: background .15s, color .15s;
+      z-index: 2;
+    }
+    .setup-copy-btn:hover { background: rgba(45,212,191,0.2); }
+    .setup-copy-btn.copied {
+      color: var(--green);
+      background: rgba(74,222,128,0.12);
+      border-color: rgba(74,222,128,0.3);
+    }
+  </style>
 </head>
 <body>
   <nav class="top-nav">
@@ -207,17 +284,94 @@
         <div class="exercise-q">✏</div>
         <div>
           <div class="exercise-sub">Exercise</div>
-          <h3>Build a Products ↔ Orders schema</h3>
+          <h3>Build an Orders ↔ Products schema using Sales</h3>
+        </div>
+      </div>
+      <p style="color:var(--muted);margin:10px 0 12px;"><strong>Relationship view:</strong> <code>orders 1:N sales</code> and <code>products 1:N sales</code>.</p>
+      <div class="rd-wrap" style="margin-top:8px;margin-bottom:14px;">
+        <div class="rd-table">
+          <div class="rd-header" style="background:rgba(45,212,191,0.08);color:var(--teal);">orders</div>
+          <div class="rd-row"><span class="rd-pk">PK</span> <span style="color:var(--text);">id</span></div>
+          <div class="rd-row"><span class="rd-col" style="width:30px;"></span><span style="color:var(--text);">order_no</span></div>
+        </div>
+
+        <div class="rd-line">
+          <span class="rd-cardinality">1</span>
+          <div class="rd-connector"></div>
+          <span class="rd-cardinality">N</span>
+        </div>
+
+        <div class="rd-table">
+          <div class="rd-header" style="background:rgba(167,139,250,0.12);color:var(--violet);">sales</div>
+          <div class="rd-row"><span class="rd-pk">PK</span> <span style="color:var(--text);">order_id + product_id</span></div>
+          <div class="rd-row"><span class="rd-fk">FK</span> <span style="color:var(--text);">order_id → orders.id</span></div>
+          <div class="rd-row"><span class="rd-fk">FK</span> <span style="color:var(--text);">product_id → products.id</span></div>
+          <div class="rd-row"><span class="rd-col" style="width:30px;"></span><span style="color:var(--text);">qty</span></div>
+        </div>
+
+        <div class="rd-line">
+          <span class="rd-cardinality">N</span>
+          <div class="rd-connector"></div>
+          <span class="rd-cardinality">1</span>
+        </div>
+
+        <div class="rd-table">
+          <div class="rd-header" style="background:rgba(251,191,36,0.08);color:var(--amber);">products</div>
+          <div class="rd-row"><span class="rd-pk">PK</span> <span style="color:var(--text);">id</span></div>
+          <div class="rd-row"><span class="rd-col" style="width:30px;"></span><span style="color:var(--text);">name</span></div>
         </div>
       </div>
       <ol class="exercise-steps">
-        <li>Create <code>customers</code>: <code>id</code> PK AUTOINCREMENT, <code>name</code> TEXT NOT NULL.</li>
-        <li>Create <code>orders</code>: <code>id</code> PK AUTOINCREMENT, <code>customer_id</code> FK, <code>order_no</code> TEXT UNIQUE, <code>ordered_at</code> TEXT DEFAULT (date('now')).</li>
-        <li>Create <code>products</code>: <code>id</code> PK AUTOINCREMENT, <code>order_id</code> FK, <code>name</code> TEXT NOT NULL, <code>price</code> REAL NOT NULL.</li>
-        <li>Insert sample data:<br/>Customers: (1, Emma Stone), (2, Noah Lee), (3, Sofia Khan)<br/>Orders: (1, customer_id 1, ORD-1001), (2, customer_id 1, ORD-1002), (3, customer_id 2, ORD-1003), (4, customer_id 3, ORD-1004)<br/>Products: (order_id 1, Laptop, 1200), (order_id 1, Mouse, 25), (order_id 2, Keyboard, 70), (order_id 3, Monitor, 280), (order_id 3, HDMI Cable, 15), (order_id 4, USB Hub, 40)</li>
-        <li>Write a query to list all customers with their orders (<code>customer name</code>, <code>order_no</code>, <code>ordered_at</code>).</li>
-        <li>Write a query to list each order with its products (<code>order_no</code>, <code>product name</code>, <code>price</code>).</li>
-        <li>Write a query to calculate total order value per order using <code>SUM(price)</code> and <code>GROUP BY order_no</code>.</li>
+        <li>Create <code>orders</code>: <code>id</code> PK AUTOINCREMENT, <code>order_no</code> TEXT UNIQUE, <code>address</code> TEXT NOT NULL, <code>phone</code> TEXT NOT NULL, <code>ordered_at</code> TEXT DEFAULT (date('now')).</li>
+        <li>Create <code>products</code>: <code>id</code> PK AUTOINCREMENT, <code>name</code> TEXT NOT NULL, <code>unit_price</code> REAL NOT NULL.</li>
+        <li>Create <code>sales</code> (junction): <code>order_id</code> FK, <code>product_id</code> FK, <code>qty</code> INTEGER NOT NULL DEFAULT 1, with composite PK <code>(order_id, product_id)</code>. (Each row means one product sold in one order.)</li>
+        <li>
+          Insert sample data:
+          <div class="setup-card" tabindex="0">
+            <div class="setup-card-header">
+              <div class="setup-table-name">Orders + Products + Sales Seed</div>
+              <div class="setup-cols">id · order_no · address · phone · ordered_at · product · qty</div>
+              <div class="setup-hint">hover to reveal SQL and copy</div>
+            </div>
+            <div class="setup-sql-wrap" style="position:relative;">
+              <button class="setup-copy-btn" onclick="copySetupSQL('sql-setup-sales', this)">Copy</button>
+              <pre id="sql-setup-sales" class="setup-pre"><span class="k">INSERT INTO</span> <span class="t">orders</span> (id, order_no, address, phone, ordered_at)
+<span class="k">VALUES</span>
+          (<span class="c">1</span>, <span class="c">'ORD-1001'</span>, <span class="c">'12 Lake St, Boston'</span>,  <span class="c">'+1-555-0101'</span>, <span class="c">'2026-01-05'</span>),
+          (<span class="c">2</span>, <span class="c">'ORD-1002'</span>, <span class="c">'12 Lake St, Boston'</span>,  <span class="c">'+1-555-0101'</span>, <span class="c">'2026-01-07'</span>),
+          (<span class="c">3</span>, <span class="c">'ORD-1003'</span>, <span class="c">'88 Pine Ave, Seattle'</span>, <span class="c">'+1-555-0202'</span>, <span class="c">'2026-01-09'</span>),
+          (<span class="c">4</span>, <span class="c">'ORD-1004'</span>, <span class="c">'44 Nile Rd, Cairo'</span>,    <span class="c">'+1-555-0303'</span>, <span class="c">'2026-01-10'</span>),
+          (<span class="c">5</span>, <span class="c">'ORD-1005'</span>, <span class="c">'77 Hill Rd, Austin'</span>,   <span class="c">'+1-555-0404'</span>, <span class="c">'2026-01-11'</span>); <span class="c">-- no sales rows</span>
+
+<span class="k">INSERT INTO</span> <span class="t">products</span> (id, name, unit_price)
+<span class="k">VALUES</span>
+  (<span class="c">1</span>, <span class="c">'Laptop'</span>, <span class="c">1200</span>),
+  (<span class="c">2</span>, <span class="c">'Mouse'</span>, <span class="c">25</span>),
+  (<span class="c">3</span>, <span class="c">'Keyboard'</span>, <span class="c">80</span>),
+  (<span class="c">4</span>, <span class="c">'Webcam'</span>, <span class="c">95</span>),
+  (<span class="c">5</span>, <span class="c">'Monitor'</span>, <span class="c">280</span>),
+  (<span class="c">6</span>, <span class="c">'Desk Lamp'</span>, <span class="c">35</span>),
+  (<span class="c">7</span>, <span class="c">'USB Hub'</span>, <span class="c">40</span>);
+
+<span class="k">INSERT INTO</span> <span class="t">sales</span> (order_id, product_id, qty)
+<span class="k">VALUES</span>
+  (<span class="c">1</span>, <span class="c">1</span>, <span class="c">1</span>),
+  (<span class="c">1</span>, <span class="c">2</span>, <span class="c">2</span>),
+  (<span class="c">1</span>, <span class="c">3</span>, <span class="c">1</span>),
+  (<span class="c">2</span>, <span class="c">4</span>, <span class="c">1</span>),
+  (<span class="c">2</span>, <span class="c">7</span>, <span class="c">2</span>),
+  (<span class="c">3</span>, <span class="c">5</span>, <span class="c">1</span>),
+  (<span class="c">3</span>, <span class="c">6</span>, <span class="c">3</span>),
+  (<span class="c">4</span>, <span class="c">2</span>, <span class="c">1</span>),
+  (<span class="c">4</span>, <span class="c">7</span>, <span class="c">1</span>);</pre>
+            </div>
+          </div>
+        </li>
+        <li>Write a query to show each sold product with <code>order_no</code>, <code>address</code>, <code>phone</code>, <code>product_name</code>, <code>qty</code>, <code>unit_price</code>, and line total (<code>qty * unit_price</code>).</li>
+        <li>Write a query to list each order with total item count (<code>SUM(qty)</code>) and total price (<code>SUM(qty * unit_price)</code>).</li>
+        <li>Write a query to list each order with all product names in that order.</li>
+        <li>Write a query to calculate each <code>phone</code> (or <code>address</code>) and the sum of all orders.</li>
+        <li>Write a query to show orders that have no products in <code>sales</code>.</li>
       </ol>
     </section>
 
@@ -229,5 +383,18 @@
 
   </main>
   <script src="app.js"></script>
+  <script>
+    function copySetupSQL(id, btn) {
+      const text = document.getElementById(id).innerText;
+      navigator.clipboard.writeText(text).then(() => {
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = 'Copy';
+          btn.classList.remove('copied');
+        }, 1800);
+      });
+    }
+  </script>
 </body>
 </html>
