@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SQL Tables – Drivers &amp; Licenses</title>
+<style>
+  :root {
+    --bg:       #0f1117;
+    --surface:  #1a1d27;
+    --card:     #22263a;
+    --border:   #2e3350;
+    --pk:       #f0b429;
+    --fk:       #7c5cbf;
+    --unique:   #22d3ee;
+    --accent:   #4ade80;
+    --text:     #e2e8f0;
+    --muted:    #6b7280;
+    --drop-hl:  #2563eb44;
+    --drop-ok:  #4ade8022;
+    --red:      #f87171;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2.5rem 1rem 4rem;
+  }
+
+  /* ── header ── */
+  .tag {
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--unique);
+    background: #22d3ee18;
+    border: 1px solid #22d3ee44;
+    border-radius: 999px;
+    padding: .2rem .75rem;
+    margin-bottom: .8rem;
+  }
+  h1 { font-size: 1.6rem; font-weight: 700; text-align: center; margin-bottom: .4rem; }
+  .subtitle { color: var(--muted); text-align: center; font-size: .95rem; margin-bottom: .5rem; }
+
+  /* key concept callout */
+  .concept {
+    background: #22263a;
+    border-left: 3px solid var(--unique);
+    border-radius: 0 10px 10px 0;
+    padding: .65rem 1rem;
+    font-size: .82rem;
+    color: #cbd5e1;
+    max-width: 620px;
+    margin-bottom: 2rem;
+    line-height: 1.6;
+  }
+  .concept strong { color: var(--text); }
+  .concept code {
+    font-family: 'Consolas', monospace;
+    background: var(--card);
+    padding: .05rem .3rem;
+    border-radius: 4px;
+  }
+
+  /* ── bank ── */
+  .bank-label {
+    font-size: .73rem;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: var(--muted);
+    margin-bottom: .55rem;
+    text-align: center;
+  }
+  .bank {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    justify-content: center;
+    max-width: 740px;
+    min-height: 56px;
+    background: var(--surface);
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: .75rem 1rem;
+    margin-bottom: 2.5rem;
+    transition: border-color .2s;
+  }
+  .bank.drag-over { border-color: var(--accent); }
+
+  /* ── pill ── */
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    padding: .35rem .8rem;
+    border-radius: 9999px;
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    font-family: 'Consolas', monospace;
+    font-size: .85rem;
+    cursor: grab;
+    user-select: none;
+    transition: transform .15s, box-shadow .15s, opacity .2s;
+    white-space: nowrap;
+  }
+  .pill:hover { transform: translateY(-2px); box-shadow: 0 4px 14px #0009; }
+  .pill.dragging { opacity: .3; cursor: grabbing; }
+  .pill .dtype { color: var(--muted); font-size: .75rem; }
+
+  /* ── tables row ── */
+  .tables-row {
+    display: flex;
+    gap: 3rem;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 860px;
+    width: 100%;
+  }
+
+  .tbl-card {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 14px;
+    width: 330px;
+    overflow: hidden;
+    transition: border-color .35s;
+  }
+  .tbl-card.correct { border-color: var(--accent); box-shadow: 0 0 22px #4ade8033; }
+
+  .tbl-header {
+    background: var(--card);
+    padding: .7rem 1rem;
+    font-family: 'Consolas', monospace;
+    font-size: 1rem;
+    font-weight: 700;
+    border-bottom: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+  }
+
+  .drop-zone {
+    min-height: 56px;
+    padding: .5rem .75rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: .4rem;
+    transition: background .2s;
+  }
+  .drop-zone.drag-over { background: var(--drop-hl); }
+  .drop-zone.filled    { background: var(--drop-ok); }
+  .drop-hint {
+    color: var(--muted);
+    font-size: .78rem;
+    text-align: center;
+    padding: .5rem 0;
+    pointer-events: none;
+  }
+
+  /* ── col-row ── */
+  .col-row {
+    display: flex;
+    align-items: center;
+    gap: .38rem;
+    padding: .3rem .4rem;
+    border-radius: 6px;
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    font-family: 'Consolas', monospace;
+    font-size: .82rem;
+    animation: popIn .22s ease;
+  }
+  @keyframes popIn {
+    from { transform: scale(.8); opacity: 0; }
+    to   { transform: scale(1);  opacity: 1; }
+  }
+  .col-row .col-name { flex: 1; }
+  .col-row .col-type { color: var(--muted); font-size: .75rem; }
+
+  .badge-btn {
+    font-size: .63rem;
+    font-weight: 700;
+    letter-spacing: .06em;
+    padding: .15rem .42rem;
+    border-radius: 4px;
+    border: 1.5px solid transparent;
+    cursor: pointer;
+    background: transparent;
+    transition: background .15s, border-color .15s, color .15s;
+  }
+  .badge-btn.pk       { border-color: var(--pk);     color: var(--pk);     }
+  .badge-btn.pk.active{ background: var(--pk);        color: #111;          }
+  .badge-btn.fk       { border-color: var(--fk);     color: var(--fk);     }
+  .badge-btn.fk.active{ background: var(--fk);        color: #fff;          }
+  .badge-btn.uq       { border-color: var(--unique);  color: var(--unique); }
+  .badge-btn.uq.active{ background: var(--unique);    color: #111;          }
+  .badge-btn:hover { opacity: .8; }
+
+  .remove-btn {
+    background: none; border: none; color: var(--muted);
+    cursor: pointer; font-size: .9rem; padding: 0 .1rem;
+    transition: color .15s;
+  }
+  .remove-btn:hover { color: var(--red); }
+
+  /* ── legend ── */
+  .legend {
+    display: flex;
+    gap: 1.4rem;
+    font-size: .78rem;
+    margin-top: 1.2rem;
+    color: var(--muted);
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .legend span { display: flex; align-items: center; gap: .35rem; }
+  .dot { width: 10px; height: 10px; border-radius: 2px; }
+  .dot-pk { background: var(--pk); }
+  .dot-fk { background: var(--fk); }
+  .dot-uq { background: var(--unique); }
+
+  /* ── check btn ── */
+  .check-btn {
+    margin-top: 2.5rem;
+    padding: .75rem 2.5rem;
+    font-size: 1rem;
+    font-weight: 700;
+    background: #2563eb;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background .2s, transform .1s;
+    letter-spacing: .04em;
+  }
+  .check-btn:hover { background: #1d4ed8; transform: translateY(-1px); }
+  .check-btn:active { transform: translateY(0); }
+
+  /* ── errors ── */
+  .errors {
+    margin-top: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: .35rem;
+    max-width: 520px;
+    width: 100%;
+  }
+  .err-msg {
+    background: #7f1d1d44;
+    border: 1px solid var(--red);
+    color: var(--red);
+    border-radius: 8px;
+    padding: .45rem .9rem;
+    font-size: .84rem;
+    animation: shake .35s ease;
+  }
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    25%      { transform: translateX(-6px); }
+    75%      { transform: translateX(6px); }
+  }
+
+  /* ── success overlay ── */
+  #success-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: #000a;
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  #success-overlay.show { display: flex; }
+  .success-box {
+    background: var(--surface);
+    border: 2px solid var(--accent);
+    border-radius: 20px;
+    padding: 2.5rem 2.8rem;
+    text-align: center;
+    animation: zoomIn .4s cubic-bezier(.175,.885,.32,1.275);
+    max-width: 460px;
+  }
+  @keyframes zoomIn {
+    from { transform: scale(.5); opacity: 0; }
+    to   { transform: scale(1);  opacity: 1; }
+  }
+  .big-check {
+    font-size: 5rem;
+    line-height: 1;
+    margin-bottom: .5rem;
+    animation: bounce 1s ease infinite alternate;
+  }
+  @keyframes bounce {
+    from { transform: scale(1);    }
+    to   { transform: scale(1.12); }
+  }
+  .success-title { font-size: 1.5rem; font-weight: 800; color: var(--accent); margin-bottom: .7rem; }
+  .success-msg { color: #cbd5e1; font-size: .9rem; line-height: 1.7; }
+  .success-msg code {
+    font-family: 'Consolas', monospace;
+    background: var(--card);
+    padding: .1rem .3rem;
+    border-radius: 4px;
+    color: var(--text);
+  }
+  .key-point {
+    margin-top: 1rem;
+    background: #22d3ee12;
+    border: 1px solid #22d3ee44;
+    border-radius: 8px;
+    padding: .6rem .9rem;
+    font-size: .82rem;
+    color: #22d3ee;
+    text-align: left;
+    line-height: 1.6;
+  }
+  .btn-row {
+    margin-top: 1.5rem;
+    display: flex;
+    gap: .75rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .play-again {
+    padding: .6rem 1.8rem;
+    background: var(--card);
+    color: var(--muted);
+    font-weight: 600;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: .9rem;
+    transition: border-color .2s, color .2s;
+  }
+  .play-again:hover { border-color: var(--text); color: var(--text); }
+  .next-btn {
+    padding: .6rem 1.8rem;
+    background: var(--accent);
+    color: #111;
+    font-weight: 700;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: .95rem;
+    transition: opacity .2s;
+  }
+  .next-btn:hover { opacity: .85; }
+
+  #confetti { position: fixed; inset: 0; pointer-events: none; z-index: 99; }
+</style>
+</head>
+<body>
+
+<div class="tag">Exercise 2 — Separate FK Column</div>
+<h1>Drivers &amp; Licenses</h1>
+<p class="subtitle">Drag each column to the right table · then mark PK, FK, and UNIQUE</p>
+
+<div class="concept">
+  <strong>This time the FK is a separate column.</strong> The <code>licenses</code> table has its own
+  <code>license_id</code> as PK — <em>and</em> a separate <code>driver_id</code> column as the FK.
+  To enforce the 1:1 rule, <code>driver_id</code> must also be marked <strong>UNIQUE</strong>.
+</div>
+
+<!-- Bank -->
+<p class="bank-label">Available Columns — drag into a table</p>
+<div class="bank" id="bank"
+     ondragover="onDragOver(event,'bank')"
+     ondragleave="onDragLeave(event,'bank')"
+     ondrop="onDrop(event,'bank')"></div>
+
+<!-- Tables -->
+<div class="tables-row">
+
+  <div class="tbl-card" id="card-drivers">
+    <div class="tbl-header">🚗 drivers</div>
+    <div class="drop-zone" id="drop-drivers"
+         ondragover="onDragOver(event,'drivers')"
+         ondragleave="onDragLeave(event,'drivers')"
+         ondrop="onDrop(event,'drivers')">
+      <div class="drop-hint" id="hint-drivers">Drop columns here</div>
+    </div>
+  </div>
+
+  <div class="tbl-card" id="card-licenses">
+    <div class="tbl-header">📄 licenses</div>
+    <div class="drop-zone" id="drop-licenses"
+         ondragover="onDragOver(event,'licenses')"
+         ondragleave="onDragLeave(event,'licenses')"
+         ondrop="onDrop(event,'licenses')">
+      <div class="drop-hint" id="hint-licenses">Drop columns here</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Legend -->
+<div class="legend">
+  <span><span class="dot dot-pk"></span> PK = Primary Key</span>
+  <span><span class="dot dot-fk"></span> FK = Foreign Key (→ drivers)</span>
+  <span><span class="dot dot-uq"></span> UQ = UNIQUE constraint</span>
+</div>
+
+<button class="check-btn" onclick="checkAnswer()">Check Answer ✓</button>
+<div class="errors" id="errors"></div>
+
+<!-- Success -->
+<div id="success-overlay">
+  <div class="success-box">
+    <div class="big-check">✅</div>
+    <div class="success-title">Nailed It!</div>
+    <div class="success-msg">
+      <code>licenses.license_id</code> is the <strong style="color:var(--pk)">PRIMARY KEY</strong>,
+      and <code>licenses.driver_id</code> is a separate <strong style="color:var(--fk)">FOREIGN KEY</strong>
+      referencing <code>drivers.driver_id</code>.
+    </div>
+    <div class="key-point">
+      💡 Because <code>driver_id</code> is only a FK it could repeat — to enforce 1:1 you add a
+      <strong>UNIQUE</strong> constraint on it so each driver can appear at most once.
+    </div>
+    <div class="btn-row">
+      <button class="play-again" onclick="resetGame()">↺ Try Again</button>
+      <button class="next-btn" onclick="location.href='03.html'">Next Exercise →</button>
+    </div>
+  </div>
+</div>
+
+<canvas id="confetti"></canvas>
+
+<script>
+/* pk / fk / uq flags per column */
+const COLUMNS = [
+  /* drivers */
+  { name: 'driver_id',    type: 'INTEGER', table: 'drivers',  pk: true,  fk: false, uq: false },
+  { name: 'full_name',    type: 'TEXT',    table: 'drivers',  pk: false, fk: false, uq: false },
+  { name: 'date_of_birth',type: 'DATE',    table: 'drivers',  pk: false, fk: false, uq: false },
+  { name: 'nationality',  type: 'TEXT',    table: 'drivers',  pk: false, fk: false, uq: false },
+  /* licenses */
+  { name: 'license_id',   type: 'INTEGER', table: 'licenses', pk: true,  fk: false, uq: false },
+  { name: 'driver_id',    type: 'INTEGER', table: 'licenses', pk: false, fk: true,  uq: true  },
+  { name: 'license_no',   type: 'TEXT',    table: 'licenses', pk: false, fk: false, uq: false },
+  { name: 'issued_at',    type: 'DATE',    table: 'licenses', pk: false, fk: false, uq: false },
+  { name: 'expires_at',   type: 'DATE',    table: 'licenses', pk: false, fk: false, uq: false },
+];
+
+const COLS = COLUMNS.map((c, i) => ({ ...c, id: i }));
+let dragging = null;
+const placed = {};  /* id → { table, pk, fk, uq } */
+
+/* ── init ── */
+function init() {
+  const bank = document.getElementById('bank');
+  bank.innerHTML = '';
+  [...COLS].sort(() => Math.random() - .5).forEach(col => {
+    bank.appendChild(makePill(col));
+    delete placed[col.id];
+  });
+  ['drivers','licenses'].forEach(t => {
+    const dz = document.getElementById('drop-' + t);
+    dz.querySelectorAll('.col-row').forEach(n => n.remove());
+    document.getElementById('hint-' + t).style.display = '';
+    document.getElementById('card-' + t).classList.remove('correct');
+  });
+  document.getElementById('errors').innerHTML = '';
+  document.getElementById('success-overlay').classList.remove('show');
+}
+
+/* ── pill ── */
+function makePill(col) {
+  const el = document.createElement('div');
+  el.className = 'pill';
+  el.draggable = true;
+  el.dataset.id = col.id;
+  el.innerHTML = `<span>${col.name}</span><span class="dtype">${col.type}</span>`;
+  el.addEventListener('dragstart', () => {
+    dragging = col.id;
+    setTimeout(() => el.classList.add('dragging'), 0);
+  });
+  el.addEventListener('dragend', () => el.classList.remove('dragging'));
+  return el;
+}
+
+/* ── col-row (inside table) ── */
+function makeColRow(col) {
+  const el = document.createElement('div');
+  el.className = 'col-row';
+  el.dataset.id = col.id;
+  const p = placed[col.id] || {};
+  el.innerHTML = `
+    <span class="col-name">${col.name}</span>
+    <span class="col-type">${col.type}</span>
+    <button class="badge-btn pk${p.pk?' active':''}" onclick="toggleBadge(${col.id},'pk',this)">PK</button>
+    <button class="badge-btn fk${p.fk?' active':''}" onclick="toggleBadge(${col.id},'fk',this)">FK</button>
+    <button class="badge-btn uq${p.uq?' active':''}" onclick="toggleBadge(${col.id},'uq',this)">UQ</button>
+    <button class="remove-btn" onclick="returnToBank(${col.id})">✕</button>`;
+  return el;
+}
+
+/* ── drag & drop ── */
+function onDragOver(e, target) {
+  e.preventDefault();
+  getZone(target).classList.add('drag-over');
+}
+function onDragLeave(e, target) {
+  getZone(target).classList.remove('drag-over');
+}
+function onDrop(e, target) {
+  e.preventDefault();
+  onDragLeave(e, target);
+  if (dragging === null) return;
+  const col = COLS.find(c => c.id == dragging);
+  if (!col) return;
+  removeFromCurrentLocation(col.id);
+  if (target === 'bank') {
+    document.getElementById('bank').appendChild(makePill(col));
+    delete placed[col.id];
+  } else {
+    const dz = document.getElementById('drop-' + target);
+    document.getElementById('hint-' + target).style.display = 'none';
+    placed[col.id] = placed[col.id] || { table: target, pk: false, fk: false, uq: false };
+    placed[col.id].table = target;
+    dz.appendChild(makeColRow(col));
+  }
+  dragging = null;
+}
+
+function getZone(target) {
+  return target === 'bank'
+    ? document.getElementById('bank')
+    : document.getElementById('drop-' + target);
+}
+
+function removeFromCurrentLocation(id) {
+  const pill = document.querySelector(`#bank .pill[data-id="${id}"]`);
+  if (pill) { pill.remove(); return; }
+  const row = document.querySelector(`.col-row[data-id="${id}"]`);
+  if (row) {
+    const dz = row.closest('.drop-zone');
+    row.remove();
+    if (!dz.querySelector('.col-row')) {
+      document.getElementById('hint-' + dz.id.replace('drop-', '')).style.display = '';
+    }
+  }
+}
+
+function returnToBank(id) {
+  const col = COLS.find(c => c.id == id);
+  removeFromCurrentLocation(id);
+  delete placed[id];
+  document.getElementById('bank').appendChild(makePill(col));
+}
+
+function toggleBadge(id, type, btn) {
+  placed[id] = placed[id] || {};
+  placed[id][type] = !placed[id][type];
+  btn.classList.toggle('active', placed[id][type]);
+}
+
+/* ── check ── */
+function checkAnswer() {
+  const errs = [];
+
+  const unplaced = COLS.filter(c => !placed[c.id] || !placed[c.id].table);
+  if (unplaced.length)
+    errs.push(`${unplaced.length} column(s) still not placed in any table.`);
+
+  /* build expected schema: table → { colName → {pk,fk,uq} } */
+  const expByTable = {};
+  COLS.forEach(col => {
+    (expByTable[col.table] ??= {})[col.name] = { pk: col.pk, fk: col.fk, uq: col.uq };
+  });
+
+  /* build actual placement: table → { colName → {pk,fk,uq,count} } */
+  const actByTable = {};
+  COLS.forEach(col => {
+    const p = placed[col.id];
+    if (!p?.table) return;
+    const tbl = actByTable[p.table] ??= {};
+    if (tbl[col.name]) { tbl[col.name].count++; }
+    else               { tbl[col.name] = { pk: !!p.pk, fk: !!p.fk, uq: !!p.uq, count: 1 }; }
+  });
+
+  const tables = Object.keys(expByTable);
+  tables.forEach(table => {
+    const exp = expByTable[table];
+    const act = actByTable[table] ?? {};
+
+    Object.entries(act).forEach(([name, a]) => {
+      if (a.count > 1)  errs.push(`<strong>${name}</strong> appears twice in <em>${table}</em>.`);
+      if (!exp[name])   errs.push(`<strong>${name}</strong> does not belong in <em>${table}</em>.`);
+    });
+
+    Object.entries(exp).forEach(([name, e]) => {
+      const a = act[name];
+      if (!a) return;
+      [['pk','PK'],['fk','FK'],['uq','UNIQUE']].forEach(([key, label]) => {
+        if (e[key] && !a[key])  errs.push(`<strong>${name}</strong> in <em>${table}</em> should be marked <strong>${label}</strong>.`);
+        if (!e[key] && a[key])  errs.push(`<strong>${name}</strong> in <em>${table}</em> should NOT be marked ${label}.`);
+      });
+    });
+  });
+
+  const errDiv = document.getElementById('errors');
+  errDiv.innerHTML = '';
+  if (errs.length) {
+    errs.forEach(msg => {
+      const d = document.createElement('div');
+      d.className = 'err-msg';
+      d.innerHTML = msg;
+      errDiv.appendChild(d);
+    });
+    return;
+  }
+
+  ['drivers','licenses'].forEach(t =>
+    document.getElementById('card-' + t).classList.add('correct'));
+  launchConfetti();
+  setTimeout(() => document.getElementById('success-overlay').classList.add('show'), 600);
+}
+
+/* ── reset ── */
+function resetGame() {
+  stopConfetti();
+  init();
+}
+
+/* ── confetti ── */
+let confettiAnim;
+const canvas = document.getElementById('confetti');
+const ctx = canvas.getContext('2d');
+let particles = [];
+
+function launchConfetti() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  particles = Array.from({ length: 170 }, () => ({
+    x: Math.random() * canvas.width,
+    y: Math.random() * -canvas.height * .5,
+    r: 5 + Math.random() * 6,
+    d: Math.random() * 2.2 + .8,
+    color: `hsl(${Math.random()*360},80%,60%)`,
+    tiltSpeed: Math.random() * .1 + .04,
+    angle: 0,
+  }));
+  animateConfetti();
+}
+function animateConfetti() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  particles.forEach(p => {
+    p.angle += p.tiltSpeed;
+    p.y += p.d;
+    ctx.beginPath();
+    ctx.fillStyle = p.color;
+    ctx.ellipse(p.x, p.y, p.r, p.r * .4, Math.sin(p.angle) * .8, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  particles = particles.filter(p => p.y < canvas.height + 20);
+  if (particles.length) confettiAnim = requestAnimationFrame(animateConfetti);
+  else ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+function stopConfetti() {
+  cancelAnimationFrame(confettiAnim);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+init();
+</script>
+</body>
+</html>
