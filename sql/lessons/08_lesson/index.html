@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SQL Lesson 8 — Normalization 1NF · 2NF · 3NF + dbdiagram</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='white'/><text x='32' y='45' text-anchor='middle' font-family='Arial, sans-serif' font-size='42' font-weight='700' fill='%238b5cf6'>db</text></svg>">
+  <style>
+    :root {
+      --bg-soft:   #ffffff;
+      --teal-1:    #0e5a52;
+      --teal-2:    #1a9e8f;
+      --teal-3:    #d2f6f2;
+      --mint:      #e6fffc;
+      --text:      #0f2622;
+      --muted:     #3d7a72;
+      --border:    #9adcd4;
+      --code-bg:   #07201d;
+      --code-text: #cef9f3;
+      --amber:     #d97706;
+      --amber-bg:  #fffbeb;
+      --amber-bd:  #fcd34d;
+      --violet:    #7c3aed;
+      --violet-bg: #f5f3ff;
+      --violet-bd: #c4b5fd;
+      --coral:     #dc2626;
+      --coral-bg:  #fff1f1;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Trebuchet MS", "Lucida Sans", "Segoe UI", sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at 15% 10%, #ddfff8 0%, transparent 35%),
+                  radial-gradient(circle at 85% 18%, #f0ebff 0%, transparent 36%),
+                  linear-gradient(180deg, #f0fffb 0%, #ffffff 45%, #f5f0ff 100%);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    body::before, body::after {
+      content: "";
+      position: fixed;
+      width: 240px; height: 240px;
+      z-index: -1; border-radius: 999px;
+      filter: blur(2px); opacity: 0.3;
+      animation: blobMove 8s ease-in-out infinite alternate;
+    }
+    body::before { background: #9ef5eb; top: -30px; left: -40px; }
+    body::after  { background: #ddd6fe; bottom: -40px; right: -40px; animation-delay: 1.4s; }
+
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 24px; }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    /* ── SIDEBAR ── */
+    .side-nav {
+      position: sticky; top: 14px;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 8px 22px rgba(14,90,82,0.1);
+      padding: 12px;
+    }
+    .side-title { margin: 0 0 8px; font-size: 0.9rem; color: var(--teal-1); font-weight: 700; }
+    .topic-link {
+      display: block; width: 100%; text-align: left;
+      border: 1px solid transparent; border-radius: 9px;
+      padding: 8px 10px; background: transparent; color: var(--muted);
+      cursor: pointer; font-size: 0.89rem; margin-bottom: 6px;
+      transition: all 0.2s ease;
+    }
+    .topic-link:hover { background: #f0fffb; color: var(--teal-1); border-color: var(--border); }
+    .topic-link.active { background: #d8faf5; color: var(--teal-1); border-color: var(--teal-2); font-weight: 700; }
+    .side-divider { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+    .side-section-label {
+      font-size: 0.72rem; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--teal-2); padding: 4px 4px 6px;
+    }
+    .nav-back {
+      display: inline-block; margin-top: 10px; padding: 10px 16px;
+      border-radius: 10px; border: 1px solid var(--teal-2); background: #d8faf5;
+      color: var(--teal-1); text-decoration: none; font-weight: 700;
+      transition: all 0.2s ease; width: 100%; text-align: center;
+    }
+    .nav-back:hover { background: #bff5ec; transform: translateY(-1px); }
+
+    /* ── HERO ── */
+    .hero {
+      background: linear-gradient(135deg, #ffffff 0%, #d9fdf7 40%, #ede9fe 100%);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow: 0 12px 30px rgba(14,110,100,0.12);
+      margin-bottom: 22px;
+      animation: riseIn 0.75s ease both;
+    }
+    h1, h2, h3 { margin-top: 0; color: var(--teal-1); }
+    h1 { font-size: 2rem; margin-bottom: 8px; }
+    .tag {
+      display: inline-block; padding: 5px 10px; border-radius: 999px;
+      font-size: 0.82rem; background: var(--teal-3);
+      color: var(--teal-1); border: 1px solid var(--border); margin-bottom: 10px;
+    }
+
+    /* ── PANELS ── */
+    .topic-panel { display: none; }
+    .topic-panel.active { display: block; }
+
+    /* ── CARDS ── */
+    .card {
+      background: var(--bg-soft); border: 1px solid var(--border);
+      border-radius: 14px; padding: 18px; margin-bottom: 16px;
+      box-shadow: 0 7px 22px rgba(14,90,82,0.08);
+      animation: riseIn 0.65s ease both;
+      transition: transform .25s ease, box-shadow .25s ease;
+    }
+    .card:hover { transform: translateY(-2px); box-shadow: 0 13px 28px rgba(14,90,82,0.15); }
+
+    /* ── CODE ── */
+    .code {
+      background: var(--code-bg); color: var(--code-text);
+      border-radius: 10px; border: 1px solid #1e5c54;
+      padding: 14px; overflow-x: auto; margin: 10px 0 12px;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.92rem; white-space: pre; line-height: 1.65;
+    }
+    .code .k  { color: #5eead4; font-weight: 700; }
+    .code .t  { color: #c084fc; }
+    .code .c  { color: #6b7280; font-style: italic; }
+    .code .s  { color: #6ee7b7; }
+    .code .n  { color: #fb923c; }
+    .code .cm { color: #6b7280; font-style: italic; }
+
+    /* ── NOTE ── */
+    .note {
+      background: var(--mint); border-left: 4px solid var(--teal-2);
+      padding: 10px 12px; color: var(--muted);
+      margin: 8px 0 10px; border-radius: 6px; font-size: 0.9rem;
+    }
+    .note-amber  { background: var(--amber-bg);  border-left-color: var(--amber);  color: #92400e; }
+    .note-violet { background: var(--violet-bg); border-left-color: var(--violet); color: #4c1d95; }
+    .note-coral  { background: var(--coral-bg);  border-left-color: var(--coral);  color: var(--coral); }
+    .note-green  { background: #f0fdf4; border-left-color: #16a34a; color: #14532d; }
+
+    /* ── TABLE ── */
+    table {
+      width: 100%; border-collapse: collapse;
+      background: #fff; border-radius: 10px;
+      overflow: hidden; border: 1px solid var(--border);
+      font-size: 0.9rem; margin: 10px 0;
+    }
+    th, td { border-bottom: 1px solid #ccf0eb; padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #d2faf5; color: #0b4b44; }
+    tr:last-child td { border-bottom: none; }
+    td.bad  { background: #fef2f2; color: var(--coral); font-style: italic; }
+    td.good { background: #f0fdf4; color: #166534; font-weight: 700; }
+
+    /* ── NF STEPS ── */
+    .nf-row {
+      display: flex; gap: 12px; align-items: flex-start;
+      background: #f8fffe; border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 14px; margin-bottom: 10px;
+    }
+    .nf-num {
+      font-size: 1.5rem; font-weight: 900;
+      font-family: Consolas, monospace;
+      min-width: 48px; line-height: 1;
+    }
+    .nf-text { font-size: 0.9rem; color: var(--muted); }
+    .nf-text strong { color: var(--text); }
+
+    /* ── DEP VISUAL ── */
+    .dep-row {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      margin: 12px 0; font-family: Consolas, monospace; font-size: .88rem;
+    }
+    .dep-box {
+      padding: 8px 14px; border-radius: 8px;
+      border: 1px solid; font-weight: 700;
+    }
+    .dep-arrow { color: #6b7280; font-size: 1.2rem; }
+
+    /* ── EXERCISE ── */
+    .exercise-card {
+      border: 1px solid var(--amber-bd);
+      background: linear-gradient(140deg, #fffdf7 0%, #fff9eb 100%);
+      border-radius: 14px; padding: 18px; margin-bottom: 16px;
+    }
+    .exercise-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+    .exercise-q {
+      width: 52px; height: 52px; border-radius: 50%;
+      display: grid; place-items: center;
+      font-size: 1.9rem; font-weight: 800; color: #92400e;
+      background: radial-gradient(circle at 30% 30%, #fde68a 0%, #fbbf24 100%);
+      border: 2px solid #f59e0b;
+      box-shadow: 0 6px 14px rgba(245,158,11,.25); flex-shrink: 0;
+    }
+    .exercise-head h2 { margin: 0 0 4px; color: var(--teal-1); font-size: 1.1rem; }
+    .exercise-sub  { color: #7c2d12; font-weight: 700; font-size: .88rem; margin: 0; }
+    .exercise-steps { margin: 8px 0 10px; padding-left: 18px; }
+    .exercise-steps li { color: #374151; margin-bottom: 5px; font-size: .9rem; }
+
+    /* ── HOMEWORK ── */
+    .hw-card {
+      border: 2px solid var(--teal-2);
+      background: linear-gradient(135deg, #f0fffe 0%, #ede9fe 100%);
+      border-radius: 16px; padding: 22px; margin-bottom: 16px;
+    }
+    .hw-head { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+    .hw-badge {
+      width: 48px; height: 48px; border-radius: 12px;
+      display: grid; place-items: center;
+      font-size: 1.5rem; font-weight: 900;
+      background: var(--teal-2); color: #fff;
+      flex-shrink: 0;
+    }
+    .hw-badge.amber { background: var(--amber); }
+    .hw-badge.violet { background: var(--violet); }
+    .hw-badge.pizza { background: #fb923c; }
+    .hw-head h3 { margin: 0 0 2px; color: var(--teal-1); }
+    .hw-src { color: var(--muted); font-size: .82rem; }
+    .hw-steps { padding-left: 18px; margin: 0; }
+    .hw-steps li { margin-bottom: 6px; font-size: .9rem; color: #374151; }
+
+    /* ── SUBMIT BOX ── */
+    .submit-box {
+      background: linear-gradient(135deg, #ecfdf5 0%, #ede9fe 100%);
+      border: 2px dashed var(--teal-2);
+      border-radius: 16px; padding: 22px;
+      text-align: center; margin-top: 24px;
+    }
+    .submit-box h3 { margin: 0 0 6px; color: var(--teal-1); font-size: 1.1rem; }
+    .submit-email {
+      display: inline-block;
+      font-family: Consolas, monospace;
+      font-size: 1rem; font-weight: 700;
+      color: var(--violet);
+      background: var(--violet-bg);
+      border: 1px solid var(--violet-bd);
+      border-radius: 8px; padding: 8px 18px; margin: 8px 0;
+      letter-spacing: .04em;
+    }
+    .submit-what { color: var(--muted); font-size: .88rem; margin-top: 8px; }
+    .submit-what li { margin-bottom: 4px; text-align: left; }
+
+    /* ── TOOL CARD (dbdiagram) ── */
+    .tool-feature {
+      display: flex; gap: 12px; align-items: flex-start;
+      background: #f8fffe; border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 14px; margin-bottom: 10px;
+    }
+    .tool-icon { font-size: 1.5rem; flex-shrink: 0; }
+    .tool-text { font-size: .89rem; color: var(--muted); }
+    .tool-text strong { color: var(--text); }
+    .dbdiagram-code {
+      background: #1e1b2e; color: #e2d9f3;
+      border-radius: 10px; padding: 14px; overflow-x: auto;
+      margin: 10px 0 12px; font-family: Consolas, "Courier New", monospace;
+      font-size: 0.9rem; white-space: pre; line-height: 1.65;
+      border: 1px solid #3b2f6e;
+    }
+    .dbdiagram-code .kw  { color: #c084fc; font-weight: 700; }
+    .dbdiagram-code .tb  { color: #7dd3fc; font-weight: 700; }
+    .dbdiagram-code .ty  { color: #6ee7b7; }
+    .dbdiagram-code .ref { color: #fbbf24; }
+    .dbdiagram-code .cm  { color: #6b7280; font-style: italic; }
+
+    @keyframes riseIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes blobMove {
+      from { transform: translate(0, 0) scale(1); }
+      to   { transform: translate(24px, 18px) scale(1.06); }
+    }
+
+    @media (max-width: 760px) {
+      .wrap { padding: 14px; }
+      .layout { grid-template-columns: 1fr; }
+      .side-nav { position: static; }
+      h1 { font-size: 1.6rem; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- HERO -->
+  <section class="hero">
+    <span class="tag">Lesson 8 — May 13, 2026</span>
+    <h1>Normalization — 1NF · 2NF · 3NF + dbdiagram</h1>
+    <p style="color:var(--muted);">We covered 1NF in class, worked through 2NF and 3NF with examples, and explored the <strong>dbdiagram.io</strong> tool for drawing schemas before coding. Homework: normalize the given tables and design the pizza restaurant schema.</p>
+  </section>
+
+  <div class="layout">
+
+    <!-- ── SIDEBAR ── -->
+    <aside class="side-nav" aria-label="Topic navigation">
+      <h2 class="side-title">Lesson 8</h2>
+      <button class="topic-link active" data-target="t-1nf">1) 1NF — Recap</button>
+      <button class="topic-link" data-target="t-2nf">2) 2NF</button>
+      <button class="topic-link" data-target="t-3nf">3) 3NF</button>
+      <button class="topic-link" data-target="t-tool">4) dbdiagram.io</button>
+      <hr class="side-divider">
+      <div class="side-section-label">Exercise</div>
+      <button class="topic-link" data-target="t-hw">5) Exercise</button>
+      <a class="nav-back" href="../../index.html">&larr; back to sql module</a>
+    </aside>
+
+    <!-- ── MAIN ── -->
+    <main>
+
+      <!-- ══════════════════════════════════════ -->
+      <!-- PANEL 1 — 1NF                         -->
+      <!-- ══════════════════════════════════════ -->
+      <section class="topic-panel active" id="t-1nf">
+
+        <div class="card">
+          <h2 style="color:var(--teal-2);">1NF — First Normal Form</h2>
+          <p style="color:var(--muted);margin-bottom:14px;">The foundation of normalization. A table is in 1NF when every column holds <strong>atomic (single) values</strong>, there are no repeating groups, and every row is unique.</p>
+
+          <div style="display:grid;gap:10px;margin-bottom:16px;">
+            <div class="nf-row">
+              <div class="nf-num" style="color:var(--teal-2);">①</div>
+              <div class="nf-text"><strong>Atomic values</strong> — one value per cell, never a comma list or JSON blob.</div>
+            </div>
+            <div class="nf-row">
+              <div class="nf-num" style="color:var(--teal-2);">②</div>
+              <div class="nf-text"><strong>No repeating groups</strong> — don't add columns <code>phone1</code>, <code>phone2</code>, <code>phone3</code>. Use a separate table instead.</div>
+            </div>
+            <div class="nf-row">
+              <div class="nf-num" style="color:var(--teal-2);">③</div>
+              <div class="nf-text"><strong>Every row is unique</strong> — identified by a PRIMARY KEY.</div>
+            </div>
+            <div class="nf-row">
+              <div class="nf-num" style="color:var(--teal-2);">④</div>
+              <div class="nf-text"><strong>Consistent column types</strong> — all values in a column are the same kind (all dates, all text, etc.).</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── EXERCISE ── -->
+        <div class="exercise-card">
+          <div class="exercise-head">
+            <div class="exercise-q">✏</div>
+            <div>
+              <p class="exercise-sub">Exercise</p>
+              <h2>Normalize a messy Contacts table to 1NF</h2>
+            </div>
+          </div>
+          <p style="color:var(--muted);margin-bottom:10px;">You are given this badly designed table:</p>
+          <div style="overflow-x:auto;margin-bottom:12px;">
+            <table>
+              <thead><tr><th>id</th><th>full_name</th><th>emails</th><th>tag1</th><th>tag2</th><th>tag3</th></tr></thead>
+              <tbody>
+                <tr><td>1</td><td>Ana Silva</td><td class="bad">ana@a.com, ana@b.com</td><td>VIP</td><td>Newsletter</td><td class="bad">NULL</td></tr>
+                <tr><td>2</td><td>João Souza</td><td class="bad">joao@c.com</td><td>Newsletter</td><td class="bad">NULL</td><td class="bad">NULL</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <ol class="exercise-steps">
+            <li>Identify all 1NF violations in the table above.</li>
+            <li>Design a normalized schema with separate tables for contacts, emails, and tags.</li>
+            <li>Write CREATE TABLE statements for all tables with proper PKs and FKs.</li>
+            <li>Insert the data from the original table into your new schema.</li>
+            <li>Write a query to find all contacts that have the tag <code>'Newsletter'</code>.</li>
+            <li>Write a query to find all emails for contact id 1.</li>
+          </ol>
+        </div>
+
+        <!-- ── EXERCISE: BAD ── -->
+        <div class="card">
+          <h2>❌ Bad — Violates 1NF <span style="font-size:.8rem;font-weight:400;color:var(--muted);">(exercise table)</span></h2>
+          <div style="overflow-x:auto;margin-bottom:12px;">
+            <table>
+              <thead><tr><th>id</th><th>full_name</th><th>emails</th><th>tag1</th><th>tag2</th><th>tag3</th></tr></thead>
+              <tbody>
+                <tr><td>1</td><td>Ana Silva</td><td class="bad">ana@a.com, ana@b.com</td><td>VIP</td><td>Newsletter</td><td class="bad">NULL</td></tr>
+                <tr><td>2</td><td>João Souza</td><td class="bad">joao@c.com</td><td>Newsletter</td><td class="bad">NULL</td><td class="bad">NULL</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p style="font-weight:700;color:var(--teal-1);margin-bottom:8px;">Q1 — All 1NF violations:</p>
+          <div style="display:grid;gap:8px;">
+            <div class="note note-coral">
+              <strong>Violation 1 — Non-atomic values:</strong> The <code>emails</code> column stores <em>"ana@a.com, ana@b.com"</em> in a single cell — two values separated by a comma. A cell must hold exactly one value.
+            </div>
+            <div class="note note-coral">
+              <strong>Violation 2 — Repeating groups:</strong> <code>tag1</code>, <code>tag2</code>, <code>tag3</code> are the same concept repeated across columns. If a contact gets a 4th tag, you'd have to <code>ALTER TABLE</code> and add <code>tag4</code> — that's a design smell.
+            </div>
+            <div class="note note-coral">
+              <strong>Violation 3 — NULL waste:</strong> Ana's <code>tag3</code> and João's <code>tag2</code>/<code>tag3</code> are all NULL — wasted space for columns that don't apply to those rows.
+            </div>
+          </div>
+        </div>
+
+        <!-- ── EXERCISE: GOOD ── -->
+        <div class="card">
+          <h2>✅ Good — Conforms to 1NF <span style="font-size:.8rem;font-weight:400;color:var(--muted);">(exercise solution)</span></h2>
+          <p style="color:var(--muted);margin-bottom:12px;"><strong>Q2 — Normalized schema:</strong> split emails and tags into their own tables, one value per cell:</p>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px;">
+            <div>
+              <p style="font-size:.82rem;font-weight:700;color:var(--teal-2);margin-bottom:6px;">contacts</p>
+              <table>
+                <thead><tr><th>id (PK)</th><th>full_name</th></tr></thead>
+                <tbody>
+                  <tr><td class="good">1</td><td>Ana Silva</td></tr>
+                  <tr><td class="good">2</td><td>João Souza</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div>
+              <p style="font-size:.82rem;font-weight:700;color:var(--teal-2);margin-bottom:6px;">contact_emails</p>
+              <table>
+                <thead><tr><th>id (PK)</th><th>contact_id</th><th>email</th></tr></thead>
+                <tbody>
+                  <tr><td>1</td><td>1</td><td class="good">ana@a.com</td></tr>
+                  <tr><td>2</td><td>1</td><td class="good">ana@b.com</td></tr>
+                  <tr><td>3</td><td>2</td><td class="good">joao@c.com</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div>
+              <p style="font-size:.82rem;font-weight:700;color:var(--teal-2);margin-bottom:6px;">contact_tags</p>
+              <table>
+                <thead><tr><th>contact_id</th><th>tag</th></tr></thead>
+                <tbody>
+                  <tr><td>1</td><td class="good">VIP</td></tr>
+                  <tr><td>1</td><td class="good">Newsletter</td></tr>
+                  <tr><td>2</td><td class="good">Newsletter</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="note">One value per cell. Adding a 4th tag = one new row, no schema change. Querying by email = exact match, no <code>LIKE '%…%'</code> needed.</div>
+        </div>
+
+        <!-- ── EXERCISE: COMPLETE SOLUTIONS ── -->
+        <div class="card" style="border-color:var(--amber-bd);">
+          <h2>Complete Solution — All 6 Questions</h2>
+
+          <p style="font-weight:700;color:var(--teal-1);margin:0 0 6px;">Q3 — CREATE TABLE statements:</p>
+          <div class="code"><span class="k">CREATE TABLE</span> <span class="t">contacts</span> (
+  id        <span class="t">INTEGER</span>  <span class="k">PRIMARY KEY</span> <span class="k">AUTOINCREMENT</span>,
+  full_name <span class="t">TEXT</span>     <span class="k">NOT NULL</span>
+);
+
+<span class="k">CREATE TABLE</span> <span class="t">contact_emails</span> (
+  id         <span class="t">INTEGER</span>  <span class="k">PRIMARY KEY</span> <span class="k">AUTOINCREMENT</span>,
+  contact_id <span class="t">INTEGER</span>  <span class="k">NOT NULL</span>,
+  email      <span class="t">TEXT</span>     <span class="k">NOT NULL</span>,
+  <span class="k">FOREIGN KEY</span> (contact_id) <span class="k">REFERENCES</span> <span class="t">contacts</span>(id) <span class="k">ON DELETE CASCADE</span>
+);
+
+<span class="k">CREATE TABLE</span> <span class="t">contact_tags</span> (
+  contact_id <span class="t">INTEGER</span>  <span class="k">NOT NULL</span>,
+  tag        <span class="t">TEXT</span>     <span class="k">NOT NULL</span>,
+  <span class="k">PRIMARY KEY</span> (contact_id, tag),
+  <span class="k">FOREIGN KEY</span> (contact_id) <span class="k">REFERENCES</span> <span class="t">contacts</span>(id) <span class="k">ON DELETE CASCADE</span>
+);</div>
+
+          <p style="font-weight:700;color:var(--teal-1);margin:16px 0 6px;">Q4 — INSERT data from original table:</p>
+          <div class="code"><span class="k">INSERT INTO</span> <span class="t">contacts</span> (full_name) <span class="k">VALUES</span>
+  (<span class="s">'Ana Silva'</span>),
+  (<span class="s">'João Souza'</span>);
+
+<span class="k">INSERT INTO</span> <span class="t">contact_emails</span> (contact_id, email) <span class="k">VALUES</span>
+  (<span class="n">1</span>, <span class="s">'ana@a.com'</span>),    <span class="cm">-- Ana has two emails</span>
+  (<span class="n">1</span>, <span class="s">'ana@b.com'</span>),
+  (<span class="n">2</span>, <span class="s">'joao@c.com'</span>);
+
+<span class="k">INSERT INTO</span> <span class="t">contact_tags</span> (contact_id, tag) <span class="k">VALUES</span>
+  (<span class="n">1</span>, <span class="s">'VIP'</span>),
+  (<span class="n">1</span>, <span class="s">'Newsletter'</span>),
+  (<span class="n">2</span>, <span class="s">'Newsletter'</span>);</div>
+
+          <p style="font-weight:700;color:var(--teal-1);margin:16px 0 6px;">Q5 — Find all contacts with the tag <code>'Newsletter'</code>:</p>
+          <div class="code"><span class="k">SELECT</span> c.id, c.full_name
+<span class="k">FROM</span>   <span class="t">contacts</span> c
+<span class="k">JOIN</span>   <span class="t">contact_tags</span> ct <span class="k">ON</span> ct.contact_id = c.id
+<span class="k">WHERE</span>  ct.tag = <span class="s">'Newsletter'</span>;</div>
+
+          <div style="overflow-x:auto;margin-bottom:16px;">
+            <table>
+              <thead><tr><th>id</th><th>full_name</th></tr></thead>
+              <tbody>
+                <tr><td>1</td><td class="good">Ana Silva</td></tr>
+                <tr><td>2</td><td class="good">João Souza</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p style="font-weight:700;color:var(--teal-1);margin:0 0 6px;">Q6 — Find all emails for contact id 1:</p>
+          <div class="code"><span class="k">SELECT</span> email
+<span class="k">FROM</span>   <span class="t">contact_emails</span>
+<span class="k">WHERE</span>  contact_id = <span class="n">1</span>;</div>
+
+          <div style="overflow-x:auto;">
+            <table>
+              <thead><tr><th>email</th></tr></thead>
+              <tbody>
+                <tr><td class="good">ana@a.com</td></tr>
+                <tr><td class="good">ana@b.com</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="note" style="font-size:.9rem;">
+          📖 Source: <a href="../../06_relations/04-normalization-1nf.html" style="color:var(--teal-2);font-weight:700;">06_relations / 04-normalization-1nf.html</a>
+        </div>
+
+      </section>
+
+      <!-- ══════════════════════════════════════ -->
+      <!-- PANEL 2 — 2NF                         -->
+      <!-- ══════════════════════════════════════ -->
+      <section class="topic-panel" id="t-2nf">
+
+        <div class="card" style="border-color:var(--amber-bd);">
+          <h2 style="color:var(--amber);">2NF — Second Normal Form</h2>
+          <p style="color:var(--muted);">A table is in <strong>2NF</strong> when it is already in <strong>1NF</strong> and every non-key column depends on the <strong>entire</strong> primary key — not just part of it.</p>
+          <div class="note note-amber" style="margin-top:12px;">
+            <strong>Only matters with composite PKs.</strong> A table with a single-column PK is automatically in 2NF (assuming it's already in 1NF).
+          </div>
+        </div>
+
+        <!-- Concept -->
+        <div class="card">
+          <h2>Partial Dependency</h2>
+          <p style="color:var(--muted);margin-bottom:12px;">A <strong>partial dependency</strong> happens when a non-key column depends on only <em>part</em> of a composite primary key.</p>
+          <p style="color:var(--muted);margin-bottom:14px;">Example — composite PK is <code>(student_id, course_id)</code>:</p>
+
+          <div class="dep-row">
+            <div class="dep-box" style="background:#fef3c7;border-color:var(--amber-bd);color:var(--amber);">student_id + course_id<br><span style="font-size:.72rem;font-weight:400;">composite PK</span></div>
+            <div class="dep-arrow">→</div>
+            <div class="dep-box" style="background:#f0fdf4;border-color:#86efac;color:#166534;">grade<br><span style="font-size:.72rem;font-weight:400;">✅ full dependency</span></div>
+            <div class="dep-arrow" style="color:var(--coral);">≠</div>
+            <div class="dep-box" style="background:var(--coral-bg);border-color:var(--coral);color:var(--coral);">student_name<br><span style="font-size:.72rem;font-weight:400;">❌ partial (only student_id)</span></div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ══════════════════════════════════════ -->
+      <!-- PANEL 3 — 3NF                         -->
+      <!-- ══════════════════════════════════════ -->
+      <section class="topic-panel" id="t-3nf">
+
+        <div class="card" style="border-color:var(--violet-bd);">
+          <h2 style="color:var(--violet);">3NF — Third Normal Form</h2>
+          <p style="color:var(--muted);">A table is in <strong>3NF</strong> when it is in <strong>2NF</strong> and every non-key column depends <strong>only on the primary key</strong> — never on another non-key column.</p>
+        </div>
+
+        <!-- Concept -->
+        <div class="card">
+          <h2>Transitive Dependency</h2>
+          <p style="color:var(--muted);margin-bottom:12px;">A <strong>transitive dependency</strong> exists when a non-key column determines another non-key column, creating an indirect path to the PK:</p>
+
+          <div style="background:#f8f7ff;border:1px solid var(--violet-bd);border-radius:10px;padding:12px 16px;font-family:Consolas,monospace;font-size:.9rem;margin-bottom:12px;">
+            PK → column A → column B
+          </div>
+
+          <div class="dep-row">
+            <div class="dep-box" style="background:#fef3c7;border-color:var(--amber-bd);color:var(--amber);">employee_id<br><span style="font-size:.72rem;font-weight:400;">PK</span></div>
+            <div class="dep-arrow" style="color:var(--teal-2);">→</div>
+            <div class="dep-box" style="background:#f0f9ff;border-color:#7dd3fc;color:#0369a1;">dept_id<br><span style="font-size:.72rem;font-weight:400;">non-key</span></div>
+            <div class="dep-arrow" style="color:var(--coral);">→</div>
+            <div class="dep-box" style="background:var(--coral-bg);border-color:var(--coral);color:var(--coral);">dept_name<br><span style="font-size:.72rem;font-weight:400;">❌ transitive</span></div>
+          </div>
+          <p style="color:var(--muted);font-size:.85rem;margin-top:4px;"><code>dept_name</code> depends on <code>dept_id</code>, not directly on <code>employee_id</code> — that's a transitive dependency.</p>
+
+          <div class="note note-violet" style="margin-top:12px;">
+            <strong>Why it's a problem:</strong> If you rename a department, you have to update every employee row in that department. Miss one row → inconsistent data.
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ══════════════════════════════════════ -->
+      <!-- PANEL 4 — dbdiagram.io                -->
+      <!-- ══════════════════════════════════════ -->
+      <section class="topic-panel" id="t-tool">
+
+        <div class="card" style="border-color:#7dd3fc;">
+          <h2 style="color:#0369a1;">✏️ dbdiagram.io — Design Before You Code</h2>
+          <p style="color:var(--muted);">
+            <a href="https://dbdiagram.io" target="_blank" rel="noopener" style="color:#0369a1;font-weight:700;">dbdiagram.io</a> is a free browser tool where you <strong>type a simple schema</strong> and it draws the ERD automatically. Great for designing your tables before writing any SQL.
+          </p>
+          <div style="display:grid;gap:10px;margin-top:14px;">
+            <div class="tool-feature">
+              <div class="tool-icon">⚡</div>
+              <div class="tool-text"><strong>Type-to-diagram</strong> — define tables in a simple text syntax; the visual ERD updates live on the right.</div>
+            </div>
+            <div class="tool-feature">
+              <div class="tool-icon">🔗</div>
+              <div class="tool-text"><strong>Relationship lines</strong> — use <code>Ref:</code> syntax to draw FK connections with correct crow's-foot notation.</div>
+            </div>
+            <div class="tool-feature">
+              <div class="tool-icon">📤</div>
+              <div class="tool-text"><strong>Export to SQL</strong> — one click generates <code>CREATE TABLE</code> statements ready to paste into DB Browser.</div>
+            </div>
+            <div class="tool-feature">
+              <div class="tool-icon">🔒</div>
+              <div class="tool-text"><strong>Free &amp; no install</strong> — works in the browser. Save by creating a free account or share via link.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Ref Notation</h2>
+          <p style="color:var(--muted);margin-bottom:10px;">The <code>Ref:</code> keyword defines relationships. The symbol shows the cardinality:</p>
+          <table>
+            <thead><tr><th>Symbol</th><th>Meaning</th><th>Example</th></tr></thead>
+            <tbody>
+              <tr><td><code>&gt;</code></td><td>Many-to-One (FK → PK)</td><td><code>orders.customer_id &gt; customers.id</code></td></tr>
+              <tr><td><code>&lt;</code></td><td>One-to-Many</td><td><code>customers.id &lt; orders.customer_id</code></td></tr>
+              <tr><td><code>-</code></td><td>One-to-One</td><td><code>users.id - profiles.user_id</code></td></tr>
+              <tr><td><code>&lt;&gt;</code></td><td>Many-to-Many</td><td>(use a junction table instead)</td></tr>
+            </tbody>
+          </table>
+          <div class="note" style="margin-top:12px;">
+            💡 <strong>Tip:</strong> Write your dbdiagram schema first, verify the ERD looks correct, then click <strong>Export → PostgreSQL / MySQL / SQLite</strong> to get the CREATE TABLE code.
+          </div>
+          <div style="margin-top:12px;text-align:center;">
+            <a href="https://dbdiagram.io" target="_blank" rel="noopener"
+               style="display:inline-block;padding:10px 24px;background:#0369a1;color:#fff;border-radius:10px;text-decoration:none;font-weight:700;font-size:.95rem;">
+              Open dbdiagram.io →
+            </a>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>dbdiagram Syntax</h2>
+          <p style="color:var(--muted);margin-bottom:10px;">Here is the dbdiagram syntax for a simple orders schema. Type this at <a href="https://dbdiagram.io" target="_blank" style="color:#0369a1;font-weight:700;">dbdiagram.io</a> and the diagram appears immediately:</p>
+
+          <div class="dbdiagram-code"><span class="cm">// Customers table</span>
+<span class="kw">Table</span> <span class="tb">customers</span> {
+  id         <span class="ty">integer</span>  [pk, increment]
+  full_name  <span class="ty">varchar</span>  [not null]
+  email      <span class="ty">varchar</span>  [unique, not null]
+  phone      <span class="ty">varchar</span>
+}
+
+<span class="cm">// Orders table</span>
+<span class="kw">Table</span> <span class="tb">orders</span> {
+  id          <span class="ty">integer</span>  [pk, increment]
+  customer_id <span class="ty">integer</span>  [not null, ref: &gt; customers.id]
+  ordered_at  <span class="ty">datetime</span>
+  total       <span class="ty">decimal</span>
+}
+
+<span class="cm">// Products table</span>
+<span class="kw">Table</span> <span class="tb">products</span> {
+  id    <span class="ty">integer</span>  [pk, increment]
+  name  <span class="ty">varchar</span>  [not null]
+  price <span class="ty">decimal</span>  [not null]
+}
+
+<span class="cm">// Junction table — order_items</span>
+<span class="kw">Table</span> <span class="tb">order_items</span> {
+  order_id   <span class="ty">integer</span>  [pk, ref: &gt; orders.id]
+  product_id <span class="ty">integer</span>  [pk, ref: &gt; products.id]
+  qty        <span class="ty">integer</span>  [not null]
+  unit_price <span class="ty">decimal</span>  [not null]  <span class="cm">// price snapshot at order time</span>
+}
+
+<span class="cm">// Explicit relationships (optional — Ref: inside table works too)</span>
+<span class="ref">Ref:</span> orders.customer_id &gt; customers.id
+<span class="ref">Ref:</span> order_items.order_id &gt; orders.id
+<span class="ref">Ref:</span> order_items.product_id &gt; products.id</div>
+        </div>
+
+      </section>
+
+      <!-- ══════════════════════════════════════ -->
+      <!-- PANEL 5 — EXERCISE                    -->
+      <!-- ══════════════════════════════════════ -->
+      <section class="topic-panel" id="t-hw">
+
+        <div class="card" style="background:linear-gradient(135deg,#f0fffe 0%,#ede9fe 100%);border-color:var(--teal-2);">
+          <h2 style="color:var(--teal-1);">✏️ Exercise — Lesson 8</h2>
+          <p style="color:var(--muted);">Complete all three exercises below. Use <strong>DB Browser for SQLite</strong> and optionally sketch your ERD first with <strong>dbdiagram.io</strong>. Submit your <code>.sql</code> file to the email at the bottom of this page.</p>
+        </div>
+
+        <!-- Exercise 1 — 2NF -->
+        <div class="hw-card">
+          <div class="hw-head">
+            <div class="hw-badge amber">1</div>
+            <div>
+              <h3>Normalize to 2NF — Orders Table</h3>
+              <div class="hw-src">Source: <a href="../../06_relations/05-normalization-2nf.html#exercise" style="color:var(--teal-2);font-weight:700;">06_relations / 05-normalization-2nf.html</a></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Exercise 2 — 3NF -->
+        <div class="hw-card" style="background:linear-gradient(135deg,#f5f0ff 0%,#fdf8ff 100%);border-color:var(--violet-bd);">
+          <div class="hw-head">
+            <div class="hw-badge violet">2</div>
+            <div>
+              <h3>Normalize to 3NF — Books Table</h3>
+              <div class="hw-src">Source: <a href="../../06_relations/06-normalization-3nf.html#exercise" style="color:var(--violet);font-weight:700;">06_relations / 06-normalization-3nf.html</a></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Exercise 3 — Pizza -->
+        <div class="hw-card" style="background:linear-gradient(135deg,#fff8f0 0%,#fff3e8 100%);border-color:#fed7aa;">
+          <div class="hw-head">
+            <div class="hw-badge pizza">3</div>
+            <div>
+              <h3>🍕 Create Tables — Pizza Restaurant</h3>
+              <div class="hw-src">Source: <a href="../../07_design/exercise.html" style="color:#ea580c;font-weight:700;">07_design / exercise.html</a></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUBMIT -->
+        <div class="submit-box">
+          <h3>📩 Submit Your Work</h3>
+          <p style="color:var(--muted);font-size:.88rem;">Send your <code>.sql</code> file (and optionally a screenshot of your dbdiagram ERD) to:</p>
+          <div class="submit-email">pythonai211225+sql8@gmail.com</div>
+          <ul class="submit-what" style="display:inline-block;text-align:left;margin-top:10px;">
+            <li>✅ <code>lesson8_hw.sql</code> — all CREATE TABLE + INSERT + SELECT statements</li>
+            <li>✅ Screenshot or link of your dbdiagram ERD (pizza exercise)</li>
+            <li>📅 Subject line: <strong>SQL Lesson 8 — [Your Name]</strong></li>
+          </ul>
+        </div>
+
+      </section>
+
+    </main>
+  </div><!-- /.layout -->
+
+</div><!-- /.wrap -->
+
+<script>
+  const links  = document.querySelectorAll('.topic-link');
+  const panels = document.querySelectorAll('.topic-panel');
+
+  links.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = btn.dataset.target;
+      links.forEach(l => l.classList.remove('active'));
+      panels.forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(target).classList.add('active');
+    });
+  });
+</script>
+</body>
+</html>
