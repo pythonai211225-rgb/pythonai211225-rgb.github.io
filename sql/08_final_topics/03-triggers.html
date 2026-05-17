@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Topic 3 — Triggers</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%23080e1c'/><text x='32' y='45' text-anchor='middle' font-family='Arial, sans-serif' font-size='42' font-weight='700' fill='%232dd4bf'>db</text></svg>">
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    .trigger-flow {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      margin: 16px 0; padding: 14px 16px;
+      background: var(--surface2); border: 1px solid var(--border); border-radius: 12px;
+    }
+    .tf-box {
+      padding: 8px 14px; border-radius: 8px; font-weight: 700; font-size: .85rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .tf-event  { background: rgba(248,113,113,.15); color: var(--coral);  border: 1px solid rgba(248,113,113,.3); }
+    .tf-arrow  { color: var(--muted); font-size: 1.3rem; }
+    .tf-trigger{ background: rgba(167,139,250,.15); color: var(--violet); border: 1px solid rgba(167,139,250,.3); }
+    .tf-action { background: rgba(45,212,191,.15);  color: var(--teal);   border: 1px solid rgba(45,212,191,.3); }
+
+    .demo-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 14px; }
+    .demo-side  { background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 14px; transition: border-color .4s, background .4s; }
+    .demo-side h4 { font-size: .85rem; font-weight: 700; color: var(--muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: .06em; }
+    .demo-row { display: flex; justify-content: space-between; padding: 6px 8px; border-radius: 6px; font-size: .88rem; margin-bottom: 4px; }
+    .demo-row .dr-name { color: var(--text); font-weight: 600; }
+    .demo-row .dr-val  { font-family: 'JetBrains Mono', monospace; color: var(--amber); }
+    .demo-new  { background: rgba(167,139,250,.2); }
+
+    .insert-btn {
+      display: inline-flex; align-items: center; gap: 8px; margin-top: 14px;
+      padding: 10px 20px; border-radius: 10px; cursor: pointer; font-weight: 700;
+      font-size: .9rem; border: 1px solid rgba(167,139,250,.35);
+      background: rgba(167,139,250,.12); color: var(--violet);
+      transition: background .18s; font-family: inherit;
+    }
+    .insert-btn:hover  { background: rgba(167,139,250,.22); }
+    .insert-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+    @media (max-width: 640px) { .demo-panel { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+
+<nav class="top-nav">
+  <div class="wrap">
+    <a class="nav-home" href="index.html">← Lesson 8</a>
+    <div class="brand">Lesson 8</div>
+    <a class="nav-link" href="01-union.html">1. UNION</a>
+    <a class="nav-link" href="02-date-queries.html">2. Date Queries</a>
+    <a class="nav-link active" href="03-triggers.html">3. Triggers</a>
+    <a class="nav-link" href="04-views.html">4. Views</a>
+  </div>
+</nav>
+
+<main class="container">
+
+  <!-- HERO -->
+  <section class="hero reveal">
+    <span class="tag">Topic 3</span>
+    <h1>Triggers — Automate Your Database</h1>
+    <p class="lead">A trigger is SQL that fires <em>automatically</em> when data changes. Insert a grade and watch the class summary update itself — no extra code, no manual syncing.</p>
+
+    <div class="stat-grid" style="margin-top:18px;">
+      <div class="stat-card reveal-scale d1">
+        <div class="stat-num" style="color:var(--violet);">⚡</div>
+        <div class="stat-label">AFTER INSERT</div>
+        <div class="stat-sub">Fires after a new row lands</div>
+      </div>
+      <div class="stat-card reveal-scale d2">
+        <div class="stat-num" style="color:var(--coral);">🔒</div>
+        <div class="stat-label">BEFORE UPDATE</div>
+        <div class="stat-sub">Validate before the change</div>
+      </div>
+      <div class="stat-card reveal-scale d3">
+        <div class="stat-num" style="color:var(--teal);">NEW</div>
+        <div class="stat-label">NEW.column</div>
+        <div class="stat-sub">The incoming row's data</div>
+      </div>
+      <div class="stat-card reveal-scale d4">
+        <div class="stat-num" style="color:var(--amber);">OLD</div>
+        <div class="stat-label">OLD.column</div>
+        <div class="stat-sub">The row being replaced</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- WHAT IS A TRIGGER -->
+  <section class="section card reveal">
+    <h2>What Is a Trigger?</h2>
+    <p style="color:var(--muted);font-size:.9rem;margin-bottom:12px;">A trigger watches a table. The moment a specified event happens — INSERT, UPDATE, or DELETE — the trigger runs SQL you defined. You never call it manually.</p>
+
+    <div class="trigger-flow">
+      <div class="tf-box tf-event">INSERT / UPDATE / DELETE</div>
+      <div class="tf-arrow">→</div>
+      <div class="tf-box tf-trigger">TRIGGER fires</div>
+      <div class="tf-arrow">→</div>
+      <div class="tf-box tf-action">SQL runs automatically</div>
+    </div>
+
+    <div class="two-col" style="margin-top:12px;">
+      <div>
+        <p style="font-size:.88rem;color:var(--muted);margin-bottom:8px;font-weight:700;">Trigger timing:</p>
+        <ul class="simple">
+          <li><strong style="color:var(--coral);">BEFORE</strong> — runs before the change. Use for validation — call <code>RAISE(ABORT, …)</code> to reject bad data.</li>
+          <li><strong style="color:var(--violet);">AFTER</strong> — runs after the change lands. Use for syncing summary tables or logging.</li>
+        </ul>
+      </div>
+      <div>
+        <p style="font-size:.88rem;color:var(--muted);margin-bottom:8px;font-weight:700;">Access the row inside the trigger:</p>
+        <ul class="simple">
+          <li><code style="color:var(--teal);">NEW.column</code> — the incoming row's values (INSERT, UPDATE)</li>
+          <li><code style="color:var(--coral);">OLD.column</code> — the row being replaced (UPDATE, DELETE)</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- SETUP -->
+  <section class="section card reveal">
+    <h2>The Tables — Grades &amp; Class Stats</h2>
+    <p style="color:var(--muted);font-size:.9rem;margin-bottom:14px;">We record individual grades in <code style="color:var(--amber)">grades</code> and keep a running summary in <code style="color:var(--violet)">class_stats</code>. The trigger keeps them in sync automatically every time a grade is inserted.</p>
+
+    <div class="setup-grid">
+      <div class="setup-card" tabindex="0">
+        <div class="setup-card-header">
+          <div class="setup-table-name">classes</div>
+          <div class="setup-cols">id · name</div>
+          <div class="setup-rows-badge">3 rows</div>
+          <div class="setup-hint">hover to reveal SQL ↓</div>
+        </div>
+        <div class="setup-sql-wrap" style="position:relative;">
+          <button class="setup-copy-btn" onclick="copySQL('sql-classes',this)">Copy</button>
+          <pre id="sql-classes" class="setup-pre"><span class="k">CREATE TABLE</span> classes (
+  id   <span class="t">INTEGER PRIMARY KEY</span>,
+  name <span class="t">TEXT</span>
+);
+<span class="k">INSERT INTO</span> classes <span class="k">VALUES</span>
+  (<span class="c">1</span>, <span class="t">'Math'</span>),
+  (<span class="c">2</span>, <span class="t">'Science'</span>),
+  (<span class="c">3</span>, <span class="t">'History'</span>);</pre>
+        </div>
+      </div>
+
+      <div class="setup-card" tabindex="0">
+        <div class="setup-card-header">
+          <div class="setup-table-name">grades</div>
+          <div class="setup-cols">id · class_id · student · grade</div>
+          <div class="setup-rows-badge">10 rows</div>
+          <div class="setup-hint">hover to reveal SQL ↓</div>
+        </div>
+        <div class="setup-sql-wrap" style="position:relative;">
+          <button class="setup-copy-btn" onclick="copySQL('sql-grades',this)">Copy</button>
+          <pre id="sql-grades" class="setup-pre"><span class="k">CREATE TABLE</span> grades (
+  id       <span class="t">INTEGER PRIMARY KEY</span>,
+  class_id <span class="t">INTEGER</span>,
+  student  <span class="t">TEXT</span>,
+  grade    <span class="t">INTEGER</span>
+);
+<span class="k">INSERT INTO</span> grades (class_id, student, grade) <span class="k">VALUES</span>
+  (<span class="c">1</span>, <span class="t">'Alice'</span>,  <span class="c">92</span>),
+  (<span class="c">1</span>, <span class="t">'Bob'</span>,    <span class="c">78</span>),
+  (<span class="c">1</span>, <span class="t">'Carol'</span>,  <span class="c">85</span>),
+  (<span class="c">2</span>, <span class="t">'David'</span>,  <span class="c">91</span>),
+  (<span class="c">2</span>, <span class="t">'Emma'</span>,   <span class="c">88</span>),
+  (<span class="c">2</span>, <span class="t">'Felix'</span>,  <span class="c">95</span>),
+  (<span class="c">3</span>, <span class="t">'Greta'</span>,  <span class="c">73</span>),
+  (<span class="c">3</span>, <span class="t">'Hans'</span>,   <span class="c">80</span>),
+  (<span class="c">3</span>, <span class="t">'Ingrid'</span>, <span class="c">76</span>),
+  (<span class="c">3</span>, <span class="t">'Jack'</span>,   <span class="c">88</span>);</pre>
+        </div>
+      </div>
+
+      <div class="setup-card" tabindex="0">
+        <div class="setup-card-header">
+          <div class="setup-table-name">class_stats</div>
+          <div class="setup-cols">class_id · student_count · avg_grade · min_grade · max_grade</div>
+          <div class="setup-rows-badge">kept in sync by trigger</div>
+          <div class="setup-hint">hover to reveal SQL ↓</div>
+        </div>
+        <div class="setup-sql-wrap" style="position:relative;">
+          <button class="setup-copy-btn" onclick="copySQL('sql-stats',this)">Copy</button>
+          <pre id="sql-stats" class="setup-pre"><span class="k">CREATE TABLE</span> class_stats (
+  class_id      <span class="t">INTEGER PRIMARY KEY</span>,
+  student_count <span class="t">INTEGER DEFAULT</span> <span class="c">0</span>,
+  avg_grade     <span class="t">REAL    DEFAULT</span> <span class="c">0</span>,
+  min_grade     <span class="t">INTEGER DEFAULT</span> <span class="c">0</span>,
+  max_grade     <span class="t">INTEGER DEFAULT</span> <span class="c">0</span>
+);
+<span class="c">-- seed one row per class; trigger fills the rest</span>
+<span class="k">INSERT INTO</span> class_stats (class_id)
+  <span class="k">VALUES</span> (<span class="c">1</span>), (<span class="c">2</span>), (<span class="c">3</span>);</pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- THE TRIGGER -->
+  <section class="section card reveal">
+    <h2>The Trigger — AFTER INSERT on grades</h2>
+    <p style="color:var(--muted);margin-bottom:12px;font-size:.9rem;">Every time a grade is inserted, this trigger recalculates the COUNT, AVG, MIN, and MAX for that class and writes them into <code>class_stats</code> — using <code>NEW.class_id</code> to target only the right class.</p>
+    <div class="code">
+      <div class="label">CREATE TRIGGER</div>
+<pre><span class="k">CREATE TRIGGER</span> update_class_stats
+<span class="k">AFTER INSERT ON</span> grades
+<span class="k">FOR EACH ROW</span>
+<span class="k">BEGIN</span>
+  <span class="k">UPDATE</span> class_stats
+  <span class="k">SET</span>
+    student_count <span class="op">=</span> (<span class="k">SELECT</span> <span class="fn">COUNT</span>(*) <span class="k">FROM</span> grades
+                     <span class="k">WHERE</span> class_id <span class="op">=</span> NEW.class_id),
+    avg_grade     <span class="op">=</span> (<span class="k">SELECT</span> <span class="fn">ROUND</span>(<span class="fn">AVG</span>(grade),<span class="c">1</span>) <span class="k">FROM</span> grades
+                     <span class="k">WHERE</span> class_id <span class="op">=</span> NEW.class_id),
+    min_grade     <span class="op">=</span> (<span class="k">SELECT</span> <span class="fn">MIN</span>(grade) <span class="k">FROM</span> grades
+                     <span class="k">WHERE</span> class_id <span class="op">=</span> NEW.class_id),
+    max_grade     <span class="op">=</span> (<span class="k">SELECT</span> <span class="fn">MAX</span>(grade) <span class="k">FROM</span> grades
+                     <span class="k">WHERE</span> class_id <span class="op">=</span> NEW.class_id)
+  <span class="k">WHERE</span> class_id <span class="op">=</span> NEW.class_id;
+<span class="k">END</span>;</pre>
+    </div>
+    <p class="note note-violet">💡 <code>NEW.class_id</code> is the class_id of the row just inserted. <code>FOR EACH ROW</code> means the trigger fires once per inserted row — if you insert 3 grades in one batch, the trigger runs 3 times.</p>
+  </section>
+
+  <!-- LIVE DEMO -->
+  <section class="section card reveal">
+    <h2>Live Demo — Insert a Grade, Watch Stats Update ⚡</h2>
+    <p style="color:var(--muted);font-size:.9rem;margin-bottom:4px;">Simulate inserting Yael's Math grade of 97. Watch <code>class_stats</code> update automatically.</p>
+
+    <div class="demo-panel" id="demo-panel">
+      <div class="demo-side">
+        <h4>grades (Math · class_id = 1)</h4>
+        <div class="demo-row"><span class="dr-name">Alice</span><span class="dr-val">92</span></div>
+        <div class="demo-row"><span class="dr-name">Bob</span><span class="dr-val">78</span></div>
+        <div class="demo-row"><span class="dr-name">Carol</span><span class="dr-val">85</span></div>
+        <div class="demo-row" id="new-grade-row" style="display:none;">
+          <span class="dr-name" style="color:var(--violet);">Yael ✨</span>
+          <span class="dr-val" style="color:var(--violet);">97</span>
+        </div>
+      </div>
+      <div class="demo-side" id="stats-side">
+        <h4>class_stats (class_id = 1)</h4>
+        <div class="demo-row"><span class="dr-name">student_count</span><span class="dr-val" id="stat-count">3</span></div>
+        <div class="demo-row"><span class="dr-name">avg_grade</span><span class="dr-val" id="stat-avg">85.0</span></div>
+        <div class="demo-row"><span class="dr-name">min_grade</span><span class="dr-val" id="stat-min">78</span></div>
+        <div class="demo-row"><span class="dr-name">max_grade</span><span class="dr-val" id="stat-max">92</span></div>
+      </div>
+    </div>
+
+    <button class="insert-btn" id="insert-btn" onclick="simulateInsert()">
+      ⚡ INSERT INTO grades (class_id=1, student='Yael', grade=97)
+    </button>
+
+    <p class="note note-violet" id="trigger-note" style="display:none;margin-top:12px;">
+      ⚡ Trigger fired! student_count 3→4, avg 85.0→88.0, max 92→97. Zero extra code needed.
+    </p>
+  </section>
+
+  <!-- BEFORE TRIGGER -->
+  <section class="section card reveal">
+    <h2>BEFORE Trigger — Reject Bad Data</h2>
+    <p style="color:var(--muted);margin-bottom:12px;font-size:.9rem;">Use a BEFORE trigger to validate data before it lands. <code>RAISE(ABORT, …)</code> cancels the INSERT and rolls back.</p>
+    <div class="code">
+      <div class="label">Validation trigger — grade must be 0–100</div>
+<pre><span class="k">CREATE TRIGGER</span> validate_grade
+<span class="k">BEFORE INSERT ON</span> grades
+<span class="k">FOR EACH ROW</span>
+<span class="k">BEGIN</span>
+  <span class="k">SELECT</span> <span class="fn">RAISE</span>(ABORT, <span class="t">'Grade must be between 0 and 100'</span>)
+  <span class="k">WHERE</span>  NEW.grade <span class="op">&lt;</span> <span class="c">0</span> <span class="k">OR</span> NEW.grade <span class="op">&gt;</span> <span class="c">100</span>;
+<span class="k">END</span>;</pre>
+    </div>
+    <p class="note note-coral">If you try <code>INSERT INTO grades VALUES (99, 1, 'Test', 150)</code> — the trigger fires, RAISE aborts the whole statement, and no row is written. The table stays clean.</p>
+  </section>
+
+  <!-- DROP -->
+  <section class="section card reveal">
+    <h2>Dropping a Trigger</h2>
+    <div class="code">
+      <div class="label">SQL</div>
+<pre><span class="k">DROP TRIGGER IF EXISTS</span> update_class_stats;
+<span class="k">DROP TRIGGER IF EXISTS</span> validate_grade;</pre>
+    </div>
+    <p class="note note-amber">Dropping a trigger does NOT delete any table data. Only the automation is removed.</p>
+  </section>
+
+  <!-- EXERCISE -->
+  <section class="section card reveal exercise-card" id="exercise">
+    <div class="exercise-head">
+      <div class="exercise-q">?</div>
+      <div>
+        <h2>Exercise</h2>
+        <p class="exercise-sub">Build a trigger for an inventory system</p>
+      </div>
+    </div>
+
+    <div class="setup-grid" style="grid-template-columns:1fr;margin-bottom:20px;">
+      <div class="setup-card" tabindex="0">
+        <div class="setup-card-header">
+          <div class="setup-table-name">products &amp; inventory_log</div>
+          <div class="setup-cols">products: id · name · stock_count &nbsp;|&nbsp; inventory_log: id · product_id · change · changed_at</div>
+          <div class="setup-rows-badge">exercise setup</div>
+          <div class="setup-hint">hover to reveal SQL ↓</div>
+        </div>
+        <div class="setup-sql-wrap" style="position:relative;">
+          <button class="setup-copy-btn" onclick="copySQL('sql-inv',this)">Copy</button>
+          <pre id="sql-inv" class="setup-pre"><span class="k">CREATE TABLE</span> products (
+  id          <span class="t">INTEGER PRIMARY KEY</span>,
+  name        <span class="t">TEXT</span>,
+  stock_count <span class="t">INTEGER DEFAULT</span> <span class="c">0</span>
+);
+<span class="k">CREATE TABLE</span> inventory_log (
+  id         <span class="t">INTEGER PRIMARY KEY</span>,
+  product_id <span class="t">INTEGER</span>,
+  change     <span class="t">INTEGER</span>, <span class="c">-- positive = restock, negative = sale</span>
+  changed_at <span class="t">TEXT</span>
+);
+<span class="k">INSERT INTO</span> products (name, stock_count) <span class="k">VALUES</span>
+  (<span class="t">'Laptop'</span>,  <span class="c">20</span>),
+  (<span class="t">'Phone'</span>,   <span class="c">50</span>),
+  (<span class="t">'Headset'</span>, <span class="c">35</span>);
+<span class="k">INSERT INTO</span> inventory_log (product_id, change, changed_at) <span class="k">VALUES</span>
+  (<span class="c">1</span>, <span class="op">-</span><span class="c">3</span>,  <span class="t">'2026-03-10 09:00:00'</span>),
+  (<span class="c">2</span>, <span class="op">+</span><span class="c">20</span>, <span class="t">'2026-03-10 10:00:00'</span>),
+  (<span class="c">3</span>, <span class="op">-</span><span class="c">5</span>,  <span class="t">'2026-03-11 14:30:00'</span>),
+  (<span class="c">1</span>, <span class="op">-</span><span class="c">2</span>,  <span class="t">'2026-03-12 16:00:00'</span>);</pre>
+        </div>
+      </div>
+    </div>
+
+    <ol class="exercise-steps">
+      <li>Write an <code>AFTER INSERT ON inventory_log</code> trigger that adds <code>NEW.change</code> to <code>products.stock_count</code> for the matching product</li>
+      <li>Test it: insert a new row (e.g. product 1, change -5) and check that the Laptop stock dropped accordingly</li>
+      <li>Write a <code>BEFORE INSERT ON inventory_log</code> validation trigger that calls <code>RAISE(ABORT, 'change cannot be zero')</code> when <code>NEW.change = 0</code></li>
+      <li>Test the validation: try inserting a row with change = 0 — does it get rejected?</li>
+      <li>Bonus: extend the AFTER trigger to also log a message into a new <code>alerts</code> table whenever stock_count drops below 10</li>
+    </ol>
+  </section>
+
+  <div class="lesson-nav reveal">
+    <a class="btn" href="02-date-queries.html">← Date Queries</a>
+    <a class="btn primary" href="04-views.html">Next: Views →</a>
+  </div>
+
+</main>
+
+<script src="app.js"></script>
+<script>
+  function copySQL(id, btn) {
+    navigator.clipboard.writeText(document.getElementById(id).innerText).then(() => {
+      btn.textContent = 'Copied!'; btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1800);
+    });
+  }
+
+  function simulateInsert() {
+    document.getElementById('insert-btn').disabled = true;
+
+    const newRow = document.getElementById('new-grade-row');
+    newRow.style.display = 'flex';
+    newRow.classList.add('demo-new');
+
+    const statSide = document.getElementById('stats-side');
+    statSide.style.borderColor = 'rgba(167,139,250,.6)';
+    statSide.style.background  = 'rgba(167,139,250,.08)';
+
+    setTimeout(() => {
+      document.getElementById('stat-count').textContent = '4';
+      document.getElementById('stat-avg').textContent   = '88.0';
+      document.getElementById('stat-min').textContent   = '78';
+      document.getElementById('stat-max').textContent   = '97';
+      document.getElementById('trigger-note').style.display = 'block';
+      setTimeout(() => {
+        statSide.style.borderColor = '';
+        statSide.style.background  = '';
+      }, 800);
+    }, 400);
+  }
+</script>
+</body>
+</html>

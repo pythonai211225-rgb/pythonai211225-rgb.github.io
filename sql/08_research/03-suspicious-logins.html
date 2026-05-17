@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Example 3 — Suspicious Login Detection</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%23080e1c'/><text x='32' y='45' text-anchor='middle' font-family='Arial, sans-serif' font-size='42' font-weight='700' fill='%232dd4bf'>db</text></svg>">
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    /* ── SUSPICIOUS-PAGE EXTRAS ── */
+    .alert-banner {
+      display: flex; align-items: flex-start; gap: 16px;
+      background: linear-gradient(135deg, rgba(248,113,113,.1) 0%, rgba(167,139,250,.08) 100%);
+      border: 1px solid rgba(248,113,113,.35); border-radius: 14px;
+      padding: 18px 20px; margin-bottom: 16px;
+    }
+    .alert-icon { font-size: 2rem; flex-shrink: 0; line-height: 1; }
+    .alert-label { font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--coral); margin-bottom: 5px; }
+    .alert-text  { font-size: 1.1rem; font-weight: 700; color: var(--text); line-height: 1.4; }
+
+    /* timeline */
+    .timeline { display: flex; flex-direction: column; gap: 0; margin-top: 14px; position: relative; }
+    .timeline::before {
+      content: ''; position: absolute; left: 19px; top: 0; bottom: 0;
+      width: 2px; background: linear-gradient(to bottom, var(--teal), var(--coral));
+      opacity: .35;
+    }
+    .tl-row {
+      display: flex; align-items: flex-start; gap: 14px;
+      padding: 10px 14px 10px 0; position: relative;
+    }
+    .tl-dot {
+      width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+      display: grid; place-items: center; font-size: 1rem; z-index: 1;
+      border: 2px solid;
+    }
+    .tl-dot.ok    { background: rgba(45,212,191,.12);  border-color: rgba(45,212,191,.5); }
+    .tl-dot.bad   { background: rgba(248,113,113,.12); border-color: rgba(248,113,113,.5); }
+    .tl-dot.warn  { background: rgba(251,191,36,.12);  border-color: rgba(251,191,36,.5); }
+    .tl-meta { flex: 1; }
+    .tl-time { font-family:'JetBrains Mono',monospace; font-size: .78rem; color: var(--dim); }
+    .tl-desc { font-size: .92rem; color: var(--text); margin: 1px 0; font-weight: 600; }
+    .tl-country { font-size: .82rem; color: var(--muted); }
+    .tl-gap {
+      margin-left: 52px; font-size: .8rem; font-weight: 700;
+      color: var(--coral); padding: 4px 0 4px 0;
+      font-family: 'JetBrains Mono',monospace;
+    }
+    .tl-gap::before { content: '⬆ '; }
+
+    /* country flag badge */
+    .flag-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-family: 'JetBrains Mono',monospace; font-size: .78rem; font-weight: 700;
+      padding: 2px 9px; border-radius: 999px;
+    }
+    .flag-ok   { background: rgba(45,212,191,.12);  color: var(--teal);   border: 1px solid rgba(45,212,191,.3); }
+    .flag-bad  { background: rgba(248,113,113,.12); color: var(--coral);  border: 1px solid rgba(248,113,113,.3); }
+  </style>
+</head>
+<body>
+
+<nav class="top-nav">
+  <div class="wrap">
+    <a class="nav-home" href="index.html">← Lesson 8</a>
+    <div class="brand">Lesson 8</div>
+    <a class="nav-link" href="01-top-customers.html">1. Top Customers</a>
+    <a class="nav-link" href="02-refund-analysis.html">2. Refund Analysis</a>
+    <a class="nav-link" href="03-suspicious-logins.html">3. Suspicious Logins</a>
+  </div>
+</nav>
+
+<main class="container">
+
+  <!-- ── HERO ── -->
+  <section class="hero reveal">
+    <span class="tag">Example 3 — Security</span>
+    <h1>Suspicious Login Detection</h1>
+    <p class="lead">The security team got an alert. An employee logged in from Israel in the morning — then the same evening a second login appeared from Russia. Same account. Same day. Different continent.</p>
+  </section>
+
+  <!-- ── THE SCENARIO ── -->
+  <section class="section card reveal">
+    <h2>The Scenario</h2>
+    <div class="alert-banner">
+      <div class="alert-icon">🚨</div>
+      <div>
+        <div class="alert-label">Security Alert</div>
+        <div class="alert-text">An employee account logged in from two different countries on the same day. No one flies Tel Aviv → Moscow and back in one workday — one of those sessions is an attacker.</div>
+      </div>
+    </div>
+    <p style="color:var(--muted);font-size:.9rem;line-height:1.65;">
+      This attack pattern is called <strong style="color:var(--coral)">Impossible Travel</strong>. A real person cannot be in Tel Aviv in the morning and Moscow in the evening of the same day — not without a supersonic jet. When the database shows two logins from the same account on the same calendar day but from countries thousands of kilometres apart, one of those logins is stolen. Your job: write SQL to catch it.
+    </p>
+  </section>
+
+  <!-- ── THE QUESTION ── -->
+  <section class="section card reveal">
+    <h2>The Question</h2>
+    <div class="question-banner" style="border-color:rgba(248,113,113,.3);background:linear-gradient(135deg,rgba(248,113,113,.07),rgba(167,139,250,.06));">
+      <div class="q-label" style="color:var(--coral);">Security Question</div>
+      <div class="q-text">🔐 Which employees had two logins from different countries on the same day? Show the employee name, their home country, both login locations, and the shared login date.</div>
+    </div>
+    <p style="color:var(--muted);font-size:.9rem;line-height:1.6;margin-top:12px;">
+      Real security platforms (like Azure AD, Okta, and AWS IAM) run exactly this kind of query. A same-day cross-country check is a practical starting point — a stolen credential used from another country on the same calendar day is a strong signal of compromise, especially when the countries are on different continents.
+    </p>
+  </section>
+
+  <!-- ── SCHEMA ── -->
+  <section class="section card reveal">
+    <h2>The Schema</h2>
+    <p style="color:var(--muted);margin-bottom:14px;font-size:.9rem;">Two tables: <code style="color:var(--teal);background:var(--teal-d);padding:1px 6px;border-radius:4px;">employees</code> stores who works here and where they live; <code style="color:var(--coral);background:var(--coral-d);padding:1px 6px;border-radius:4px;">login_logs</code> records every login event with timestamp and country.</p>
+    <div class="schema-grid">
+
+      <div class="schema-table">
+        <div class="schema-table-head" style="background:rgba(45,212,191,.08);">
+          <div class="schema-table-name">employees</div>
+        </div>
+        <div class="schema-table-cols">
+          <div class="schema-col"><span class="col-name">id</span><span class="col-pk">PK</span><span class="col-type">INTEGER</span></div>
+          <div class="schema-col"><span class="col-name">name</span><span class="col-type">TEXT</span></div>
+          <div class="schema-col"><span class="col-name">email</span><span class="col-type">TEXT</span></div>
+          <div class="schema-col"><span class="col-name" style="color:var(--teal);">country</span><span class="col-type">TEXT</span></div>
+        </div>
+      </div>
+
+      <div class="schema-table">
+        <div class="schema-table-head" style="background:rgba(248,113,113,.08);">
+          <div class="schema-table-name" style="color:var(--coral);">login_logs</div>
+        </div>
+        <div class="schema-table-cols">
+          <div class="schema-col"><span class="col-name">id</span><span class="col-pk">PK</span><span class="col-type">INTEGER</span></div>
+          <div class="schema-col"><span class="col-name">employee_id</span><span class="col-fk">FK</span><span class="col-type">INTEGER</span></div>
+          <div class="schema-col"><span class="col-name" style="color:var(--coral);">login_time</span><span class="col-type">TEXT</span></div>
+          <div class="schema-col"><span class="col-name" style="color:var(--coral);">country</span><span class="col-type">TEXT</span></div>
+          <div class="schema-col"><span class="col-name">ip_address</span><span class="col-type">TEXT</span></div>
+        </div>
+      </div>
+
+    </div>
+    <div class="note" style="margin-top:14px;">
+      💡 The key column is <code style="color:var(--coral)">login_logs.country</code>. We compare it against <code style="color:var(--teal)">employees.country</code> (their home country) and against <em>other rows in the same table</em> for the same employee. That second comparison requires a <strong style="color:var(--violet)">self-join</strong>.
+    </div>
+  </section>
+
+  <!-- ── SAMPLE DATA ── -->
+  <section class="section card reveal">
+    <h2>Sample Data</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;">
+
+      <div>
+        <div class="result-wrap">
+          <div class="result-label">employees table</div>
+          <table class="result-table">
+            <thead><tr><th>id</th><th>name</th><th>country</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td>Yael Cohen</td><td>🇮🇱 Israel</td></tr>
+              <tr><td>2</td><td>James Walker</td><td>🇬🇧 UK</td></tr>
+              <tr><td>3</td><td>Lena Fischer</td><td>🇩🇪 Germany</td></tr>
+              <tr><td>4</td><td>Omar Haddad</td><td>🇫🇷 France</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div>
+        <div class="result-wrap">
+          <div class="result-label">login_logs table</div>
+          <table class="result-table">
+            <thead><tr><th>id</th><th>emp_id</th><th>login_time</th><th>country</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td>1</td><td>2024-03-15 09:14:02</td><td>🇮🇱 Israel</td></tr>
+              <tr style="background:rgba(248,113,113,.07)"><td>2</td><td style="color:var(--coral);font-weight:700;">1</td><td style="color:var(--coral);">2024-03-15 21:33:45</td><td style="color:var(--coral);font-weight:700;">🇷🇺 Russia</td></tr>
+              <tr><td>3</td><td>2</td><td>2024-03-15 10:05:00</td><td>🇬🇧 UK</td></tr>
+              <tr><td>4</td><td>3</td><td>2024-03-15 11:00:44</td><td>🇩🇪 Germany</td></tr>
+              <tr><td>5</td><td>1</td><td>2024-03-15 14:30:00</td><td>🇮🇱 Israel</td></tr>
+              <tr><td>6</td><td>4</td><td>2024-03-15 15:12:18</td><td>🇫🇷 France</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p style="color:var(--muted);font-size:.82rem;margin-top:8px;">
+          Employee <strong style="color:var(--coral)">1 (Yael)</strong> logged in from Israel at 09:14 in the morning — then from Russia at 21:33 the same evening. Same day, different continent. That's the suspicious pair.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── TIMELINE ── -->
+  <section class="section card reveal">
+    <h2>What Happened — Login Timeline</h2>
+    <p style="color:var(--muted);font-size:.9rem;margin-bottom:14px;">Here is Yael's login history on March 15. Two logins on the same calendar day but from countries 3,000 km apart — that's the red flag.</p>
+
+    <div class="timeline">
+      <div class="tl-row">
+        <div class="tl-dot ok">🛡️</div>
+        <div class="tl-meta">
+          <div class="tl-time">2024-03-15 09:14:02</div>
+          <div class="tl-desc">Yael Cohen logs in &nbsp;<span class="flag-badge flag-ok">🇮🇱 Israel</span></div>
+          <div class="tl-country">IP: 85.64.12.34 — Normal. Matches her home country.</div>
+        </div>
+      </div>
+      <div class="tl-gap">12 hours 19 minutes later — same day…</div>
+      <div class="tl-row">
+        <div class="tl-dot bad">⚠️</div>
+        <div class="tl-meta">
+          <div class="tl-time">2024-03-15 21:33:45</div>
+          <div class="tl-desc">Login on Yael's account &nbsp;<span class="flag-badge flag-bad">🇷🇺 Russia</span></div>
+          <div class="tl-country">IP: 91.108.4.180 — SUSPICIOUS. Tel Aviv in the morning, Moscow at night — same day?</div>
+        </div>
+      </div>
+      <div class="tl-gap" style="color:var(--muted);">5 hours 15 minutes later…</div>
+      <div class="tl-row">
+        <div class="tl-dot ok">🛡️</div>
+        <div class="tl-meta">
+          <div class="tl-time">2024-03-15 14:30:00</div>
+          <div class="tl-desc">Yael Cohen logs in &nbsp;<span class="flag-badge flag-ok">🇮🇱 Israel</span></div>
+          <div class="tl-country">IP: 85.64.12.34 — Normal again. She's back at the office.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── THINKING PROCESS ── -->
+  <section class="section card reveal">
+    <h2>Think It Through — Step by Step</h2>
+    <div class="thought-steps">
+      <div class="thought-step reveal d1">
+        <div class="ts-num">1</div>
+        <div class="ts-body">
+          <strong>What are we comparing?</strong><br>
+          We need two login rows for the <em>same employee</em> — but different countries and close in time. A single table row can't tell us that. We need to compare the table against itself: a <code style="color:var(--violet)">self-join</code>.
+        </div>
+      </div>
+      <div class="thought-step reveal d2">
+        <div class="ts-num">2</div>
+        <div class="ts-body">
+          <strong>How does a self-join work?</strong><br>
+          We alias <code style="color:var(--coral)">login_logs</code> twice: <code style="color:var(--coral)">l1</code> and <code style="color:var(--coral)">l2</code>. Join them on the same <code style="color:var(--coral)">employee_id</code>, then filter so <code>l2.login_time</code> is <em>after</em> <code>l1.login_time</code> and the countries are <em>different</em>.
+        </div>
+      </div>
+      <div class="thought-step reveal d3">
+        <div class="ts-num">3</div>
+        <div class="ts-body">
+          <strong>How do we check that both logins are on the same calendar day?</strong><br>
+          <code style="color:var(--amber)">strftime('%Y-%m-%d', login_time)</code> extracts just the date part (year-month-day) from a datetime string. If both logins return the same date string, they happened on the same day.
+        </div>
+      </div>
+      <div class="thought-step reveal d4">
+        <div class="ts-num">4</div>
+        <div class="ts-body">
+          <strong>How do we show the employee's home country?</strong><br>
+          JOIN <code style="color:var(--teal)">employees</code> to bring in <code>e.country</code>. That lets us also confirm whether the suspicious login came from outside the employee's normal home country.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── STEP 1 ── -->
+  <section class="section card reveal">
+    <h2>Step 1 — Self-Join: Find Same-Day Cross-Country Logins</h2>
+    <p style="color:var(--muted);margin-bottom:14px;font-size:.9rem;">Start without the employees table. Pair up login rows for the same account where the country changed but the calendar date is the same.</p>
+    <div class="code">
+      <div class="label">SQL</div>
+<pre><span class="k">SELECT</span>   l1.employee_id,
+         l1.country    <span class="k">AS</span> first_country,
+         l1.login_time <span class="k">AS</span> first_time,
+         l2.country    <span class="k">AS</span> second_country,
+         l2.login_time <span class="k">AS</span> second_time,
+         <span class="fn">strftime</span>(<span class="t">'%Y-%m-%d'</span>, l1.login_time) <span class="k">AS</span> login_date
+<span class="k">FROM</span>     login_logs l1
+<span class="k">JOIN</span>     login_logs l2
+         <span class="k">ON</span>  l2.employee_id <span class="op">=</span> l1.employee_id
+         <span class="k">AND</span> l2.login_time  <span class="op">&gt;</span> l1.login_time
+         <span class="k">AND</span> l2.country    <span class="op">!=</span> l1.country
+<span class="k">WHERE</span>    <span class="fn">strftime</span>(<span class="t">'%Y-%m-%d'</span>, l1.login_time)
+         <span class="op">=</span> <span class="fn">strftime</span>(<span class="t">'%Y-%m-%d'</span>, l2.login_time)
+<span class="k">ORDER BY</span> l1.login_time;</pre>
+    </div>
+    <div class="result-wrap" style="margin-top:14px;">
+      <div class="result-label">Result</div>
+      <table class="result-table">
+        <thead><tr><th>employee_id</th><th>first_country</th><th>first_time</th><th>second_country</th><th>second_time</th><th>login_date</th></tr></thead>
+        <tbody>
+          <tr style="background:rgba(248,113,113,.09);">
+            <td style="color:var(--coral);font-weight:700;">1</td>
+            <td>🇮🇱 Israel</td>
+            <td style="color:var(--muted);">2024-03-15 09:14:02</td>
+            <td style="color:var(--coral);font-weight:700;">🇷🇺 Russia</td>
+            <td style="color:var(--coral);">2024-03-15 21:33:45</td>
+            <td style="color:var(--coral);font-weight:700;">2024-03-15</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note note-coral" style="margin-top:12px;">
+      ⚠️ The self-join found exactly one matching pair: employee 1 logged in from Israel at 09:14 and from Russia at 21:33 — same day, different continent. All other employees had single-country days.
+    </div>
+  </section>
+
+  <!-- ── STEP 2 ── -->
+  <section class="section card reveal">
+    <h2>Step 2 — Add JOIN for Employee Details</h2>
+    <p style="color:var(--muted);margin-bottom:14px;font-size:.9rem;">Now attach the <code style="color:var(--teal)">employees</code> table to show the person's name and their registered home country alongside the suspicious pair of logins.</p>
+    <div class="code">
+      <div class="label">SQL</div>
+<pre><span class="k">SELECT</span>   e.name,
+         e.country                                        <span class="k">AS</span> home_country,
+         l1.country                                       <span class="k">AS</span> login_from,
+         l1.login_time                                    <span class="k">AS</span> first_login,
+         l2.country                                       <span class="k">AS</span> suspicious_from,
+         l2.login_time                                    <span class="k">AS</span> second_login,
+         <span class="fn">strftime</span>(<span class="t">'%Y-%m-%d'</span>, l1.login_time)              <span class="k">AS</span> login_date
+<span class="k">FROM</span>     login_logs l1
+<span class="k">JOIN</span>     login_logs l2
+         <span class="k">ON</span>  l2.employee_id <span class="op">=</span> l1.employee_id
+         <span class="k">AND</span> l2.login_time  <span class="op">&gt;</span> l1.login_time
+         <span class="k">AND</span> l2.country    <span class="op">!=</span> l1.country
+<span class="k">JOIN</span>     employees e <span class="k">ON</span> e.id <span class="op">=</span> l1.employee_id
+<span class="k">WHERE</span>    <span class="fn">strftime</span>(<span class="t">'%Y-%m-%d'</span>, l1.login_time)
+         <span class="op">=</span> <span class="fn">strftime</span>(<span class="t">'%Y-%m-%d'</span>, l2.login_time)
+<span class="k">ORDER BY</span> l1.login_time;</pre>
+    </div>
+    <div class="result-wrap" style="margin-top:14px;">
+      <div class="result-label">Final Result — Compromised Accounts</div>
+      <table class="result-table">
+        <thead><tr><th>name</th><th>home_country</th><th>login_from</th><th>first_login</th><th>suspicious_from</th><th>second_login</th><th>login_date</th></tr></thead>
+        <tbody>
+          <tr style="background:rgba(248,113,113,.09);">
+            <td style="color:var(--coral);font-weight:700;">Yael Cohen</td>
+            <td>🇮🇱 Israel</td>
+            <td>🇮🇱 Israel</td>
+            <td style="color:var(--muted);font-size:.78rem;">09:14:02</td>
+            <td style="color:var(--coral);font-weight:700;">🇷🇺 Russia</td>
+            <td style="color:var(--coral);font-size:.78rem;">21:33:45</td>
+            <td style="color:var(--coral);font-weight:800;">2024-03-15</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note" style="margin-top:12px;">
+      🔐 Now the security team has everything they need: the employee's name, her home country, both login countries, the exact timestamps, and the shared date. The account should be suspended and Yael notified immediately.
+    </div>
+  </section>
+
+  <!-- ── HOW THE SELF-JOIN WORKS ── -->
+  <section class="section card reveal">
+    <h2>How the Self-Join Works</h2>
+    <p style="color:var(--muted);font-size:.9rem;margin-bottom:16px;">A self-join treats one table as if it were two separate tables by using two different aliases. Here's how each join condition eliminates unwanted pairs:</p>
+    <div class="design-steps">
+      <div class="step-card reveal d1">
+        <div class="step-num" style="background:var(--teal-d);color:var(--teal);">1</div>
+        <div class="step-body">
+          <h4><code>l2.employee_id = l1.employee_id</code></h4>
+          <p>Only pair rows that belong to the <strong>same employee</strong>. Without this, you'd be comparing Yael's logins against James's logins — meaningless.</p>
+        </div>
+      </div>
+      <div class="step-card reveal d2">
+        <div class="step-num" style="background:var(--amber-d);color:var(--amber);">2</div>
+        <div class="step-body">
+          <h4><code>l2.login_time &gt; l1.login_time</code></h4>
+          <p>Ensure <code>l1</code> is always the <strong>earlier</strong> login and <code>l2</code> is later. Without this you'd get each pair twice (A→B and B→A) and also compare a row with itself.</p>
+        </div>
+      </div>
+      <div class="step-card reveal d3">
+        <div class="step-num" style="background:var(--coral-d);color:var(--coral);">3</div>
+        <div class="step-body">
+          <h4><code>l2.country != l1.country</code></h4>
+          <p>Only keep pairs where the country <strong>changed</strong>. Logging in twice from the same country is normal. We only care about cross-country jumps.</p>
+        </div>
+      </div>
+      <div class="step-card reveal d4">
+        <div class="step-num" style="background:var(--violet-d);color:var(--violet);">4</div>
+        <div class="step-body">
+          <h4><code>WHERE strftime('%Y-%m-%d', l1…) = strftime('%Y-%m-%d', l2…)</code></h4>
+          <p>The date check is in <strong>WHERE</strong>, not in the JOIN — because it's a derived value. <code>strftime('%Y-%m-%d', ...)</code> strips the time part, leaving only the date. Equality means both logins happened on the same calendar day.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── KEY TAKEAWAYS ── -->
+  <section class="section card reveal">
+    <h2>Key Takeaways</h2>
+    <div class="design-steps">
+      <div class="step-card">
+        <div class="step-num" style="background:var(--violet-d);color:var(--violet);">💡</div>
+        <div class="step-body">
+          <h4>Self-Join: compare a table to itself</h4>
+          <p>Alias the same table twice (<code>login_logs l1</code>, <code>login_logs l2</code>). This lets you compare two rows from the same table — essential when the relationship lives <em>within</em> the same table (before/after, parent/child, suspicious pairs).</p>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-num" style="background:var(--teal-d);color:var(--teal);">💡</div>
+        <div class="step-body">
+          <h4>strftime('%Y-%m-%d', …) for date extraction</h4>
+          <p>SQLite stores datetimes as text. <code>strftime('%Y-%m-%d', datetime_string)</code> strips away the time part and returns just the date — <code>'2024-03-15'</code>. Comparing two of these checks whether both logins happened on the <strong>same calendar day</strong>.</p>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-num" style="background:var(--coral-d);color:var(--coral);">💡</div>
+        <div class="step-body">
+          <h4>This is real-world security SQL</h4>
+          <p>Impossible travel detection is used by every major identity provider. The SQL you wrote here is the same logic behind the "suspicious login" email you've probably received from Google or GitHub. Pattern: self-join + time gap + geo mismatch.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── EXERCISE: Vacation Intruder ── -->
+  <section class="section card reveal pizza-exercise" id="exercise-3">
+    <div class="exercise-head">
+      <div class="exercise-q">?</div>
+      <div>
+        <div class="exercise-title">Exercise — Vacation Intruder</div>
+        <div class="exercise-sub">Something in this data is suspicious. Can you find it?</div>
+      </div>
+    </div>
+
+    <div class="setup-grid">
+
+      <div class="setup-card" tabindex="0">
+        <div class="setup-card-header">
+          <div class="setup-table-name">employees &amp; vacations</div>
+          <div class="setup-cols">employees(id, name, email) · vacations(id, employee_id, start_date, end_date)</div>
+          <div class="setup-rows-badge">4 + 3 rows</div>
+          <div class="setup-hint">hover to reveal SQL ↓</div>
+        </div>
+        <div class="setup-sql-wrap" style="position:relative;">
+          <button class="setup-copy-btn" onclick="copySetupSQL('sql-ex3-base',this)">Copy</button>
+          <pre id="sql-ex3-base" class="setup-pre"><span class="k">CREATE TABLE</span> employees (
+  id    <span class="t">INTEGER</span> <span class="k">PRIMARY KEY</span>,
+  name  <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  email <span class="t">TEXT</span>    <span class="k">NOT NULL</span>
+);
+<span class="k">INSERT INTO</span> employees <span class="k">VALUES</span>
+  (1,<span class="c">'Yael Cohen'</span>,  <span class="c">'yael@corp.com'</span>),
+  (2,<span class="c">'James Walker'</span>, <span class="c">'james@corp.com'</span>),
+  (3,<span class="c">'Lena Fischer'</span>, <span class="c">'lena@corp.com'</span>),
+  (4,<span class="c">'Omar Haddad'</span>,  <span class="c">'omar@corp.com'</span>);
+
+<span class="k">CREATE TABLE</span> vacations (
+  id          <span class="t">INTEGER</span> <span class="k">PRIMARY KEY</span>,
+  employee_id <span class="t">INTEGER</span> <span class="k">NOT NULL</span>,
+  start_date  <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  end_date    <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  <span class="k">FOREIGN KEY</span> (employee_id) <span class="k">REFERENCES</span> employees(id)
+);
+<span class="k">INSERT INTO</span> vacations <span class="k">VALUES</span>
+  (1,1,<span class="c">'2024-07-01'</span>,<span class="c">'2024-07-14'</span>),
+  (2,2,<span class="c">'2024-07-05'</span>,<span class="c">'2024-07-12'</span>),
+  (3,3,<span class="c">'2024-08-01'</span>,<span class="c">'2024-08-10'</span>);</pre>
+        </div>
+      </div>
+
+      <div class="setup-card" tabindex="0">
+        <div class="setup-card-header">
+          <div class="setup-table-name">login_logs</div>
+          <div class="setup-cols">id · employee_id · login_time · country</div>
+          <div class="setup-rows-badge">9 rows</div>
+          <div class="setup-hint">hover to reveal SQL ↓</div>
+        </div>
+        <div class="setup-sql-wrap" style="position:relative;">
+          <button class="setup-copy-btn" onclick="copySetupSQL('sql-ex3-logs',this)">Copy</button>
+          <pre id="sql-ex3-logs" class="setup-pre"><span class="k">CREATE TABLE</span> login_logs (
+  id          <span class="t">INTEGER</span> <span class="k">PRIMARY KEY</span>,
+  employee_id <span class="t">INTEGER</span> <span class="k">NOT NULL</span>,
+  login_time  <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  country     <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  <span class="k">FOREIGN KEY</span> (employee_id) <span class="k">REFERENCES</span> employees(id)
+);
+<span class="k">INSERT INTO</span> login_logs <span class="k">VALUES</span>
+  (10,1,<span class="c">'2024-07-02 09:10:00'</span>,<span class="c">'Israel'</span>),
+  (11,1,<span class="c">'2024-07-03 14:22:00'</span>,<span class="c">'Israel'</span>),
+  (12,1,<span class="c">'2024-07-05 08:55:00'</span>,<span class="c">'Israel'</span>),
+  (13,1,<span class="c">'2024-07-07 11:30:00'</span>,<span class="c">'Israel'</span>),
+  (14,1,<span class="c">'2024-07-09 16:45:00'</span>,<span class="c">'Israel'</span>),
+  (15,1,<span class="c">'2024-07-11 10:20:00'</span>,<span class="c">'Israel'</span>),
+  (16,1,<span class="c">'2024-07-13 09:05:00'</span>,<span class="c">'Israel'</span>),
+  (17,2,<span class="c">'2024-07-08 12:00:00'</span>,<span class="c">'UK'</span>),
+  (18,4,<span class="c">'2024-07-15 09:00:00'</span>,<span class="c">'France'</span>);</pre>
+        </div>
+      </div>
+
+    </div>
+
+    <p style="color:var(--muted);font-size:.9rem;margin-top:14px;">
+      🕵️ Load all three tables. Look at the vacation periods and the login timestamps. One employee's behaviour during their vacation is very unusual. Find them — then click below.
+    </p>
+
+    <button class="after-solve-btn" onclick="revealSolve('solve-3', this)">After Solve — Show the Problem &amp; Questions →</button>
+
+    <div id="solve-3" class="solve-reveal" style="display:none;">
+      <div class="scenario-box">
+        Yael Cohen is on vacation from July 1 to July 14 — yet she logged in <strong style="color:var(--coral)">7 times</strong> during that window, almost every other day. James Walker (vacation July 5–12) logged in once, which could be a quick email check. But 7 logins across 14 vacation days is a pattern: either someone stole her credentials and is using the account while she's away, or she never actually left.
+      </div>
+      <ul class="exercise-steps">
+        <li class="exercise-step">
+          <div class="exercise-step-num">1</div>
+          <div>JOIN <code style="color:var(--teal)">employees</code>, <code style="color:var(--teal)">vacations</code>, and <code style="color:var(--teal)">login_logs</code>. Filter with <code style="color:var(--amber)">WHERE login_time BETWEEN start_date AND end_date || ' 23:59:59'</code> to keep only logins that happened inside a vacation window. Show employee name, login_time, start_date, end_date.</div>
+        </li>
+        <li class="exercise-step">
+          <div class="exercise-step-num">2</div>
+          <div>Wrap it in <code style="color:var(--amber)">GROUP BY e.id, v.id</code> and add <code style="color:var(--amber)">COUNT(*) AS login_count</code>. Use <code style="color:var(--amber)">HAVING COUNT(*) &gt; 3</code> to surface only the employees with an abnormal number of vacation logins. Order by <code style="color:var(--amber)">login_count DESC</code>.</div>
+        </li>
+        <li class="exercise-step">
+          <div class="exercise-step-num">3</div>
+          <div>Add a second computed column: <code style="color:var(--amber)">COUNT(DISTINCT DATE(login_time)) AS active_days</code>. This shows on how many <em>different days</em> during the vacation the account was accessed — a high number across many days is more alarming than several logins on a single day.</div>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <div style="display:flex;justify-content:flex-start;margin-top:24px;">
+    <a href="02-refund-analysis.html" style="display:inline-flex;align-items:center;gap:8px;padding:12px 24px;border-radius:10px;background:var(--teal-d);color:var(--teal);border:1px solid rgba(45,212,191,.3);text-decoration:none;font-weight:700;font-size:.9rem;transition:background .2s;">
+      ← Back: Refund Analysis
+    </a>
+  </div>
+
+</main>
+
+<script src="app.js"></script>
+<script>
+  function revealSolve(id, btn) {
+    document.getElementById(id).style.display = 'block';
+    btn.style.display = 'none';
+  }
+
+  function copySetupSQL(id, btn) {
+    const pre = document.getElementById(id);
+    navigator.clipboard.writeText(pre.innerText).then(() => {
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1800);
+    });
+  }
+</script>
+</body>
+</html>

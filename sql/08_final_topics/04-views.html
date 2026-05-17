@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Topic 4 — Views</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%23080e1c'/><text x='32' y='45' text-anchor='middle' font-family='Arial, sans-serif' font-size='42' font-weight='700' fill='%232dd4bf'>db</text></svg>">
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    .view-card {
+      background: linear-gradient(135deg, rgba(74,222,128,.05) 0%, rgba(45,212,191,.05) 100%);
+      border: 1px solid rgba(74,222,128,.2); border-radius: 14px; padding: 18px;
+      margin-bottom: 12px;
+    }
+    .view-label {
+      display: inline-block; font-size: .7rem; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--green); background: rgba(74,222,128,.12);
+      border: 1px solid rgba(74,222,128,.25); border-radius: 999px; padding: 3px 10px;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+
+<nav class="top-nav">
+  <div class="wrap">
+    <a class="nav-home" href="index.html">← Lesson 8</a>
+    <div class="brand">Lesson 8</div>
+    <a class="nav-link" href="01-union.html">1. UNION</a>
+    <a class="nav-link" href="02-date-queries.html">2. Date Queries</a>
+    <a class="nav-link" href="03-triggers.html">3. Triggers</a>
+    <a class="nav-link active" href="04-views.html">4. Views</a>
+  </div>
+</nav>
+
+<main class="container">
+
+  <!-- HERO -->
+  <section class="hero reveal">
+    <span class="tag">Topic 4</span>
+    <h1>Views — Saved Queries as Tables</h1>
+    <p class="lead">A view is a SELECT query stored inside the database. You query it like a table, but no data is stored — it's recomputed fresh every time. One definition, used everywhere.</p>
+
+    <div class="stat-grid" style="margin-top:18px;">
+      <div class="stat-card reveal-scale d1">
+        <div class="stat-num" style="color:var(--green);">👁</div>
+        <div class="stat-label">CREATE VIEW</div>
+        <div class="stat-sub">Save any SELECT as a view</div>
+      </div>
+      <div class="stat-card reveal-scale d2">
+        <div class="stat-num" style="color:var(--teal);">🔄</div>
+        <div class="stat-label">Always Fresh</div>
+        <div class="stat-sub">Reflects current data</div>
+      </div>
+      <div class="stat-card reveal-scale d3">
+        <div class="stat-num" style="color:var(--violet);">🔒</div>
+        <div class="stat-label">Hide Complexity</div>
+        <div class="stat-sub">Wrap JOINs behind a name</div>
+      </div>
+      <div class="stat-card reveal-scale d4">
+        <div class="stat-num" style="color:var(--amber);">⚡</div>
+        <div class="stat-label">No Storage</div>
+        <div class="stat-sub">Just the query definition</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- WHAT IS A VIEW -->
+  <section class="section card reveal">
+    <h2>What Is a View?</h2>
+    <p style="color:var(--muted);margin-bottom:12px;font-size:.9rem;">A view is a named SELECT query stored in the database. When you query a view, SQLite runs its underlying SELECT and returns the result. The data itself lives in the real tables — the view is just a window into them.</p>
+
+    <div class="two-col">
+      <div class="card good">
+        <h4>Good for:</h4>
+        <ul class="simple">
+          <li>Hiding complex multi-table JOINs behind a simple name</li>
+          <li>Restricting which columns different users can see</li>
+          <li>Reusing the same query logic across the app</li>
+          <li>Presenting a clean summary without a trigger</li>
+        </ul>
+      </div>
+      <div class="card bad">
+        <h4>Watch out:</h4>
+        <ul class="simple">
+          <li>Not faster — the query reruns every time</li>
+          <li>SQLite views are read-only (can't INSERT into them)</li>
+          <li>Hiding logic in views can confuse future readers</li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="note" style="margin-top:14px;">Views use the same data as Topic 3 — <code>classes</code>, <code>grades</code>, and <code>class_stats</code>. Create those tables first if you're following along.</p>
+  </section>
+
+  <!-- SYNTAX -->
+  <section class="section card reveal">
+    <h2>Basic Syntax</h2>
+    <div class="code">
+      <div class="label">Pattern</div>
+<pre><span class="k">CREATE VIEW</span> view_name <span class="k">AS</span>
+<span class="k">SELECT</span> col1, col2, ...
+<span class="k">FROM</span>   some_table
+<span class="k">WHERE</span>  condition
+<span class="k">ORDER BY</span> col1;</pre>
+    </div>
+    <div class="code" style="margin-top:10px;">
+      <div class="label">Using it (identical to querying a real table)</div>
+<pre><span class="k">SELECT</span> * <span class="k">FROM</span> view_name;
+<span class="k">SELECT</span> col1 <span class="k">FROM</span> view_name <span class="k">WHERE</span> col2 <span class="op">=</span> <span class="t">'value'</span>;</pre>
+    </div>
+    <p class="note note-amber">You can filter and JOIN on top of a view just like on a real table. The view just acts as a named subquery.</p>
+  </section>
+
+  <!-- VIEW 1 -->
+  <section class="section card reveal">
+    <h2>View 1 — Class Summary with Names</h2>
+    <p style="color:var(--muted);margin-bottom:12px;font-size:.9rem;">This view joins <code>class_stats</code> (maintained by the trigger) with <code>classes</code> to show readable names instead of IDs — and sorts by average grade.</p>
+
+    <div class="view-card">
+      <div class="view-label">CREATE VIEW</div>
+      <div class="code" style="margin:0;">
+        <div class="label">Definition</div>
+<pre><span class="k">CREATE VIEW</span> class_report <span class="k">AS</span>
+<span class="k">SELECT</span>
+  c.name           <span class="k">AS</span> class,
+  s.student_count,
+  s.avg_grade,
+  s.min_grade,
+  s.max_grade
+<span class="k">FROM</span>   class_stats s
+<span class="k">JOIN</span>   classes c <span class="k">ON</span> c.id <span class="op">=</span> s.class_id
+<span class="k">ORDER BY</span> s.avg_grade <span class="k">DESC</span>;</pre>
+      </div>
+    </div>
+
+    <div class="code">
+      <div class="label">Query it like a table</div>
+<pre><span class="k">SELECT</span> * <span class="k">FROM</span> class_report;</pre>
+    </div>
+
+    <table class="table" style="margin-top:12px;">
+      <thead><tr><th>class</th><th>student_count</th><th>avg_grade</th><th>min_grade</th><th>max_grade</th></tr></thead>
+      <tbody>
+        <tr class="highlight-row"><td><span class="matched-val">Science</span></td><td>3</td><td>91.3</td><td>88</td><td>95</td></tr>
+        <tr><td>Math</td><td>3</td><td>85.0</td><td>78</td><td>92</td></tr>
+        <tr><td>History</td><td>4</td><td>79.3</td><td>73</td><td>88</td></tr>
+      </tbody>
+    </table>
+
+    <div class="bar-chart" style="margin-top:16px;">
+      <div class="bar-chart-title">Average grade by class</div>
+      <div class="bar-row">
+        <span class="bar-label">Science</span>
+        <div class="bar-track"><div class="bar-fill bar-violet" data-pct="100"></div></div>
+        <span class="bar-val">91.3</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">Math</span>
+        <div class="bar-track"><div class="bar-fill bar-teal" data-pct="93"></div></div>
+        <span class="bar-val">85.0</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">History</span>
+        <div class="bar-track"><div class="bar-fill bar-amber" data-pct="87"></div></div>
+        <span class="bar-val">79.3</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- VIEW 2 -->
+  <section class="section card reveal">
+    <h2>View 2 — Top Students</h2>
+    <p style="color:var(--muted);margin-bottom:12px;font-size:.9rem;">Views can include WHERE clauses, JOINs, and ORDER BY — any valid SELECT. This one surfaces only grades ≥ 90.</p>
+
+    <div class="view-card">
+      <div class="view-label">CREATE VIEW</div>
+      <div class="code" style="margin:0;">
+        <div class="label">Definition</div>
+<pre><span class="k">CREATE VIEW</span> top_students <span class="k">AS</span>
+<span class="k">SELECT</span>
+  c.name   <span class="k">AS</span> class,
+  g.student,
+  g.grade
+<span class="k">FROM</span>   grades g
+<span class="k">JOIN</span>   classes c <span class="k">ON</span> c.id <span class="op">=</span> g.class_id
+<span class="k">WHERE</span>  g.grade <span class="op">&gt;=</span> <span class="c">90</span>
+<span class="k">ORDER BY</span> g.grade <span class="k">DESC</span>;</pre>
+      </div>
+    </div>
+
+    <table class="table" style="margin-top:12px;">
+      <thead><tr><th>class</th><th>student</th><th>grade</th></tr></thead>
+      <tbody>
+        <tr class="highlight-row"><td>Science</td><td>Felix</td><td>95</td></tr>
+        <tr class="highlight-row"><td>Math</td><td>Alice</td><td>92</td></tr>
+        <tr class="highlight-row"><td>Science</td><td>David</td><td>91</td></tr>
+      </tbody>
+    </table>
+
+    <div class="bar-chart" style="margin-top:16px;">
+      <div class="bar-chart-title">Top student scores (≥ 90)</div>
+      <div class="bar-row">
+        <span class="bar-label">Felix</span>
+        <div class="bar-track"><div class="bar-fill bar-green" data-pct="100"></div></div>
+        <span class="bar-val">95</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">Alice</span>
+        <div class="bar-track"><div class="bar-fill bar-teal" data-pct="97"></div></div>
+        <span class="bar-val">92</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">David</span>
+        <div class="bar-track"><div class="bar-fill bar-violet" data-pct="96"></div></div>
+        <span class="bar-val">91</span>
+      </div>
+    </div>
+
+    <p class="note">Insert a new Science grade of 98 into <code>grades</code> and query <code>top_students</code> again — the new student appears immediately. Views always reflect the current state of the underlying tables.</p>
+  </section>
+
+  <!-- VIEW 3: CASE -->
+  <section class="section card reveal">
+    <h2>View 3 — CASE Inside a View</h2>
+    <p style="color:var(--muted);margin-bottom:12px;font-size:.9rem;">Views can contain any expression, including CASE. This one labels each student's grade as a letter grade.</p>
+
+    <div class="view-card">
+      <div class="view-label">CREATE VIEW</div>
+      <div class="code" style="margin:0;">
+        <div class="label">Definition</div>
+<pre><span class="k">CREATE VIEW</span> grade_letters <span class="k">AS</span>
+<span class="k">SELECT</span>
+  g.student,
+  c.name  <span class="k">AS</span> class,
+  g.grade,
+  <span class="k">CASE</span>
+    <span class="k">WHEN</span> g.grade <span class="op">&gt;=</span> <span class="c">90</span> <span class="k">THEN</span> <span class="t">'A'</span>
+    <span class="k">WHEN</span> g.grade <span class="op">&gt;=</span> <span class="c">80</span> <span class="k">THEN</span> <span class="t">'B'</span>
+    <span class="k">WHEN</span> g.grade <span class="op">&gt;=</span> <span class="c">70</span> <span class="k">THEN</span> <span class="t">'C'</span>
+    <span class="k">ELSE</span> <span class="t">'D'</span>
+  <span class="k">END</span> <span class="k">AS</span> letter
+<span class="k">FROM</span>   grades g
+<span class="k">JOIN</span>   classes c <span class="k">ON</span> c.id <span class="op">=</span> g.class_id
+<span class="k">ORDER BY</span> g.grade <span class="k">DESC</span>;</pre>
+      </div>
+    </div>
+
+    <table class="table" style="margin-top:12px;">
+      <thead><tr><th>student</th><th>class</th><th>grade</th><th>letter</th></tr></thead>
+      <tbody>
+        <tr><td>Felix</td><td>Science</td><td>95</td><td><span class="chip chip-teal">A</span></td></tr>
+        <tr><td>Alice</td><td>Math</td><td>92</td><td><span class="chip chip-teal">A</span></td></tr>
+        <tr><td>David</td><td>Science</td><td>91</td><td><span class="chip chip-teal">A</span></td></tr>
+        <tr><td>Emma</td><td>Science</td><td>88</td><td><span class="chip chip-amber">B</span></td></tr>
+        <tr><td>Jack</td><td>History</td><td>88</td><td><span class="chip chip-amber">B</span></td></tr>
+        <tr><td>Carol</td><td>Math</td><td>85</td><td><span class="chip chip-amber">B</span></td></tr>
+        <tr><td>Hans</td><td>History</td><td>80</td><td><span class="chip chip-amber">B</span></td></tr>
+        <tr><td>Bob</td><td>Math</td><td>78</td><td><span class="chip chip-violet">C</span></td></tr>
+        <tr><td>Ingrid</td><td>History</td><td>76</td><td><span class="chip chip-violet">C</span></td></tr>
+        <tr><td>Greta</td><td>History</td><td>73</td><td><span class="chip chip-violet">C</span></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- DROP -->
+  <section class="section card reveal">
+    <h2>Dropping a View</h2>
+    <div class="code">
+      <div class="label">SQL</div>
+<pre><span class="k">DROP VIEW IF EXISTS</span> class_report;
+<span class="k">DROP VIEW IF EXISTS</span> top_students;
+<span class="k">DROP VIEW IF EXISTS</span> grade_letters;</pre>
+    </div>
+    <p class="note note-amber">Dropping a view never deletes table data. Only the saved query definition is removed.</p>
+  </section>
+
+  <!-- EXERCISE -->
+  <section class="section card reveal exercise-card" id="exercise">
+    <div class="exercise-head">
+      <div class="exercise-q">?</div>
+      <div>
+        <h2>Exercise</h2>
+        <p class="exercise-sub">Build views for a product catalogue</p>
+      </div>
+    </div>
+
+    <div class="setup-grid" style="grid-template-columns:1fr;margin-bottom:20px;">
+      <div class="setup-card" tabindex="0">
+        <div class="setup-card-header">
+          <div class="setup-table-name">products &amp; categories</div>
+          <div class="setup-cols">products: id · name · category_id · price · stock &nbsp;|&nbsp; categories: id · name</div>
+          <div class="setup-rows-badge">exercise setup</div>
+          <div class="setup-hint">hover to reveal SQL ↓</div>
+        </div>
+        <div class="setup-sql-wrap" style="position:relative;">
+          <button class="setup-copy-btn" onclick="copySQL('sql-cat',this)">Copy</button>
+          <pre id="sql-cat" class="setup-pre"><span class="k">CREATE TABLE</span> categories (
+  id   <span class="t">INTEGER PRIMARY KEY</span>,
+  name <span class="t">TEXT</span>
+);
+<span class="k">CREATE TABLE</span> products (
+  id          <span class="t">INTEGER PRIMARY KEY</span>,
+  name        <span class="t">TEXT</span>,
+  category_id <span class="t">INTEGER</span>,
+  price       <span class="t">REAL</span>,
+  stock       <span class="t">INTEGER</span>
+);
+<span class="k">INSERT INTO</span> categories <span class="k">VALUES</span>
+  (<span class="c">1</span>, <span class="t">'Electronics'</span>),
+  (<span class="c">2</span>, <span class="t">'Clothing'</span>),
+  (<span class="c">3</span>, <span class="t">'Food'</span>);
+<span class="k">INSERT INTO</span> products (name, category_id, price, stock) <span class="k">VALUES</span>
+  (<span class="t">'Laptop'</span>,   <span class="c">1</span>, <span class="c">1200.00</span>, <span class="c">15</span>),
+  (<span class="t">'Phone'</span>,    <span class="c">1</span>,  <span class="c">800.00</span>, <span class="c"> 8</span>),
+  (<span class="t">'Headset'</span>,  <span class="c">1</span>,  <span class="c">150.00</span>, <span class="c">30</span>),
+  (<span class="t">'T-Shirt'</span>,  <span class="c">2</span>,   <span class="c">25.00</span>, <span class="c">50</span>),
+  (<span class="t">'Jeans'</span>,    <span class="c">2</span>,   <span class="c">60.00</span>, <span class="c"> 3</span>),
+  (<span class="t">'Bread'</span>,    <span class="c">3</span>,    <span class="c">3.50</span>,  <span class="c">200</span>),
+  (<span class="t">'Olive Oil'</span>,<span class="c">3</span>,   <span class="c">12.00</span>, <span class="c"> 5</span>);</pre>
+        </div>
+      </div>
+    </div>
+
+    <ol class="exercise-steps">
+      <li>Create a view <code>product_catalogue</code> that shows each product's name, its category name (via JOIN), price, and stock — ordered by category then price</li>
+      <li>Create a view <code>low_stock</code> that shows only products with <code>stock &lt; 10</code>, including the category name</li>
+      <li>Create a view <code>category_summary</code> that shows each category name, the number of products, average price, and total stock value (<code>SUM(price * stock)</code>)</li>
+      <li>Query <code>category_summary</code> — which category has the highest total stock value?</li>
+      <li>Bonus: add a <code>price_tier</code> CASE column to <code>product_catalogue</code>: <code>'Budget'</code> (&lt; 50), <code>'Mid'</code> (50–500), <code>'Premium'</code> (&gt; 500)</li>
+    </ol>
+  </section>
+
+  <div class="lesson-nav reveal">
+    <a class="btn" href="03-triggers.html">← Triggers</a>
+    <a class="btn primary" href="../09_python/index.html">Next: Python + SQLite →</a>
+  </div>
+
+</main>
+
+<script src="app.js"></script>
+<script>
+  function copySQL(id, btn) {
+    navigator.clipboard.writeText(document.getElementById(id).innerText).then(() => {
+      btn.textContent = 'Copied!'; btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1800);
+    });
+  }
+</script>
+</body>
+</html>

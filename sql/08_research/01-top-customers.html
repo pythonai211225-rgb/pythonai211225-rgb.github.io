@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Example 1 — Top Customers</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%23080e1c'/><text x='32' y='45' text-anchor='middle' font-family='Arial, sans-serif' font-size='42' font-weight='700' fill='%232dd4bf'>db</text></svg>">
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+
+<nav class="top-nav">
+  <div class="wrap">
+    <a class="nav-home" href="index.html">← Lesson 8</a>
+    <div class="brand">Lesson 8</div>
+    <a class="nav-link active" href="01-top-customers.html">1. Top Customers</a>
+    <a class="nav-link" href="02-refund-analysis.html">2. Refund Analysis</a>
+    <a class="nav-link" href="03-suspicious-logins.html">3. Suspicious Logins</a>
+  </div>
+</nav>
+
+<main class="container">
+
+  <!-- ── HERO ── -->
+  <section class="hero reveal">
+    <span class="tag">Example 1</span>
+    <h1>Top Customers</h1>
+    <p class="lead">Find the 5 customers who spent the most in total. Uses JOIN, SUM, COUNT, GROUP BY, ORDER BY, and LIMIT — all in one query.</p>
+  </section>
+
+  <!-- ── THE QUESTION ── -->
+  <section class="section card reveal">
+    <h2>The Question</h2>
+    <div class="question-banner">
+      <div class="q-label">Business Question</div>
+      <div class="q-text">🏆 Who are our top 5 customers by total spending? Show their name, number of orders, and total amount spent.</div>
+    </div>
+    <p style="color:var(--muted);font-size:.9rem;line-height:1.6;">
+      Marketing and CRM teams use this constantly to identify VIP customers for loyalty programs, personalized offers, and retention campaigns.
+    </p>
+  </section>
+
+  <!-- ── SCHEMA ── -->
+  <section class="section card reveal">
+    <h2>The Schema</h2>
+    <p style="color:var(--muted);margin-bottom:14px;font-size:.9rem;">Two tables are enough: <code style="color:var(--teal);background:var(--teal-d);padding:1px 6px;border-radius:4px;">customers</code> and <code style="color:var(--amber);background:var(--amber-d);padding:1px 6px;border-radius:4px;">orders</code>. Each order row stores the total amount and which customer placed it.</p>
+    <div class="schema-grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));">
+
+      <div class="schema-table">
+        <div class="schema-table-head">
+          <div class="schema-table-name">customers</div>
+        </div>
+        <div class="schema-table-cols">
+          <div class="schema-col"><span class="col-name">id</span><span class="col-pk">PK</span><span class="col-type">INTEGER</span></div>
+          <div class="schema-col"><span class="col-name">name</span><span class="col-type">TEXT</span></div>
+          <div class="schema-col"><span class="col-name">email</span><span class="col-type">TEXT</span></div>
+          <div class="schema-col"><span class="col-name">city</span><span class="col-type">TEXT</span></div>
+        </div>
+      </div>
+
+      <div class="schema-table">
+        <div class="schema-table-head">
+          <div class="schema-table-name">orders</div>
+        </div>
+        <div class="schema-table-cols">
+          <div class="schema-col"><span class="col-name">id</span><span class="col-pk">PK</span><span class="col-type">INTEGER</span></div>
+          <div class="schema-col"><span class="col-name">customer_id</span><span class="col-fk">FK</span><span class="col-type">INTEGER</span></div>
+          <div class="schema-col"><span class="col-name">total</span><span class="col-type">REAL</span></div>
+          <div class="schema-col"><span class="col-name">status</span><span class="col-type">TEXT</span></div>
+          <div class="schema-col"><span class="col-name">created_at</span><span class="col-type">TEXT</span></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── SAMPLE DATA ── -->
+  <section class="section card reveal">
+    <h2>Sample Data</h2>
+    <div class="result-wrap">
+      <div class="result-label">orders table — sample rows</div>
+      <table class="result-table">
+        <thead><tr><th>id</th><th>customer_id</th><th>total</th><th>status</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>2</td><td>120.00</td><td>completed</td></tr>
+          <tr><td>2</td><td>5</td><td>340.00</td><td>completed</td></tr>
+          <tr><td>3</td><td>2</td><td>85.50</td><td>completed</td></tr>
+          <tr><td>4</td><td>9</td><td>220.00</td><td>completed</td></tr>
+          <tr><td>5</td><td>5</td><td>410.00</td><td>completed</td></tr>
+          <tr><td>6</td><td>2</td><td>60.00</td><td>completed</td></tr>
+          <tr><td>7</td><td>9</td><td>180.00</td><td>completed</td></tr>
+          <tr><td>8</td><td>1</td><td>95.00</td><td>completed</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="color:var(--muted);font-size:.87rem;margin-top:10px;">
+      Customer <strong style="color:var(--amber)">5</strong> has 2 orders totaling 750. Customer <strong style="color:var(--amber)">2</strong> has 3 orders totaling 265.50. Customer <strong style="color:var(--amber)">9</strong> has 2 orders totaling 400.
+    </p>
+  </section>
+
+  <!-- ── THINKING PROCESS ── -->
+  <section class="section card reveal">
+    <h2>Think It Through — Step by Step</h2>
+    <div class="thought-steps">
+      <div class="thought-step reveal d1">
+        <div class="ts-num">1</div>
+        <div class="ts-body">
+          <strong>Which table has money amounts?</strong><br>
+          The <code style="color:var(--amber)">orders</code> table has a <code style="color:var(--amber)">total</code> column. Each row is one order with its amount. We need to add them up per customer.
+        </div>
+      </div>
+      <div class="thought-step reveal d2">
+        <div class="ts-num">2</div>
+        <div class="ts-body">
+          <strong>How to add up per customer?</strong><br>
+          <code style="color:var(--amber)">GROUP BY customer_id</code> groups all orders for the same customer. <code style="color:var(--amber)">SUM(total)</code> adds their totals. <code style="color:var(--amber)">COUNT(*)</code> counts how many orders they placed.
+        </div>
+      </div>
+      <div class="thought-step reveal d3">
+        <div class="ts-num">3</div>
+        <div class="ts-body">
+          <strong>How to get only the top 5?</strong><br>
+          Sort by total spending descending with <code style="color:var(--green)">ORDER BY total_spent DESC</code>, then take only the first 5 rows with <code style="color:var(--green)">LIMIT 5</code>.
+        </div>
+      </div>
+      <div class="thought-step reveal d4">
+        <div class="ts-num">4</div>
+        <div class="ts-body">
+          <strong>How to get the customer's name?</strong><br>
+          Name is in the <code style="color:var(--teal)">customers</code> table. JOIN on <code style="color:var(--teal)">customers.id = orders.customer_id</code> to pull the name and email into the result.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── STEP 1 ── -->
+  <section class="section card reveal">
+    <h2>Step 1 — Aggregate Orders Per Customer</h2>
+    <p style="color:var(--muted);margin-bottom:14px;font-size:.9rem;">Start with just the orders table. No JOIN yet — verify the math first.</p>
+    <div class="code">
+      <div class="label">SQL</div>
+<pre><span class="k">SELECT</span>   customer_id,
+         <span class="fn">COUNT</span>(*) <span class="k">AS</span> order_count,
+         <span class="fn">ROUND</span>(<span class="fn">SUM</span>(total), <span class="c">2</span>) <span class="k">AS</span> total_spent
+<span class="k">FROM</span>     orders
+<span class="k">GROUP BY</span> customer_id
+<span class="k">ORDER BY</span> total_spent <span class="k">DESC</span>
+<span class="k">LIMIT</span>    <span class="c">5</span>;</pre>
+    </div>
+    <div class="result-wrap" style="margin-top:14px;">
+      <div class="result-label">Result (IDs only)</div>
+      <table class="result-table">
+        <thead><tr><th>customer_id</th><th>order_count</th><th>total_spent</th></tr></thead>
+        <tbody>
+          <tr class="highlight-row"><td>5</td><td>2</td><td>750.00</td></tr>
+          <tr class="highlight-row"><td>9</td><td>2</td><td>400.00</td></tr>
+          <tr class="highlight-row"><td>2</td><td>3</td><td>265.50</td></tr>
+          <tr class="highlight-row"><td>1</td><td>1</td><td>95.00</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── STEP 2 ── -->
+  <section class="section card reveal">
+    <h2>Step 2 — Add JOIN for Names</h2>
+    <p style="color:var(--muted);margin-bottom:14px;font-size:.9rem;">Now attach the customers table to get human-readable names and emails.</p>
+    <div class="code">
+      <div class="label">SQL</div>
+<pre><span class="k">SELECT</span>   c.name,
+         c.email,
+         <span class="fn">COUNT</span>(o.id) <span class="k">AS</span> order_count,
+         <span class="fn">ROUND</span>(<span class="fn">SUM</span>(o.total), <span class="c">2</span>) <span class="k">AS</span> total_spent
+<span class="k">FROM</span>     customers c
+<span class="k">JOIN</span>     orders o <span class="k">ON</span> o.customer_id <span class="op">=</span> c.id
+<span class="k">GROUP BY</span> c.id
+<span class="k">ORDER BY</span> total_spent <span class="k">DESC</span>
+<span class="k">LIMIT</span>    <span class="c">5</span>;</pre>
+    </div>
+    <div class="result-wrap" style="margin-top:14px;">
+      <div class="result-label">Final Result</div>
+      <table class="result-table">
+        <thead><tr><th>#</th><th>name</th><th>email</th><th>order_count</th><th>total_spent</th></tr></thead>
+        <tbody>
+          <tr class="highlight-row"><td>🥇</td><td>Mia Russo</td><td>mia@email.com</td><td>2</td><td>750.00</td></tr>
+          <tr class="highlight-row"><td>🥈</td><td>Tom Okafor</td><td>tom@email.com</td><td>2</td><td>400.00</td></tr>
+          <tr class="highlight-row"><td>🥉</td><td>David Levi</td><td>david@email.com</td><td>3</td><td>265.50</td></tr>
+          <tr class="highlight-row"><td>4</td><td>Ana Torres</td><td>ana@email.com</td><td>1</td><td>95.00</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note note-amber" style="margin-top:12px;">
+      💡 Notice that we <code>GROUP BY c.id</code> (the primary key) even though we SELECT <code>c.name</code>. Using the primary key avoids issues when two customers share the same name.
+    </div>
+  </section>
+
+  <!-- ── BONUS FILTER ── -->
+  <section class="section card reveal">
+    <h2>Bonus — Only Count Completed Orders</h2>
+    <p style="color:var(--muted);margin-bottom:14px;font-size:.9rem;">
+      What if cancelled or pending orders should not count? Add a <code style="color:var(--coral)">WHERE</code> before the GROUP BY to filter individual rows first.
+    </p>
+    <div class="code">
+      <div class="label">SQL</div>
+<pre><span class="k">SELECT</span>   c.name,
+         c.email,
+         <span class="fn">COUNT</span>(o.id) <span class="k">AS</span> order_count,
+         <span class="fn">ROUND</span>(<span class="fn">SUM</span>(o.total), <span class="c">2</span>) <span class="k">AS</span> total_spent
+<span class="k">FROM</span>     customers c
+<span class="k">JOIN</span>     orders o <span class="k">ON</span> o.customer_id <span class="op">=</span> c.id
+<span class="k">WHERE</span>    o.status <span class="op">=</span> <span class="t">'completed'</span>
+<span class="k">GROUP BY</span> c.id
+<span class="k">ORDER BY</span> total_spent <span class="k">DESC</span>
+<span class="k">LIMIT</span>    <span class="c">5</span>;</pre>
+    </div>
+    <div class="note" style="margin-top:12px;">
+      WHERE filters rows <em>before</em> grouping, so cancelled orders are excluded from both COUNT and SUM entirely.
+    </div>
+  </section>
+
+  <!-- ── KEY TAKEAWAYS ── -->
+  <section class="section card reveal">
+    <h2>Key Takeaways</h2>
+    <div class="design-steps">
+      <div class="step-card">
+        <div class="step-num" style="background:var(--amber-d);color:var(--amber);">💡</div>
+        <div class="step-body">
+          <h4>Execution Order Matters</h4>
+          <p>SQL processes clauses in this order: <strong>FROM → JOIN → WHERE → GROUP BY → HAVING → SELECT → ORDER BY → LIMIT</strong>. Understanding this tells you where to place each filter.</p>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-num" style="background:var(--teal-d);color:var(--teal);">💡</div>
+        <div class="step-body">
+          <h4>COUNT(column) vs COUNT(*)</h4>
+          <p><code>COUNT(*)</code> counts all rows in the group. <code>COUNT(o.id)</code> counts only rows where o.id is not NULL — safer when using LEFT JOIN and some rows might be missing.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════ -->
+  <!-- EXERCISE — RESTAURANT PROFIT MYSTERY                          -->
+  <!-- ══════════════════════════════════════════════════════════════ -->
+  <section class="section card reveal">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+      <span class="tag" style="margin:0;">Exercise</span>
+      <span style="font-size:.8rem;color:var(--muted);">Mystery Edition</span>
+    </div>
+    <h2 style="margin-bottom:6px;">🍽️ Restaurant Profit Mystery</h2>
+    <p style="color:var(--muted);font-size:.9rem;margin-bottom:18px;">A restaurant chain has 3 branches. The CEO glances at revenue and thinks he knows which branch is the star. He's wrong. Your job: figure out which branch is <em>actually</em> making money.</p>
+
+    <!-- Setup cards (hover to reveal SQL) -->
+    <div class="setup-grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));margin-bottom:18px;">
+
+      <div class="setup-card" tabindex="0">
+        <div style="padding:14px 16px;display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:3px;">Table 1</div>
+            <div style="font-weight:700;color:var(--amber);">branches</div>
+            <div style="font-size:.8rem;color:var(--muted);margin-top:2px;">3 rows</div>
+          </div>
+          <button class="setup-copy-btn" onclick="copySetupSQL('sql-branches',this)">Copy</button>
+        </div>
+        <div class="setup-sql-wrap">
+          <pre id="sql-branches" style="margin:0;padding:14px 16px;font-size:.8rem;line-height:1.6;"><span class="k">CREATE TABLE</span> branches (
+  id    <span class="col-type">INTEGER PRIMARY KEY</span>,
+  name  <span class="col-type">TEXT</span>
+);
+<span class="k">INSERT INTO</span> branches <span class="k">VALUES</span>
+  (<span class="c">1</span>, <span class="t">'Downtown'</span>),
+  (<span class="c">2</span>, <span class="t">'Airport'</span>),
+  (<span class="c">3</span>, <span class="t">'Mall'</span>);</pre>
+        </div>
+      </div>
+
+      <div class="setup-card" tabindex="0">
+        <div style="padding:14px 16px;display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:3px;">Table 2</div>
+            <div style="font-weight:700;color:var(--teal);">orders</div>
+            <div style="font-size:.8rem;color:var(--muted);margin-top:2px;">20 rows — revenue per order</div>
+          </div>
+          <button class="setup-copy-btn" onclick="copySetupSQL('sql-orders-r',this)">Copy</button>
+        </div>
+        <div class="setup-sql-wrap">
+          <pre id="sql-orders-r" style="margin:0;padding:14px 16px;font-size:.8rem;line-height:1.6;"><span class="k">CREATE TABLE</span> orders (
+  id         <span class="col-type">INTEGER PRIMARY KEY</span>,
+  branch_id  <span class="col-type">INTEGER</span>,
+  amount     <span class="col-type">REAL</span>
+);
+<span class="c">-- Downtown: 8 big orders</span>
+<span class="k">INSERT INTO</span> orders (branch_id, amount) <span class="k">VALUES</span>
+  (<span class="c">1</span>,<span class="c">6000</span>),(<span class="c">1</span>,<span class="c">8000</span>),(<span class="c">1</span>,<span class="c">7000</span>),(<span class="c">1</span>,<span class="c">9000</span>),
+  (<span class="c">1</span>,<span class="c">6500</span>),(<span class="c">1</span>,<span class="c">8500</span>),(<span class="c">1</span>,<span class="c">7500</span>),(<span class="c">1</span>,<span class="c">5500</span>),
+<span class="c">-- Airport: 5 mid-size orders</span>
+  (<span class="c">2</span>,<span class="c">5000</span>),(<span class="c">2</span>,<span class="c">6500</span>),(<span class="c">2</span>,<span class="c">5500</span>),
+  (<span class="c">2</span>,<span class="c">6000</span>),(<span class="c">2</span>,<span class="c">5000</span>),
+<span class="c">-- Mall: 7 medium orders</span>
+  (<span class="c">3</span>,<span class="c">4500</span>),(<span class="c">3</span>,<span class="c">5000</span>),(<span class="c">3</span>,<span class="c">5500</span>),
+  (<span class="c">3</span>,<span class="c">4000</span>),(<span class="c">3</span>,<span class="c">5000</span>),(<span class="c">3</span>,<span class="c">4500</span>),
+  (<span class="c">3</span>,<span class="c">4000</span>);</pre>
+        </div>
+      </div>
+
+      <div class="setup-card" tabindex="0">
+        <div style="padding:14px 16px;display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:3px;">Table 3</div>
+            <div style="font-weight:700;color:var(--violet);">expenses</div>
+            <div style="font-size:.8rem;color:var(--muted);margin-top:2px;">12 rows — costs per branch</div>
+          </div>
+          <button class="setup-copy-btn" onclick="copySetupSQL('sql-expenses',this)">Copy</button>
+        </div>
+        <div class="setup-sql-wrap">
+          <pre id="sql-expenses" style="margin:0;padding:14px 16px;font-size:.8rem;line-height:1.6;"><span class="k">CREATE TABLE</span> expenses (
+  id         <span class="col-type">INTEGER PRIMARY KEY</span>,
+  branch_id  <span class="col-type">INTEGER</span>,
+  category   <span class="col-type">TEXT</span>,
+  amount     <span class="col-type">REAL</span>
+);
+<span class="k">INSERT INTO</span> expenses (branch_id, category, amount) <span class="k">VALUES</span>
+<span class="c">-- Downtown: big city costs</span>
+  (<span class="c">1</span>,<span class="t">'rent'</span>,     <span class="c">20000</span>),
+  (<span class="c">1</span>,<span class="t">'salaries'</span>, <span class="c">24000</span>),
+  (<span class="c">1</span>,<span class="t">'groceries'</span>,<span class="c"> 9000</span>),
+  (<span class="c">1</span>,<span class="t">'utilities'</span>, <span class="c">2000</span>),
+<span class="c">-- Airport: low overhead</span>
+  (<span class="c">2</span>,<span class="t">'rent'</span>,     <span class="c"> 4000</span>),
+  (<span class="c">2</span>,<span class="t">'salaries'</span>, <span class="c"> 9000</span>),
+  (<span class="c">2</span>,<span class="t">'groceries'</span>,<span class="c"> 6500</span>),
+  (<span class="c">2</span>,<span class="t">'utilities'</span>, <span class="c">1000</span>),
+<span class="c">-- Mall: medium, barely breaks even</span>
+  (<span class="c">3</span>,<span class="t">'rent'</span>,     <span class="c">11000</span>),
+  (<span class="c">3</span>,<span class="t">'salaries'</span>, <span class="c">13000</span>),
+  (<span class="c">3</span>,<span class="t">'groceries'</span>,<span class="c"> 7500</span>),
+  (<span class="c">3</span>,<span class="t">'utilities'</span>, <span class="c">2000</span>);</pre>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Revenue preview table -->
+    <div class="result-wrap" style="margin-bottom:18px;">
+      <div class="result-label">Revenue at a glance (orders table)</div>
+      <table class="result-table">
+        <thead><tr><th>branch</th><th>orders</th><th>total revenue</th></tr></thead>
+        <tbody>
+          <tr><td>🏙️ Downtown</td><td>8</td><td>58,000</td></tr>
+          <tr><td>✈️ Airport</td><td>5</td><td>28,000</td></tr>
+          <tr><td>🛍️ Mall</td><td>7</td><td>32,500</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="question-banner" style="background:rgba(167,139,250,.07);border-color:rgba(167,139,250,.3);">
+      <div class="q-label" style="color:var(--violet);">🕵️ Mystery</div>
+      <div class="q-text">The CEO sees Downtown's revenue of 58,000 and assumes it's the best branch. Is he right? Which branch is <strong>actually</strong> the most profitable — and which one is quietly losing money?</div>
+    </div>
+
+    <button class="after-solve-btn" style="background:rgba(167,139,250,.12);color:var(--violet);border-color:rgba(167,139,250,.35);" onclick="revealSolve('solve-restaurant', this)">After Solve — Show the Answer &amp; Questions →</button>
+
+    <div id="solve-restaurant" class="solve-reveal" style="display:none;">
+
+      <!-- Reveal: the numbers -->
+      <div class="result-wrap" style="margin-bottom:16px;">
+        <div class="result-label">The Truth — Revenue vs Expenses vs Profit</div>
+        <table class="result-table">
+          <thead><tr><th>branch</th><th>revenue</th><th>expenses</th><th>profit</th></tr></thead>
+          <tbody>
+            <tr><td>✈️ Airport</td><td>28,000</td><td>20,500</td><td style="color:var(--teal);font-weight:700;">+7,500 🏆</td></tr>
+            <tr><td>🏙️ Downtown</td><td>58,000</td><td>55,000</td><td style="color:var(--amber);">+3,000</td></tr>
+            <tr><td>🛍️ Mall</td><td>32,500</td><td>33,500</td><td style="color:var(--coral);">–1,000 😬</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note note-amber" style="margin-bottom:18px;">
+        💡 Downtown earns the most (58,000) but after paying 55,000 in costs it only clears +3,000. The Airport runs lean — just 20,500 in expenses — and keeps 7,500 profit, making it the real winner. The Mall looks solid at 32,500 revenue but actually loses 1,000 a month because its costs are slightly higher.
+      </div>
+
+      <!-- Step-by-step questions -->
+      <h3 style="margin-bottom:12px;">Step-by-Step Questions</h3>
+      <ul style="list-style:none;padding:0;display:flex;flex-direction:column;gap:14px;">
+        <li class="exercise-step">
+          <div class="exercise-step-num">1</div>
+          <div>
+            Start simple. Write a query that sums revenue per branch from the <code style="color:var(--teal)">orders</code> table using <code style="color:var(--amber)">GROUP BY branch_id</code>. Which branch has the highest revenue?
+          </div>
+        </li>
+        <li class="exercise-step">
+          <div class="exercise-step-num">2</div>
+          <div>
+            Now do the same for expenses: sum the <code style="color:var(--violet)">expenses</code> table per branch. Which branch costs the most to run?
+          </div>
+        </li>
+        <li class="exercise-step">
+          <div class="exercise-step-num">3</div>
+          <div>
+            The hard part: JOIN both aggregations to the <code style="color:var(--amber)">branches</code> table in one query. Use two subqueries in the <code style="color:var(--amber)">FROM</code> clause — one for revenue, one for expenses — then subtract to get <code>profit</code>. Sort by profit descending.
+            <div class="code" style="margin-top:10px;">
+              <div class="label">Target shape</div>
+<pre><span class="k">SELECT</span> b.name,
+       rev.total_revenue,
+       exp.total_expenses,
+       <span class="fn">ROUND</span>(rev.total_revenue <span class="op">-</span> exp.total_expenses, <span class="c">2</span>) <span class="k">AS</span> profit
+<span class="k">FROM</span>   branches b
+<span class="k">JOIN</span>   (<span class="k">SELECT</span> branch_id, <span class="fn">SUM</span>(amount) <span class="k">AS</span> total_revenue
+        <span class="k">FROM</span> orders <span class="k">GROUP BY</span> branch_id)  rev <span class="k">ON</span> rev.branch_id <span class="op">=</span> b.id
+<span class="k">JOIN</span>   (<span class="k">SELECT</span> branch_id, <span class="fn">SUM</span>(amount) <span class="k">AS</span> total_expenses
+        <span class="k">FROM</span> expenses <span class="k">GROUP BY</span> branch_id) exp <span class="k">ON</span> exp.branch_id <span class="op">=</span> b.id
+<span class="k">ORDER BY</span> profit <span class="k">DESC</span>;</pre>
+            </div>
+          </div>
+        </li>
+        <li class="exercise-step">
+          <div class="exercise-step-num">4</div>
+          <div>
+            Bonus: add a <code>WHERE</code> clause inside the expenses subquery to show only <code style="color:var(--violet)">'rent'</code> and <code style="color:var(--violet)">'salaries'</code> costs. Which branch's fixed costs eat the biggest share of its revenue?
+          </div>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <div style="display:flex;justify-content:flex-end;margin-top:24px;">
+    <a href="02-refund-analysis.html" style="display:inline-flex;align-items:center;gap:8px;padding:12px 24px;border-radius:10px;background:var(--teal-d);color:var(--teal);border:1px solid rgba(45,212,191,.3);text-decoration:none;font-weight:700;font-size:.9rem;transition:background .2s;">
+      Next: Refund Analysis →
+    </a>
+  </div>
+
+</main>
+
+<script src="app.js"></script>
+<script>
+  function revealSolve(id, btn) {
+    document.getElementById(id).style.display = 'block';
+    btn.style.display = 'none';
+  }
+
+  function copySetupSQL(id, btn) {
+    const pre = document.getElementById(id);
+    navigator.clipboard.writeText(pre.innerText).then(() => {
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1800);
+    });
+  }
+</script>
+</body>
+</html>

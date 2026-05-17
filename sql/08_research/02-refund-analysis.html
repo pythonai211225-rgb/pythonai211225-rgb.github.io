@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Example 2 — Duplicate Refund Detection</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%23080e1c'/><text x='32' y='45' text-anchor='middle' font-family='Arial, sans-serif' font-size='42' font-weight='700' fill='%232dd4bf'>db</text></svg>">
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+
+<nav class="top-nav">
+  <div class="wrap">
+    <a class="nav-home" href="index.html">← Lesson 8</a>
+    <div class="brand">Lesson 8</div>
+    <a class="nav-link" href="01-top-customers.html">1. Top Customers</a>
+    <a class="nav-link active" href="02-refund-analysis.html">2. Refund Analysis</a>
+    <a class="nav-link" href="03-suspicious-logins.html">3. Suspicious Logins</a>
+  </div>
+</nav>
+
+<main class="container">
+
+  <!-- ── HERO ── -->
+  <section class="hero reveal">
+    <span class="tag">Example 1 — Fraud Detection</span>
+    <h1>Duplicate Refund Detection</h1>
+    <p class="lead">The finance team noticed refund totals are higher than expected. Your job: find every order that was refunded more than once — the same deal, paid back twice.</p>
+  </section>
+
+  <!-- ── THE QUESTION ── -->
+  <section class="section card reveal">
+    <h2>The Question</h2>
+    <div class="question-banner">
+      <div class="q-label">Business Question</div>
+      <div class="q-text">🔍 Which orders appear in the refunds table more than once? Show the order ID, the customer who placed it, and how many times it was refunded.</div>
+    </div>
+    <p style="color:var(--muted);font-size:.9rem;line-height:1.6;margin-top:12px;">
+      A legitimate order should only be refunded once. If the same <code style="color:var(--teal);background:var(--teal-d);padding:1px 5px;border-radius:4px;">order_id</code> appears twice in the refunds table, it means the customer — or a bug — submitted the same refund claim twice. That's a duplicate and it needs to be caught.
+    </p>
+  </section>
+
+  <!-- ── SCHEMA ── -->
+  <section class="section card reveal">
+    <h2>The Schema</h2>
+    <p style="color:var(--muted);margin-bottom:14px;font-size:.9rem;">The path to get from a refund to a customer name is: <code style="color:var(--teal);background:var(--teal-d);padding:1px 6px;border-radius:4px;">refunds → orders → customers</code></p>
+    <div class="schema-grid">
+
+      <div class="schema-table">
+        <div class="schema-table-head">
+          <div class="schema-table-name">customers</div>
+        </div>
+        <div class="schema-table-cols">
+          <div class="schema-col"><span class="col-name">id</span><span class="col-pk">PK</span><span class="col-type">INTEGER</span></div>
+          <div class="schema-col"><span class="col-name">name</span><span class="col-type">TEXT</span></div>
+          <div class="schema-col"><span class="col-name">email</span><span class="col-type">TEXT</span></div>
+        </div>
+      </div>
+
+      <div class="schema-table">
+        <div class="schema-table-head">
+          <div class="schema-table-name">orders</div>
+        </div>
+        <div class="schema-table-cols">
+          <div class="schema-col"><span class="col-name">id</span><span class="col-pk">PK</span><span class="col-type">INTEGER</span></div>
+          <div class="schema-col"><span class="col-name">customer_id</span><span class="col-fk">FK</span><span class="col-type">INTEGER</span></div>
+          <div class="schema-col"><span class="col-name">total</span><span class="col-type">REAL</span></div>
+          <div class="schema-col"><span class="col-name">created_at</span><span class="col-type">TEXT</span></div>
+        </div>
+      </div>
+
+      <div class="schema-table">
+        <div class="schema-table-head">
+          <div class="schema-table-name">refunds</div>
+        </div>
+        <div class="schema-table-cols">
+          <div class="schema-col"><span class="col-name">id</span><span class="col-pk">PK</span><span class="col-type">INTEGER</span></div>
+          <div class="schema-col"><span class="col-name">order_id</span><span class="col-fk">FK</span><span class="col-type">INTEGER</span></div>
+          <div class="schema-col"><span class="col-name">amount</span><span class="col-type">REAL</span></div>
+          <div class="schema-col"><span class="col-name">reason</span><span class="col-type">TEXT</span></div>
+          <div class="schema-col"><span class="col-name">refunded_at</span><span class="col-type">TEXT</span></div>
+        </div>
+      </div>
+
+    </div>
+    <div class="note" style="margin-top:14px;">
+      💡 Notice <code style="color:var(--teal)">refunds.order_id</code> links back to <code style="color:var(--teal)">orders.id</code>. A healthy database has at most one refund row per order. Our suspect column is <code style="color:var(--coral)">order_id</code> — we'll group by it and count.
+    </div>
+  </section>
+
+  <!-- ── SAMPLE DATA ── -->
+  <section class="section card reveal">
+    <h2>Sample Data — Spot the Problem</h2>
+    <p style="color:var(--muted);margin-bottom:14px;font-size:.9rem;">Look at the <code style="color:var(--teal)">order_id</code> column. Can you see which orders appear twice?</p>
+    <div class="result-wrap">
+      <div class="result-label">refunds table</div>
+      <table class="result-table">
+        <thead><tr><th>id</th><th>order_id</th><th>amount</th><th>reason</th><th>refunded_at</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>101</td><td>29.99</td><td>wrong item</td><td>2024-01-05</td></tr>
+          <tr style="background:rgba(248,113,113,.07)"><td>2</td><td style="color:var(--coral);font-weight:700;">105</td><td>49.99</td><td>damaged</td><td>2024-01-08</td></tr>
+          <tr style="background:rgba(248,113,113,.07)"><td>3</td><td style="color:var(--coral);font-weight:700;">105</td><td>49.99</td><td>damaged</td><td>2024-01-09</td></tr>
+          <tr><td>4</td><td>112</td><td>15.00</td><td>never arrived</td><td>2024-01-12</td></tr>
+          <tr style="background:rgba(248,113,113,.07)"><td>5</td><td style="color:var(--coral);font-weight:700;">118</td><td>89.00</td><td>changed mind</td><td>2024-01-15</td></tr>
+          <tr style="background:rgba(248,113,113,.07)"><td>6</td><td style="color:var(--coral);font-weight:700;">118</td><td>89.00</td><td>changed mind</td><td>2024-01-16</td></tr>
+          <tr><td>7</td><td>122</td><td>19.99</td><td>wrong size</td><td>2024-01-18</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="color:var(--muted);font-size:.87rem;margin-top:10px;">
+      Orders <strong style="color:var(--coral)">105</strong> and <strong style="color:var(--coral)">118</strong> each appear twice — same amount, same reason, one day apart. Orders 101, 112, and 122 are fine (one refund each).
+    </p>
+  </section>
+
+  <!-- ── THINKING PROCESS ── -->
+  <section class="section card reveal">
+    <h2>Think It Through — Step by Step</h2>
+    <div class="thought-steps">
+      <div class="thought-step reveal d1">
+        <div class="ts-num">1</div>
+        <div class="ts-body">
+          <strong>What are we counting?</strong><br>
+          We want to count how many times each <code style="color:var(--teal)">order_id</code> appears in the <code style="color:var(--teal)">refunds</code> table. A count of 2 or more means the same order was refunded more than once.
+        </div>
+      </div>
+      <div class="thought-step reveal d2">
+        <div class="ts-num">2</div>
+        <div class="ts-body">
+          <strong>Which column do we GROUP BY?</strong><br>
+          Group by <code style="color:var(--amber)">order_id</code> — not customer_id. We're looking for duplicate refunds on the <em>same order</em>, not multiple orders by the same customer.
+        </div>
+      </div>
+      <div class="thought-step reveal d3">
+        <div class="ts-num">3</div>
+        <div class="ts-body">
+          <strong>How do we filter to only the duplicates?</strong><br>
+          <code style="color:var(--green)">HAVING COUNT(*) &gt; 1</code> — this runs after GROUP BY, so it only keeps groups where the order appeared more than once. WHERE can't do this because it filters rows before grouping.
+        </div>
+      </div>
+      <div class="thought-step reveal d4">
+        <div class="ts-num">4</div>
+        <div class="ts-body">
+          <strong>How do we get the customer name?</strong><br>
+          The refunds table only has <code style="color:var(--teal)">order_id</code>. To reach the customer we need two JOINs: <code style="color:var(--violet)">refunds → orders</code> (to get customer_id), then <code style="color:var(--violet)">orders → customers</code> (to get the name).
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── STEP 1: BASIC QUERY ── -->
+  <section class="section card reveal">
+    <h2>Step 1 — Find the Duplicate Orders</h2>
+    <p style="color:var(--muted);margin-bottom:14px;font-size:.9rem;">Start simple — just group by order_id and count. No JOIN yet. Confirm the right orders come back.</p>
+    <div class="code">
+      <div class="label">SQL</div>
+<pre><span class="k">SELECT</span>   order_id,
+         <span class="fn">COUNT</span>(*) <span class="k">AS</span> refund_count
+<span class="k">FROM</span>     refunds
+<span class="k">GROUP BY</span> order_id
+<span class="k">HAVING</span>   <span class="fn">COUNT</span>(*) <span class="op">&gt;</span> <span class="c">1</span>
+<span class="k">ORDER BY</span> refund_count <span class="k">DESC</span>;</pre>
+    </div>
+    <div class="result-wrap" style="margin-top:14px;">
+      <div class="result-label">Result</div>
+      <table class="result-table">
+        <thead><tr><th>order_id</th><th>refund_count</th></tr></thead>
+        <tbody>
+          <tr class="highlight-row"><td>105</td><td>2</td></tr>
+          <tr class="highlight-row"><td>118</td><td>2</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note note-amber" style="margin-top:12px;">
+      ✅ Orders 101, 112, and 122 are gone — they only had one refund each. Orders 105 and 118 are our suspects.
+    </div>
+  </section>
+
+  <!-- ── STEP 2: WITH JOIN ── -->
+  <section class="section card reveal">
+    <h2>Step 2 — Join to Get Customer Details</h2>
+    <p style="color:var(--muted);margin-bottom:14px;font-size:.9rem;">Now trace the path <code style="color:var(--violet)">refunds → orders → customers</code> with two JOINs to show who placed the suspicious orders.</p>
+    <div class="code">
+      <div class="label">SQL</div>
+<pre><span class="k">SELECT</span>   c.name,
+         c.email,
+         r.order_id,
+         <span class="fn">COUNT</span>(*) <span class="k">AS</span> refund_count,
+         <span class="fn">ROUND</span>(<span class="fn">SUM</span>(r.amount), <span class="c">2</span>) <span class="k">AS</span> total_refunded
+<span class="k">FROM</span>     refunds r
+<span class="k">JOIN</span>     orders o   <span class="k">ON</span> o.id  <span class="op">=</span> r.order_id
+<span class="k">JOIN</span>     customers c <span class="k">ON</span> c.id <span class="op">=</span> o.customer_id
+<span class="k">GROUP BY</span> r.order_id
+<span class="k">HAVING</span>   <span class="fn">COUNT</span>(*) <span class="op">&gt;</span> <span class="c">1</span>
+<span class="k">ORDER BY</span> total_refunded <span class="k">DESC</span>;</pre>
+    </div>
+    <div class="result-wrap" style="margin-top:14px;">
+      <div class="result-label">Result</div>
+      <table class="result-table">
+        <thead><tr><th>name</th><th>email</th><th>order_id</th><th>refund_count</th><th>total_refunded</th></tr></thead>
+        <tbody>
+          <tr class="highlight-row"><td>Sarah Kim</td><td>sarah@email.com</td><td>118</td><td>2</td><td>178.00</td></tr>
+          <tr class="highlight-row"><td>David Levi</td><td>david@email.com</td><td>105</td><td>2</td><td>99.98</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note" style="margin-top:12px;">
+      ⚠️ Sarah's order 118 was refunded twice — she received <strong style="color:var(--coral)">178.00</strong> instead of 89.00. David's order 105 was also double-refunded: <strong style="color:var(--coral)">99.98</strong> instead of 49.99.
+    </div>
+  </section>
+
+  <!-- ── KEY TAKEAWAYS ── -->
+  <section class="section card reveal">
+    <h2>Key Takeaways</h2>
+    <div class="design-steps">
+      <div class="step-card">
+        <div class="step-num" style="background:var(--teal-d);color:var(--teal);">💡</div>
+        <div class="step-body">
+          <h4>GROUP BY the right column</h4>
+          <p>We grouped by <strong>order_id</strong>, not customer_id. The question is "same deal refunded twice" — that means the same order, not the same customer across different orders.</p>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-num" style="background:var(--amber-d);color:var(--amber);">💡</div>
+        <div class="step-body">
+          <h4>HAVING, not WHERE</h4>
+          <p>You cannot write <code>WHERE COUNT(*) &gt; 1</code> — WHERE filters rows before grouping happens. HAVING runs after GROUP BY, so it can filter on aggregate results like COUNT.</p>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-num" style="background:var(--violet-d);color:var(--violet);">💡</div>
+        <div class="step-body">
+          <h4>Two JOINs to reach the customer</h4>
+          <p>The refunds table doesn't store the customer name — only the order_id. You must bridge through orders first: <code>refunds → orders → customers</code>.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── EXERCISE 1: Refund Mystery ── -->
+  <section class="section card reveal pizza-exercise" id="exercise-1">
+    <div class="exercise-head">
+      <div class="exercise-q">?</div>
+      <div>
+        <div class="exercise-title">Exercise — Case 1: Refund Mystery</div>
+        <div class="exercise-sub">Something in this data is wrong. Can you find it?</div>
+      </div>
+    </div>
+
+    <div class="setup-grid">
+
+      <div class="setup-card" tabindex="0">
+        <div class="setup-card-header">
+          <div class="setup-table-name">customers &amp; orders</div>
+          <div class="setup-cols">customers(id, name, email) · orders(id, customer_id, amount, created_at)</div>
+          <div class="setup-rows-badge">4 + 5 rows</div>
+          <div class="setup-hint">hover to reveal SQL ↓</div>
+        </div>
+        <div class="setup-sql-wrap" style="position:relative;">
+          <button class="setup-copy-btn" onclick="copySetupSQL('sql-ex1-base',this)">Copy</button>
+          <pre id="sql-ex1-base" class="setup-pre"><span class="k">CREATE TABLE</span> customers (
+  id    <span class="t">INTEGER</span> <span class="k">PRIMARY KEY</span>,
+  name  <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  email <span class="t">TEXT</span>    <span class="k">NOT NULL</span>
+);
+<span class="k">INSERT INTO</span> customers <span class="k">VALUES</span>
+  (1,<span class="c">'Alice Nevo'</span>,  <span class="c">'alice@mail.com'</span>),
+  (2,<span class="c">'Ben Cohen'</span>,   <span class="c">'ben@mail.com'</span>),
+  (3,<span class="c">'Carol Dayan'</span>, <span class="c">'carol@mail.com'</span>),
+  (4,<span class="c">'David Katz'</span>,  <span class="c">'david@mail.com'</span>);
+
+<span class="k">CREATE TABLE</span> orders (
+  id          <span class="t">INTEGER</span> <span class="k">PRIMARY KEY</span>,
+  customer_id <span class="t">INTEGER</span> <span class="k">NOT NULL</span>,
+  amount      <span class="t">REAL</span>    <span class="k">NOT NULL</span>,
+  created_at  <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  <span class="k">FOREIGN KEY</span> (customer_id) <span class="k">REFERENCES</span> customers(id)
+);
+<span class="k">INSERT INTO</span> orders <span class="k">VALUES</span>
+  (101,1,89.99, <span class="c">'2024-01-10'</span>),
+  (102,2,45.00, <span class="c">'2024-01-12'</span>),
+  (103,3,120.00,<span class="c">'2024-01-14'</span>),
+  (104,1,30.00, <span class="c">'2024-01-16'</span>),
+  (105,4,75.50, <span class="c">'2024-01-18'</span>);</pre>
+        </div>
+      </div>
+
+      <div class="setup-card" tabindex="0">
+        <div class="setup-card-header">
+          <div class="setup-table-name">refunds</div>
+          <div class="setup-cols">id · order_id · customer_id · amount · refunded_at</div>
+          <div class="setup-rows-badge">5 rows</div>
+          <div class="setup-hint">hover to reveal SQL ↓</div>
+        </div>
+        <div class="setup-sql-wrap" style="position:relative;">
+          <button class="setup-copy-btn" onclick="copySetupSQL('sql-ex1-refunds',this)">Copy</button>
+          <pre id="sql-ex1-refunds" class="setup-pre"><span class="k">CREATE TABLE</span> refunds (
+  id          <span class="t">INTEGER</span> <span class="k">PRIMARY KEY</span>,
+  order_id    <span class="t">INTEGER</span> <span class="k">NOT NULL</span>,
+  customer_id <span class="t">INTEGER</span> <span class="k">NOT NULL</span>,
+  amount      <span class="t">REAL</span>    <span class="k">NOT NULL</span>,
+  refunded_at <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  <span class="k">FOREIGN KEY</span> (order_id)    <span class="k">REFERENCES</span> orders(id),
+  <span class="k">FOREIGN KEY</span> (customer_id) <span class="k">REFERENCES</span> customers(id)
+);
+<span class="k">INSERT INTO</span> refunds <span class="k">VALUES</span>
+  (1,101,1,89.99, <span class="c">'2024-01-11'</span>),
+  (2,102,3,45.00, <span class="c">'2024-01-13'</span>),
+  (3,103,3,120.00,<span class="c">'2024-01-15'</span>),
+  (4,104,4,30.00, <span class="c">'2024-01-17'</span>),
+  (5,105,4,75.50, <span class="c">'2024-01-19'</span>);</pre>
+        </div>
+      </div>
+
+    </div>
+
+    <p style="color:var(--muted);font-size:.9rem;margin-top:14px;">
+      🕵️ Load the tables into DB Browser. Study the data. Something about these refunds violates what a correct system should guarantee. Find it — then click below.
+    </p>
+
+    <button class="after-solve-btn" onclick="revealSolve('solve-1', this)">After Solve — Show the Problem &amp; Questions →</button>
+
+    <div id="solve-1" class="solve-reveal" style="display:none;">
+      <div class="scenario-box">
+        The <code style="color:var(--teal)">refunds</code> table has a <code style="color:var(--coral)">customer_id</code> — the person who receives the money. But in rows 2 and 4, that customer is <strong style="color:var(--text)">not the one who placed the order</strong>. Ben's refund (order 102) went to Carol. Alice's refund (order 104) went to David. The money went to the wrong person.
+      </div>
+      <ul class="exercise-steps">
+        <li class="exercise-step">
+          <div class="exercise-step-num">1</div>
+          <div>Write a query that JOINs <code style="color:var(--teal)">refunds</code> with <code style="color:var(--teal)">orders</code> and returns only rows where <code style="color:var(--amber)">refunds.customer_id &lt;&gt; orders.customer_id</code>. Show the order_id and both customer IDs.</div>
+        </li>
+        <li class="exercise-step">
+          <div class="exercise-step-num">2</div>
+          <div>Extend the query: JOIN <code style="color:var(--teal)">customers</code> twice — alias one as <code style="color:var(--teal)">buyer</code>, the other as <code style="color:var(--teal)">recipient</code> — to show the buyer's name and the refund recipient's name side by side.</div>
+        </li>
+        <li class="exercise-step">
+          <div class="exercise-step-num">3</div>
+          <div>How many suspicious refunds are there in total? Add a final query that returns just the count.</div>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ── EXERCISE 2: Refund Mystery ── -->
+  <section class="section card reveal pizza-exercise" id="exercise-2">
+    <div class="exercise-head">
+      <div class="exercise-q">?</div>
+      <div>
+        <div class="exercise-title">Exercise — Case 2: Refund Mystery</div>
+        <div class="exercise-sub">Something in these dates doesn't add up. Can you find it?</div>
+      </div>
+    </div>
+
+    <div class="setup-grid">
+
+      <div class="setup-card" tabindex="0">
+        <div class="setup-card-header">
+          <div class="setup-table-name">orders</div>
+          <div class="setup-cols">id · customer_id · amount · created_at</div>
+          <div class="setup-rows-badge">5 rows</div>
+          <div class="setup-hint">hover to reveal SQL ↓</div>
+        </div>
+        <div class="setup-sql-wrap" style="position:relative;">
+          <button class="setup-copy-btn" onclick="copySetupSQL('sql-ex2-orders',this)">Copy</button>
+          <pre id="sql-ex2-orders" class="setup-pre"><span class="k">CREATE TABLE</span> orders (
+  id          <span class="t">INTEGER</span> <span class="k">PRIMARY KEY</span>,
+  customer_id <span class="t">INTEGER</span> <span class="k">NOT NULL</span>,
+  amount      <span class="t">REAL</span>    <span class="k">NOT NULL</span>,
+  created_at  <span class="t">TEXT</span>    <span class="k">NOT NULL</span>
+);
+<span class="k">INSERT INTO</span> orders <span class="k">VALUES</span>
+  (201,1,89.99, <span class="c">'2024-02-10'</span>),
+  (202,2,45.00, <span class="c">'2024-02-12'</span>),
+  (203,3,120.00,<span class="c">'2024-02-14'</span>),
+  (204,1,30.00, <span class="c">'2024-02-16'</span>),
+  (205,4,75.50, <span class="c">'2024-02-18'</span>);</pre>
+        </div>
+      </div>
+
+      <div class="setup-card" tabindex="0">
+        <div class="setup-card-header">
+          <div class="setup-table-name">refunds</div>
+          <div class="setup-cols">id · order_id · amount · refunded_at</div>
+          <div class="setup-rows-badge">5 rows</div>
+          <div class="setup-hint">hover to reveal SQL ↓</div>
+        </div>
+        <div class="setup-sql-wrap" style="position:relative;">
+          <button class="setup-copy-btn" onclick="copySetupSQL('sql-ex2-refunds',this)">Copy</button>
+          <pre id="sql-ex2-refunds" class="setup-pre"><span class="k">CREATE TABLE</span> refunds (
+  id          <span class="t">INTEGER</span> <span class="k">PRIMARY KEY</span>,
+  order_id    <span class="t">INTEGER</span> <span class="k">NOT NULL</span>,
+  amount      <span class="t">REAL</span>    <span class="k">NOT NULL</span>,
+  refunded_at <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
+  <span class="k">FOREIGN KEY</span> (order_id) <span class="k">REFERENCES</span> orders(id)
+);
+<span class="k">INSERT INTO</span> refunds <span class="k">VALUES</span>
+  (1,201,89.99, <span class="c">'2024-02-11'</span>),
+  (2,202,45.00, <span class="c">'2024-02-13'</span>),
+  (3,203,120.00,<span class="c">'2024-02-09'</span>),
+  (4,204,30.00, <span class="c">'2024-02-17'</span>),
+  (5,205,75.50, <span class="c">'2024-02-15'</span>);</pre>
+        </div>
+      </div>
+
+    </div>
+
+    <p style="color:var(--muted);font-size:.9rem;margin-top:14px;">
+      🕵️ Load both tables. Look at the dates across the two tables. One rule is physically impossible to break — but it has been. Find which rows break it, then click below.
+    </p>
+
+    <button class="after-solve-btn" onclick="revealSolve('solve-2', this)">After Solve — Show the Problem &amp; Questions →</button>
+
+    <div id="solve-2" class="solve-reveal" style="display:none;">
+      <div class="scenario-box">
+        A refund cannot happen before the order was placed. But order 203 was placed on Feb 14 and refunded on Feb 9 — five days earlier. Order 205 was placed on Feb 18 and refunded on Feb 15 — three days before the purchase. These timestamps are impossible and signal either a bug or data tampering.
+      </div>
+      <ul class="exercise-steps">
+        <li class="exercise-step">
+          <div class="exercise-step-num">1</div>
+          <div>Write a query that JOINs <code style="color:var(--teal)">refunds</code> with <code style="color:var(--teal)">orders</code> and filters with <code style="color:var(--amber)">WHERE refunds.refunded_at &lt; orders.created_at</code>. Show order_id, purchase date, refund date, and amount.</div>
+        </li>
+        <li class="exercise-step">
+          <div class="exercise-step-num">2</div>
+          <div>Add a computed column called <code style="color:var(--amber)">days_before</code> that shows how many days early the refund was. Use <code style="color:var(--fn)">JULIANDAY(orders.created_at) - JULIANDAY(refunds.refunded_at)</code>.</div>
+        </li>
+        <li class="exercise-step">
+          <div class="exercise-step-num">3</div>
+          <div>Join <code style="color:var(--teal)">customers</code> (through orders) to also show the customer name next to each suspicious refund.</div>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <div style="display:flex;justify-content:space-between;margin-top:24px;">
+    <a href="01-top-customers.html" style="display:inline-flex;align-items:center;gap:8px;padding:12px 24px;border-radius:10px;background:var(--amber-d);color:var(--amber);border:1px solid rgba(251,191,36,.3);text-decoration:none;font-weight:700;font-size:.9rem;transition:background .2s;">
+      ← Back: Top Customers
+    </a>
+    <a href="03-suspicious-logins.html" style="display:inline-flex;align-items:center;gap:8px;padding:12px 24px;border-radius:10px;background:rgba(248,113,113,.12);color:var(--coral);border:1px solid rgba(248,113,113,.3);text-decoration:none;font-weight:700;font-size:.9rem;transition:background .2s;">
+      Next: Suspicious Logins →
+    </a>
+  </div>
+
+</main>
+
+<script src="app.js"></script>
+<script>
+  function revealSolve(id, btn) {
+    document.getElementById(id).style.display = 'block';
+    btn.style.display = 'none';
+  }
+
+  function copySetupSQL(id, btn) {
+    const pre = document.getElementById(id);
+    navigator.clipboard.writeText(pre.innerText).then(() => {
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1800);
+    });
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Topic 2 — Date Queries</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%23080e1c'/><text x='32' y='45' text-anchor='middle' font-family='Arial, sans-serif' font-size='42' font-weight='700' fill='%232dd4bf'>db</text></svg>">
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    .date-part {
+      display: inline-block; padding: 2px 8px; border-radius: 6px;
+      font-family: 'JetBrains Mono', monospace; font-size: .82rem; font-weight: 700;
+    }
+    .dp-year   { background: rgba(45,212,191,.15); color: var(--teal); }
+    .dp-month  { background: rgba(251,191,36,.15); color: var(--amber); }
+    .dp-day    { background: rgba(96,165,250,.15); color: var(--blue); }
+    .dp-hour   { background: rgba(167,139,250,.15); color: var(--violet); }
+    .dp-combo  { background: rgba(248,113,113,.15); color: var(--coral); }
+
+    .strftime-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px; margin-top: 14px;
+    }
+    .sf-card {
+      background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
+      padding: 12px 14px;
+    }
+    .sf-code { font-family: 'JetBrains Mono', monospace; font-size: .85rem; color: var(--amber); font-weight: 700; }
+    .sf-desc { font-size: .78rem; color: var(--muted); margin-top: 4px; }
+    .sf-ex   { font-size: .75rem; color: var(--dim); margin-top: 3px; }
+  </style>
+</head>
+<body>
+
+<nav class="top-nav">
+  <div class="wrap">
+    <a class="nav-home" href="index.html">← Lesson 8</a>
+    <div class="brand">Lesson 8</div>
+    <a class="nav-link" href="01-union.html">1. UNION</a>
+    <a class="nav-link active" href="02-date-queries.html">2. Date Queries</a>
+    <a class="nav-link" href="03-triggers.html">3. Triggers</a>
+    <a class="nav-link" href="04-views.html">4. Views</a>
+  </div>
+</nav>
+
+<main class="container">
+
+  <!-- HERO -->
+  <section class="hero reveal">
+    <span class="tag">Topic 2</span>
+    <h1>Date Queries — Filter by Time</h1>
+    <p class="lead">SQLite stores dates as text. <code style="color:var(--amber)">strftime()</code> lets you pull out any piece — year, month, day, hour — and filter on it.</p>
+
+    <div class="stat-grid" style="margin-top:18px;">
+      <div class="stat-card reveal-scale d1">
+        <div class="stat-num" style="color:var(--teal);font-size:1.4rem;font-family:'JetBrains Mono',monospace;">%Y</div>
+        <div class="stat-label">Year</div>
+        <div class="stat-sub">2026</div>
+      </div>
+      <div class="stat-card reveal-scale d2">
+        <div class="stat-num" style="color:var(--amber);font-size:1.4rem;font-family:'JetBrains Mono',monospace;">%m</div>
+        <div class="stat-label">Month</div>
+        <div class="stat-sub">01 – 12</div>
+      </div>
+      <div class="stat-card reveal-scale d3">
+        <div class="stat-num" style="color:var(--blue);font-size:1.4rem;font-family:'JetBrains Mono',monospace;">%d</div>
+        <div class="stat-label">Day</div>
+        <div class="stat-sub">01 – 31</div>
+      </div>
+      <div class="stat-card reveal-scale d4">
+        <div class="stat-num" style="color:var(--violet);font-size:1.4rem;font-family:'JetBrains Mono',monospace;">%H</div>
+        <div class="stat-label">Hour (24h)</div>
+        <div class="stat-sub">00 – 23</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STRFTIME CHEATSHEET -->
+  <section class="section card reveal">
+    <h2>strftime() Cheatsheet</h2>
+    <div class="strftime-grid">
+      <div class="sf-card"><div class="sf-code">%Y</div><div class="sf-desc">4-digit year</div><div class="sf-ex">→ '2026'</div></div>
+      <div class="sf-card"><div class="sf-code">%m</div><div class="sf-desc">Month (zero-padded)</div><div class="sf-ex">→ '03'</div></div>
+      <div class="sf-card"><div class="sf-code">%d</div><div class="sf-desc">Day of month</div><div class="sf-ex">→ '15'</div></div>
+      <div class="sf-card"><div class="sf-code">%H</div><div class="sf-desc">Hour (24h)</div><div class="sf-ex">→ '14'</div></div>
+      <div class="sf-card"><div class="sf-code">%M</div><div class="sf-desc">Minutes</div><div class="sf-ex">→ '32'</div></div>
+      <div class="sf-card"><div class="sf-code">%S</div><div class="sf-desc">Seconds</div><div class="sf-ex">→ '05'</div></div>
+      <div class="sf-card"><div class="sf-code">%Y-%m-%d</div><div class="sf-desc">Date only (no time)</div><div class="sf-ex">→ '2026-03-15'</div></div>
+      <div class="sf-card"><div class="sf-code">%w</div><div class="sf-desc">Day of week (0=Sun)</div><div class="sf-ex">→ '1' (Monday)</div></div>
+    </div>
+    <p class="note" style="margin-top:14px;">strftime always returns a <strong>TEXT string</strong>. To compare numbers wrap it in <code>CAST(strftime('%H', col) AS INTEGER)</code>.</p>
+  </section>
+
+  <!-- SETUP PANEL -->
+  <section class="section card reveal">
+    <h2>Practice Table — <span style="color:var(--amber)">orders</span></h2>
+    <p style="color:var(--muted);font-size:.9rem;margin-bottom:14px;">Dates stored as full datetime strings. Each row has a different date and time so we can filter every which way.</p>
+    <div class="setup-grid" style="grid-template-columns:1fr;">
+      <div class="setup-card" tabindex="0">
+        <div class="setup-card-header">
+          <div class="setup-table-name">orders</div>
+          <div class="setup-cols">id · customer · amount · created_at</div>
+          <div class="setup-rows-badge">10 rows</div>
+          <div class="setup-hint">hover to reveal SQL ↓</div>
+        </div>
+        <div class="setup-sql-wrap" style="position:relative;">
+          <button class="setup-copy-btn" onclick="copySetupSQL('sql-orders',this)">Copy</button>
+          <pre id="sql-orders" class="setup-pre"><span class="k">CREATE TABLE</span> orders (
+  id         <span class="t">INTEGER PRIMARY KEY</span>,
+  customer   <span class="t">TEXT</span>,
+  amount     <span class="t">REAL</span>,
+  created_at <span class="t">TEXT</span>
+);
+<span class="k">INSERT INTO</span> orders <span class="k">VALUES</span>
+  (<span class="c"> 1</span>, <span class="t">'Alice'</span>,  <span class="c">120.00</span>, <span class="t">'2026-01-15 09:23:00'</span>),
+  (<span class="c"> 2</span>, <span class="t">'Bob'</span>,    <span class="c">250.00</span>, <span class="t">'2026-01-15 14:05:00'</span>),
+  (<span class="c"> 3</span>, <span class="t">'Carol'</span>,  <span class="c"> 80.00</span>, <span class="t">'2026-02-20 11:30:00'</span>),
+  (<span class="c"> 4</span>, <span class="t">'David'</span>,  <span class="c">340.00</span>, <span class="t">'2026-03-10 14:45:00'</span>),
+  (<span class="c"> 5</span>, <span class="t">'Emma'</span>,   <span class="c"> 95.00</span>, <span class="t">'2026-03-15 09:00:00'</span>),
+  (<span class="c"> 6</span>, <span class="t">'Felix'</span>,  <span class="c">185.00</span>, <span class="t">'2026-03-15 15:22:00'</span>),
+  (<span class="c"> 7</span>, <span class="t">'Greta'</span>,  <span class="c">220.00</span>, <span class="t">'2026-03-15 14:10:00'</span>),
+  (<span class="c"> 8</span>, <span class="t">'Hans'</span>,   <span class="c">300.00</span>, <span class="t">'2026-04-01 08:15:00'</span>),
+  (<span class="c"> 9</span>, <span class="t">'Ingrid'</span>, <span class="c">150.00</span>, <span class="t">'2026-04-01 23:55:00'</span>),
+  (<span class="c">10</span>, <span class="t">'Jack'</span>,   <span class="c">175.00</span>, <span class="t">'2026-05-20 14:30:00'</span>);</pre>
+        </div>
+      </div>
+    </div>
+    <table class="table" style="margin-top:14px;">
+      <thead><tr><th>id</th><th>customer</th><th>amount</th><th>created_at</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Alice</td><td>120.00</td><td><span class="date-part dp-year">2026</span>-<span class="date-part dp-month">01</span>-<span class="date-part dp-day">15</span> <span class="date-part dp-hour">09</span>:23:00</td></tr>
+        <tr><td>2</td><td>Bob</td><td>250.00</td><td><span class="date-part dp-year">2026</span>-<span class="date-part dp-month">01</span>-<span class="date-part dp-day">15</span> <span class="date-part dp-hour">14</span>:05:00</td></tr>
+        <tr><td>3</td><td>Carol</td><td>80.00</td><td><span class="date-part dp-year">2026</span>-<span class="date-part dp-month">02</span>-<span class="date-part dp-day">20</span> <span class="date-part dp-hour">11</span>:30:00</td></tr>
+        <tr><td>4</td><td>David</td><td>340.00</td><td><span class="date-part dp-year">2026</span>-<span class="date-part dp-month">03</span>-<span class="date-part dp-day">10</span> <span class="date-part dp-hour">14</span>:45:00</td></tr>
+        <tr><td>5</td><td>Emma</td><td>95.00</td><td><span class="date-part dp-year">2026</span>-<span class="date-part dp-month">03</span>-<span class="date-part dp-day">15</span> <span class="date-part dp-hour">09</span>:00:00</td></tr>
+        <tr><td>6</td><td>Felix</td><td>185.00</td><td><span class="date-part dp-year">2026</span>-<span class="date-part dp-month">03</span>-<span class="date-part dp-day">15</span> <span class="date-part dp-hour">15</span>:22:00</td></tr>
+        <tr><td>7</td><td>Greta</td><td>220.00</td><td><span class="date-part dp-year">2026</span>-<span class="date-part dp-month">03</span>-<span class="date-part dp-day">15</span> <span class="date-part dp-hour">14</span>:10:00</td></tr>
+        <tr><td>8</td><td>Hans</td><td>300.00</td><td><span class="date-part dp-year">2026</span>-<span class="date-part dp-month">04</span>-<span class="date-part dp-day">01</span> <span class="date-part dp-hour">08</span>:15:00</td></tr>
+        <tr><td>9</td><td>Ingrid</td><td>150.00</td><td><span class="date-part dp-year">2026</span>-<span class="date-part dp-month">04</span>-<span class="date-part dp-day">01</span> <span class="date-part dp-hour">23</span>:55:00</td></tr>
+        <tr><td>10</td><td>Jack</td><td>175.00</td><td><span class="date-part dp-year">2026</span>-<span class="date-part dp-month">05</span>-<span class="date-part dp-day">20</span> <span class="date-part dp-hour">14</span>:30:00</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- EXAMPLE 1: BY YEAR -->
+  <section class="section card reveal">
+    <h2>Filter by <span class="date-part dp-year">Year</span></h2>
+    <div class="code">
+      <div class="label">Query</div>
+<pre><span class="k">SELECT</span> customer, amount, created_at
+<span class="k">FROM</span>   orders
+<span class="k">WHERE</span>  <span class="fn">strftime</span>(<span class="t">'%Y'</span>, created_at) <span class="op">=</span> <span class="t">'2026'</span>;</pre>
+    </div>
+    <p class="note">All 10 rows — all orders are in 2026. Change <code>'2026'</code> to <code>'2025'</code> and you'd get 0 rows.</p>
+  </section>
+
+  <!-- EXAMPLE 2: BY MONTH -->
+  <section class="section card reveal">
+    <h2>Filter by <span class="date-part dp-month">Month</span></h2>
+    <div class="code">
+      <div class="label">Query — all March orders</div>
+<pre><span class="k">SELECT</span> customer, amount, created_at
+<span class="k">FROM</span>   orders
+<span class="k">WHERE</span>  <span class="fn">strftime</span>(<span class="t">'%m'</span>, created_at) <span class="op">=</span> <span class="t">'03'</span>;</pre>
+    </div>
+    <table class="table" style="margin-top:12px;">
+      <thead><tr><th>customer</th><th>amount</th><th>created_at</th></tr></thead>
+      <tbody>
+        <tr class="highlight-row"><td>David</td><td>340.00</td><td>2026-03-10 14:45:00</td></tr>
+        <tr class="highlight-row"><td>Emma</td><td>95.00</td><td>2026-03-15 09:00:00</td></tr>
+        <tr class="highlight-row"><td>Felix</td><td>185.00</td><td>2026-03-15 15:22:00</td></tr>
+        <tr class="highlight-row"><td>Greta</td><td>220.00</td><td>2026-03-15 14:10:00</td></tr>
+      </tbody>
+    </table>
+    <p class="note note-amber">Month is always zero-padded: March = <code>'03'</code>, not <code>'3'</code>. Same for days and hours.</p>
+  </section>
+
+  <!-- EXAMPLE 3: BY DAY -->
+  <section class="section card reveal">
+    <h2>Filter by Specific <span class="date-part dp-day">Day</span></h2>
+    <div class="code">
+      <div class="label">Query — March 15th only</div>
+<pre><span class="k">SELECT</span> customer, amount, created_at
+<span class="k">FROM</span>   orders
+<span class="k">WHERE</span>  <span class="fn">DATE</span>(created_at) <span class="op">=</span> <span class="t">'2026-03-15'</span>;</pre>
+    </div>
+    <table class="table" style="margin-top:12px;">
+      <thead><tr><th>customer</th><th>amount</th><th>created_at</th></tr></thead>
+      <tbody>
+        <tr class="highlight-row"><td>Emma</td><td>95.00</td><td>2026-03-15 09:00:00</td></tr>
+        <tr class="highlight-row"><td>Felix</td><td>185.00</td><td>2026-03-15 15:22:00</td></tr>
+        <tr class="highlight-row"><td>Greta</td><td>220.00</td><td>2026-03-15 14:10:00</td></tr>
+      </tbody>
+    </table>
+    <p class="note"><code>DATE(created_at)</code> strips the time portion and returns just <code>'2026-03-15'</code>. Simpler than using strftime('%Y-%m-%d') for exact-day comparisons.</p>
+  </section>
+
+  <!-- EXAMPLE 4: BY HOUR -->
+  <section class="section card reveal">
+    <h2>Filter by <span class="date-part dp-hour">Hour</span></h2>
+    <div class="code">
+      <div class="label">Query — orders placed in the 2 PM hour (14:xx)</div>
+<pre><span class="k">SELECT</span> customer, amount, created_at
+<span class="k">FROM</span>   orders
+<span class="k">WHERE</span>  <span class="fn">strftime</span>(<span class="t">'%H'</span>, created_at) <span class="op">=</span> <span class="t">'14'</span>;</pre>
+    </div>
+    <table class="table" style="margin-top:12px;">
+      <thead><tr><th>customer</th><th>amount</th><th>created_at</th></tr></thead>
+      <tbody>
+        <tr class="highlight-row"><td>Bob</td><td>250.00</td><td>2026-01-15 <strong>14</strong>:05:00</td></tr>
+        <tr class="highlight-row"><td>David</td><td>340.00</td><td>2026-03-10 <strong>14</strong>:45:00</td></tr>
+        <tr class="highlight-row"><td>Greta</td><td>220.00</td><td>2026-03-15 <strong>14</strong>:10:00</td></tr>
+        <tr class="highlight-row"><td>Jack</td><td>175.00</td><td>2026-05-20 <strong>14</strong>:30:00</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- EXAMPLE 5: COMBINATION -->
+  <section class="section card reveal">
+    <h2><span class="date-part dp-combo">Combination</span> — March 15th Between 2–4 PM</h2>
+    <p style="color:var(--muted);margin-bottom:12px;font-size:.9rem;">Combine multiple date conditions with AND. Use CAST to compare the hour as an integer for BETWEEN.</p>
+    <div class="code">
+      <div class="label">Query</div>
+<pre><span class="k">SELECT</span> customer, amount, created_at
+<span class="k">FROM</span>   orders
+<span class="k">WHERE</span>  <span class="fn">DATE</span>(created_at)                          <span class="op">=</span> <span class="t">'2026-03-15'</span>
+  <span class="k">AND</span>  <span class="fn">CAST</span>(<span class="fn">strftime</span>(<span class="t">'%H'</span>, created_at) <span class="k">AS</span> <span class="t">INTEGER</span>) <span class="k">BETWEEN</span> <span class="c">14</span> <span class="k">AND</span> <span class="c">15</span>;</pre>
+    </div>
+    <table class="table" style="margin-top:12px;">
+      <thead><tr><th>customer</th><th>amount</th><th>created_at</th></tr></thead>
+      <tbody>
+        <tr class="highlight-row"><td>Felix</td><td>185.00</td><td>2026-03-15 <strong>15</strong>:22:00</td></tr>
+        <tr class="highlight-row"><td>Greta</td><td>220.00</td><td>2026-03-15 <strong>14</strong>:10:00</td></tr>
+      </tbody>
+    </table>
+    <p class="note note-violet">💡 BETWEEN 14 AND 15 includes hours 14 and 15 (2 PM and 3 PM). Emma's 09:00 order on March 15 is excluded because it's in the morning.</p>
+
+    <div class="bar-chart" style="margin-top:18px;">
+      <div class="bar-chart-title">March 15 orders filtered progressively</div>
+      <div class="bar-row">
+        <span class="bar-label">All orders</span>
+        <div class="bar-track"><div class="bar-fill bar-teal" data-pct="100"></div></div>
+        <span class="bar-val">10</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">March orders</span>
+        <div class="bar-track"><div class="bar-fill bar-amber" data-pct="40"></div></div>
+        <span class="bar-val">4</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">March 15</span>
+        <div class="bar-track"><div class="bar-fill bar-violet" data-pct="30"></div></div>
+        <span class="bar-val">3</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">+2–4 PM</span>
+        <div class="bar-track"><div class="bar-fill bar-coral" data-pct="20"></div></div>
+        <span class="bar-val">2</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- AGGREGATING BY DATE PARTS -->
+  <section class="section card reveal">
+    <h2>Bonus — Group Revenue by Month</h2>
+    <p style="color:var(--muted);margin-bottom:12px;font-size:.9rem;">strftime works in GROUP BY too — slice your data into any time bucket.</p>
+    <div class="code">
+      <div class="label">Query</div>
+<pre><span class="k">SELECT</span>   <span class="fn">strftime</span>(<span class="t">'%Y-%m'</span>, created_at) <span class="k">AS</span> month,
+         <span class="fn">COUNT</span>(*) <span class="k">AS</span> orders,
+         <span class="fn">ROUND</span>(<span class="fn">SUM</span>(amount), <span class="c">2</span>)  <span class="k">AS</span> revenue
+<span class="k">FROM</span>     orders
+<span class="k">GROUP BY</span> month
+<span class="k">ORDER BY</span> month;</pre>
+    </div>
+    <table class="table" style="margin-top:12px;">
+      <thead><tr><th>month</th><th>orders</th><th>revenue</th></tr></thead>
+      <tbody>
+        <tr><td>2026-01</td><td>2</td><td>370.00</td></tr>
+        <tr><td>2026-02</td><td>1</td><td>80.00</td></tr>
+        <tr class="highlight-row"><td>2026-03</td><td>4</td><td>840.00</td></tr>
+        <tr><td>2026-04</td><td>2</td><td>450.00</td></tr>
+        <tr><td>2026-05</td><td>1</td><td>175.00</td></tr>
+      </tbody>
+    </table>
+
+    <div class="bar-chart" style="margin-top:16px;">
+      <div class="bar-chart-title">Monthly revenue</div>
+      <div class="bar-row">
+        <span class="bar-label">Jan</span>
+        <div class="bar-track"><div class="bar-fill bar-teal" data-pct="44"></div></div>
+        <span class="bar-val">370</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">Feb</span>
+        <div class="bar-track"><div class="bar-fill bar-violet" data-pct="9"></div></div>
+        <span class="bar-val">80</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">Mar</span>
+        <div class="bar-track"><div class="bar-fill bar-amber" data-pct="100"></div></div>
+        <span class="bar-val">840</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">Apr</span>
+        <div class="bar-track"><div class="bar-fill bar-blue" data-pct="54"></div></div>
+        <span class="bar-val">450</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">May</span>
+        <div class="bar-track"><div class="bar-fill bar-coral" data-pct="21"></div></div>
+        <span class="bar-val">175</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- EXERCISE -->
+  <section class="section card reveal exercise-card" id="exercise">
+    <div class="exercise-head">
+      <div class="exercise-q">?</div>
+      <div>
+        <h2>Exercise</h2>
+        <p class="exercise-sub">Query the orders table by date</p>
+      </div>
+    </div>
+    <ol class="exercise-steps">
+      <li>Find all orders placed on a <strong>Monday</strong> — use <code>strftime('%w', created_at) = '1'</code> (Monday = 1 in SQLite)</li>
+      <li>Find all orders placed in <strong>Q1</strong> (January, February, March) — use strftime('%m') with BETWEEN or IN</li>
+      <li>Find orders placed <strong>after 8 PM</strong> (hour ≥ 20) — what do you notice about Ingrid's order?</li>
+      <li>Show total revenue per day of the week — which day generates the most sales?</li>
+      <li>Bonus: find orders where the hour is between 9 and 17 (business hours) <em>and</em> the amount is over 200</li>
+    </ol>
+  </section>
+
+  <div class="lesson-nav reveal">
+    <a class="btn" href="01-union.html">← UNION</a>
+    <a class="btn primary" href="03-triggers.html">Next: Triggers →</a>
+  </div>
+
+</main>
+
+<script src="app.js"></script>
+<script>
+  function copySetupSQL(id, btn) {
+    navigator.clipboard.writeText(document.getElementById(id).innerText).then(() => {
+      btn.textContent = 'Copied!'; btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1800);
+    });
+  }
+</script>
+</body>
+</html>

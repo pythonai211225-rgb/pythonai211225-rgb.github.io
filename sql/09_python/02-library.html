@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Topic 2 - Library</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%23080e1c'/><text x='32' y='45' text-anchor='middle' font-family='Arial, sans-serif' font-size='42' font-weight='700' fill='%2360a5fa'>py</text></svg>">
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    h1 { background: linear-gradient(120deg, #e8f0fe 25%, #60a5fa 65%, #a78bfa 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .tag { background: rgba(45,212,191,.12) !important; color: var(--teal) !important; border-color: rgba(45,212,191,.3) !important; }
+  </style>
+</head>
+<body>
+<nav class="top-nav">
+  <div class="wrap">
+    <a class="nav-home" href="index.html">← Lesson 9</a>
+    <div class="brand">Lesson 9</div>
+    <a class="nav-link" href="01-setup.html">1. Setup</a>
+    <a class="nav-link active" href="02-library.html">2. Library</a>
+    <a class="nav-link" href="03-crud.html">3. CRUD</a>
+    <a class="nav-link" href="04-code-hub.html">4. Code Hub</a>
+  </div>
+</nav>
+
+<main class="container">
+  <section class="hero reveal">
+    <span class="tag">Topic 2</span>
+    <h1>db.py Library</h1>
+    <p class="lead">Choose one section from the left. Only that section appears on the right.</p>
+  </section>
+
+  <section class="section lesson-layout reveal">
+    <aside class="lesson-side">
+      <div class="side-title">Library Sections</div>
+      <div class="side-links">
+        <button class="side-link active" data-panel="p-func" type="button">3 Functions</button>
+        <button class="side-link" data-panel="p-full" type="button">Full File</button>
+        <button class="side-link" data-panel="p-params" type="button">Safe Parameters</button>
+        <button class="side-link" data-panel="p-summary" type="button">Summary</button>
+      </div>
+    </aside>
+
+    <div class="lesson-main">
+      <section id="p-full" class="card lesson-panel">
+        <h2>Full db.py</h2>
+        <div class="code">
+          <div class="label">db.py</div>
+<pre><span class="py-k">import</span> sqlite3
+
+<span class="py-c"># The database file that will be created on disk</span>
+DB_PATH = <span class="py-s">"my_sql.db"</span>
+
+<span class="py-c"># Opens a connection and makes rows behave like dictionaries</span>
+<span class="py-k">def</span> <span class="py-fn">connect</span>():
+    conn = sqlite3.<span class="py-fn">connect</span>(DB_PATH)
+    conn.row_factory = sqlite3.Row  <span class="py-c"># lets us use row["column_name"]</span>
+    <span class="py-k">return</span> conn
+
+<span class="py-c"># Use this for SELECT — returns a list of dicts</span>
+<span class="py-k">def</span> <span class="py-fn">run_query_select</span>(sql, params=()):
+    conn = <span class="py-fn">connect</span>()
+    <span class="py-k">try</span>:
+        cursor = conn.<span class="py-fn">cursor</span>()
+        cursor.<span class="py-fn">execute</span>(sql, params)  <span class="py-c"># params prevent SQL injection</span>
+        rows = cursor.<span class="py-fn">fetchall</span>()
+        <span class="py-k">return</span> [<span class="py-b">dict</span>(row) <span class="py-k">for</span> row <span class="py-k">in</span> rows]  <span class="py-c"># convert to plain dicts</span>
+    <span class="py-k">finally</span>:
+        conn.<span class="py-fn">close</span>()  <span class="py-c"># always close, even if an error happens</span>
+
+<span class="py-c"># Use this for INSERT, UPDATE, DELETE, CREATE</span>
+<span class="py-k">def</span> <span class="py-fn">run_update_query</span>(sql, params=()):
+    conn = <span class="py-fn">connect</span>()
+    <span class="py-k">try</span>:
+        cursor = conn.<span class="py-fn">cursor</span>()
+        cursor.<span class="py-fn">execute</span>(sql, params)
+        conn.<span class="py-fn">commit</span>()  <span class="py-c"># save changes to disk</span>
+        <span class="py-k">return</span> cursor.lastrowid  <span class="py-c"># id of the last inserted row</span>
+    <span class="py-k">finally</span>:
+        conn.<span class="py-fn">close</span>()</pre>
+        </div>
+      </section>
+
+      <section id="p-func" class="card lesson-panel active">
+        <h2>3 Functions</h2>
+        <div class="func-card">
+          <div class="func-header"><div><div class="func-name">connect()</div><div class="func-sig">Open SQLite connection</div></div></div>
+          <div class="func-desc">Creates the connection to data.db and enables sqlite3.Row.</div>
+        </div>
+        <div class="func-card">
+          <div class="func-header"><div><div class="func-name">run_query_select(sql, params=())</div><div class="func-sig">Read queries</div></div></div>
+          <div class="func-desc">Use for SELECT. Returns a list of dictionaries.</div>
+        </div>
+        <div class="func-card" style="margin-bottom:0;">
+          <div class="func-header"><div><div class="func-name">run_update_query(sql, params=())</div><div class="func-sig">Write queries</div></div></div>
+          <div class="func-desc">Use for INSERT, UPDATE, DELETE, CREATE and commits automatically.</div>
+        </div>
+      </section>
+
+      <section id="p-params" class="card lesson-panel">
+        <h2>Safe Parameters</h2>
+        <div class="code">
+          <div class="label">Example</div>
+<pre>run_update_query(
+  <span class="py-s">"INSERT INTO students (name, grade) VALUES (?, ?)"</span>,
+  (<span class="py-s">"Alice"</span>, <span class="py-n">90</span>)
+)</pre>
+        </div>
+      </section>
+
+      <section id="p-summary" class="card lesson-panel">
+        <h2>Summary</h2>
+        <div class="checklist">
+          <div class="check-item"><div class="check-box"></div><div class="check-text">One fixed filename: data.db</div></div>
+          <div class="check-item"><div class="check-box"></div><div class="check-text">One read function + one write function</div></div>
+          <div class="check-item"><div class="check-box"></div><div class="check-text">main.py calls this library for CRUD</div></div>
+        </div>
+      </section>
+    </div>
+  </section>
+</main>
+
+<script src="app.js"></script>
+<script>
+  const menuButtons = [...document.querySelectorAll('.side-link[data-panel]')];
+  const panels = [...document.querySelectorAll('.lesson-panel')];
+  function showPanel(id) {
+    panels.forEach(p => p.classList.toggle('active', p.id === id));
+    menuButtons.forEach(b => b.classList.toggle('active', b.dataset.panel === id));
+  }
+  menuButtons.forEach(btn => btn.addEventListener('click', () => showPanel(btn.dataset.panel)));
+</script>
+</body>
+</html>
