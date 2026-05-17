@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SQL Lesson 9 — Python + SQLite</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='white'/><text x='32' y='45' text-anchor='middle' font-family='Arial, sans-serif' font-size='42' font-weight='700' fill='%232563eb'>py</text></svg>">
+  <style>
+    :root {
+      --bg-soft:   #ffffff;
+      --teal-1:    #0e5a52;
+      --teal-2:    #1a9e8f;
+      --teal-3:    #d2f6f2;
+      --mint:      #e6fffc;
+      --text:      #0f2622;
+      --muted:     #3d7a72;
+      --border:    #9adcd4;
+      --code-bg:   #07201d;
+      --code-text: #cef9f3;
+      --amber:     #d97706;
+      --amber-bg:  #fffbeb;
+      --amber-bd:  #fcd34d;
+      --violet:    #7c3aed;
+      --violet-bg: #f5f3ff;
+      --violet-bd: #c4b5fd;
+      --coral:     #dc2626;
+      --coral-bg:  #fff1f1;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Trebuchet MS", "Lucida Sans", "Segoe UI", sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at 15% 10%, #ddfff8 0%, transparent 35%),
+                  radial-gradient(circle at 85% 18%, #f0ebff 0%, transparent 36%),
+                  linear-gradient(180deg, #f0fffb 0%, #ffffff 45%, #f5f0ff 100%);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    body::before, body::after {
+      content: ""; position: fixed;
+      width: 240px; height: 240px;
+      z-index: -1; border-radius: 999px;
+      filter: blur(2px); opacity: 0.3;
+      animation: blobMove 8s ease-in-out infinite alternate;
+    }
+    body::before { background: #9ef5eb; top: -30px; left: -40px; }
+    body::after  { background: #ddd6fe; bottom: -40px; right: -40px; animation-delay: 1.4s; }
+
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 24px; }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    /* ── SIDEBAR ── */
+    .side-nav {
+      position: sticky; top: 14px;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 8px 22px rgba(14,90,82,0.1);
+      padding: 12px;
+    }
+    .side-title { margin: 0 0 8px; font-size: 0.9rem; color: var(--teal-1); font-weight: 700; }
+    .topic-link {
+      display: block; width: 100%; text-align: left;
+      border: 1px solid transparent; border-radius: 9px;
+      padding: 8px 10px; background: transparent; color: var(--muted);
+      cursor: pointer; font-size: 0.89rem; margin-bottom: 6px;
+      transition: all 0.2s ease;
+    }
+    .topic-link:hover { background: #f0fffb; color: var(--teal-1); border-color: var(--border); }
+    .topic-link.active { background: #d8faf5; color: var(--teal-1); border-color: var(--teal-2); font-weight: 700; }
+    .side-divider { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+    .side-section-label {
+      font-size: 0.72rem; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--teal-2); padding: 4px 4px 6px;
+    }
+    .nav-back {
+      display: inline-block; margin-top: 10px; padding: 10px 16px;
+      border-radius: 10px; border: 1px solid var(--teal-2); background: #d8faf5;
+      color: var(--teal-1); text-decoration: none; font-weight: 700;
+      transition: all 0.2s ease; width: 100%; text-align: center;
+    }
+    .nav-back:hover { background: #bff5ec; transform: translateY(-1px); }
+
+    /* ── HERO ── */
+    .hero {
+      background: linear-gradient(135deg, #ffffff 0%, #d9fdf7 40%, #ede9fe 100%);
+      border: 1px solid var(--border);
+      border-radius: 16px; padding: 28px;
+      box-shadow: 0 12px 30px rgba(14,110,100,0.12);
+      margin-bottom: 22px;
+      animation: riseIn 0.75s ease both;
+    }
+    h1, h2, h3 { margin-top: 0; color: var(--teal-1); }
+    h1 { font-size: 2rem; margin-bottom: 8px; }
+    .tag {
+      display: inline-block; padding: 5px 10px; border-radius: 999px;
+      font-size: 0.82rem; background: var(--teal-3);
+      color: var(--teal-1); border: 1px solid var(--border); margin-bottom: 10px;
+    }
+
+    /* ── PANELS ── */
+    .topic-panel { display: none; }
+    .topic-panel.active { display: block; }
+
+    /* ── CARDS ── */
+    .card {
+      background: var(--bg-soft); border: 1px solid var(--border);
+      border-radius: 14px; padding: 18px; margin-bottom: 16px;
+      box-shadow: 0 7px 22px rgba(14,90,82,0.08);
+      animation: riseIn 0.65s ease both;
+      transition: transform .25s ease, box-shadow .25s ease;
+    }
+    .card:hover { transform: translateY(-2px); box-shadow: 0 13px 28px rgba(14,90,82,0.15); }
+
+    /* ── CODE ── */
+    .code {
+      background: var(--code-bg); color: var(--code-text);
+      border-radius: 10px; border: 1px solid #1e5c54;
+      padding: 14px; overflow-x: auto; margin: 10px 0 12px;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.92rem; white-space: pre; line-height: 1.65;
+    }
+    .code .k  { color: #5eead4; font-weight: 700; }          /* Python keywords */
+    .code .fn { color: #60a5fa; font-weight: 700; }          /* function names  */
+    .code .b  { color: #f472b6; font-weight: 700; }          /* builtins: print, int, dict */
+    .code .s  { color: #6ee7b7; }                            /* strings         */
+    .code .n  { color: #fb923c; }                            /* numbers         */
+    .code .c  { color: #6b7280; font-style: italic; }        /* comments        */
+    .code .t  { color: #c084fc; }                            /* types / SQL kw  */
+    .code .kw { color: #5eead4; font-weight: 700; }          /* SQL keywords    */
+
+    /* ── NOTES ── */
+    .note {
+      background: var(--mint); border-left: 4px solid var(--teal-2);
+      padding: 10px 12px; color: var(--muted);
+      margin: 8px 0 10px; border-radius: 6px; font-size: 0.9rem;
+    }
+    .note-amber  { background: var(--amber-bg);  border-left-color: var(--amber);  color: #92400e; }
+    .note-violet { background: var(--violet-bg); border-left-color: var(--violet); color: #4c1d95; }
+    .note-coral  { background: var(--coral-bg);  border-left-color: var(--coral);  color: var(--coral); }
+    .note-green  { background: #f0fdf4; border-left-color: #16a34a; color: #14532d; }
+
+    /* ── TABLE ── */
+    table {
+      width: 100%; border-collapse: collapse;
+      background: #fff; border-radius: 10px;
+      overflow: hidden; border: 1px solid var(--border);
+      font-size: 0.9rem; margin: 10px 0;
+    }
+    th, td { border-bottom: 1px solid #ccf0eb; padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: #d2faf5; color: #0b4b44; }
+    tr:last-child td { border-bottom: none; }
+    td.good { background: #f0fdf4; color: #166534; font-weight: 700; }
+    td.bad  { background: #fef2f2; color: var(--coral); font-style: italic; }
+    td.null { background: #faf5ff; color: #9333ea; font-style: italic; }
+
+    /* ── STEP ROWS ── */
+    .nf-row {
+      display: flex; gap: 12px; align-items: flex-start;
+      background: #f8fffe; border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 14px; margin-bottom: 10px;
+    }
+    .nf-num {
+      font-size: 1.5rem; font-weight: 900;
+      font-family: Consolas, monospace;
+      min-width: 48px; line-height: 1.2;
+    }
+    .nf-text { font-size: 0.9rem; color: var(--muted); }
+    .nf-text strong { color: var(--text); }
+
+    /* ── EXERCISE ── */
+    .exercise-card {
+      border: 1px solid var(--amber-bd);
+      background: linear-gradient(140deg, #fffdf7 0%, #fff9eb 100%);
+      border-radius: 14px; padding: 18px; margin-bottom: 16px;
+    }
+    .exercise-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+    .exercise-q {
+      width: 52px; height: 52px; border-radius: 50%;
+      display: grid; place-items: center;
+      font-size: 1.9rem; font-weight: 800; color: #92400e;
+      background: radial-gradient(circle at 30% 30%, #fde68a 0%, #fbbf24 100%);
+      border: 2px solid #f59e0b;
+      box-shadow: 0 6px 14px rgba(245,158,11,.25); flex-shrink: 0;
+    }
+    .exercise-head h2 { margin: 0 0 4px; color: var(--teal-1); font-size: 1.1rem; }
+    .exercise-sub { color: #7c2d12; font-weight: 700; font-size: .88rem; margin: 0; }
+    .exercise-steps { margin: 8px 0 10px; padding-left: 18px; }
+    .exercise-steps li { color: #374151; margin-bottom: 5px; font-size: .9rem; }
+
+    /* ── HW CARD ── */
+    .hw-card {
+      border: 2px solid var(--teal-2);
+      background: linear-gradient(135deg, #f0fffe 0%, #ede9fe 100%);
+      border-radius: 16px; padding: 22px; margin-bottom: 16px;
+    }
+    .hw-head { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+    .hw-badge {
+      width: 48px; height: 48px; border-radius: 12px;
+      display: grid; place-items: center;
+      font-size: 1rem; font-weight: 900;
+      background: var(--teal-2); color: #fff; flex-shrink: 0;
+    }
+    .hw-badge.amber  { background: var(--amber); }
+    .hw-badge.violet { background: var(--violet); }
+    .hw-head h3 { margin: 0 0 2px; color: var(--teal-1); }
+    .hw-src { color: var(--muted); font-size: .82rem; margin: 0; }
+    .hw-steps { padding-left: 18px; margin: 0; }
+    .hw-steps li { margin-bottom: 6px; font-size: .9rem; color: #374151; }
+
+    /* ── SUBMIT ── */
+    .submit-box {
+      background: linear-gradient(135deg, #ecfdf5 0%, #ede9fe 100%);
+      border: 2px dashed var(--teal-2);
+      border-radius: 16px; padding: 22px;
+      text-align: center; margin-top: 24px;
+    }
+    .submit-box h3 { margin: 0 0 6px; color: var(--teal-1); font-size: 1.1rem; }
+    .submit-what { color: var(--muted); font-size: .88rem; margin-top: 8px; }
+    .submit-what li { margin-bottom: 4px; text-align: left; }
+
+    /* ── COMPARE GRID ── */
+    .compare-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 10px 0;
+    }
+    .compare-grid .code { margin: 0; }
+    .compare-label {
+      font-size: .8rem; font-weight: 700; letter-spacing: .04em;
+      text-transform: uppercase; margin-bottom: 6px;
+    }
+
+    @keyframes riseIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes blobMove {
+      from { transform: translate(0, 0) scale(1); }
+      to   { transform: translate(24px, 18px) scale(1.06); }
+    }
+    @media (max-width: 760px) {
+      .wrap { padding: 14px; }
+      .layout { grid-template-columns: 1fr; }
+      .side-nav { position: static; }
+      h1 { font-size: 1.6rem; }
+      .compare-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- HERO -->
+  <section class="hero">
+    <span class="tag">Lesson 9 — May 17, 2026</span>
+    <h1>Python + SQLite</h1>
+    <p style="color:var(--muted);">We ran SQL from Python using the <strong>db.py</strong> library, learned how <strong>?</strong> placeholders block SQL injection, ran INNER JOINs across employees and departments, and added interactive user input with <strong>try/except</strong> and <strong>PRAGMA foreign_keys</strong>.</p>
+  </section>
+
+  <div class="layout">
+
+    <!-- ── SIDEBAR ── -->
+    <aside class="side-nav" aria-label="Topic navigation">
+      <h2 class="side-title">Lesson 9</h2>
+      <button class="topic-link active" data-target="t-lib">1) db.py Library</button>
+      <button class="topic-link" data-target="t-inject">2) SQL Injection &amp; ?</button>
+      <button class="topic-link" data-target="t-main">3) main.py — CRUD</button>
+      <button class="topic-link" data-target="t-join">4) INNER JOIN in Python</button>
+      <button class="topic-link" data-target="t-interactive">5) Interactive</button>
+      <hr class="side-divider">
+      <div class="side-section-label">Exercise</div>
+      <button class="topic-link" data-target="t-hw">6) Exercise</button>
+      <a class="nav-back" href="../../index.html">&larr; back to sql module</a>
+    </aside>
+
+    <!-- ── MAIN ── -->
+    <main>
+
+      <!-- ══════════════════════════════ -->
+      <!-- PANEL 1 — db.py Library       -->
+      <!-- ══════════════════════════════ -->
+      <section class="topic-panel active" id="t-lib">
+
+        <div class="card">
+          <h2 style="color:var(--teal-2);">The db.py Library</h2>
+          <p style="color:var(--muted);margin-bottom:14px;">Instead of opening and closing a connection in every file, we wrote one <strong>db.py</strong> with three reusable functions. Every other Python file simply imports from it.</p>
+
+          <div class="code"><span class="k">import</span> sqlite3
+
+DB_PATH = <span class="s">"my_sql.db"</span>
+
+<span class="k">def</span> <span class="fn">connect</span>():
+    conn = sqlite3.<span class="fn">connect</span>(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    <span class="k">return</span> conn
+
+<span class="k">def</span> <span class="fn">run_query_select</span>(sql, params=()):
+    conn = <span class="fn">connect</span>()
+    <span class="k">try</span>:
+        cursor = conn.<span class="fn">cursor</span>()
+        cursor.<span class="fn">execute</span>(sql, params)
+        rows = cursor.<span class="fn">fetchall</span>()
+        <span class="k">return</span> [<span class="b">dict</span>(row) <span class="k">for</span> row <span class="k">in</span> rows]
+    <span class="k">finally</span>:
+        conn.<span class="fn">close</span>()
+
+<span class="k">def</span> <span class="fn">run_update_query</span>(sql, params=()):
+    conn = <span class="fn">connect</span>()
+    <span class="k">try</span>:
+        cursor = conn.<span class="fn">cursor</span>()
+        cursor.<span class="fn">execute</span>(sql, params)
+        conn.<span class="fn">commit</span>()
+        <span class="k">return</span> cursor.lastrowid
+    <span class="k">finally</span>:
+        conn.<span class="fn">close</span>()</div>
+
+          <div style="display:grid;gap:10px;margin-top:14px;">
+            <div class="nf-row">
+              <div class="nf-num" style="color:var(--teal-2);font-size:1rem;min-width:130px;">connect()</div>
+              <div class="nf-text">Opens (or creates) the <code>.db</code> file. Sets <code>row_factory = sqlite3.Row</code> so you can read columns by name: <code>row["name"]</code> instead of <code>row[0]</code>.</div>
+            </div>
+            <div class="nf-row">
+              <div class="nf-num" style="color:var(--violet);font-size:.82rem;min-width:130px;">run_query_select()</div>
+              <div class="nf-text">Use for <strong>SELECT</strong>. Returns a <code>list</code> of <code>dict</code>s — easy to loop and print. Closes the connection automatically in <code>finally</code>.</div>
+            </div>
+            <div class="nf-row">
+              <div class="nf-num" style="color:var(--amber);font-size:.78rem;min-width:130px;">run_update_query()</div>
+              <div class="nf-text">Use for <strong>INSERT / UPDATE / DELETE / CREATE</strong>. Calls <code>commit()</code> to save changes to disk. Returns <code>lastrowid</code> of any INSERT.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>How to Import</h2>
+          <div class="code"><span class="k">from</span> db <span class="k">import</span> run_query_select, run_update_query</div>
+          <div class="note">Both <code>db.py</code> and <code>main.py</code> must be in the <strong>same folder</strong>. Python finds <code>db.py</code> by its filename, no path needed.</div>
+        </div>
+
+      </section>
+
+      <!-- ══════════════════════════════ -->
+      <!-- PANEL 2 — SQL Injection & ?   -->
+      <!-- ══════════════════════════════ -->
+      <section class="topic-panel" id="t-inject">
+
+        <div class="card">
+          <h2 style="color:var(--coral);">SQL Injection — The Attack</h2>
+          <p style="color:var(--muted);margin-bottom:12px;">If you build a SQL string by pasting user input directly into it, an attacker can type SQL code as their "answer" and break your query logic entirely.</p>
+
+          <p style="font-weight:700;color:var(--coral);margin-bottom:6px;">❌ Dangerous — string concatenation:</p>
+          <div class="code"><span class="c"># user types:  ' OR '1'='1</span>
+name = <span class="b">input</span>(<span class="s">"Enter name: "</span>)
+
+sql = <span class="s">"SELECT * FROM users WHERE name = '"</span> + name + <span class="s">"'"</span>
+<span class="c"># becomes: SELECT * FROM users WHERE name = '' OR '1'='1'</span>
+<span class="c"># the WHERE is always TRUE — attacker sees every row!</span></div>
+
+          <div class="note note-coral"><strong>The problem:</strong> user input merges into the SQL text. The <code>' OR '1'='1</code> trick makes the condition always true — all rows are returned.</div>
+        </div>
+
+        <div class="card">
+          <h2 style="color:var(--teal-2);">The Fix — ? Placeholders</h2>
+          <p style="color:var(--muted);margin-bottom:12px;">Replace string building with <strong>?</strong> markers and pass the values as a separate tuple. SQLite handles all escaping for you — the value can never become SQL code.</p>
+
+          <p style="font-weight:700;color:var(--teal-2);margin-bottom:6px;">✅ Safe — ? placeholders:</p>
+          <div class="code">name = <span class="b">input</span>(<span class="s">"Enter name: "</span>)
+
+rows = <span class="fn">run_query_select</span>(
+    <span class="s">"SELECT * FROM users WHERE name = ?"</span>,
+    (name,)   <span class="c"># trailing comma makes it a tuple!</span>
+)</div>
+
+          <div class="note note-green"><strong>How it works:</strong> the SQL text and the value travel <em>separately</em> to SQLite. The <code>?</code> is never interpreted as SQL — it is always just data. Injection is impossible.</div>
+
+          <h3 style="margin-top:16px;">Multiple Parameters</h3>
+          <div class="code"><span class="c"># One ? per value, filled left-to-right</span>
+<span class="fn">run_update_query</span>(
+    <span class="s">"INSERT INTO students (name, grade) VALUES (?, ?)"</span>,
+    (<span class="s">"Alice"</span>, <span class="n">90</span>)
+)</div>
+          <div class="note">Always use a tuple — even for a single value write <code>(value,)</code> with the trailing comma, otherwise Python won't treat it as a tuple.</div>
+        </div>
+
+      </section>
+
+      <!-- ══════════════════════════════ -->
+      <!-- PANEL 3 — main.py CRUD        -->
+      <!-- ══════════════════════════════ -->
+      <section class="topic-panel" id="t-main">
+
+        <div class="card">
+          <h2 style="color:var(--teal-2);">main.py — Students CRUD</h2>
+          <p style="color:var(--muted);margin-bottom:12px;">We ran all four SQL operations from Python: CREATE, INSERT, SELECT, UPDATE, DELETE.</p>
+
+          <div class="code"><span class="k">from</span> db <span class="k">import</span> run_query_select, run_update_query
+
+<span class="c"># ── version check</span>
+<span class="b">print</span>(<span class="fn">run_query_select</span>(<span class="s">"SELECT sqlite_version() AS version"</span>))
+
+<span class="c"># ── create table</span>
+<span class="fn">run_update_query</span>(<span class="s">"""CREATE TABLE IF NOT EXISTS students (
+    id    INTEGER PRIMARY KEY AUTOINCREMENT,
+    name  TEXT    NOT NULL,
+    grade INTEGER NOT NULL)"""</span>)
+
+<span class="c"># ── insert rows using ? params</span>
+<span class="fn">run_update_query</span>(<span class="s">"INSERT INTO students (name, grade) VALUES (?, ?)"</span>, (<span class="s">"Alice"</span>, <span class="n">90</span>))
+<span class="fn">run_update_query</span>(<span class="s">"INSERT INTO students (name, grade) VALUES (?, ?)"</span>, (<span class="s">"Bob"</span>,   <span class="n">82</span>))
+<span class="fn">run_update_query</span>(<span class="s">"INSERT INTO students (name, grade) VALUES (?, ?)"</span>, (<span class="s">"Carol"</span>, <span class="n">95</span>))
+
+<span class="c"># ── select all</span>
+students = <span class="fn">run_query_select</span>(<span class="s">"SELECT * FROM students"</span>)
+<span class="k">for</span> s <span class="k">in</span> students:
+    <span class="b">print</span>(s)
+
+<span class="c"># ── update</span>
+<span class="fn">run_update_query</span>(<span class="s">"UPDATE students SET grade = ? WHERE name = ?"</span>, (<span class="n">88</span>, <span class="s">"Bob"</span>))
+
+<span class="c"># ── delete</span>
+<span class="fn">run_update_query</span>(<span class="s">"DELETE FROM students WHERE name = ?"</span>, (<span class="s">"Alice"</span>,))
+
+<span class="c"># ── select again — sorted</span>
+students = <span class="fn">run_query_select</span>(<span class="s">"SELECT * FROM students ORDER BY grade DESC"</span>)
+<span class="k">for</span> s <span class="k">in</span> students:
+    <span class="b">print</span>(s)</div>
+
+          <h3 style="margin-top:16px;">Table after all operations</h3>
+          <table>
+            <thead><tr><th>id</th><th>name</th><th>grade</th></tr></thead>
+            <tbody>
+              <tr><td>2</td><td>Bob</td><td class="good">88</td></tr>
+              <tr><td>3</td><td>Carol</td><td class="good">95</td></tr>
+            </tbody>
+          </table>
+          <div class="note">Alice was deleted. Bob's grade was updated from 82 → 88. The final SELECT returns them sorted by grade DESC.</div>
+        </div>
+
+      </section>
+
+      <!-- ══════════════════════════════ -->
+      <!-- PANEL 4 — INNER JOIN          -->
+      <!-- ══════════════════════════════ -->
+      <section class="topic-panel" id="t-join">
+
+        <div class="card">
+          <h2 style="color:var(--teal-2);">INNER JOIN in Python — inner_ex.py</h2>
+          <p style="color:var(--muted);margin-bottom:12px;">We took the INNER JOIN query from Lesson 5 and ran it from Python. Two related tables, one FOREIGN KEY, one join.</p>
+
+          <h3>Step 1 — Enable Foreign Keys</h3>
+          <div class="code"><span class="fn">run_update_query</span>(<span class="s">"PRAGMA foreign_keys = ON;"</span>)</div>
+          <div class="note note-amber"><strong>Required:</strong> SQLite does not enforce FOREIGN KEY constraints by default. Run <code>PRAGMA foreign_keys = ON</code> before any INSERT that depends on a FK.</div>
+
+          <h3 style="margin-top:16px;">Step 2 — Create Tables</h3>
+          <div class="code"><span class="fn">run_update_query</span>(<span class="s">"""DROP TABLE IF EXISTS employees;"""</span>)
+<span class="fn">run_update_query</span>(<span class="s">"""DROP TABLE IF EXISTS departments;"""</span>)
+
+<span class="fn">run_update_query</span>(<span class="s">"""CREATE TABLE departments (
+  id        INTEGER PRIMARY KEY,
+  dept_name TEXT    NOT NULL,
+  budget    REAL    NOT NULL
+);"""</span>)
+
+<span class="fn">run_update_query</span>(<span class="s">"""CREATE TABLE employees (
+  id      INTEGER PRIMARY KEY,
+  name    TEXT    NOT NULL,
+  dept_id INTEGER,
+  salary  REAL    NOT NULL,
+  FOREIGN KEY (dept_id) REFERENCES departments(id)
+);"""</span>)</div>
+
+          <h3 style="margin-top:16px;">Step 3 — Insert Data</h3>
+          <div class="code"><span class="fn">run_update_query</span>(<span class="s">"INSERT INTO departments VALUES (?, ?, ?)"</span>, (<span class="n">1</span>, <span class="s">"Engineering"</span>, <span class="n">150000</span>))
+<span class="fn">run_update_query</span>(<span class="s">"INSERT INTO departments VALUES (?, ?, ?)"</span>, (<span class="n">2</span>, <span class="s">"Marketing"</span>,   <span class="n">80000</span>))
+<span class="fn">run_update_query</span>(<span class="s">"INSERT INTO departments VALUES (?, ?, ?)"</span>, (<span class="n">3</span>, <span class="s">"Sales"</span>,       <span class="n">60000</span>))
+<span class="fn">run_update_query</span>(<span class="s">"INSERT INTO departments VALUES (?, ?, ?)"</span>, (<span class="n">4</span>, <span class="s">"HR"</span>,          <span class="n">45000</span>))
+
+<span class="fn">run_update_query</span>(<span class="s">"INSERT INTO employees VALUES (?, ?, ?, ?)"</span>, (<span class="n">1</span>, <span class="s">"Dana"</span>, <span class="n">1</span>,    <span class="n">9000</span>))
+<span class="fn">run_update_query</span>(<span class="s">"INSERT INTO employees VALUES (?, ?, ?, ?)"</span>, (<span class="n">2</span>, <span class="s">"Omar"</span>, <span class="n">2</span>,    <span class="n">7200</span>))
+<span class="fn">run_update_query</span>(<span class="s">"INSERT INTO employees VALUES (?, ?, ?, ?)"</span>, (<span class="n">3</span>, <span class="s">"Noa"</span>,  <span class="n">1</span>,    <span class="n">6800</span>))
+<span class="fn">run_update_query</span>(<span class="s">"INSERT INTO employees VALUES (?, ?, ?, ?)"</span>, (<span class="n">4</span>, <span class="s">"Liam"</span>, <span class="n">3</span>,    <span class="n">5500</span>))
+<span class="fn">run_update_query</span>(<span class="s">"INSERT INTO employees VALUES (?, ?, ?, ?)"</span>, (<span class="n">5</span>, <span class="s">"Rina"</span>, <span class="k">None</span>, <span class="n">6000</span>))
+<span class="fn">run_update_query</span>(<span class="s">"INSERT INTO employees VALUES (?, ?, ?, ?)"</span>, (<span class="n">6</span>, <span class="s">"Kai"</span>,  <span class="n">2</span>,    <span class="n">7000</span>))</div>
+          <div class="note">Rina has <code>dept_id = None</code> (NULL) — she has no department and will <strong>not</strong> appear in INNER JOIN results.</div>
+
+          <h3 style="margin-top:16px;">Step 4 — Run INNER JOIN</h3>
+          <div class="code">result = <span class="fn">run_query_select</span>(<span class="s">"""
+    SELECT e.name, d.dept_name, d.budget
+    FROM   employees e
+    INNER JOIN departments d ON e.dept_id = d.id
+"""</span>)
+
+<span class="k">for</span> e <span class="k">in</span> result:
+    <span class="b">print</span>(e)</div>
+
+          <h3 style="margin-top:16px;">Output</h3>
+          <table>
+            <thead><tr><th>name</th><th>dept_name</th><th>budget</th></tr></thead>
+            <tbody>
+              <tr><td>Dana</td><td>Engineering</td><td>150000</td></tr>
+              <tr><td>Omar</td><td>Marketing</td><td>80000</td></tr>
+              <tr><td>Noa</td><td>Engineering</td><td>150000</td></tr>
+              <tr><td>Liam</td><td>Sales</td><td>60000</td></tr>
+              <tr><td>Kai</td><td>Marketing</td><td>80000</td></tr>
+            </tbody>
+          </table>
+          <div class="note">Rina is missing — her <code>dept_id</code> is NULL so the INNER JOIN finds no matching department row for her.</div>
+        </div>
+
+      </section>
+
+      <!-- ══════════════════════════════ -->
+      <!-- PANEL 5 — Interactive         -->
+      <!-- ══════════════════════════════ -->
+      <section class="topic-panel" id="t-interactive">
+
+        <div class="card">
+          <h2 style="color:var(--teal-2);">Making It Interactive</h2>
+          <p style="color:var(--muted);margin-bottom:14px;">We extended <code>inner_ex.py</code> with four features. Python's <code>input()</code> pauses and waits for the user to type.</p>
+
+          <div style="display:grid;gap:10px;">
+            <div class="nf-row">
+              <div class="nf-num" style="color:var(--teal-2);">①</div>
+              <div class="nf-text"><strong>Input employee details → INSERT</strong><br>Prompt for id, name, dept_id, salary, then insert the new row.</div>
+            </div>
+            <div class="nf-row">
+              <div class="nf-num" style="color:var(--violet);">②</div>
+              <div class="nf-text"><strong>Search for employee by ID</strong><br>Prompt for an id and SELECT that specific row. Print "not found" if nothing comes back.</div>
+            </div>
+            <div class="nf-row">
+              <div class="nf-num" style="color:var(--amber);">③</div>
+              <div class="nf-text"><strong>try / except</strong><br>Wrap the INSERT in a <code>try</code> block. If it fails (e.g. FK violation, duplicate id) the <code>except</code> prints a message instead of crashing.</div>
+            </div>
+            <div class="nf-row">
+              <div class="nf-num" style="color:#16a34a;">④</div>
+              <div class="nf-text"><strong>PRAGMA foreign_keys = ON</strong><br>Without this, SQLite silently accepts invalid dept_id values. With it, the INSERT raises an error that <code>except</code> catches.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>① Input → INSERT</h2>
+          <div class="code">id      = <span class="b">int</span>(<span class="b">input</span>(<span class="s">"What is your id?     "</span>))
+name    =     <span class="b">input</span>(<span class="s">"What is your name?   "</span>)
+dept_id =     <span class="b">input</span>(<span class="s">"What is your dept_id?"</span>)
+salary  =     <span class="b">input</span>(<span class="s">"What is your salary? "</span>)
+
+<span class="fn">run_update_query</span>(
+    <span class="s">"INSERT INTO employees VALUES (?, ?, ?, ?)"</span>,
+    (id, name, dept_id, salary)
+)</div>
+          <div class="note note-amber"><code>input()</code> always returns a <strong>string</strong>. We wrap <code>id</code> in <code>int()</code> so it is stored as an integer, not text.</div>
+        </div>
+
+        <div class="card">
+          <h2>② Search by ID</h2>
+          <div class="code">id = <span class="b">int</span>(<span class="b">input</span>(<span class="s">"Which employee id to search? "</span>))
+
+result = <span class="fn">run_query_select</span>(
+    <span class="s">"SELECT * FROM employees WHERE id = ?"</span>,
+    (id,)
+)
+
+<span class="k">if</span> result:
+    <span class="b">print</span>(result[<span class="n">0</span>])
+<span class="k">else</span>:
+    <span class="b">print</span>(<span class="s">"No employee found with that id."</span>)</div>
+          <div class="note"><code>run_query_select</code> always returns a list. If nothing matches, the list is empty — so <code>if result</code> is <code>False</code>.</div>
+        </div>
+
+        <div class="card">
+          <h2>③ try / except</h2>
+          <div class="code">id      = <span class="b">int</span>(<span class="b">input</span>(<span class="s">"What is your id?     "</span>))
+name    =     <span class="b">input</span>(<span class="s">"What is your name?   "</span>)
+dept_id =     <span class="b">input</span>(<span class="s">"What is your dept_id?"</span>)
+salary  =     <span class="b">input</span>(<span class="s">"What is your salary? "</span>)
+
+<span class="k">try</span>:
+    <span class="fn">run_update_query</span>(
+        <span class="s">"INSERT INTO employees VALUES (?, ?, ?, ?)"</span>,
+        (id, name, dept_id, salary)
+    )
+    <span class="b">print</span>(<span class="s">"Employee added successfully!"</span>)
+<span class="k">except</span> <span class="b">Exception</span> <span class="k">as</span> e:
+    <span class="b">print</span>(<span class="s">"Failed to insert:"</span>, e)</div>
+          <div class="note note-violet"><strong>When does except run?</strong> If you enter a <code>dept_id</code> that doesn't exist in <code>departments</code> while PRAGMA is ON, SQLite raises <em>FOREIGN KEY constraint failed</em>. The <code>except</code> block catches it and prints the message — the program doesn't crash.</div>
+        </div>
+
+        <div class="card">
+          <h2>④ PRAGMA foreign_keys = ON</h2>
+          <div class="code"><span class="fn">run_update_query</span>(<span class="s">"PRAGMA foreign_keys = ON;"</span>)</div>
+
+          <div style="display:grid;gap:8px;margin-top:12px;">
+            <div class="note note-coral">❌ <strong>Without PRAGMA:</strong> inserting an employee with <code>dept_id = 99</code> (no such department) silently succeeds — bad data in, no error out.</div>
+            <div class="note note-green">✅ <strong>With PRAGMA:</strong> SQLite checks the foreign key and raises <em>FOREIGN KEY constraint failed</em> — the <code>try/except</code> catches it cleanly.</div>
+          </div>
+          <div class="note" style="margin-top:10px;">Run this line <strong>before</strong> any INSERT that depends on a FK. Put it near the top of <code>inner_ex.py</code>, right after your imports.</div>
+        </div>
+
+      </section>
+
+      <!-- ══════════════════════════════ -->
+      <!-- PANEL 6 — Exercise            -->
+      <!-- ══════════════════════════════ -->
+      <section class="topic-panel" id="t-hw">
+
+        <div class="exercise-card">
+          <div class="exercise-head">
+            <div class="exercise-q">✏</div>
+            <div>
+              <p class="exercise-sub">Exercise</p>
+              <h2>Library Database in Python</h2>
+            </div>
+          </div>
+          <p style="color:var(--muted);margin-bottom:10px;">You are given the SQL below. Your job is to run it all from Python using <code>db.py</code>.</p>
+          <ol class="exercise-steps">
+            <li>Create a new folder <code>library_app/</code> and copy <code>db.py</code> into it.</li>
+            <li>Create <code>main.py</code>. Run the two CREATE TABLE statements using <code>run_update_query()</code>.</li>
+            <li>Insert all rows using <code>run_update_query()</code> with <strong>? parameters</strong> — no f-strings.</li>
+            <li>Run <code>SELECT * FROM books</code> and print each book's title using <code>row["title"]</code>.</li>
+            <li>Add a WHERE clause to show only books published after 1960.</li>
+            <li>Write an INNER JOIN to print: <em>title — author name</em> (e.g. <em>1984 — George Orwell</em>).</li>
+            <li>Add <code>input()</code> to let the user add a new book. Wrap the INSERT in try/except.</li>
+          </ol>
+        </div>
+
+        <div class="hw-card">
+          <div class="hw-head">
+            <div class="hw-badge">SQL</div>
+            <div>
+              <h3>Tables to Create</h3>
+              <p class="hw-src">Run each with <code>run_update_query()</code></p>
+            </div>
+          </div>
+          <div class="code"><span class="t">CREATE TABLE</span> authors (
+  id      <span class="t">INTEGER PRIMARY KEY</span>,
+  name    <span class="t">TEXT    NOT NULL</span>,
+  country <span class="t">TEXT</span>
+);
+
+<span class="t">CREATE TABLE</span> books (
+  id        <span class="t">INTEGER PRIMARY KEY</span>,
+  title     <span class="t">TEXT    NOT NULL</span>,
+  author_id <span class="t">INTEGER</span>,
+  year      <span class="t">INTEGER NOT NULL</span>,
+  <span class="t">FOREIGN KEY</span> (author_id) <span class="t">REFERENCES</span> authors(id)
+);</div>
+        </div>
+
+        <div class="hw-card">
+          <div class="hw-head">
+            <div class="hw-badge amber">INS</div>
+            <div>
+              <h3>Data to Insert</h3>
+              <p class="hw-src">Use these INSERT statements as the SQL inside <code>run_update_query(sql, params)</code></p>
+            </div>
+          </div>
+          <div class="code"><span class="t">INSERT INTO</span> authors <span class="t">VALUES</span> (<span class="n">1</span>, <span class="s">'George Orwell'</span>,         <span class="s">'UK'</span>);
+<span class="t">INSERT INTO</span> authors <span class="t">VALUES</span> (<span class="n">2</span>, <span class="s">'Gabriel García Márquez'</span>, <span class="s">'Colombia'</span>);
+<span class="t">INSERT INTO</span> authors <span class="t">VALUES</span> (<span class="n">3</span>, <span class="s">'Haruki Murakami'</span>,        <span class="s">'Japan'</span>);
+
+<span class="t">INSERT INTO</span> books <span class="t">VALUES</span> (<span class="n">1</span>, <span class="s">'1984'</span>,                          <span class="n">1</span>, <span class="n">1949</span>);
+<span class="t">INSERT INTO</span> books <span class="t">VALUES</span> (<span class="n">2</span>, <span class="s">'Animal Farm'</span>,                   <span class="n">1</span>, <span class="n">1945</span>);
+<span class="t">INSERT INTO</span> books <span class="t">VALUES</span> (<span class="n">3</span>, <span class="s">'One Hundred Years of Solitude'</span>, <span class="n">2</span>, <span class="n">1967</span>);
+<span class="t">INSERT INTO</span> books <span class="t">VALUES</span> (<span class="n">4</span>, <span class="s">'Norwegian Wood'</span>,                <span class="n">3</span>, <span class="n">1987</span>);</div>
+        </div>
+
+        <div class="hw-card">
+          <div class="hw-head">
+            <div class="hw-badge violet">SEL</div>
+            <div>
+              <h3>Query 1 — SELECT all books</h3>
+              <p class="hw-src">Print each book's title using <code>row["title"]</code></p>
+            </div>
+          </div>
+          <div class="code"><span class="t">SELECT</span> * <span class="t">FROM</span> books;</div>
+        </div>
+
+        <div class="hw-card">
+          <div class="hw-head">
+            <div class="hw-badge violet">WHR</div>
+            <div>
+              <h3>Query 2 — Books after 1960</h3>
+              <p class="hw-src">Add a WHERE clause to filter by year</p>
+            </div>
+          </div>
+          <div class="code"><span class="t">SELECT</span> * <span class="t">FROM</span> books
+<span class="t">WHERE</span> year &gt; <span class="n">1960</span>;</div>
+        </div>
+
+        <div class="hw-card">
+          <div class="hw-head">
+            <div class="hw-badge violet">JOI</div>
+            <div>
+              <h3>Query 3 — INNER JOIN books + authors</h3>
+              <p class="hw-src">Print: <em>1984 — George Orwell</em></p>
+            </div>
+          </div>
+          <div class="code"><span class="t">SELECT</span> b.title, a.name
+<span class="t">FROM</span>   books b
+<span class="t">INNER JOIN</span> authors a <span class="t">ON</span> b.author_id = a.id;</div>
+        </div>
+
+        <div class="hw-card">
+          <div class="hw-head">
+            <div class="hw-badge violet">INP</div>
+            <div>
+              <h3>Query 4 — Add a book from user input</h3>
+              <p class="hw-src">Use <code>input()</code> + try/except</p>
+            </div>
+          </div>
+          <div class="code"><span class="t">INSERT INTO</span> books (title, author_id, year)
+<span class="t">VALUES</span> (<span class="s">&#39;...&#39;</span>, ?, ?);</div>
+          <div class="note" style="margin-top:8px;">Get the title, author_id, and year from the user with <code>input()</code>. Wrap the INSERT in <code>try/except</code> and print the error if it fails.</div>
+        </div>
+
+        <div class="submit-box">
+          <h3>Submit Your Work</h3>
+          <p style="color:var(--muted);">Send your <code>main.py</code> file.</p>
+          <div class="submit-email">pythonai211225+sql9@gmail.com</div>
+          <ul class="submit-what">
+            <li>CREATE TABLE + INSERT using ? params</li>
+            <li>SELECT all books + SELECT with WHERE year &gt; 1960</li>
+            <li>INNER JOIN showing title and author name</li>
+            <li>Interactive input with try / except</li>
+          </ul>
+        </div>
+
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<script>
+  const buttons = [...document.querySelectorAll('.topic-link[data-target]')];
+  const panels  = [...document.querySelectorAll('.topic-panel')];
+  function show(id) {
+    panels.forEach(p  => p.classList.toggle('active', p.id === id));
+    buttons.forEach(b => b.classList.toggle('active', b.dataset.target === id));
+  }
+  buttons.forEach(b => b.addEventListener('click', () => show(b.dataset.target)));
+</script>
+</body>
+</html>
