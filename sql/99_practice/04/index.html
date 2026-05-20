@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Eurovision Query Lab</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:#050d1a; --surface:#0d1b2e; --surface2:#122236; --border:#1a2f4a;
+    --accent:#06b6d4; --green:#3ecf8e; --red:#f56565; --amber:#f6ad55;
+    --violet:#c084fc; --gold:#fbbf24; --text:#e2e8f0; --muted:#7fa8c9;
+    --mono:'Space Mono',monospace; --sans:'DM Sans',sans-serif;
+  }
+  body { background:var(--bg); color:var(--text); font-family:var(--sans); min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:2rem 1rem 4rem; overflow-x:hidden; }
+  ::-webkit-scrollbar { width:6px; height:6px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:var(--border); border-radius:99px; }
+  .schema-code { scrollbar-width:none; }
+  .schema-code::-webkit-scrollbar { display:none; }
+  .result-table-wrap { scrollbar-width:none; }
+  .result-table-wrap::-webkit-scrollbar { display:none; }
+  .q-code { scrollbar-width:none; }
+  .q-code::-webkit-scrollbar { display:none; }
+  body::before { content:''; position:fixed; inset:0; background-image:linear-gradient(rgba(6,182,212,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(6,182,212,.03) 1px,transparent 1px); background-size:48px 48px; pointer-events:none; z-index:0; }
+  .container { position:relative; z-index:1; width:100%; max-width:780px; }
+
+  /* Header */
+  header { text-align:center; margin-bottom:1.75rem; animation:fadeDown .6s ease both; }
+  .logo { font-family:var(--mono); font-size:11px; letter-spacing:4px; color:var(--accent); text-transform:uppercase; margin-bottom:.75rem; }
+  h1 { font-size:2rem; font-weight:600; letter-spacing:-.5px; background:linear-gradient(135deg,#e2e8f0 30%,var(--gold)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+  .subtitle { color:var(--muted); font-size:14px; margin-top:.4rem; }
+  .topic-pills { display:flex; justify-content:center; flex-wrap:wrap; gap:6px; margin-top:14px; }
+  .topic-pill { font-size:11px; font-family:var(--mono); padding:3px 10px; border-radius:99px; background:rgba(6,182,212,.08); border:1px solid rgba(6,182,212,.2); color:var(--accent); }
+
+  /* Schema panel */
+  .schema-panel { background:var(--surface); border:1px solid var(--border); border-radius:16px; margin-bottom:1.5rem; overflow:hidden; transition:border-color .25s,box-shadow .25s; animation:fadeDown .6s .05s ease both; }
+  .schema-panel:hover { border-color:rgba(6,182,212,.35); box-shadow:0 0 0 1px rgba(6,182,212,.1),0 8px 32px rgba(0,0,0,.3); }
+  .schema-header { display:flex; align-items:center; justify-content:space-between; padding:14px 20px; cursor:pointer; user-select:none; gap:12px; }
+  .schema-title { display:flex; align-items:center; gap:10px; font-family:var(--mono); font-size:12px; color:var(--accent); letter-spacing:.8px; text-transform:uppercase; flex-wrap:wrap; }
+  .tbl-badge { font-size:10px; padding:2px 8px; border-radius:99px; background:rgba(192,132,252,.1); border:1px solid rgba(192,132,252,.25); color:var(--violet); }
+  .schema-actions { display:flex; align-items:center; gap:10px; flex-shrink:0; }
+  .copy-btn { font-family:var(--mono); font-size:11px; padding:5px 13px; border-radius:6px; border:1px solid var(--border); background:rgba(6,182,212,.07); color:var(--accent); cursor:pointer; transition:background .2s,border-color .2s; white-space:nowrap; }
+  .copy-btn:hover { background:rgba(6,182,212,.16); border-color:var(--accent); }
+  .copy-btn.copied { background:rgba(62,207,142,.12); border-color:var(--green); color:var(--green); }
+  .schema-chevron { font-size:11px; color:var(--muted); transition:transform .25s; }
+  .schema-chevron.open { transform:rotate(180deg); }
+  .schema-body { border-top:1px solid var(--border); padding:16px 20px; }
+  .schema-tables-row { display:flex; gap:16px; flex-wrap:wrap; }
+  .schema-table-block { flex:1; min-width:240px; }
+  .schema-table-name { font-family:var(--mono); font-size:11px; color:var(--violet); letter-spacing:1px; text-transform:uppercase; margin-bottom:7px; }
+  .schema-code { background:#040c17; border:1px solid var(--border); border-radius:8px; padding:12px 14px; font-family:var(--mono); font-size:12px; color:#93c5fd; line-height:1.75; white-space:pre; overflow-x:auto; }
+
+  /* Progress */
+  .progress-wrap { margin-bottom:1.5rem; animation:fadeDown .6s .1s ease both; }
+  .progress-meta { display:flex; justify-content:space-between; font-size:12px; color:var(--muted); font-family:var(--mono); margin-bottom:8px; }
+  .progress-track { height:3px; background:var(--border); border-radius:99px; overflow:hidden; }
+  .progress-fill { height:100%; background:linear-gradient(90deg,var(--gold),#f59e0b,#8b5cf6); border-radius:99px; transition:width .5s cubic-bezier(.4,0,.2,1); }
+
+  /* Question card */
+  .q-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:2rem; animation:slideUp .45s ease both; position:relative; overflow:hidden; }
+  .q-card::before { content:''; position:absolute; top:-60px; right:-60px; width:180px; height:180px; background:rgba(251,191,36,.08); border-radius:50%; pointer-events:none; filter:blur(40px); }
+  .q-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem; gap:8px; flex-wrap:wrap; }
+  .q-topic { font-size:11px; font-family:var(--mono); color:var(--muted); letter-spacing:1px; text-transform:uppercase; }
+  .q-meta { display:flex; align-items:center; gap:10px; }
+  .q-number { font-family:var(--mono); font-size:11px; color:var(--muted); }
+  .badge { font-size:11px; font-family:var(--mono); padding:3px 10px; border-radius:99px; font-weight:700; letter-spacing:.5px; }
+  .badge.easy   { background:rgba(62,207,142,.1);  color:var(--green); border:1px solid rgba(62,207,142,.2); }
+  .badge.medium { background:rgba(246,173,85,.1);  color:var(--amber); border:1px solid rgba(246,173,85,.2); }
+  .badge.hard   { background:rgba(245,101,101,.1); color:var(--red);   border:1px solid rgba(245,101,101,.2); }
+  .badge.bonus  { background:rgba(251,191,36,.1);  color:var(--gold);  border:1px solid rgba(251,191,36,.3); }
+  .q-text { font-size:17px; font-weight:400; line-height:1.75; color:var(--text); margin-bottom:1.25rem; direction:rtl; text-align:right; }
+  .q-text code   { font-family:var(--mono); font-size:14px; color:#93c5fd; background:rgba(147,197,253,.08); padding:1px 6px; border-radius:4px; direction:ltr; unicode-bidi:embed; }
+  .q-text strong { color:#f0f4f8; }
+
+  /* Result box */
+  .result-box { background:#040c17; border:1px solid rgba(6,182,212,.2); border-radius:12px; padding:.85rem 1.1rem 1.1rem; margin-bottom:1.25rem; }
+  .result-box-header { display:flex; align-items:center; gap:8px; margin-bottom:.75rem; }
+  .result-box-label { font-family:var(--mono); font-size:10px; color:var(--accent); letter-spacing:1.5px; text-transform:uppercase; }
+  .result-row-count { font-family:var(--mono); font-size:10px; color:var(--muted); margin-left:auto; }
+  /* Scalar */
+  .scalar-result { display:flex; align-items:baseline; gap:14px; padding:.25rem 0 .25rem .25rem; }
+  .scalar-value { font-family:var(--mono); font-size:52px; font-weight:700; color:var(--gold); line-height:1; }
+  .scalar-meta  { font-family:var(--mono); font-size:11px; color:var(--muted); line-height:1.8; }
+  /* Table */
+  .result-table-wrap { overflow-x:auto; }
+  .result-table { width:100%; border-collapse:collapse; font-size:12.5px; font-family:var(--mono); }
+  .result-table th { color:var(--accent); text-align:left; padding:4px 12px 8px; border-bottom:1px solid rgba(6,182,212,.15); font-size:10px; letter-spacing:.8px; text-transform:uppercase; white-space:nowrap; }
+  .result-table td { padding:7px 12px; border-bottom:1px solid rgba(26,47,74,.45); color:#e2e8f0; white-space:nowrap; max-width:240px; overflow:hidden; text-overflow:ellipsis; }
+  .result-table tr:last-child td { border-bottom:none; }
+  .result-table .more-row td { color:var(--muted); font-style:italic; font-size:11px; }
+
+  /* Solution toggle */
+  .sol-toggle-btn { display:flex; align-items:center; gap:8px; width:100%; padding:10px 16px; background:rgba(6,182,212,.06); border:1px solid rgba(6,182,212,.18); border-radius:8px; color:var(--accent); font-family:var(--mono); font-size:12px; letter-spacing:.5px; cursor:pointer; transition:background .2s,border-color .2s; text-align:left; }
+  .sol-toggle-btn:hover { background:rgba(6,182,212,.13); border-color:var(--accent); }
+  .sol-toggle-btn.open  { color:var(--muted); border-color:var(--border); background:rgba(255,255,255,.02); }
+  .sol-wrap { overflow:hidden; max-height:0; transition:max-height .35s ease; }
+  .sol-wrap.open { max-height:600px; }
+  .sol-inner { padding-top:.85rem; }
+  .sol-label { font-family:var(--mono); font-size:10px; color:var(--green); letter-spacing:1.2px; text-transform:uppercase; margin-bottom:6px; opacity:.85; }
+  .q-code { background:#040c17; border:1px solid var(--border); border-radius:10px; padding:1rem 1.25rem; font-family:var(--mono); font-size:13px; color:#93c5fd; line-height:1.7; white-space:pre; overflow-x:auto; direction:ltr; }
+
+  /* Nav */
+  .nav { display:flex; justify-content:space-between; align-items:center; margin-top:1.5rem; animation:fadeDown .5s .2s ease both; }
+  .btn { padding:10px 22px; border-radius:10px; font-size:14px; font-weight:500; cursor:pointer; border:1px solid var(--border); background:var(--surface2); color:var(--text); font-family:var(--sans); transition:background .2s,border-color .2s,transform .1s; }
+  .btn:hover:not(:disabled) { background:var(--surface); border-color:var(--muted); }
+  .btn:disabled { opacity:.3; cursor:default; }
+  .btn.primary { background:var(--gold); border-color:var(--gold); color:#050d1a; font-weight:700; box-shadow:0 0 20px rgba(251,191,36,.25); }
+  .btn.primary:hover:not(:disabled) { background:#fcd34d; border-color:#fcd34d; }
+  .btn:active:not(:disabled) { transform:scale(.97); }
+  .q-counter { font-family:var(--mono); font-size:12px; color:var(--muted); }
+
+  /* Results */
+  .results { text-align:center; padding:3rem 2rem; background:var(--surface); border:1px solid var(--border); border-radius:16px; animation:slideUp .5s ease both; }
+  .results-emoji { font-size:56px; margin-bottom:1rem; }
+  .score-display { font-family:var(--mono); font-size:52px; font-weight:700; background:linear-gradient(135deg,var(--gold),var(--green)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; line-height:1; margin-bottom:.5rem; }
+  .score-label { font-size:15px; color:var(--muted); margin-bottom:2rem; }
+  .restart-btn { padding:12px 32px; background:var(--gold); border:none; border-radius:10px; color:#050d1a; font-size:15px; font-weight:700; cursor:pointer; font-family:var(--sans); box-shadow:0 0 24px rgba(251,191,36,.3); transition:background .2s,transform .1s; }
+  .restart-btn:hover { background:#fcd34d; }
+  .restart-btn:active { transform:scale(.97); }
+  .back-link { display:inline-flex; align-items:center; gap:6px; font-size:13px; color:var(--muted); text-decoration:none; margin-top:20px; font-family:var(--mono); transition:color .2s; }
+  .back-link:hover { color:var(--accent); }
+  .hidden { display:none; }
+
+  /* Intro screen */
+  /* Intro bg video */
+  #intro-view { position:relative; border-radius:16px; overflow:hidden; margin-bottom:1.5rem; }
+  .intro-bg-iframe { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:200%; height:200%; border:none; pointer-events:none; z-index:0; }
+  .intro-video-overlay { position:absolute; inset:0; background:rgba(5,13,26,.72); backdrop-filter:blur(2px); z-index:1; }
+  .intro-content { position:relative; z-index:2; padding:1.5rem 0; }
+  .unmute-overlay { position:fixed; bottom:24px; right:24px; background:rgba(0,0,0,.7); backdrop-filter:blur(6px); border:1px solid rgba(255,255,255,.2); border-radius:99px; padding:8px 20px; color:#fff; font-family:var(--sans); font-size:13px; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:7px; transition:background .2s,opacity .6s; white-space:nowrap; z-index:100; }
+  .unmute-overlay:hover { background:rgba(0,0,0,.9); }
+  .start-btn-wrap { text-align:center; margin-top:1.5rem; }
+  .start-btn { padding:14px 48px; background:var(--gold); border:none; border-radius:12px; color:#050d1a; font-size:17px; font-weight:700; cursor:pointer; font-family:var(--sans); letter-spacing:.3px; box-shadow:0 0 32px rgba(251,191,36,.35); transition:background .2s,transform .1s,box-shadow .2s; }
+  .start-btn:hover { background:#fcd34d; box-shadow:0 0 48px rgba(251,191,36,.5); }
+  .start-btn:active { transform:scale(.97); }
+
+  @keyframes fadeDown { from{opacity:0;transform:translateY(-12px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes slideUp  { from{opacity:0;transform:translateY(18px)}  to{opacity:1;transform:translateY(0)} }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <header>
+    <div class="logo">SQL Practice · Eurovision Lab</div>
+    <h1>🎵 Eurovision Query Lab</h1>
+    <p class="subtitle">ראה את התוצאה · חשוב על השאילתה · חשוף את הפתרון</p>
+    <div class="topic-pills">
+      <span class="topic-pill">SELECT · WHERE</span>
+      <span class="topic-pill">COUNT · MIN · MAX · AVG</span>
+      <span class="topic-pill">GROUP BY · ORDER BY</span>
+      <span class="topic-pill">JOIN</span>
+      <span class="topic-pill">★ Bonus</span>
+    </div>
+  </header>
+
+  <!-- ── Intro Screen ── -->
+  <div id="intro-view">
+    <iframe id="yt-iframe" class="intro-bg-iframe" src="https://www.youtube.com/embed/4MtEKp17kZU?autoplay=1&mute=1&enablejsapi=1&controls=0&modestbranding=1" title="Eurovision" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+    <div class="intro-video-overlay"></div>
+    <div class="intro-content">
+    <div class="schema-panel" style="margin-bottom:0">
+          <div class="schema-header" onclick="toggleSchema()">
+            <div class="schema-title">
+              <span>📊</span><span>Schema Reference</span>
+              <span class="tbl-badge">eurovision_winners</span>
+              <span class="tbl-badge">song_details</span>
+            </div>
+            <div class="schema-actions">
+              <button class="copy-btn" id="copy-btn" onclick="copySQL(event)">📋 Copy Full SQL</button>
+              <span class="schema-chevron open" id="schema-chevron">▲</span>
+            </div>
+          </div>
+          <div class="schema-body" id="schema-body">
+            <div class="schema-tables-row">
+              <div class="schema-table-block">
+                <div class="schema-table-name">eurovision_winners</div>
+                <div class="schema-code">CREATE TABLE eurovision_winners (
+  year         INTEGER PRIMARY KEY,
+  country      TEXT NOT NULL,
+  winner       TEXT NOT NULL,
+  host_country TEXT NOT NULL,
+  song_name    TEXT NOT NULL
+);</div>
+              </div>
+              <div class="schema-table-block">
+                <div class="schema-table-name">song_details</div>
+                <div class="schema-code">CREATE TABLE song_details (
+  year                INTEGER PRIMARY KEY,
+  song_length_seconds INTEGER NOT NULL,
+  solo_performance    BOOLEAN NOT NULL,
+  genre               TEXT NOT NULL,
+  language            TEXT NOT NULL
+);</div>
+              </div>
+            </div>
+          </div>
+        </div>
+    <div class="start-btn-wrap">
+      <button class="start-btn" onclick="startQuiz()">▶ Ready! Let's Go</button>
+    </div>
+    </div><!-- /intro-content -->
+  </div>
+  <div class="unmute-overlay" id="unmute-btn" onclick="unmuteVideo()">🔇 Click to unmute</div>
+
+  <!-- ── Quiz Screen ── -->
+  <div id="quiz-view" class="hidden">
+    <div class="progress-wrap">
+      <div class="progress-meta">
+        <span id="prog-text">1 / 22</span>
+        <span id="prog-pct">פתרונות שנחשפו: 0</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
+    </div>
+
+    <div id="q-view"></div>
+    <div id="result-view" class="hidden"></div>
+
+    <div class="nav" id="nav-bar">
+      <button class="btn" id="btn-back" onclick="go(-1)">← Back</button>
+      <span class="q-counter" id="q-counter">1 / 22</span>
+      <button class="btn primary" id="btn-next" onclick="goNext()">Next →</button>
+    </div>
+  </div>
+
+  <div style="text-align:center">
+    <a href="../../index.html" class="back-link">← Back to SQL Course</a>
+  </div>
+
+</div>
+<script>
+// ── Dataset ────────────────────────────────────────────────────────────────
+const winners = [
+  {year:1956,country:'Switzerland',winner:'Lys Assia',host_country:'Switzerland',song_name:'Refrain'},
+  {year:1957,country:'Netherlands',winner:'Corry Brokken',host_country:'Germany',song_name:'Net als toen'},
+  {year:1958,country:'France',winner:'Andre Claveau',host_country:'Netherlands',song_name:'Dors mon amour'},
+  {year:1959,country:'Netherlands',winner:'Teddy Scholten',host_country:'France',song_name:'Een beetje'},
+  {year:1960,country:'France',winner:'Jacqueline Boyer',host_country:'United Kingdom',song_name:'Tom Pillibi'},
+  {year:1961,country:'Luxembourg',winner:'Jean-Claude Pascal',host_country:'France',song_name:'Nous les amoureux'},
+  {year:1962,country:'France',winner:'Isabelle Aubret',host_country:'Luxembourg',song_name:'Un premier amour'},
+  {year:1963,country:'Denmark',winner:'Grethe and Jorgen Ingmann',host_country:'United Kingdom',song_name:'Dansevise'},
+  {year:1964,country:'Italy',winner:'Gigliola Cinquetti',host_country:'Denmark',song_name:'Non ho leta'},
+  {year:1965,country:'Luxembourg',winner:'France Gall',host_country:'Italy',song_name:'Poupee de cire'},
+  {year:1966,country:'Austria',winner:'Udo Jurgens',host_country:'Luxembourg',song_name:'Merci Cherie'},
+  {year:1967,country:'United Kingdom',winner:'Sandie Shaw',host_country:'Austria',song_name:'Puppet on a String'},
+  {year:1968,country:'Spain',winner:'Massiel',host_country:'United Kingdom',song_name:'La la la'},
+  {year:1969,country:'Spain',winner:'Salome',host_country:'Spain',song_name:'Vivo cantando'},
+  {year:1970,country:'Ireland',winner:'Dana',host_country:'Netherlands',song_name:'All Kinds of Everything'},
+  {year:1971,country:'Monaco',winner:'Severine',host_country:'Ireland',song_name:'Un banc un arbre une rue'},
+  {year:1972,country:'Luxembourg',winner:'Vicky Leandros',host_country:'United Kingdom',song_name:'Apres toi'},
+  {year:1973,country:'Luxembourg',winner:'Anne-Marie David',host_country:'Luxembourg',song_name:'Tu te reconnaitras'},
+  {year:1974,country:'Sweden',winner:'ABBA',host_country:'United Kingdom',song_name:'Waterloo'},
+  {year:1975,country:'Netherlands',winner:'Teach-In',host_country:'Sweden',song_name:'Ding-a-dong'},
+  {year:1976,country:'United Kingdom',winner:'Brotherhood of Man',host_country:'Netherlands',song_name:'Save Your Kisses for Me'},
+  {year:1977,country:'France',winner:'Marie Myriam',host_country:'United Kingdom',song_name:"L'oiseau et l'enfant"},
+  {year:1978,country:'Israel',winner:'Izhar Cohen and the Alphabeta',host_country:'France',song_name:'A-Ba-Ni-Bi'},
+  {year:1979,country:'Israel',winner:'Milk and Honey',host_country:'Israel',song_name:'Hallelujah'},
+  {year:1980,country:'Ireland',winner:'Johnny Logan',host_country:'Netherlands',song_name:"What's Another Year"},
+  {year:1981,country:'United Kingdom',winner:'Bucks Fizz',host_country:'Ireland',song_name:'Making Your Mind Up'},
+  {year:1982,country:'Germany',winner:'Nicole',host_country:'United Kingdom',song_name:'Ein bisschen Frieden'},
+  {year:1983,country:'Luxembourg',winner:'Corinne Hermes',host_country:'Germany',song_name:'Si la vie est cadeau'},
+  {year:1984,country:'Sweden',winner:'Herreys',host_country:'Luxembourg',song_name:'Diggi-Loo Diggi-Ley'},
+  {year:1985,country:'Norway',winner:'Bobbysocks',host_country:'Sweden',song_name:'La det swinge'},
+  {year:1986,country:'Belgium',winner:'Sandra Kim',host_country:'Norway',song_name:"J'aime la vie"},
+  {year:1987,country:'Ireland',winner:'Johnny Logan',host_country:'Belgium',song_name:'Hold Me Now'},
+  {year:1988,country:'Switzerland',winner:'Celine Dion',host_country:'Ireland',song_name:'Ne partez pas sans moi'},
+  {year:1989,country:'Yugoslavia',winner:'Riva',host_country:'Switzerland',song_name:'Rock Me'},
+  {year:1990,country:'Italy',winner:'Toto Cutugno',host_country:'Yugoslavia',song_name:'Insieme 1992'},
+  {year:1991,country:'Sweden',winner:'Carola',host_country:'Italy',song_name:'Fangad av en stormvind'},
+  {year:1992,country:'Ireland',winner:'Linda Martin',host_country:'Sweden',song_name:'Why Me'},
+  {year:1993,country:'Ireland',winner:'Niamh Kavanagh',host_country:'Ireland',song_name:'In Your Eyes'},
+  {year:1994,country:'Ireland',winner:'Paul Harrington and Charlie McGettigan',host_country:'Ireland',song_name:'Rock n Roll Kids'},
+  {year:1995,country:'Norway',winner:'Secret Garden',host_country:'Ireland',song_name:'Nocturne'},
+  {year:1996,country:'Ireland',winner:'Eimear Quinn',host_country:'Norway',song_name:'The Voice'},
+  {year:1997,country:'United Kingdom',winner:'Katrina and the Waves',host_country:'Ireland',song_name:'Love Shine a Light'},
+  {year:1998,country:'Israel',winner:'Dana International',host_country:'United Kingdom',song_name:'Diva'},
+  {year:1999,country:'Sweden',winner:'Charlotte Nilsson',host_country:'Israel',song_name:'Take Me to Your Heaven'},
+  {year:2000,country:'Denmark',winner:'Olsen Brothers',host_country:'Sweden',song_name:'Fly on the Wings of Love'},
+  {year:2001,country:'Estonia',winner:'Tanel Padar Dave Benton and 2XL',host_country:'Denmark',song_name:'Everybody'},
+  {year:2002,country:'Latvia',winner:'Marie N',host_country:'Estonia',song_name:'I Wanna'},
+  {year:2003,country:'Turkey',winner:'Sertab Erener',host_country:'Latvia',song_name:'Everyway That I Can'},
+  {year:2004,country:'Ukraine',winner:'Ruslana',host_country:'Turkey',song_name:'Wild Dances'},
+  {year:2005,country:'Greece',winner:'Helena Paparizou',host_country:'Ukraine',song_name:'My Number One'},
+  {year:2006,country:'Finland',winner:'Lordi',host_country:'Greece',song_name:'Hard Rock Hallelujah'},
+  {year:2007,country:'Serbia',winner:'Marija Serifovic',host_country:'Finland',song_name:'Molitva'},
+  {year:2008,country:'Russia',winner:'Dima Bilan',host_country:'Serbia',song_name:'Believe'},
+  {year:2009,country:'Norway',winner:'Alexander Rybak',host_country:'Russia',song_name:'Fairytale'},
+  {year:2010,country:'Germany',winner:'Lena',host_country:'Norway',song_name:'Satellite'},
+  {year:2011,country:'Azerbaijan',winner:'Ell and Nikki',host_country:'Germany',song_name:'Running Scared'},
+  {year:2012,country:'Sweden',winner:'Loreen',host_country:'Azerbaijan',song_name:'Euphoria'},
+  {year:2013,country:'Denmark',winner:'Emmelie de Forest',host_country:'Sweden',song_name:'Only Teardrops'},
+  {year:2014,country:'Austria',winner:'Conchita Wurst',host_country:'Denmark',song_name:'Rise Like a Phoenix'},
+  {year:2015,country:'Sweden',winner:'Mans Zelmerlow',host_country:'Austria',song_name:'Heroes'},
+  {year:2016,country:'Ukraine',winner:'Jamala',host_country:'Sweden',song_name:'1944'},
+  {year:2017,country:'Portugal',winner:'Salvador Sobral',host_country:'Ukraine',song_name:'Amar pelos dois'},
+  {year:2018,country:'Israel',winner:'Netta',host_country:'Portugal',song_name:'Toy'},
+  {year:2019,country:'Netherlands',winner:'Duncan Laurence',host_country:'Israel',song_name:'Arcade'},
+  {year:2021,country:'Italy',winner:'Maneskin',host_country:'Netherlands',song_name:'Zitti e buoni'},
+  {year:2022,country:'Ukraine',winner:'Kalush Orchestra',host_country:'Italy',song_name:'Stefania'},
+  {year:2023,country:'Sweden',winner:'Loreen',host_country:'United Kingdom',song_name:'Tattoo'},
+  {year:2024,country:'Switzerland',winner:'Nemo',host_country:'Sweden',song_name:'The Code'},
+];
+
+const detailsArr = [
+  {year:1956,secs:180,solo:true, genre:'Chanson',   lang:'French'},
+  {year:1957,secs:180,solo:true, genre:'Chanson',   lang:'Dutch'},
+  {year:1958,secs:195,solo:true, genre:'Chanson',   lang:'French'},
+  {year:1959,secs:165,solo:true, genre:'Schlager',  lang:'Dutch'},
+  {year:1960,secs:190,solo:true, genre:'Chanson',   lang:'French'},
+  {year:1961,secs:195,solo:true, genre:'Chanson',   lang:'French'},
+  {year:1962,secs:210,solo:true, genre:'Chanson',   lang:'French'},
+  {year:1963,secs:190,solo:false,genre:'Pop',       lang:'Danish'},
+  {year:1964,secs:175,solo:true, genre:'Pop',       lang:'Italian'},
+  {year:1965,secs:175,solo:true, genre:'Pop',       lang:'French'},
+  {year:1966,secs:200,solo:true, genre:'Chanson',   lang:'German'},
+  {year:1967,secs:160,solo:true, genre:'Pop',       lang:'English'},
+  {year:1968,secs:185,solo:true, genre:'Pop',       lang:'Spanish'},
+  {year:1969,secs:180,solo:false,genre:'Pop',       lang:'Spanish'},
+  {year:1970,secs:190,solo:true, genre:'Pop',       lang:'English'},
+  {year:1971,secs:180,solo:true, genre:'Chanson',   lang:'French'},
+  {year:1972,secs:185,solo:true, genre:'Pop',       lang:'French'},
+  {year:1973,secs:190,solo:true, genre:'Pop',       lang:'French'},
+  {year:1974,secs:170,solo:false,genre:'Pop',       lang:'English'},
+  {year:1975,secs:170,solo:false,genre:'Pop',       lang:'English'},
+  {year:1976,secs:165,solo:false,genre:'Pop',       lang:'English'},
+  {year:1977,secs:170,solo:true, genre:'Pop',       lang:'French'},
+  {year:1978,secs:185,solo:false,genre:'Pop',       lang:'Hebrew'},
+  {year:1979,secs:180,solo:false,genre:'Pop',       lang:'Hebrew'},
+  {year:1980,secs:175,solo:true, genre:'Pop',       lang:'English'},
+  {year:1981,secs:165,solo:false,genre:'Pop',       lang:'English'},
+  {year:1982,secs:165,solo:true, genre:'Pop',       lang:'German'},
+  {year:1983,secs:175,solo:true, genre:'Pop',       lang:'French'},
+  {year:1984,secs:165,solo:false,genre:'Pop',       lang:'Swedish'},
+  {year:1985,secs:170,solo:false,genre:'Pop',       lang:'Norwegian'},
+  {year:1986,secs:175,solo:true, genre:'Pop',       lang:'French'},
+  {year:1987,secs:180,solo:true, genre:'Pop',       lang:'English'},
+  {year:1988,secs:185,solo:true, genre:'Pop',       lang:'French'},
+  {year:1989,secs:185,solo:false,genre:'Pop',       lang:'Serbo-Croatian'},
+  {year:1990,secs:170,solo:true, genre:'Pop',       lang:'Italian'},
+  {year:1991,secs:180,solo:true, genre:'Pop',       lang:'Swedish'},
+  {year:1992,secs:180,solo:true, genre:'Pop',       lang:'English'},
+  {year:1993,secs:180,solo:true, genre:'Pop',       lang:'English'},
+  {year:1994,secs:195,solo:false,genre:'Pop',       lang:'English'},
+  {year:1995,secs:180,solo:false,genre:'Classical', lang:'English'},
+  {year:1996,secs:175,solo:true, genre:'Pop',       lang:'English'},
+  {year:1997,secs:175,solo:false,genre:'Pop',       lang:'English'},
+  {year:1998,secs:175,solo:true, genre:'Pop',       lang:'English'},
+  {year:1999,secs:180,solo:true, genre:'Pop',       lang:'English'},
+  {year:2000,secs:180,solo:false,genre:'Pop',       lang:'English'},
+  {year:2001,secs:175,solo:false,genre:'Pop',       lang:'English'},
+  {year:2002,secs:185,solo:true, genre:'Pop',       lang:'English'},
+  {year:2003,secs:180,solo:true, genre:'Pop',       lang:'English'},
+  {year:2004,secs:185,solo:false,genre:'Pop',       lang:'English'},
+  {year:2005,secs:180,solo:true, genre:'Pop',       lang:'English'},
+  {year:2006,secs:180,solo:false,genre:'Hard Rock', lang:'English'},
+  {year:2007,secs:180,solo:true, genre:'Pop',       lang:'Serbian'},
+  {year:2008,secs:180,solo:true, genre:'Pop',       lang:'English'},
+  {year:2009,secs:180,solo:true, genre:'Pop',       lang:'English'},
+  {year:2010,secs:175,solo:true, genre:'Pop',       lang:'English'},
+  {year:2011,secs:185,solo:false,genre:'Pop',       lang:'English'},
+  {year:2012,secs:175,solo:true, genre:'Pop',       lang:'English'},
+  {year:2013,secs:175,solo:true, genre:'Pop',       lang:'English'},
+  {year:2014,secs:185,solo:true, genre:'Pop',       lang:'English'},
+  {year:2015,secs:180,solo:true, genre:'Pop',       lang:'English'},
+  {year:2016,secs:180,solo:true, genre:'Pop',       lang:'English'},
+  {year:2017,secs:175,solo:true, genre:'Ballad',    lang:'Portuguese'},
+  {year:2018,secs:175,solo:true, genre:'Pop',       lang:'English'},
+  {year:2019,secs:175,solo:true, genre:'Pop',       lang:'English'},
+  {year:2021,secs:175,solo:false,genre:'Rock',      lang:'English'},
+  {year:2022,secs:180,solo:false,genre:'Folk-Rap',  lang:'Ukrainian'},
+  {year:2023,secs:175,solo:true, genre:'Pop',       lang:'English'},
+  {year:2024,secs:180,solo:true, genre:'Pop',       lang:'English'},
+];
+
+const dMap   = {};
+detailsArr.forEach(d => { dMap[d.year] = d; });
+const joined = winners.map(w => ({ ...w, ...dMap[w.year] }));
+
+const FULL_SQL = `CREATE TABLE eurovision_winners (
+    year INTEGER PRIMARY KEY, country TEXT NOT NULL,
+    winner TEXT NOT NULL, host_country TEXT NOT NULL, song_name TEXT NOT NULL
+);
+INSERT INTO eurovision_winners VALUES
+(1956,'Switzerland','Lys Assia','Switzerland','Refrain'),
+(1957,'Netherlands','Corry Brokken','Germany','Net als toen'),
+(1958,'France','Andre Claveau','Netherlands','Dors mon amour'),
+(1959,'Netherlands','Teddy Scholten','France','Een beetje'),
+(1960,'France','Jacqueline Boyer','United Kingdom','Tom Pillibi'),
+(1961,'Luxembourg','Jean-Claude Pascal','France','Nous les amoureux'),
+(1962,'France','Isabelle Aubret','Luxembourg','Un premier amour'),
+(1963,'Denmark','Grethe and Jorgen Ingmann','United Kingdom','Dansevise'),
+(1964,'Italy','Gigliola Cinquetti','Denmark','Non ho leta'),
+(1965,'Luxembourg','France Gall','Italy','Poupee de cire'),
+(1966,'Austria','Udo Jurgens','Luxembourg','Merci Cherie'),
+(1967,'United Kingdom','Sandie Shaw','Austria','Puppet on a String'),
+(1968,'Spain','Massiel','United Kingdom','La la la'),
+(1969,'Spain','Salome','Spain','Vivo cantando'),
+(1970,'Ireland','Dana','Netherlands','All Kinds of Everything'),
+(1971,'Monaco','Severine','Ireland','Un banc un arbre une rue'),
+(1972,'Luxembourg','Vicky Leandros','United Kingdom','Apres toi'),
+(1973,'Luxembourg','Anne-Marie David','Luxembourg','Tu te reconnaitras'),
+(1974,'Sweden','ABBA','United Kingdom','Waterloo'),
+(1975,'Netherlands','Teach-In','Sweden','Ding-a-dong'),
+(1976,'United Kingdom','Brotherhood of Man','Netherlands','Save Your Kisses for Me'),
+(1977,'France','Marie Myriam','United Kingdom','Loiseau et lenfant'),
+(1978,'Israel','Izhar Cohen and the Alphabeta','France','A-Ba-Ni-Bi'),
+(1979,'Israel','Milk and Honey','Israel','Hallelujah'),
+(1980,'Ireland','Johnny Logan','Netherlands','Whats Another Year'),
+(1981,'United Kingdom','Bucks Fizz','Ireland','Making Your Mind Up'),
+(1982,'Germany','Nicole','United Kingdom','Ein bisschen Frieden'),
+(1983,'Luxembourg','Corinne Hermes','Germany','Si la vie est cadeau'),
+(1984,'Sweden','Herreys','Luxembourg','Diggi-Loo Diggi-Ley'),
+(1985,'Norway','Bobbysocks','Sweden','La det swinge'),
+(1986,'Belgium','Sandra Kim','Norway','Jaime la vie'),
+(1987,'Ireland','Johnny Logan','Belgium','Hold Me Now'),
+(1988,'Switzerland','Celine Dion','Ireland','Ne partez pas sans moi'),
+(1989,'Yugoslavia','Riva','Switzerland','Rock Me'),
+(1990,'Italy','Toto Cutugno','Yugoslavia','Insieme 1992'),
+(1991,'Sweden','Carola','Italy','Fangad av en stormvind'),
+(1992,'Ireland','Linda Martin','Sweden','Why Me'),
+(1993,'Ireland','Niamh Kavanagh','Ireland','In Your Eyes'),
+(1994,'Ireland','Paul Harrington and Charlie McGettigan','Ireland','Rock n Roll Kids'),
+(1995,'Norway','Secret Garden','Ireland','Nocturne'),
+(1996,'Ireland','Eimear Quinn','Norway','The Voice'),
+(1997,'United Kingdom','Katrina and the Waves','Ireland','Love Shine a Light'),
+(1998,'Israel','Dana International','United Kingdom','Diva'),
+(1999,'Sweden','Charlotte Nilsson','Israel','Take Me to Your Heaven'),
+(2000,'Denmark','Olsen Brothers','Sweden','Fly on the Wings of Love'),
+(2001,'Estonia','Tanel Padar Dave Benton and 2XL','Denmark','Everybody'),
+(2002,'Latvia','Marie N','Estonia','I Wanna'),
+(2003,'Turkey','Sertab Erener','Latvia','Everyway That I Can'),
+(2004,'Ukraine','Ruslana','Turkey','Wild Dances'),
+(2005,'Greece','Helena Paparizou','Ukraine','My Number One'),
+(2006,'Finland','Lordi','Greece','Hard Rock Hallelujah'),
+(2007,'Serbia','Marija Serifovic','Finland','Molitva'),
+(2008,'Russia','Dima Bilan','Serbia','Believe'),
+(2009,'Norway','Alexander Rybak','Russia','Fairytale'),
+(2010,'Germany','Lena','Norway','Satellite'),
+(2011,'Azerbaijan','Ell and Nikki','Germany','Running Scared'),
+(2012,'Sweden','Loreen','Azerbaijan','Euphoria'),
+(2013,'Denmark','Emmelie de Forest','Sweden','Only Teardrops'),
+(2014,'Austria','Conchita Wurst','Denmark','Rise Like a Phoenix'),
+(2015,'Sweden','Mans Zelmerlow','Austria','Heroes'),
+(2016,'Ukraine','Jamala','Sweden','1944'),
+(2017,'Portugal','Salvador Sobral','Ukraine','Amar pelos dois'),
+(2018,'Israel','Netta','Portugal','Toy'),
+(2019,'Netherlands','Duncan Laurence','Israel','Arcade'),
+(2021,'Italy','Maneskin','Netherlands','Zitti e buoni'),
+(2022,'Ukraine','Kalush Orchestra','Italy','Stefania'),
+(2023,'Sweden','Loreen','United Kingdom','Tattoo'),
+(2024,'Switzerland','Nemo','Sweden','The Code');
+
+CREATE TABLE song_details (
+    year INTEGER PRIMARY KEY, song_length_seconds INTEGER NOT NULL,
+    solo_performance BOOLEAN NOT NULL, genre TEXT NOT NULL, language TEXT NOT NULL
+);
+INSERT INTO song_details VALUES
+(1956,180,TRUE,'Chanson','French'),(1957,180,TRUE,'Chanson','Dutch'),
+(1958,195,TRUE,'Chanson','French'),(1959,165,TRUE,'Schlager','Dutch'),
+(1960,190,TRUE,'Chanson','French'),(1961,195,TRUE,'Chanson','French'),
+(1962,210,TRUE,'Chanson','French'),(1963,190,FALSE,'Pop','Danish'),
+(1964,175,TRUE,'Pop','Italian'),(1965,175,TRUE,'Pop','French'),
+(1966,200,TRUE,'Chanson','German'),(1967,160,TRUE,'Pop','English'),
+(1968,185,TRUE,'Pop','Spanish'),(1969,180,FALSE,'Pop','Spanish'),
+(1970,190,TRUE,'Pop','English'),(1971,180,TRUE,'Chanson','French'),
+(1972,185,TRUE,'Pop','French'),(1973,190,TRUE,'Pop','French'),
+(1974,170,FALSE,'Pop','English'),(1975,170,FALSE,'Pop','English'),
+(1976,165,FALSE,'Pop','English'),(1977,170,TRUE,'Pop','French'),
+(1978,185,FALSE,'Pop','Hebrew'),(1979,180,FALSE,'Pop','Hebrew'),
+(1980,175,TRUE,'Pop','English'),(1981,165,FALSE,'Pop','English'),
+(1982,165,TRUE,'Pop','German'),(1983,175,TRUE,'Pop','French'),
+(1984,165,FALSE,'Pop','Swedish'),(1985,170,FALSE,'Pop','Norwegian'),
+(1986,175,TRUE,'Pop','French'),(1987,180,TRUE,'Pop','English'),
+(1988,185,TRUE,'Pop','French'),(1989,185,FALSE,'Pop','Serbo-Croatian'),
+(1990,170,TRUE,'Pop','Italian'),(1991,180,TRUE,'Pop','Swedish'),
+(1992,180,TRUE,'Pop','English'),(1993,180,TRUE,'Pop','English'),
+(1994,195,FALSE,'Pop','English'),(1995,180,FALSE,'Classical','English'),
+(1996,175,TRUE,'Pop','English'),(1997,175,FALSE,'Pop','English'),
+(1998,175,TRUE,'Pop','English'),(1999,180,TRUE,'Pop','English'),
+(2000,180,FALSE,'Pop','English'),(2001,175,FALSE,'Pop','English'),
+(2002,185,TRUE,'Pop','English'),(2003,180,TRUE,'Pop','English'),
+(2004,185,FALSE,'Pop','English'),(2005,180,TRUE,'Pop','English'),
+(2006,180,FALSE,'Hard Rock','English'),(2007,180,TRUE,'Pop','Serbian'),
+(2008,180,TRUE,'Pop','English'),(2009,180,TRUE,'Pop','English'),
+(2010,175,TRUE,'Pop','English'),(2011,185,FALSE,'Pop','English'),
+(2012,175,TRUE,'Pop','English'),(2013,175,TRUE,'Pop','English'),
+(2014,185,TRUE,'Pop','English'),(2015,180,TRUE,'Pop','English'),
+(2016,180,TRUE,'Pop','English'),(2017,175,TRUE,'Ballad','Portuguese'),
+(2018,175,TRUE,'Pop','English'),(2019,175,TRUE,'Pop','English'),
+(2021,175,FALSE,'Rock','English'),(2022,180,FALSE,'Folk-Rap','Ukrainian'),
+(2023,175,TRUE,'Pop','English'),(2024,180,TRUE,'Pop','English');`;
+
+// ── Questions ──────────────────────────────────────────────────────────────
+const questions = [
+  { topic:'WHERE · COUNT', level:'easy',
+    q:'כמה פעמים זכתה <code>Israel</code> באירוויזיון?',
+    getResult() {
+      const v = winners.filter(w => w.country==='Israel').length;
+      return {type:'scalar', value:v, sub:"COUNT(*) — WHERE country = 'Israel'"};
+    },
+    solution:`SELECT COUNT(*)\nFROM eurovision_winners\nWHERE country = 'Israel';`
+  },
+  { topic:'WHERE · COUNT', level:'easy',
+    q:'כמה פעמים המדינה המארחת זכתה בתחרות האירוויזיון?',
+    getResult() {
+      const v = winners.filter(w => w.country===w.host_country).length;
+      return {type:'scalar', value:v, sub:'COUNT(*) — WHERE country = host_country'};
+    },
+    solution:`SELECT COUNT(*)\nFROM eurovision_winners\nWHERE country = host_country;`
+  },
+  { topic:'SELECT · WHERE', level:'easy',
+    q:'באילו שנים זכתה ישראל באירוויזיון?',
+    getResult() {
+      const rows = winners.filter(w=>w.country==='Israel').map(w=>({year:w.year}));
+      return {type:'table', cols:['year'], rows};
+    },
+    solution:`SELECT year\nFROM eurovision_winners\nWHERE country = 'Israel';`
+  },
+  { topic:'MIN · song_details', level:'easy',
+    q:'מה אורך השיר <strong>הקצר ביותר</strong> שזכה? (בשניות)',
+    getResult() {
+      const v = Math.min(...detailsArr.map(d=>d.secs));
+      return {type:'scalar', value:v, sub:'MIN(song_length_seconds) in seconds'};
+    },
+    solution:`SELECT MIN(song_length_seconds)\nFROM song_details;`
+  },
+  { topic:'JOIN · SELECT *', level:'easy',
+    q:'הצג את <strong>כל</strong> פרטי המדינות והשירים ביחד (כל העמודות משתי הטבלאות).',
+    getResult() {
+      const SHOW=5, cols=['year','country','winner','song_name','secs','genre','lang'];
+      const rows=joined.slice(0,SHOW).map(r=>({year:r.year,country:r.country,winner:r.winner,song_name:r.song_name,secs:r.secs,genre:r.genre,lang:r.lang}));
+      return {type:'table', cols:['year','country','winner','song_name','song_length_seconds','genre','language'],
+        rows:joined.slice(0,SHOW).map(r=>({'year':r.year,'country':r.country,'winner':r.winner,'song_name':r.song_name,'song_length_seconds':r.secs,'genre':r.genre,'language':r.lang})),
+        more:joined.length-SHOW};
+    },
+    solution:`SELECT *\nFROM eurovision_winners\nJOIN song_details\n  ON eurovision_winners.year = song_details.year;`
+  },
+  { topic:'JOIN · WHERE', level:'medium',
+    q:'אילו שירים זכו עם <strong>ביצוע סולו</strong>?',
+    getResult() {
+      const SHOW=6, all=joined.filter(r=>r.solo);
+      return {type:'table', cols:['year','song_name'],
+        rows:all.slice(0,SHOW).map(r=>({year:r.year,song_name:r.song_name})),
+        more:all.length-SHOW};
+    },
+    solution:`SELECT song_name\nFROM eurovision_winners\nJOIN song_details\n  ON eurovision_winners.year = song_details.year\nWHERE solo_performance = TRUE;`
+  },
+  { topic:'WHERE · COUNT', level:'easy',
+    q:'כמה שירים שניצחו היו בשפה <strong>האנגלית</strong>?',
+    getResult() {
+      const v = detailsArr.filter(d=>d.lang==='English').length;
+      return {type:'scalar', value:v, sub:"COUNT(*) — WHERE language = 'English'"};
+    },
+    solution:`SELECT COUNT(*)\nFROM song_details\nWHERE language = 'English';`
+  },
+  { topic:'AVG · song_details', level:'easy',
+    q:'מה האורך <strong>הממוצע</strong> של שירי האירוויזיון? (בשניות)',
+    getResult() {
+      const v = (detailsArr.reduce((a,d)=>a+d.secs,0)/detailsArr.length).toFixed(2);
+      return {type:'scalar', value:v, sub:'AVG(song_length_seconds) in seconds'};
+    },
+    solution:`SELECT AVG(song_length_seconds)\nFROM song_details;`
+  },
+  { topic:'SELECT · WHERE', level:'easy',
+    q:'באיזה שנה זכה השיר <code>Hallelujah</code>?',
+    getResult() {
+      const rows=winners.filter(w=>w.song_name==='Hallelujah').map(w=>({year:w.year,country:w.country,winner:w.winner}));
+      return {type:'table', cols:['year','country','winner'], rows};
+    },
+    solution:`SELECT year\nFROM eurovision_winners\nWHERE song_name = 'Hallelujah';`
+  },
+  { topic:'MIN · WHERE · solo_performance', level:'medium',
+    q:'באיזו שנה היה הזוכה <strong>הראשון</strong> שביצע הופעה שאינה סולו?',
+    getResult() {
+      const v = Math.min(...detailsArr.filter(d=>!d.solo).map(d=>d.year));
+      return {type:'scalar', value:v, sub:'MIN(year) — WHERE solo_performance = FALSE'};
+    },
+    solution:`SELECT MIN(year)\nFROM song_details\nWHERE solo_performance = FALSE;`
+  },
+  { topic:'MAX · JOIN · ORDER BY', level:'medium',
+    q:'מה היה אורך השיר <strong>הארוך ביותר</strong> שזכה? מה שמו?',
+    getResult() {
+      const maxLen=Math.max(...detailsArr.map(d=>d.secs));
+      const r=joined.find(x=>x.secs===maxLen);
+      return {type:'table', cols:['song_name','year','country','song_length_seconds'],
+        rows:[{song_name:r.song_name,year:r.year,country:r.country,song_length_seconds:maxLen}]};
+    },
+    solution:`SELECT song_name, year, country, song_length_seconds\nFROM eurovision_winners\nJOIN song_details\n  ON eurovision_winners.year = song_details.year\nORDER BY song_length_seconds DESC\nLIMIT 1;`
+  },
+  { topic:'GROUP BY · COUNT · ORDER BY · LIMIT  ★', level:'bonus',
+    q:'★ איזו מדינה זכתה <strong>הכי הרבה פעמים</strong>?',
+    getResult() {
+      const c={};
+      winners.forEach(w=>{c[w.country]=(c[w.country]||0)+1;});
+      const [country,wins]=Object.entries(c).sort((a,b)=>b[1]-a[1])[0];
+      return {type:'table', cols:['country','wins'], rows:[{country,wins}]};
+    },
+    solution:`SELECT country, COUNT(*) AS wins\nFROM eurovision_winners\nGROUP BY country\nORDER BY wins DESC\nLIMIT 1;`
+  },
+  { topic:'GROUP BY · COUNT · ORDER BY  ★', level:'bonus',
+    q:'★ מיין את כל המדינות הזוכות בסדר יורד לפי <strong>מספר הזכיות</strong>.',
+    getResult() {
+      const c={};
+      winners.forEach(w=>{c[w.country]=(c[w.country]||0)+1;});
+      const SHOW=7, all=Object.entries(c).sort((a,b)=>b[1]-a[1]);
+      return {type:'table', cols:['country','wins'],
+        rows:all.slice(0,SHOW).map(([country,wins])=>({country,wins})),
+        more:all.length-SHOW};
+    },
+    solution:`SELECT country, COUNT(*) AS wins\nFROM eurovision_winners\nGROUP BY country\nORDER BY wins DESC;`
+  },
+  { topic:'JOIN · WHERE · language', level:'medium',
+    q:'הדפס את כל השירים שזכו והיו בשפה <strong>הצרפתית</strong>.',
+    getResult() {
+      const rows=joined.filter(r=>r.lang==='French').map(r=>({year:r.year,song_name:r.song_name,country:r.country}));
+      return {type:'table', cols:['year','song_name','country'], rows};
+    },
+    solution:`SELECT song_name\nFROM eurovision_winners\nJOIN song_details\n  ON eurovision_winners.year = song_details.year\nWHERE language = 'French';`
+  },
+  { topic:'MIN · MAX · WHERE', level:'medium',
+    q:'מתי ישראל זכתה <strong>פעם ראשונה</strong>? מתי <strong>פעם אחרונה</strong>?',
+    getResult() {
+      const years=winners.filter(w=>w.country==='Israel').map(w=>w.year);
+      return {type:'table', cols:['MIN(year)','MAX(year)'],
+        rows:[{'MIN(year)':Math.min(...years),'MAX(year)':Math.max(...years)}]};
+    },
+    solution:`SELECT MIN(year), MAX(year)\nFROM eurovision_winners\nWHERE country = 'Israel';`
+  },
+  { topic:'JOIN · ORDER BY DESC', level:'medium',
+    q:'הדפס שם שיר, מדינה, שנה ואורך — ממוין לפי <strong>אורך מהארוך לקצר</strong>.',
+    getResult() {
+      const SHOW=5, sorted=[...joined].sort((a,b)=>b.secs-a.secs);
+      return {type:'table', cols:['song_name','country','year','song_length_seconds'],
+        rows:sorted.slice(0,SHOW).map(r=>({song_name:r.song_name,country:r.country,year:r.year,song_length_seconds:r.secs})),
+        more:sorted.length-SHOW};
+    },
+    solution:`SELECT song_name, country, year, song_length_seconds\nFROM eurovision_winners\nJOIN song_details\n  ON eurovision_winners.year = song_details.year\nORDER BY song_length_seconds DESC;`
+  },
+  { topic:'JOIN · Subquery · AVG  ★', level:'bonus',
+    q:'★ מצא מדינות שבהן השיר המנצח היה <strong>ארוך מהממוצע</strong>.',
+    getResult() {
+      const avg=detailsArr.reduce((s,d)=>s+d.secs,0)/detailsArr.length;
+      const SHOW=6, all=joined.filter(r=>r.secs>avg).sort((a,b)=>b.secs-a.secs);
+      return {type:'table', cols:['country','year','song_length_seconds'],
+        rows:all.slice(0,SHOW).map(r=>({country:r.country,year:r.year,song_length_seconds:r.secs})),
+        more:all.length-SHOW};
+    },
+    solution:`SELECT country, song_length_seconds\nFROM eurovision_winners\nJOIN song_details\n  ON eurovision_winners.year = song_details.year\nWHERE song_length_seconds > (\n  SELECT AVG(song_length_seconds)\n  FROM song_details\n);`
+  },
+  { topic:'JOIN · WHERE · ORDER BY · LIMIT', level:'hard',
+    q:'מה השיר עם <strong>הביצוע הסולו הקצר ביותר</strong>?',
+    getResult() {
+      const r=[...joined].filter(x=>x.solo).sort((a,b)=>a.secs-b.secs)[0];
+      return {type:'table', cols:['song_name','country','year','song_length_seconds'],
+        rows:[{song_name:r.song_name,country:r.country,year:r.year,song_length_seconds:r.secs}]};
+    },
+    solution:`SELECT song_name\nFROM eurovision_winners\nJOIN song_details\n  ON eurovision_winners.year = song_details.year\nWHERE solo_performance = TRUE\nORDER BY song_length_seconds ASC\nLIMIT 1;`
+  },
+  { topic:'JOIN · GROUP BY · AVG', level:'hard',
+    q:'הדפס כל מדינה ואת <strong>ממוצע אורך השירים</strong> שלה.',
+    getResult() {
+      const byC={};
+      joined.forEach(r=>{(byC[r.country]=byC[r.country]||[]).push(r.secs);});
+      const SHOW=6, all=Object.entries(byC)
+        .map(([c,ls])=>({country:c,'AVG(song_length_seconds)':(ls.reduce((a,b)=>a+b,0)/ls.length).toFixed(1)}))
+        .sort((a,b)=>a.country.localeCompare(b.country));
+      return {type:'table', cols:['country','AVG(song_length_seconds)'],
+        rows:all.slice(0,SHOW), more:all.length-SHOW};
+    },
+    solution:`SELECT country, AVG(song_length_seconds)\nFROM eurovision_winners\nJOIN song_details\n  ON eurovision_winners.year = song_details.year\nGROUP BY country;`
+  },
+  { topic:'WHERE NOT · COUNT', level:'medium',
+    q:'כמה שירים שניצחו <strong>לא</strong> היו בשפה האנגלית?',
+    getResult() {
+      const v=detailsArr.filter(d=>d.lang!=='English').length;
+      return {type:'scalar', value:v, sub:"COUNT(*) — WHERE language != 'English'"};
+    },
+    solution:`SELECT COUNT(*)\nFROM song_details\nWHERE language != 'English';`
+  },
+  { topic:'COUNT DISTINCT · genre', level:'medium',
+    q:'כמה סוגי <code>genre</code> שונים הגיעו לאירוויזיון?',
+    getResult() {
+      const genres=[...new Set(detailsArr.map(d=>d.genre))].sort();
+      const rows=genres.map(g=>({genre:g, count:detailsArr.filter(d=>d.genre===g).length}));
+      return {type:'table', cols:['genre','count'], rows,
+        note:`COUNT(DISTINCT genre) = ${genres.length}`};
+    },
+    solution:`SELECT COUNT(DISTINCT genre)\nFROM song_details;`
+  },
+  { topic:'WHERE · ORDER BY · LIMIT  ★', level:'bonus',
+    q:'★ מי <strong>הזמר/ת האחרון/ה</strong> מטעם ישראל באירוויזיון?',
+    getResult() {
+      const r=[...winners].filter(w=>w.country==='Israel').sort((a,b)=>b.year-a.year)[0];
+      return {type:'table', cols:['winner','year','song_name'],
+        rows:[{winner:r.winner,year:r.year,song_name:r.song_name}]};
+    },
+    solution:`SELECT winner\nFROM eurovision_winners\nWHERE country = 'Israel'\nORDER BY year DESC\nLIMIT 1;`
+  },
+];
+
+// ── State ──────────────────────────────────────────────────────────────────
+let current  = 0;
+let revealed = new Array(questions.length).fill(false);
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderResult(r) {
+  if (!r) return '';
+  let inner = '';
+  const rowCount = r.type==='table' ? `${(r.rows||[]).length+(r.more||0)} rows` : '1 row';
+
+  if (r.type === 'scalar') {
+    inner = `<div class="scalar-result">
+      <div class="scalar-value">${esc(String(r.value))}</div>
+      ${r.sub ? `<div class="scalar-meta">${esc(r.sub)}</div>` : ''}
+    </div>`;
+  } else {
+    const cols=r.cols||[], rows=r.rows||[], more=r.more||0, note=r.note||'';
+    const thHTML   = cols.map(c=>`<th>${esc(c)}</th>`).join('');
+    const rowsHTML = rows.map(row=>`<tr>${cols.map(c=>`<td>${esc(row[c]??'')}</td>`).join('')}</tr>`).join('');
+    const moreHTML = more>0 ? `<tr class="more-row"><td colspan="${cols.length}">… ${more} more row${more>1?'s':''}</td></tr>` : '';
+    const noteHTML = note ? `<div style="font-family:var(--mono);font-size:10px;color:var(--green);margin-top:8px;opacity:.85;">${esc(note)}</div>` : '';
+    inner = `<div class="result-table-wrap"><table class="result-table">
+      <thead><tr>${thHTML}</tr></thead>
+      <tbody>${rowsHTML}${moreHTML}</tbody>
+    </table>${noteHTML}</div>`;
+  }
+
+  return `<div class="result-box">
+    <div class="result-box-header">
+      <span class="result-box-label">⚡ Query Result</span>
+      <span class="result-row-count">${rowCount}</span>
+    </div>${inner}
+  </div>`;
+}
+
+// ── Render ─────────────────────────────────────────────────────────────────
+function render() {
+  const q      = questions[current];
+  const isOpen = revealed[current];
+  const result = q.getResult();
+
+  document.getElementById('q-view').innerHTML = `
+    <div class="q-card">
+      <div class="q-top">
+        <span class="q-topic">${q.topic}</span>
+        <div class="q-meta">
+          <span class="q-number">${current+1} / ${questions.length}</span>
+          <span class="badge ${q.level}">${q.level}</span>
+        </div>
+      </div>
+      <div class="q-text">${q.q}</div>
+      ${renderResult(result)}
+      <button class="sol-toggle-btn${isOpen?' open':''}" onclick="toggleSolution()">
+        <span>${isOpen?'▼':'▶'}</span>
+        <span>${isOpen?'Hide SQL Solution':'Show SQL Solution'}</span>
+      </button>
+      <div class="sol-wrap${isOpen?' open':''}">
+        <div class="sol-inner">
+          <div class="sol-label">✓ SQL Solution</div>
+          <div class="q-code">${esc(q.solution)}</div>
+        </div>
+      </div>
+    </div>`;
+
+  document.getElementById('btn-back').disabled = current===0;
+  const isLast  = current===questions.length-1;
+  const btnNext = document.getElementById('btn-next');
+  btnNext.textContent = isLast ? 'See Results' : 'Next →';
+  btnNext.onclick     = isLast ? showResults   : goNext;
+  document.getElementById('q-counter').textContent = `${current+1} / ${questions.length}`;
+  updateProgress();
+}
+
+function toggleSolution() {
+  revealed[current] = !revealed[current];
+  render();
+}
+
+function goNext() { if (current < questions.length-1) { current++; render(); } }
+function go(dir)  { current = Math.max(0, Math.min(questions.length-1, current+dir)); render(); }
+
+function updateProgress() {
+  const rev = revealed.filter(Boolean).length;
+  const pct = Math.round((current+1)/questions.length*100);
+  document.getElementById('prog-text').textContent = `${current+1} / ${questions.length}`;
+  document.getElementById('prog-pct').textContent  = `פתרונות שנחשפו: ${rev}`;
+  document.getElementById('prog-fill').style.width = pct+'%';
+}
+
+function showResults() {
+  const rev = revealed.filter(Boolean).length;
+  const pct = Math.round(rev/questions.length*100);
+  const emoji = pct>=80?'🏆':pct>=50?'🎵':'📚';
+  document.getElementById('q-view').classList.add('hidden');
+  document.getElementById('nav-bar').classList.add('hidden');
+  document.getElementById('result-view').classList.remove('hidden');
+  document.getElementById('result-view').innerHTML = `
+    <div class="results">
+      <div class="results-emoji">${emoji}</div>
+      <div class="score-display">${rev}/${questions.length}</div>
+      <div class="score-label">פתרונות שנחשפו · ${pct}%</div>
+      <p style="color:var(--muted);font-size:14px;margin-bottom:2rem">
+        ${pct>=80?'!SQL מצוין — אתה שולט ב':pct>=50?'כל הכבוד — המשך לתרגל!':'חזור על הפתרונות וחזור לנסות!'}
+      </p>
+      <button class="restart-btn" onclick="restart()">התחל מחדש</button>
+    </div>`;
+}
+
+function restart() {
+  current  = 0;
+  revealed = new Array(questions.length).fill(false);
+  document.getElementById('result-view').classList.add('hidden');
+  document.getElementById('result-view').innerHTML = '';
+  render();
+}
+
+function toggleSchema() {
+  const body=document.getElementById('schema-body'), chev=document.getElementById('schema-chevron');
+  const open = body.style.display!=='none';
+  body.style.display = open?'none':'block';
+  chev.textContent   = open?'▼':'▲';
+  chev.classList.toggle('open', !open);
+}
+
+function copySQL(event) {
+  event.stopPropagation();
+  const btn=document.getElementById('copy-btn');
+  navigator.clipboard.writeText(FULL_SQL)
+    .then(()=>{ btn.textContent='✓ Copied!'; btn.classList.add('copied'); setTimeout(()=>{btn.textContent='📋 Copy Full SQL';btn.classList.remove('copied');},2200); })
+    .catch(()=>{ btn.textContent='⚠ Failed'; setTimeout(()=>{btn.textContent='📋 Copy Full SQL';},2000); });
+}
+
+function unmuteVideo() {
+  const iframe = document.getElementById('yt-iframe');
+  iframe.contentWindow.postMessage(JSON.stringify({event:'command', func:'unMute', args:[]}), '*');
+  iframe.contentWindow.postMessage(JSON.stringify({event:'command', func:'setVolume', args:[100]}), '*');
+  const btn = document.getElementById('unmute-btn');
+  btn.textContent = '🔊 Sound on!';
+  btn.style.pointerEvents = 'none';
+  setTimeout(() => btn.style.opacity = '0', 1200);
+  setTimeout(() => btn.style.display = 'none', 1800);
+}
+
+function startQuiz() {
+  document.getElementById('intro-view').classList.add('hidden');
+  document.getElementById('quiz-view').classList.remove('hidden');
+  render();
+}
+// Don't auto-render — wait for startQuiz()
+</script>
+</body>
+</html>

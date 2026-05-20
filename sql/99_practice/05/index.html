@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Customer Analytics Lab</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:#050d1a; --surface:#0d1b2e; --surface2:#122236; --border:#1a2f4a;
+    --accent:#06b6d4; --green:#3ecf8e; --red:#f56565; --amber:#f6ad55;
+    --violet:#c084fc; --gold:#fbbf24; --text:#e2e8f0; --muted:#7fa8c9;
+    --mono:'Space Mono',monospace; --sans:'DM Sans',sans-serif;
+  }
+  body { background:var(--bg); color:var(--text); font-family:var(--sans); min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:2rem 1rem 4rem; overflow-x:hidden; }
+  ::-webkit-scrollbar { width:6px; height:6px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:var(--border); border-radius:99px; }
+  .schema-code { scrollbar-width:none; }
+  .schema-code::-webkit-scrollbar { display:none; }
+  .result-table-wrap { scrollbar-width:none; }
+  .result-table-wrap::-webkit-scrollbar { display:none; }
+  .q-code { scrollbar-width:none; }
+  .q-code::-webkit-scrollbar { display:none; }
+  body::before { content:''; position:fixed; inset:0; background-image:linear-gradient(rgba(62,207,142,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(62,207,142,.03) 1px,transparent 1px); background-size:48px 48px; pointer-events:none; z-index:0; }
+  .container { position:relative; z-index:1; width:100%; max-width:780px; }
+
+  /* Header */
+  header { text-align:center; margin-bottom:1.75rem; animation:fadeDown .6s ease both; }
+  .logo { font-family:var(--mono); font-size:11px; letter-spacing:4px; color:var(--green); text-transform:uppercase; margin-bottom:.75rem; }
+  h1 { font-size:2rem; font-weight:600; letter-spacing:-.5px; background:linear-gradient(135deg,#e2e8f0 30%,var(--green)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+  .subtitle { color:var(--muted); font-size:14px; margin-top:.4rem; }
+  .topic-pills { display:flex; justify-content:center; flex-wrap:wrap; gap:6px; margin-top:14px; }
+  .topic-pill { font-size:11px; font-family:var(--mono); padding:3px 10px; border-radius:99px; background:rgba(62,207,142,.08); border:1px solid rgba(62,207,142,.2); color:var(--green); }
+
+  /* Schema panel */
+  .schema-panel { background:var(--surface); border:1px solid var(--border); border-radius:16px; margin-bottom:1.5rem; overflow:hidden; transition:border-color .25s,box-shadow .25s; animation:fadeDown .6s .05s ease both; }
+  .schema-panel:hover { border-color:rgba(62,207,142,.35); box-shadow:0 0 0 1px rgba(62,207,142,.1),0 8px 32px rgba(0,0,0,.3); }
+  .schema-header { display:flex; align-items:center; justify-content:space-between; padding:14px 20px; cursor:pointer; user-select:none; gap:12px; }
+  .schema-title { display:flex; align-items:center; gap:10px; font-family:var(--mono); font-size:12px; color:var(--green); letter-spacing:.8px; text-transform:uppercase; flex-wrap:wrap; }
+  .tbl-badge { font-size:10px; padding:2px 8px; border-radius:99px; background:rgba(192,132,252,.1); border:1px solid rgba(192,132,252,.25); color:var(--violet); }
+  .schema-actions { display:flex; align-items:center; gap:10px; flex-shrink:0; }
+  .copy-btn { font-family:var(--mono); font-size:11px; padding:5px 13px; border-radius:6px; border:1px solid var(--border); background:rgba(62,207,142,.07); color:var(--green); cursor:pointer; transition:background .2s,border-color .2s; white-space:nowrap; text-decoration:none; display:inline-flex; align-items:center; gap:4px; }
+  .copy-btn:hover { background:rgba(62,207,142,.16); border-color:var(--green); }
+  .copy-btn.copied { background:rgba(62,207,142,.18); border-color:var(--green); color:var(--green); }
+  .schema-chevron { font-size:11px; color:var(--muted); transition:transform .25s; }
+  .schema-chevron.open { transform:rotate(180deg); }
+  .schema-body { border-top:1px solid var(--border); padding:16px 20px; }
+  .schema-table-block { }
+  .schema-table-name { font-family:var(--mono); font-size:11px; color:var(--violet); letter-spacing:1px; text-transform:uppercase; margin-bottom:7px; }
+  .schema-code { background:#040c17; border:1px solid var(--border); border-radius:8px; padding:12px 14px; font-family:var(--mono); font-size:12px; color:#93c5fd; line-height:1.75; white-space:pre; overflow-x:auto; }
+
+  /* Intro screen */
+  .start-btn-wrap { text-align:center; margin-top:1.5rem; }
+  .start-btn { padding:14px 48px; background:var(--green); border:none; border-radius:12px; color:#050d1a; font-size:17px; font-weight:700; cursor:pointer; font-family:var(--sans); letter-spacing:.3px; box-shadow:0 0 32px rgba(62,207,142,.35); transition:background .2s,transform .1s,box-shadow .2s; }
+  .start-btn:hover { background:#5ff5ae; box-shadow:0 0 48px rgba(62,207,142,.5); }
+  .start-btn:active { transform:scale(.97); }
+
+  /* Progress */
+  .progress-wrap { margin-bottom:1.5rem; animation:fadeDown .6s .1s ease both; }
+  .progress-meta { display:flex; justify-content:space-between; font-size:12px; color:var(--muted); font-family:var(--mono); margin-bottom:8px; }
+  .progress-track { height:3px; background:var(--border); border-radius:99px; overflow:hidden; }
+  .progress-fill { height:100%; background:linear-gradient(90deg,var(--green),#06b6d4,#8b5cf6); border-radius:99px; transition:width .5s cubic-bezier(.4,0,.2,1); }
+
+  /* Question card */
+  .q-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:2rem; animation:slideUp .45s ease both; position:relative; overflow:hidden; }
+  .q-card::before { content:''; position:absolute; top:-60px; right:-60px; width:180px; height:180px; background:rgba(62,207,142,.06); border-radius:50%; pointer-events:none; filter:blur(40px); }
+  .q-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem; gap:8px; flex-wrap:wrap; }
+  .q-topic { font-size:11px; font-family:var(--mono); color:var(--muted); letter-spacing:1px; text-transform:uppercase; }
+  .q-meta { display:flex; align-items:center; gap:10px; }
+  .q-number { font-family:var(--mono); font-size:11px; color:var(--muted); }
+  .badge { font-size:11px; font-family:var(--mono); padding:3px 10px; border-radius:99px; font-weight:700; letter-spacing:.5px; }
+  .badge.easy   { background:rgba(62,207,142,.1);  color:var(--green); border:1px solid rgba(62,207,142,.2); }
+  .badge.medium { background:rgba(246,173,85,.1);  color:var(--amber); border:1px solid rgba(246,173,85,.2); }
+  .badge.hard   { background:rgba(245,101,101,.1); color:var(--red);   border:1px solid rgba(245,101,101,.2); }
+  .badge.bonus  { background:rgba(251,191,36,.1);  color:var(--gold);  border:1px solid rgba(251,191,36,.3); }
+  .q-text { font-size:17px; font-weight:400; line-height:1.75; color:var(--text); margin-bottom:1.25rem; direction:rtl; text-align:right; }
+  .q-text code   { font-family:var(--mono); font-size:14px; color:#93c5fd; background:rgba(147,197,253,.08); padding:1px 6px; border-radius:4px; direction:ltr; unicode-bidi:embed; }
+  .q-text strong { color:#f0f4f8; }
+
+  /* Result box */
+  .result-box { background:#040c17; border:1px solid rgba(62,207,142,.2); border-radius:12px; padding:.85rem 1.1rem 1.1rem; margin-bottom:1.25rem; }
+  .result-box-header { display:flex; align-items:center; gap:8px; margin-bottom:.75rem; }
+  .result-box-label { font-family:var(--mono); font-size:10px; color:var(--green); letter-spacing:1.5px; text-transform:uppercase; }
+  .result-row-count { font-family:var(--mono); font-size:10px; color:var(--muted); margin-left:auto; }
+  .scalar-result { display:flex; align-items:baseline; gap:14px; padding:.25rem 0 .25rem .25rem; }
+  .scalar-value { font-family:var(--mono); font-size:52px; font-weight:700; color:var(--green); line-height:1; }
+  .scalar-meta  { font-family:var(--mono); font-size:11px; color:var(--muted); line-height:1.8; }
+  .result-table-wrap { overflow-x:auto; }
+  .result-table { width:100%; border-collapse:collapse; font-size:12.5px; font-family:var(--mono); }
+  .result-table th { color:var(--green); text-align:left; padding:4px 12px 8px; border-bottom:1px solid rgba(62,207,142,.15); font-size:10px; letter-spacing:.8px; text-transform:uppercase; white-space:nowrap; }
+  .result-table td { padding:7px 12px; border-bottom:1px solid rgba(26,47,74,.45); color:#e2e8f0; white-space:nowrap; max-width:240px; overflow:hidden; text-overflow:ellipsis; }
+  .result-table tr:last-child td { border-bottom:none; }
+  .result-table .more-row td { color:var(--muted); font-style:italic; font-size:11px; }
+
+  /* Solution toggle */
+  .sol-toggle-btn { display:flex; align-items:center; gap:8px; width:100%; padding:10px 16px; background:rgba(62,207,142,.06); border:1px solid rgba(62,207,142,.18); border-radius:8px; color:var(--green); font-family:var(--mono); font-size:12px; letter-spacing:.5px; cursor:pointer; transition:background .2s,border-color .2s; text-align:left; }
+  .sol-toggle-btn:hover { background:rgba(62,207,142,.13); border-color:var(--green); }
+  .sol-toggle-btn.open  { color:var(--muted); border-color:var(--border); background:rgba(255,255,255,.02); }
+  .sol-wrap { overflow:hidden; max-height:0; transition:max-height .35s ease; }
+  .sol-wrap.open { max-height:600px; }
+  .sol-inner { padding-top:.85rem; }
+  .sol-label { font-family:var(--mono); font-size:10px; color:var(--green); letter-spacing:1.2px; text-transform:uppercase; margin-bottom:6px; opacity:.85; }
+  .q-code { background:#040c17; border:1px solid var(--border); border-radius:10px; padding:1rem 1.25rem; font-family:var(--mono); font-size:13px; color:#93c5fd; line-height:1.7; white-space:pre; overflow-x:auto; direction:ltr; }
+
+  /* Nav */
+  .nav { display:flex; justify-content:space-between; align-items:center; margin-top:1.5rem; animation:fadeDown .5s .2s ease both; }
+  .btn { padding:10px 22px; border-radius:10px; font-size:14px; font-weight:500; cursor:pointer; border:1px solid var(--border); background:var(--surface2); color:var(--text); font-family:var(--sans); transition:background .2s,border-color .2s,transform .1s; }
+  .btn:hover:not(:disabled) { background:var(--surface); border-color:var(--muted); }
+  .btn:disabled { opacity:.3; cursor:default; }
+  .btn.primary { background:var(--green); border-color:var(--green); color:#050d1a; font-weight:700; box-shadow:0 0 20px rgba(62,207,142,.25); }
+  .btn.primary:hover:not(:disabled) { background:#5ff5ae; border-color:#5ff5ae; }
+  .btn:active:not(:disabled) { transform:scale(.97); }
+  .q-counter { font-family:var(--mono); font-size:12px; color:var(--muted); }
+
+  /* Results */
+  .results { text-align:center; padding:3rem 2rem; background:var(--surface); border:1px solid var(--border); border-radius:16px; animation:slideUp .5s ease both; }
+  .results-emoji { font-size:56px; margin-bottom:1rem; }
+  .score-display { font-family:var(--mono); font-size:52px; font-weight:700; background:linear-gradient(135deg,var(--green),var(--gold)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; line-height:1; margin-bottom:.5rem; }
+  .score-label { font-size:15px; color:var(--muted); margin-bottom:2rem; }
+  .restart-btn { padding:12px 32px; background:var(--green); border:none; border-radius:10px; color:#050d1a; font-size:15px; font-weight:700; cursor:pointer; font-family:var(--sans); box-shadow:0 0 24px rgba(62,207,142,.3); transition:background .2s,transform .1s; }
+  .restart-btn:hover { background:#5ff5ae; }
+  .restart-btn:active { transform:scale(.97); }
+  .back-link { display:inline-flex; align-items:center; gap:6px; font-size:13px; color:var(--muted); text-decoration:none; margin-top:20px; font-family:var(--mono); transition:color .2s; }
+  .back-link:hover { color:var(--green); }
+  .hidden { display:none; }
+
+  @keyframes fadeDown { from{opacity:0;transform:translateY(-12px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes slideUp  { from{opacity:0;transform:translateY(18px)}  to{opacity:1;transform:translateY(0)} }
+
+  /* ── Import Modal ── */
+  .import-overlay { position:fixed; inset:0; background:rgba(0,0,0,.72); backdrop-filter:blur(6px); z-index:1000; display:flex; align-items:center; justify-content:center; padding:1rem; animation:fadeIn .2s ease; }
+  @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+  .import-modal { background:#0d1b2e; border:1px solid rgba(62,207,142,.4); border-radius:20px; padding:2rem 2rem 1.75rem; max-width:460px; width:100%; box-shadow:0 0 0 1px rgba(62,207,142,.1), 0 32px 80px rgba(0,0,0,.7), 0 0 60px rgba(62,207,142,.08); animation:modalPop .3s cubic-bezier(.34,1.56,.64,1) both; position:relative; }
+  @keyframes modalPop { from{opacity:0;transform:scale(.88) translateY(16px)} to{opacity:1;transform:scale(1) translateY(0)} }
+  .import-modal-icon { font-size:2.8rem; text-align:center; margin-bottom:.75rem; }
+  .import-modal h3 { text-align:center; font-size:1.2rem; font-weight:700; color:#e2e8f0; margin-bottom:.35rem; }
+  .import-modal .import-sub { text-align:center; font-size:13px; color:var(--muted); margin-bottom:1.4rem; }
+  .import-steps { list-style:none; display:flex; flex-direction:column; gap:10px; margin-bottom:1.5rem; }
+  .import-steps li { display:flex; align-items:flex-start; gap:12px; font-size:13.5px; color:#cbd5e1; line-height:1.5; }
+  .import-steps .step-num { flex-shrink:0; width:24px; height:24px; border-radius:50%; background:rgba(62,207,142,.15); border:1px solid rgba(62,207,142,.35); color:var(--green); font-family:var(--mono); font-size:11px; font-weight:700; display:grid; place-items:center; }
+  .import-steps code { font-family:var(--mono); font-size:12px; color:#93c5fd; background:rgba(147,197,253,.1); padding:1px 6px; border-radius:4px; }
+  .import-modal-img { width:100%; border-radius:8px; border:1px solid var(--border); display:block; margin-bottom:1.5rem; }
+  .import-ok-btn { width:100%; padding:12px; background:var(--green); border:none; border-radius:10px; color:#050d1a; font-size:15px; font-weight:700; cursor:pointer; font-family:var(--sans); box-shadow:0 0 24px rgba(62,207,142,.3); transition:background .2s,transform .1s; }
+  .import-ok-btn:hover { background:#5ff5ae; }
+  .import-ok-btn:active { transform:scale(.97); }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="logo">SQL Practice · E-Commerce Lab</div>
+    <h1>🛒 Customer Analytics Lab</h1>
+    <p class="subtitle">ראה את התוצאה · חשוב על השאילתה · חשוף את הפתרון</p>
+    <a href="https://www.kaggle.com/" target="_blank" style="display:inline-flex;align-items:center;gap:6px;margin-top:10px;padding:5px 14px;border-radius:99px;background:rgba(32,177,109,.15);border:1px solid rgba(32,177,109,.45);color:#20b16d;font-family:var(--mono);font-size:11px;letter-spacing:.8px;text-transform:uppercase;text-decoration:none;transition:background .2s,border-color .2s;" onmouseover="this.style.background='rgba(32,177,109,.28)'" onmouseout="this.style.background='rgba(32,177,109,.15)'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.825 23.859c-.022.092-.117.141-.281.141h-3.139c-.187 0-.351-.082-.492-.248l-5.178-6.589-1.448 1.374v5.111c0 .235-.117.352-.351.352H5.505c-.236 0-.354-.117-.354-.352V.353c0-.233.118-.353.354-.353h2.431c.234 0 .351.12.351.353v14.343l6.203-6.272c.165-.165.33-.246.495-.246h3.239c.144 0 .236.06.285.18.046.149.034.255-.036.315l-6.555 6.344 6.836 8.507c.095.104.117.208.07.336"/></svg>
+      Dataset from Kaggle
+    </a>
+    <div class="topic-pills">
+      <span class="topic-pill">COUNT · AVG · SUM</span>
+      <span class="topic-pill">GROUP BY · ORDER BY</span>
+      <span class="topic-pill">WHERE · DISTINCT</span>
+      <span class="topic-pill">★ Bonus</span>
+    </div>
+  </header>
+
+  <!-- ── Intro Screen ── -->
+  <div id="intro-view">
+    <div class="schema-panel" style="margin-bottom:0">
+      <div class="schema-header" onclick="toggleSchema()">
+        <div class="schema-title">
+          <span>📊</span><span>Schema Reference</span>
+          <span class="tbl-badge">customers</span>
+        </div>
+        <div class="schema-actions">
+          <a class="copy-btn" href="ecommerce.csv" download="ecommerce.csv" onclick="onDownloadCSV(event)">⬇ Download CSV</a>
+          <span class="schema-chevron open" id="schema-chevron">▲</span>
+        </div>
+      </div>
+      <div class="schema-body" id="schema-body">
+        <div class="schema-table-block">
+          <div class="schema-table-name">customers</div>
+          <div class="schema-code">CREATE TABLE customers (
+  customer_id               INTEGER PRIMARY KEY,
+  gender                    TEXT NOT NULL,
+  age                       INTEGER NOT NULL,
+  city                      TEXT NOT NULL,
+  membership_type           TEXT NOT NULL,
+  total_spend               REAL NOT NULL,
+  items_purchased           INTEGER NOT NULL,
+  average_rating            REAL NOT NULL,
+  discount_applied          BOOLEAN NOT NULL,
+  days_since_last_purchase  INTEGER NOT NULL,
+  satisfaction_level        TEXT
+);</div>
+        </div>
+        <div class="schema-table-block" style="margin-top:10px">
+          <div class="schema-table-name" style="color:var(--gold)">Import csv file into SQLite</div>
+          <div class="schema-code" style="color:#94a3b8; margin-bottom:8px">File ▶ Import ▶ Table from CSV file...</div>
+          <img src="import1.png" alt="DB Browser import" style="width:100%;border-radius:6px;border:1px solid var(--border);display:block">
+        </div>
+      </div>
+    </div>
+    <div class="start-btn-wrap" style="margin-bottom:1.5rem">
+      <button class="start-btn" onclick="startQuiz()">▶ Ready! Let's Go</button>
+    </div>
+  </div>
+
+  <!-- ── Quiz Screen ── -->
+  <div id="quiz-view" class="hidden">
+    <div class="progress-wrap">
+      <div class="progress-meta">
+        <span id="prog-text">1 / 10</span>
+        <span id="prog-pct">פתרונות שנחשפו: 0</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
+    </div>
+
+    <div id="q-view"></div>
+    <div id="result-view" class="hidden"></div>
+
+    <div class="nav" id="nav-bar">
+      <button class="btn" id="btn-back" onclick="go(-1)">← Back</button>
+      <span class="q-counter" id="q-counter">1 / 10</span>
+      <button class="btn primary" id="btn-next" onclick="goNext()">Next →</button>
+    </div>
+  </div>
+
+  <div style="text-align:center">
+    <a href="../../index.html" class="back-link">← Back to SQL Course</a>
+  </div>
+
+</div>
+<script>
+// ── Dataset (350 customers, IDs 101-450) ───────────────────────────────────
+const CSV = `101,Female,29,New York,Gold,1120.2,14,4.6,TRUE,25,Satisfied
+102,Male,34,Los Angeles,Silver,780.5,11,4.1,FALSE,18,Neutral
+103,Female,43,Chicago,Bronze,510.75,9,3.4,TRUE,42,Unsatisfied
+104,Male,30,San Francisco,Gold,1480.3,19,4.7,FALSE,12,Satisfied
+105,Male,27,Miami,Silver,720.4,13,4.0,TRUE,55,Unsatisfied
+106,Female,37,Houston,Bronze,440.8,8,3.1,FALSE,22,Neutral
+107,Female,31,New York,Gold,1150.6,15,4.5,TRUE,28,Satisfied
+108,Male,35,Los Angeles,Silver,800.9,12,4.2,FALSE,14,Neutral
+109,Female,41,Chicago,Bronze,495.25,10,3.6,TRUE,40,Unsatisfied
+110,Male,28,San Francisco,Gold,1520.1,21,4.8,FALSE,9,Satisfied
+111,Male,32,Miami,Silver,690.3,11,3.8,TRUE,34,Unsatisfied
+112,Female,36,Houston,Bronze,470.5,7,3.2,FALSE,20,Neutral
+113,Female,30,New York,Gold,1200.8,16,4.3,TRUE,21,Satisfied
+114,Male,33,Los Angeles,Silver,820.75,13,4.4,FALSE,15,Satisfied
+115,Female,42,Chicago,Bronze,530.4,9,3.5,TRUE,38,Unsatisfied
+116,Male,29,San Francisco,Gold,1360.2,18,4.9,FALSE,11,Satisfied
+117,Male,26,Miami,Silver,700.6,12,3.7,TRUE,48,Unsatisfied
+118,Female,38,Houston,Bronze,450.9,8,3.0,FALSE,25,Neutral
+119,Female,32,New York,Gold,1170.3,14,4.7,TRUE,29,Satisfied
+120,Male,34,Los Angeles,Silver,790.2,11,4.0,FALSE,16,Neutral
+121,Female,43,Chicago,Bronze,505.75,10,3.3,TRUE,41,Unsatisfied
+122,Male,30,San Francisco,Gold,1470.5,20,4.8,FALSE,13,Satisfied
+123,Male,27,Miami,Silver,710.4,13,4.1,TRUE,54,Unsatisfied
+124,Female,37,Houston,Bronze,430.8,7,3.4,FALSE,23,Neutral
+125,Female,31,New York,Gold,1140.6,15,4.6,TRUE,27,Satisfied
+126,Male,35,Los Angeles,Silver,810.9,12,4.3,FALSE,13,Neutral
+127,Female,41,Chicago,Bronze,485.25,9,3.6,TRUE,39,Unsatisfied
+128,Male,28,San Francisco,Gold,1500.1,21,4.9,FALSE,10,Satisfied
+129,Male,32,Miami,Silver,670.3,10,3.8,TRUE,33,Unsatisfied
+130,Female,36,Houston,Bronze,460.5,8,3.1,FALSE,19,Neutral
+131,Female,30,New York,Gold,1190.8,16,4.5,TRUE,20,Satisfied
+132,Male,33,Los Angeles,Silver,830.75,13,4.2,FALSE,14,Satisfied
+133,Female,42,Chicago,Bronze,520.4,9,3.5,TRUE,37,Unsatisfied
+134,Male,29,San Francisco,Gold,1370.2,18,4.7,FALSE,10,Satisfied
+135,Male,26,Miami,Silver,690.6,12,3.9,TRUE,47,Unsatisfied
+136,Female,38,Houston,Bronze,440.9,8,3.2,FALSE,24,Neutral
+137,Female,32,New York,Gold,1160.3,14,4.4,TRUE,22,Satisfied
+138,Male,34,Los Angeles,Silver,800.2,11,4.1,FALSE,17,Neutral
+139,Female,43,Chicago,Bronze,500.75,10,3.3,TRUE,40,Unsatisfied
+140,Male,30,San Francisco,Gold,1460.5,20,4.8,FALSE,12,Satisfied
+141,Male,27,Miami,Silver,700.4,13,4.0,TRUE,53,Unsatisfied
+142,Female,37,Houston,Bronze,420.8,7,3.1,FALSE,21,Neutral
+143,Female,31,New York,Gold,1130.6,15,4.5,TRUE,26,Satisfied
+144,Male,35,Los Angeles,Silver,820.9,12,4.3,FALSE,12,Neutral
+145,Female,41,Chicago,Bronze,480.25,9,3.6,TRUE,38,Unsatisfied
+146,Male,28,San Francisco,Gold,1490.1,21,4.9,FALSE,9,Satisfied
+147,Male,32,Miami,Silver,680.3,10,3.8,TRUE,32,Unsatisfied
+148,Female,36,Houston,Bronze,470.5,8,3.0,FALSE,18,Neutral
+149,Female,30,New York,Gold,1180.8,16,4.7,TRUE,19,Satisfied
+150,Male,34,Los Angeles,Silver,790.2,11,4.0,FALSE,15,Neutral
+151,Female,43,Chicago,Bronze,505.75,10,3.3,TRUE,39,Unsatisfied
+152,Male,30,San Francisco,Gold,1470.5,20,4.8,FALSE,13,Satisfied
+153,Male,27,Miami,Silver,710.4,13,4.1,TRUE,54,Unsatisfied
+154,Female,37,Houston,Bronze,430.8,7,3.4,FALSE,23,Neutral
+155,Female,31,New York,Gold,1140.6,15,4.6,TRUE,27,Satisfied
+156,Male,35,Los Angeles,Silver,810.9,12,4.3,FALSE,13,Neutral
+157,Female,41,Chicago,Bronze,485.25,9,3.6,TRUE,39,Unsatisfied
+158,Male,28,San Francisco,Gold,1500.1,21,4.9,FALSE,10,Satisfied
+159,Male,32,Miami,Silver,670.3,10,3.8,TRUE,33,Unsatisfied
+160,Female,36,Houston,Bronze,460.5,8,3.1,FALSE,19,Neutral
+161,Female,30,New York,Gold,1190.8,16,4.5,TRUE,20,Satisfied
+162,Male,33,Los Angeles,Silver,830.75,13,4.2,FALSE,14,Satisfied
+163,Female,42,Chicago,Bronze,520.4,9,3.5,TRUE,37,Unsatisfied
+164,Male,29,San Francisco,Gold,1370.2,18,4.7,FALSE,10,Satisfied
+165,Male,26,Miami,Silver,690.6,12,3.9,TRUE,47,Unsatisfied
+166,Female,38,Houston,Bronze,440.9,8,3.2,FALSE,24,Neutral
+167,Female,32,New York,Gold,1160.3,14,4.4,TRUE,22,Satisfied
+168,Male,34,Los Angeles,Silver,800.2,11,4.1,FALSE,17,Neutral
+169,Female,43,Chicago,Bronze,500.75,10,3.3,TRUE,40,Unsatisfied
+170,Male,30,San Francisco,Gold,1460.5,20,4.8,FALSE,12,Satisfied
+171,Male,27,Miami,Silver,700.4,13,4.0,TRUE,53,Unsatisfied
+172,Female,37,Houston,Bronze,420.8,7,3.1,FALSE,21,
+173,Female,31,New York,Gold,1130.6,15,4.5,TRUE,26,Satisfied
+174,Male,35,Los Angeles,Silver,820.9,12,4.3,FALSE,12,Neutral
+175,Female,41,Chicago,Bronze,480.25,9,3.6,TRUE,38,Unsatisfied
+176,Male,28,San Francisco,Gold,1490.1,21,4.9,FALSE,9,Satisfied
+177,Male,32,Miami,Silver,680.3,10,3.8,TRUE,32,Unsatisfied
+178,Female,36,Houston,Bronze,470.5,8,3.0,FALSE,18,Neutral
+179,Female,30,New York,Gold,1180.8,16,4.7,TRUE,19,Satisfied
+180,Male,34,Los Angeles,Silver,790.2,11,4.0,FALSE,15,Neutral
+181,Female,43,Chicago,Bronze,505.75,10,3.3,TRUE,39,Unsatisfied
+182,Male,30,San Francisco,Gold,1470.5,20,4.8,FALSE,13,Satisfied
+183,Male,27,Miami,Silver,710.4,13,4.1,TRUE,54,Unsatisfied
+184,Female,37,Houston,Bronze,430.8,7,3.4,FALSE,23,Neutral
+185,Female,31,New York,Gold,1140.6,15,4.6,TRUE,27,Satisfied
+186,Male,35,Los Angeles,Silver,810.9,12,4.3,FALSE,13,Neutral
+187,Female,41,Chicago,Bronze,485.25,9,3.6,TRUE,39,Unsatisfied
+188,Male,28,San Francisco,Gold,1500.1,21,4.9,FALSE,10,Satisfied
+189,Male,32,Miami,Silver,670.3,10,3.8,TRUE,33,Unsatisfied
+190,Female,36,Houston,Bronze,460.5,8,3.1,FALSE,19,Neutral
+191,Female,30,New York,Gold,1190.8,16,4.5,TRUE,20,Satisfied
+192,Male,33,Los Angeles,Silver,830.75,13,4.2,FALSE,14,Satisfied
+193,Female,42,Chicago,Bronze,520.4,9,3.5,TRUE,37,Unsatisfied
+194,Male,29,San Francisco,Gold,1370.2,18,4.7,FALSE,10,Satisfied
+195,Male,26,Miami,Silver,690.6,12,3.9,TRUE,47,Unsatisfied
+196,Female,38,Houston,Bronze,440.9,8,3.2,FALSE,24,Neutral
+197,Female,32,New York,Gold,1160.3,14,4.4,TRUE,22,Satisfied
+198,Male,34,Los Angeles,Silver,800.2,11,4.1,FALSE,17,Neutral
+199,Female,43,Chicago,Bronze,500.75,10,3.3,TRUE,40,Unsatisfied
+200,Male,30,San Francisco,Gold,1460.5,20,4.8,FALSE,12,Satisfied
+201,Male,27,Miami,Silver,700.4,13,4.0,TRUE,53,Unsatisfied
+202,Female,37,Houston,Bronze,420.8,7,3.1,FALSE,21,Neutral
+203,Female,31,New York,Gold,1130.6,15,4.5,TRUE,26,Satisfied
+204,Male,35,Los Angeles,Silver,820.9,12,4.3,FALSE,12,Neutral
+205,Female,41,Chicago,Bronze,480.25,9,3.6,TRUE,38,Unsatisfied
+206,Male,28,San Francisco,Gold,1490.1,21,4.9,FALSE,9,Satisfied
+207,Male,32,Miami,Silver,680.3,10,3.8,TRUE,32,Unsatisfied
+208,Female,36,Houston,Bronze,470.5,8,3.0,FALSE,18,Neutral
+209,Female,30,New York,Gold,1180.8,16,4.7,TRUE,19,Satisfied
+210,Male,34,Los Angeles,Silver,790.2,11,4.0,FALSE,15,Neutral
+211,Female,43,Chicago,Bronze,505.75,10,3.3,TRUE,39,Unsatisfied
+212,Male,30,San Francisco,Gold,1470.5,20,4.8,FALSE,13,Satisfied
+213,Male,27,Miami,Silver,710.4,13,4.1,TRUE,54,Unsatisfied
+214,Female,37,Houston,Bronze,430.8,7,3.4,FALSE,23,Neutral
+215,Female,31,New York,Gold,1140.6,15,4.6,TRUE,27,Satisfied
+216,Male,35,Los Angeles,Silver,810.9,12,4.3,FALSE,13,Neutral
+217,Female,41,Chicago,Bronze,485.25,9,3.6,TRUE,39,Unsatisfied
+218,Male,28,San Francisco,Gold,1500.1,21,4.9,FALSE,10,Satisfied
+219,Male,32,Miami,Silver,670.3,10,3.8,TRUE,33,Unsatisfied
+220,Female,36,Houston,Bronze,460.5,8,3.1,FALSE,19,Neutral
+221,Female,30,New York,Gold,1190.8,16,4.5,TRUE,20,Satisfied
+222,Male,33,Los Angeles,Silver,830.75,13,4.2,FALSE,14,Satisfied
+223,Female,42,Chicago,Bronze,520.4,9,3.5,TRUE,37,Unsatisfied
+224,Male,29,San Francisco,Gold,1370.2,18,4.7,FALSE,10,Satisfied
+225,Male,26,Miami,Silver,690.6,12,3.9,TRUE,47,Unsatisfied
+226,Female,38,Houston,Bronze,440.9,8,3.2,FALSE,24,Neutral
+227,Female,32,New York,Gold,1160.3,14,4.4,TRUE,22,Satisfied
+228,Male,34,Los Angeles,Silver,800.2,11,4.1,FALSE,17,Neutral
+229,Female,43,Chicago,Bronze,500.75,10,3.3,TRUE,40,Unsatisfied
+230,Male,30,San Francisco,Gold,1460.5,20,4.8,FALSE,12,Satisfied
+231,Male,27,Miami,Silver,700.4,13,4.0,TRUE,53,Unsatisfied
+232,Female,37,Houston,Bronze,420.8,7,3.1,FALSE,21,Neutral
+233,Female,31,New York,Gold,1130.6,15,4.5,TRUE,26,Satisfied
+234,Male,35,Los Angeles,Silver,820.9,12,4.3,FALSE,12,Neutral
+235,Female,41,Chicago,Bronze,480.25,9,3.6,TRUE,38,Unsatisfied
+236,Male,28,San Francisco,Gold,1490.1,21,4.9,FALSE,9,Satisfied
+237,Male,32,Miami,Silver,680.3,10,3.8,TRUE,32,Unsatisfied
+238,Female,36,Houston,Bronze,470.5,8,3.0,FALSE,18,Neutral
+239,Female,30,New York,Gold,1180.8,16,4.7,TRUE,19,Satisfied
+240,Male,34,Los Angeles,Silver,790.2,11,4.0,FALSE,15,Neutral
+241,Female,43,Chicago,Bronze,505.75,10,3.3,TRUE,39,Unsatisfied
+242,Male,30,San Francisco,Gold,1470.5,20,4.8,FALSE,13,Satisfied
+243,Male,27,Miami,Silver,710.4,13,4.1,TRUE,54,Unsatisfied
+244,Female,37,Houston,Bronze,430.8,7,3.4,FALSE,23,
+245,Female,31,New York,Gold,1130.6,15,4.5,TRUE,26,Satisfied
+246,Male,35,Los Angeles,Silver,820.9,12,4.3,FALSE,12,Neutral
+247,Female,41,Chicago,Bronze,480.25,9,3.6,TRUE,38,Unsatisfied
+248,Male,28,San Francisco,Gold,1490.1,21,4.9,FALSE,9,Satisfied
+249,Male,32,Miami,Silver,680.3,10,3.8,TRUE,32,Unsatisfied
+250,Female,36,Houston,Bronze,470.5,8,3.0,FALSE,18,Neutral
+251,Female,30,New York,Gold,1180.8,16,4.7,TRUE,19,Satisfied
+252,Male,34,Los Angeles,Silver,790.2,11,4.0,FALSE,15,Neutral
+253,Female,43,Chicago,Bronze,505.75,10,3.3,TRUE,39,Unsatisfied
+254,Male,30,San Francisco,Gold,1470.5,20,4.8,FALSE,13,Satisfied
+255,Male,27,Miami,Silver,710.4,13,4.1,TRUE,54,Unsatisfied
+256,Female,37,Houston,Bronze,430.8,7,3.4,FALSE,23,Neutral
+257,Female,31,New York,Gold,1140.6,15,4.6,TRUE,27,Satisfied
+258,Male,35,Los Angeles,Silver,810.9,12,4.3,FALSE,13,Neutral
+259,Female,41,Chicago,Bronze,485.25,9,3.6,TRUE,39,Unsatisfied
+260,Male,28,San Francisco,Gold,1500.1,21,4.9,FALSE,10,Satisfied
+261,Male,32,Miami,Silver,670.3,10,3.8,TRUE,33,Unsatisfied
+262,Female,36,Houston,Bronze,460.5,8,3.1,FALSE,19,Neutral
+263,Female,30,New York,Gold,1190.8,16,4.5,TRUE,20,Satisfied
+264,Male,33,Los Angeles,Silver,830.75,13,4.2,FALSE,14,Satisfied
+265,Female,42,Chicago,Bronze,520.4,9,3.5,TRUE,37,Unsatisfied
+266,Male,29,San Francisco,Gold,1370.2,18,4.7,FALSE,10,Satisfied
+267,Male,26,Miami,Silver,690.6,12,3.9,TRUE,47,Unsatisfied
+268,Female,38,Houston,Bronze,440.9,8,3.2,FALSE,24,Neutral
+269,Female,32,New York,Gold,1160.3,14,4.4,TRUE,22,Satisfied
+270,Male,34,Los Angeles,Silver,800.2,11,4.1,FALSE,17,Neutral
+271,Female,43,Chicago,Bronze,500.75,10,3.3,TRUE,40,Unsatisfied
+272,Male,30,San Francisco,Gold,1460.5,20,4.8,FALSE,12,Satisfied
+273,Male,27,Miami,Silver,700.4,13,4.0,TRUE,53,Unsatisfied
+274,Female,37,Houston,Bronze,430.8,7,3.4,FALSE,23,Neutral
+275,Female,31,New York,Gold,1140.6,15,4.5,TRUE,27,Satisfied
+276,Male,35,Los Angeles,Silver,820.9,12,4.3,FALSE,12,Neutral
+277,Female,41,Chicago,Bronze,480.25,9,3.6,TRUE,38,Unsatisfied
+278,Male,28,San Francisco,Gold,1490.1,21,4.9,FALSE,9,Satisfied
+279,Male,32,Miami,Silver,680.3,10,3.8,TRUE,32,Unsatisfied
+280,Female,36,Houston,Bronze,470.5,8,3.0,FALSE,18,Neutral
+281,Female,30,New York,Gold,1180.8,16,4.7,TRUE,19,Satisfied
+282,Male,34,Los Angeles,Silver,790.2,11,4.0,FALSE,15,Neutral
+283,Female,43,Chicago,Bronze,505.75,10,3.3,TRUE,39,Unsatisfied
+284,Male,30,San Francisco,Gold,1470.5,20,4.8,FALSE,13,Satisfied
+285,Male,27,Miami,Silver,710.4,13,4.1,TRUE,54,Unsatisfied
+286,Female,37,Houston,Bronze,430.8,7,3.4,FALSE,23,Neutral
+287,Female,31,New York,Gold,1130.6,15,4.5,TRUE,26,Satisfied
+288,Male,35,Los Angeles,Silver,820.9,12,4.3,FALSE,13,Neutral
+289,Female,41,Chicago,Bronze,485.25,9,3.6,TRUE,39,Unsatisfied
+290,Male,28,San Francisco,Gold,1500.1,21,4.9,FALSE,10,Satisfied
+291,Male,32,Miami,Silver,670.3,10,3.8,TRUE,33,Unsatisfied
+292,Female,36,Houston,Bronze,460.5,8,3.1,FALSE,19,Neutral
+293,Female,30,New York,Gold,1190.8,16,4.5,TRUE,20,Satisfied
+294,Male,33,Los Angeles,Silver,830.75,13,4.2,FALSE,14,Satisfied
+295,Female,42,Chicago,Bronze,520.4,9,3.5,TRUE,37,Unsatisfied
+296,Male,29,San Francisco,Gold,1370.2,18,4.7,FALSE,10,Satisfied
+297,Male,26,Miami,Silver,690.6,12,3.9,TRUE,47,Unsatisfied
+298,Female,38,Houston,Bronze,440.9,8,3.2,FALSE,24,Neutral
+299,Female,32,New York,Gold,1160.3,14,4.4,TRUE,22,Satisfied
+300,Male,34,Los Angeles,Silver,800.2,11,4.1,FALSE,17,Neutral
+301,Male,36,San Francisco,Gold,1420.8,19,4.6,FALSE,11,Satisfied
+302,Female,29,Miami,Silver,730.4,14,4.0,TRUE,50,Unsatisfied
+303,Female,35,Houston,Bronze,450.6,7,3.3,FALSE,21,Neutral
+304,Male,31,New York,Gold,1210.6,17,4.8,TRUE,18,Satisfied
+305,Male,27,Los Angeles,Silver,780.9,11,4.2,FALSE,16,Neutral
+306,Female,42,Chicago,Bronze,495.25,10,3.5,TRUE,35,Unsatisfied
+307,Male,29,San Francisco,Gold,1390.2,18,4.7,FALSE,9,Satisfied
+308,Male,26,Miami,Silver,670.6,12,3.9,TRUE,46,Unsatisfied
+309,Female,38,Houston,Bronze,460.9,8,3.2,FALSE,25,Neutral
+310,Female,32,New York,Gold,1170.3,14,4.5,TRUE,21,Satisfied
+311,Male,34,Los Angeles,Silver,810.2,11,4.0,FALSE,14,Neutral
+312,Female,43,Chicago,Bronze,515.75,9,3.3,TRUE,38,Unsatisfied
+313,Male,30,San Francisco,Gold,1450.5,20,4.8,FALSE,12,Satisfied
+314,Male,27,Miami,Silver,690.4,13,4.1,TRUE,52,Unsatisfied
+315,Female,37,Houston,Bronze,420.8,7,3.4,FALSE,24,Neutral
+316,Female,31,New York,Gold,1130.6,15,4.5,TRUE,26,Satisfied
+317,Male,35,Los Angeles,Silver,820.9,12,4.3,FALSE,13,Neutral
+318,Female,41,Chicago,Bronze,480.25,9,3.6,TRUE,39,Unsatisfied
+319,Male,28,San Francisco,Gold,1490.1,21,4.9,FALSE,9,Satisfied
+320,Male,32,Miami,Silver,680.3,10,3.8,TRUE,32,Unsatisfied
+321,Female,36,Houston,Bronze,470.5,8,3.0,FALSE,18,Neutral
+322,Female,30,New York,Gold,1180.8,16,4.7,TRUE,19,Satisfied
+323,Male,34,Los Angeles,Silver,790.2,11,4.0,FALSE,15,Neutral
+324,Female,43,Chicago,Bronze,505.75,10,3.3,TRUE,39,Unsatisfied
+325,Male,30,San Francisco,Gold,1470.5,20,4.8,FALSE,13,Satisfied
+326,Male,27,Miami,Silver,710.4,13,4.1,TRUE,54,Unsatisfied
+327,Female,37,Houston,Bronze,430.8,7,3.4,FALSE,23,Neutral
+328,Female,31,New York,Gold,1140.6,15,4.5,TRUE,27,Satisfied
+329,Male,35,Los Angeles,Silver,820.9,12,4.3,FALSE,13,Neutral
+330,Female,41,Chicago,Bronze,485.25,9,3.6,TRUE,39,Unsatisfied
+331,Male,28,San Francisco,Gold,1500.1,21,4.9,FALSE,10,Satisfied
+332,Male,32,Miami,Silver,670.3,10,3.8,TRUE,33,Unsatisfied
+333,Female,36,Houston,Bronze,460.5,8,3.1,FALSE,19,Neutral
+334,Female,30,New York,Gold,1190.8,16,4.5,TRUE,20,Satisfied
+335,Male,33,Los Angeles,Silver,830.75,13,4.2,FALSE,14,Satisfied
+336,Female,42,Chicago,Bronze,520.4,9,3.5,TRUE,37,Unsatisfied
+337,Male,29,San Francisco,Gold,1370.2,18,4.7,FALSE,10,Satisfied
+338,Male,26,Miami,Silver,690.6,12,3.9,TRUE,47,Unsatisfied
+339,Female,38,Houston,Bronze,440.9,8,3.2,FALSE,24,Neutral
+340,Female,32,New York,Gold,1160.3,14,4.4,TRUE,22,Satisfied
+341,Male,34,Los Angeles,Silver,800.2,11,4.1,FALSE,17,Neutral
+342,Female,43,Chicago,Bronze,525.75,9,3.3,TRUE,40,Unsatisfied
+343,Male,30,San Francisco,Gold,1460.5,20,4.8,FALSE,11,Satisfied
+344,Male,27,Miami,Silver,720.4,13,4.0,TRUE,55,Unsatisfied
+345,Female,37,Houston,Bronze,440.8,7,3.2,FALSE,25,Neutral
+346,Female,31,New York,Gold,1150.6,15,4.5,TRUE,28,Satisfied
+347,Male,35,Los Angeles,Silver,830.9,12,4.3,FALSE,14,Neutral
+348,Female,41,Chicago,Bronze,490.25,9,3.6,TRUE,40,Unsatisfied
+349,Male,28,San Francisco,Gold,1480.1,21,4.9,FALSE,10,Satisfied
+350,Male,32,Miami,Silver,690.3,10,3.8,TRUE,34,Unsatisfied
+351,Female,36,Houston,Bronze,480.5,8,3.1,FALSE,20,Neutral
+352,Female,30,New York,Gold,1170.8,16,4.7,TRUE,21,Satisfied
+353,Male,34,Los Angeles,Silver,790.2,11,4.0,FALSE,15,Neutral
+354,Female,43,Chicago,Bronze,510.75,10,3.3,TRUE,41,Unsatisfied
+355,Male,30,San Francisco,Gold,1440.5,19,4.6,FALSE,12,Satisfied
+356,Male,27,Miami,Silver,700.4,13,4.1,TRUE,56,Unsatisfied
+357,Female,37,Houston,Bronze,410.8,7,3.4,FALSE,26,Neutral
+358,Female,31,New York,Gold,1160.6,15,4.5,TRUE,29,Satisfied
+359,Male,35,Los Angeles,Silver,810.9,12,4.3,FALSE,14,Neutral
+360,Female,41,Chicago,Bronze,495.25,9,3.6,TRUE,41,Unsatisfied
+361,Male,28,San Francisco,Gold,1490.1,21,4.9,FALSE,10,Satisfied
+362,Male,32,Miami,Silver,660.3,10,3.8,TRUE,35,Unsatisfied
+363,Female,36,Houston,Bronze,430.5,8,3.1,FALSE,21,Neutral
+364,Female,30,New York,Gold,1200.8,16,4.7,TRUE,22,Satisfied
+365,Male,34,Los Angeles,Silver,780.2,11,4.1,FALSE,16,Neutral
+366,Female,43,Chicago,Bronze,505.75,10,3.3,TRUE,42,Unsatisfied
+367,Male,30,San Francisco,Gold,1460.5,20,4.8,FALSE,13,Satisfied
+368,Male,27,Miami,Silver,710.4,13,4.1,TRUE,57,Unsatisfied
+369,Female,37,Houston,Bronze,450.8,7,3.4,FALSE,24,Neutral
+370,Female,31,New York,Gold,1140.6,15,4.5,TRUE,30,Satisfied
+371,Male,35,Los Angeles,Silver,800.9,12,4.1,FALSE,17,Neutral
+372,Female,41,Chicago,Bronze,475.25,9,3.6,TRUE,42,Unsatisfied
+373,Male,28,San Francisco,Gold,1480.1,21,4.9,FALSE,11,Satisfied
+374,Male,32,Miami,Silver,660.3,10,3.8,TRUE,36,Unsatisfied
+375,Female,36,Houston,Bronze,470.5,8,3.0,FALSE,22,Neutral
+376,Female,30,New York,Gold,1190.8,16,4.5,TRUE,23,Satisfied
+377,Male,33,Los Angeles,Silver,770.2,11,4.2,FALSE,18,Neutral
+378,Female,43,Chicago,Bronze,515.75,10,3.3,TRUE,43,Unsatisfied
+379,Male,30,San Francisco,Gold,1450.5,19,4.6,FALSE,12,Satisfied
+380,Male,27,Miami,Silver,710.4,13,4.1,TRUE,58,Unsatisfied
+381,Female,37,Houston,Bronze,430.8,7,3.4,FALSE,27,Neutral
+382,Female,31,New York,Gold,1160.6,15,4.5,TRUE,31,Satisfied
+383,Male,35,Los Angeles,Silver,820.9,12,4.3,FALSE,15,Neutral
+384,Female,41,Chicago,Bronze,495.25,9,3.6,TRUE,43,Unsatisfied
+385,Male,28,San Francisco,Gold,1490.1,21,4.9,FALSE,10,Satisfied
+386,Male,32,Miami,Silver,660.3,10,3.8,TRUE,37,Unsatisfied
+387,Female,36,Houston,Bronze,440.5,8,3.1,FALSE,23,Neutral
+388,Female,30,New York,Gold,1200.8,16,4.7,TRUE,24,Satisfied
+389,Male,34,Los Angeles,Silver,780.2,11,4.1,FALSE,16,Neutral
+390,Female,43,Chicago,Bronze,505.75,10,3.3,TRUE,44,Unsatisfied
+391,Male,30,San Francisco,Gold,1460.5,20,4.8,FALSE,13,Satisfied
+392,Male,27,Miami,Silver,710.4,13,4.1,TRUE,59,Unsatisfied
+393,Female,37,Houston,Bronze,450.8,7,3.4,FALSE,28,Neutral
+394,Female,31,New York,Gold,1140.6,15,4.5,TRUE,32,Satisfied
+395,Male,35,Los Angeles,Silver,800.9,12,4.1,FALSE,17,Neutral
+396,Female,41,Chicago,Bronze,475.25,9,3.6,TRUE,44,Unsatisfied
+397,Male,28,San Francisco,Gold,1480.1,21,4.9,FALSE,12,Satisfied
+398,Male,32,Miami,Silver,660.3,10,3.8,TRUE,38,Unsatisfied
+399,Female,36,Houston,Bronze,470.5,8,3.0,FALSE,22,Neutral
+400,Female,30,New York,Gold,1190.8,16,4.5,TRUE,25,Satisfied
+401,Male,33,Los Angeles,Silver,800.2,11,4.1,FALSE,18,Neutral
+402,Female,43,Chicago,Bronze,515.75,10,3.3,TRUE,45,Unsatisfied
+403,Male,30,San Francisco,Gold,1450.5,19,4.6,FALSE,13,Satisfied
+404,Male,27,Miami,Silver,710.4,13,4.1,TRUE,60,Unsatisfied
+405,Female,37,Houston,Bronze,430.8,7,3.4,FALSE,29,Neutral
+406,Female,31,New York,Gold,1160.6,15,4.5,TRUE,33,Satisfied
+407,Male,35,Los Angeles,Silver,820.9,12,4.3,FALSE,16,Neutral
+408,Female,41,Chicago,Bronze,495.25,9,3.6,TRUE,45,Unsatisfied
+409,Male,28,San Francisco,Gold,1490.1,21,4.9,FALSE,11,Satisfied
+410,Male,32,Miami,Silver,660.3,10,3.8,TRUE,39,Unsatisfied
+411,Female,36,Houston,Bronze,440.5,8,3.1,FALSE,24,Neutral
+412,Female,30,New York,Gold,1200.8,16,4.7,TRUE,25,Satisfied
+413,Male,34,Los Angeles,Silver,780.2,11,4.1,FALSE,17,Neutral
+414,Female,43,Chicago,Bronze,505.75,10,3.3,TRUE,46,Unsatisfied
+415,Male,30,San Francisco,Gold,1460.5,20,4.8,FALSE,14,Satisfied
+416,Male,27,Miami,Silver,710.4,13,4.1,TRUE,61,Unsatisfied
+417,Female,37,Houston,Bronze,450.8,7,3.4,FALSE,30,Neutral
+418,Female,31,New York,Gold,1140.6,15,4.5,TRUE,34,Satisfied
+419,Male,35,Los Angeles,Silver,800.9,12,4.1,FALSE,19,Neutral
+420,Female,41,Chicago,Bronze,475.25,9,3.6,TRUE,46,Unsatisfied
+421,Male,28,San Francisco,Gold,1480.1,21,4.9,FALSE,12,Satisfied
+422,Male,32,Miami,Silver,660.3,10,3.8,TRUE,40,Unsatisfied
+423,Female,36,Houston,Bronze,470.5,8,3.0,FALSE,26,Neutral
+424,Female,30,New York,Gold,1190.8,16,4.5,TRUE,27,Satisfied
+425,Male,34,Los Angeles,Silver,780.2,11,4.2,FALSE,18,Neutral
+426,Female,43,Chicago,Bronze,515.75,10,3.3,TRUE,47,Unsatisfied
+427,Male,30,San Francisco,Gold,1450.5,19,4.6,FALSE,14,Satisfied
+428,Male,27,Miami,Silver,710.4,13,4.1,TRUE,62,Unsatisfied
+429,Female,37,Houston,Bronze,430.8,7,3.4,FALSE,31,Neutral
+430,Female,31,New York,Gold,1160.6,15,4.5,TRUE,35,Satisfied
+431,Male,35,Los Angeles,Silver,820.9,12,4.3,FALSE,20,Neutral
+432,Female,41,Chicago,Bronze,495.25,9,3.6,TRUE,47,Unsatisfied
+433,Male,28,San Francisco,Gold,1490.1,21,4.9,FALSE,11,Satisfied
+434,Male,32,Miami,Silver,660.3,10,3.8,TRUE,41,Unsatisfied
+435,Female,36,Houston,Bronze,440.5,8,3.1,FALSE,28,Neutral
+436,Female,30,New York,Gold,1200.8,16,4.7,TRUE,28,Satisfied
+437,Male,34,Los Angeles,Silver,780.2,11,4.1,FALSE,19,Neutral
+438,Female,43,Chicago,Bronze,505.75,10,3.3,TRUE,48,Unsatisfied
+439,Male,30,San Francisco,Gold,1460.5,20,4.8,FALSE,15,Satisfied
+440,Male,27,Miami,Silver,710.4,13,4.1,TRUE,63,Unsatisfied
+441,Female,37,Houston,Bronze,450.8,7,3.4,FALSE,32,Neutral
+442,Female,31,New York,Gold,1140.6,15,4.5,TRUE,36,Satisfied
+443,Male,35,Los Angeles,Silver,800.9,12,4.1,FALSE,20,Neutral
+444,Female,41,Chicago,Bronze,475.25,9,3.6,TRUE,48,Unsatisfied
+445,Male,28,San Francisco,Gold,1480.1,21,4.9,FALSE,13,Satisfied
+446,Male,32,Miami,Silver,660.3,10,3.8,TRUE,42,Unsatisfied
+447,Female,36,Houston,Bronze,470.5,8,3.0,FALSE,27,Neutral
+448,Female,30,New York,Gold,1190.8,16,4.5,TRUE,28,Satisfied
+449,Male,34,Los Angeles,Silver,780.2,11,4.2,FALSE,21,Neutral
+450,Female,43,Chicago,Bronze,515.75,10,3.3,TRUE,49,Unsatisfied`;
+
+const customers = CSV.trim().split('\n').map(row => {
+  const p = row.split(',');
+  return {
+    id: +p[0], gender: p[1], age: +p[2], city: p[3],
+    membership: p[4], spend: +p[5], items: +p[6],
+    rating: +p[7], discount: p[8]==='TRUE', days: +p[9],
+    satisfaction: p[10] || ''
+  };
+});
+
+// ── Full SQL for copy button ───────────────────────────────────────────────
+const FULL_SQL = `CREATE TABLE customers (
+  customer_id              INTEGER PRIMARY KEY,
+  gender                   TEXT NOT NULL,
+  age                      INTEGER NOT NULL,
+  city                     TEXT NOT NULL,
+  membership_type          TEXT NOT NULL,
+  total_spend              REAL NOT NULL,
+  items_purchased          INTEGER NOT NULL,
+  average_rating           REAL NOT NULL,
+  discount_applied         BOOLEAN NOT NULL,
+  days_since_last_purchase INTEGER NOT NULL,
+  satisfaction_level       TEXT
+);
+
+INSERT INTO customers VALUES
+${CSV.trim().split('\n').map(row => {
+  const p = row.split(',');
+  const sat = p[10] ? `'${p[10]}'` : 'NULL';
+  return `(${p[0]},'${p[1]}',${p[2]},'${p[3]}','${p[4]}',${p[5]},${p[6]},${p[7]},${p[8]==='TRUE'?1:0},${p[9]},${sat})`;
+}).join(',\n')};`;
+
+// ── Questions ──────────────────────────────────────────────────────────────
+const questions = [
+  { topic:'COUNT', level:'easy',
+    q:'כמה לקוחות יש בטבלה?',
+    getResult() {
+      return {type:'scalar', value:customers.length, sub:'COUNT(*)'};
+    },
+    solution:`SELECT COUNT(*)\nFROM customers;`
+  },
+  { topic:'AVG', level:'easy',
+    q:'מהו גיל הלקוח <strong>הממוצע</strong>?',
+    getResult() {
+      const avg = (customers.reduce((s,c)=>s+c.age,0)/customers.length).toFixed(2);
+      return {type:'scalar', value:avg, sub:'AVG(age)'};
+    },
+    solution:`SELECT AVG(age)\nFROM customers;`
+  },
+  { topic:'GROUP BY · COUNT', level:'easy',
+    q:'כמה לקוחות <strong>גברים</strong> יש? וכמה <strong>נשים</strong>?',
+    getResult() {
+      const m = customers.filter(c=>c.gender==='Male').length;
+      const f = customers.filter(c=>c.gender==='Female').length;
+      return {type:'table', cols:['gender','count'],
+        rows:[{gender:'Female',count:f},{gender:'Male',count:m}]};
+    },
+    solution:`SELECT gender, COUNT(*) AS count\nFROM customers\nGROUP BY gender;`
+  },
+  { topic:'AVG · GROUP BY', level:'medium',
+    q:'כמה מוצרים <strong>בממוצע</strong> רוכשים הגברים? כמה הנשים?',
+    getResult() {
+      const byG = {};
+      customers.forEach(c=>{
+        (byG[c.gender]=byG[c.gender]||[]).push(c.items);
+      });
+      const rows = Object.entries(byG)
+        .sort(([a],[b])=>a.localeCompare(b))
+        .map(([gender,arr])=>({gender, 'AVG(items_purchased)':(arr.reduce((s,v)=>s+v,0)/arr.length).toFixed(2)}));
+      return {type:'table', cols:['gender','AVG(items_purchased)'], rows};
+    },
+    solution:`SELECT gender, AVG(items_purchased) AS avg_items\nFROM customers\nGROUP BY gender;`
+  },
+  { topic:'COUNT DISTINCT', level:'easy',
+    q:'כמה סוגי <code>membership</code> שונים קיימים בטבלה?',
+    getResult() {
+      const types = [...new Set(customers.map(c=>c.membership))];
+      return {type:'scalar', value:types.length,
+        sub:'COUNT(DISTINCT membership_type)\n→ ' + types.sort().join(', ')};
+    },
+    solution:`SELECT COUNT(DISTINCT membership_type)\nFROM customers;`
+  },
+  { topic:'GROUP BY · COUNT', level:'medium',
+    q:'כמה חברים יש בכל סוג של <code>membership</code>?',
+    getResult() {
+      const c={};
+      customers.forEach(x=>{c[x.membership]=(c[x.membership]||0)+1;});
+      const rows = Object.entries(c)
+        .sort((a,b)=>b[1]-a[1])
+        .map(([membership_type,count])=>({membership_type,count}));
+      return {type:'table', cols:['membership_type','count'], rows};
+    },
+    solution:`SELECT membership_type, COUNT(*) AS count\nFROM customers\nGROUP BY membership_type\nORDER BY count DESC;`
+  },
+  { topic:'WHERE · COUNT', level:'easy',
+    q:'כמה לקוחות גרים ב- <code>New York</code>?',
+    getResult() {
+      const v = customers.filter(c=>c.city==='New York').length;
+      return {type:'scalar', value:v, sub:"COUNT(*) — WHERE city = 'New York'"};
+    },
+    solution:`SELECT COUNT(*)\nFROM customers\nWHERE city = 'New York';`
+  },
+  { topic:'GROUP BY · ORDER BY', level:'medium',
+    q:'כמה לקוחות יש בכל עיר? (בסדר <strong>יורד</strong> מהגדול לקטן)',
+    getResult() {
+      const c={};
+      customers.forEach(x=>{c[x.city]=(c[x.city]||0)+1;});
+      const rows = Object.entries(c)
+        .sort((a,b)=>b[1]-a[1])
+        .map(([city,count])=>({city,count}));
+      return {type:'table', cols:['city','count'], rows};
+    },
+    solution:`SELECT city, COUNT(*) AS count\nFROM customers\nGROUP BY city\nORDER BY count DESC;`
+  },
+  { topic:'SUM · GROUP BY', level:'medium',
+    q:'כמה סה"כ הוציאו <strong>הגברים</strong> על קניות (<code>Total Spend</code>)? כמה <strong>הנשים</strong>?',
+    getResult() {
+      const byG={};
+      customers.forEach(c=>{byG[c.gender]=(byG[c.gender]||0)+c.spend;});
+      const rows = Object.entries(byG)
+        .sort(([a],[b])=>a.localeCompare(b))
+        .map(([gender,total])=>({gender,'SUM(total_spend)':total.toFixed(2)}));
+      return {type:'table', cols:['gender','SUM(total_spend)'], rows};
+    },
+    solution:`SELECT gender, SUM(total_spend) AS total_spend\nFROM customers\nGROUP BY gender;`
+  },
+  { topic:'ORDER BY · LIMIT  ★', level:'bonus',
+    q:'★ מי הלקוח שקנה הכי <strong>הרבה</strong> מוצרים? מי שקנה הכי <strong>פחות</strong>?',
+    getResult() {
+      const maxV = Math.max(...customers.map(c=>c.items));
+      const minV = Math.min(...customers.map(c=>c.items));
+      const most  = customers.find(c=>c.items===maxV);
+      const least = customers.find(c=>c.items===minV);
+      return {type:'table',
+        cols:['type','customer_id','gender','city','membership','items_purchased'],
+        rows:[
+          {type:'👑 Most',  customer_id:most.id,  gender:most.gender,  city:most.city,  membership:most.membership,  items_purchased:maxV},
+          {type:'⬇ Least', customer_id:least.id, gender:least.gender, city:least.city, membership:least.membership, items_purchased:minV},
+        ],
+        note:'Multiple customers share the same max/min — showing first match'
+      };
+    },
+    solution:`-- Most items purchased:\nSELECT *\nFROM customers\nORDER BY items_purchased DESC\nLIMIT 1;\n\n-- Least items purchased:\nSELECT *\nFROM customers\nORDER BY items_purchased ASC\nLIMIT 1;`
+  },
+];
+
+// ── State ──────────────────────────────────────────────────────────────────
+let current  = 0;
+let revealed = new Array(questions.length).fill(false);
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderResult(r) {
+  if (!r) return '';
+  const rowCount = r.type==='table' ? `${(r.rows||[]).length} rows` : '1 row';
+  let inner = '';
+  if (r.type === 'scalar') {
+    inner = `<div class="scalar-result">
+      <div class="scalar-value">${esc(String(r.value))}</div>
+      ${r.sub ? `<div class="scalar-meta">${esc(r.sub)}</div>` : ''}
+    </div>`;
+  } else {
+    const cols=r.cols||[], rows=r.rows||[], note=r.note||'';
+    const thHTML   = cols.map(c=>`<th>${esc(c)}</th>`).join('');
+    const rowsHTML = rows.map(row=>`<tr>${cols.map(c=>`<td>${esc(row[c]??'')}</td>`).join('')}</tr>`).join('');
+    const noteHTML = note ? `<div style="font-family:var(--mono);font-size:10px;color:var(--amber);margin-top:8px;opacity:.85;">${esc(note)}</div>` : '';
+    inner = `<div class="result-table-wrap"><table class="result-table">
+      <thead><tr>${thHTML}</tr></thead>
+      <tbody>${rowsHTML}</tbody>
+    </table>${noteHTML}</div>`;
+  }
+  return `<div class="result-box">
+    <div class="result-box-header">
+      <span class="result-box-label">⚡ Query Result</span>
+      <span class="result-row-count">${rowCount}</span>
+    </div>${inner}
+  </div>`;
+}
+
+// ── Render ─────────────────────────────────────────────────────────────────
+function render() {
+  const q      = questions[current];
+  const isOpen = revealed[current];
+  const result = q.getResult();
+
+  document.getElementById('q-view').innerHTML = `
+    <div class="q-card">
+      <div class="q-top">
+        <span class="q-topic">${q.topic}</span>
+        <div class="q-meta">
+          <span class="q-number">${current+1} / ${questions.length}</span>
+          <span class="badge ${q.level}">${q.level}</span>
+        </div>
+      </div>
+      <div class="q-text">${q.q}</div>
+      ${renderResult(result)}
+      <button class="sol-toggle-btn${isOpen?' open':''}" onclick="toggleSolution()">
+        <span>${isOpen?'▼':'▶'}</span>
+        <span>${isOpen?'Hide SQL Solution':'Show SQL Solution'}</span>
+      </button>
+      <div class="sol-wrap${isOpen?' open':''}">
+        <div class="sol-inner">
+          <div class="sol-label">✓ SQL Solution</div>
+          <div class="q-code">${esc(q.solution)}</div>
+        </div>
+      </div>
+    </div>`;
+
+  document.getElementById('btn-back').disabled = current===0;
+  const isLast  = current===questions.length-1;
+  const btnNext = document.getElementById('btn-next');
+  btnNext.textContent = isLast ? 'See Results' : 'Next →';
+  btnNext.onclick     = isLast ? showResults   : goNext;
+  document.getElementById('q-counter').textContent = `${current+1} / ${questions.length}`;
+  updateProgress();
+}
+
+function toggleSolution() {
+  revealed[current] = !revealed[current];
+  render();
+}
+
+function goNext() { if (current < questions.length-1) { current++; render(); } }
+function go(dir)  { current = Math.max(0, Math.min(questions.length-1, current+dir)); render(); }
+
+function updateProgress() {
+  const rev = revealed.filter(Boolean).length;
+  const pct = Math.round((current+1)/questions.length*100);
+  document.getElementById('prog-text').textContent = `${current+1} / ${questions.length}`;
+  document.getElementById('prog-pct').textContent  = `פתרונות שנחשפו: ${rev}`;
+  document.getElementById('prog-fill').style.width = pct+'%';
+}
+
+function showResults() {
+  const rev = revealed.filter(Boolean).length;
+  const pct = Math.round(rev/questions.length*100);
+  const emoji = pct>=80?'🏆':pct>=50?'🛒':'📚';
+  document.getElementById('q-view').classList.add('hidden');
+  document.getElementById('nav-bar').classList.add('hidden');
+  document.getElementById('result-view').classList.remove('hidden');
+  document.getElementById('result-view').innerHTML = `
+    <div class="results">
+      <div class="results-emoji">${emoji}</div>
+      <div class="score-display">${rev}/${questions.length}</div>
+      <div class="score-label">פתרונות שנחשפו · ${pct}%</div>
+      <p style="color:var(--muted);font-size:14px;margin-bottom:2rem">
+        ${pct>=80?'!SQL מצוין — אתה שולט ב':pct>=50?'כל הכבוד — המשך לתרגל!':'חזור על הפתרונות וחזור לנסות!'}
+      </p>
+      <button class="restart-btn" onclick="restart()">התחל מחדש</button>
+    </div>`;
+}
+
+function restart() {
+  current  = 0;
+  revealed = new Array(questions.length).fill(false);
+  document.getElementById('result-view').classList.add('hidden');
+  document.getElementById('result-view').innerHTML = '';
+  document.getElementById('q-view').classList.remove('hidden');
+  document.getElementById('nav-bar').classList.remove('hidden');
+  render();
+}
+
+function startQuiz() {
+  document.getElementById('intro-view').classList.add('hidden');
+  document.getElementById('quiz-view').classList.remove('hidden');
+  render();
+}
+
+function onDownloadCSV(e) {
+  e.stopPropagation();
+  // let the browser trigger the download naturally, then show the modal
+  setTimeout(showImportModal, 300);
+}
+
+function showImportModal() {
+  if (document.getElementById('import-overlay')) return;
+  const overlay = document.createElement('div');
+  overlay.id = 'import-overlay';
+  overlay.className = 'import-overlay';
+  overlay.innerHTML = `
+    <div class="import-modal">
+      <h3>Import the CSV into DB Browser</h3>
+      <p class="import-sub">After the file downloads, follow these steps:</p>
+      <ol class="import-steps">
+        <li><span class="step-num">1</span><span>Open <strong>DB Browser for SQLite</strong></span></li>
+        <li><span class="step-num">2</span><span>Click <strong>File → Import → Table from CSV file…</strong></span></li>
+        <li><span class="step-num">3</span><span>Select the downloaded <code>ecommerce.csv</code> file</span></li>
+        <li><span class="step-num">4</span><span>Make sure the table name is <code>customers</code> and click <strong>OK</strong></span></li>
+        <li><span class="step-num">5</span><span>Click <strong>Write Changes</strong> — you're ready! 🎉</span></li>
+      </ol>
+      <img src="import1.png" alt="DB Browser import screenshot" class="import-modal-img">
+      <button class="import-ok-btn" onclick="document.getElementById('import-overlay').remove(); startQuiz()">Got it — Let's go! ✓</button>
+    </div>
+  `;
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) overlay.remove();
+  });
+  document.body.appendChild(overlay);
+}
+
+function toggleSchema() {
+  const body=document.getElementById('schema-body'), chev=document.getElementById('schema-chevron');
+  const open = body.style.display!=='none';
+  body.style.display = open?'none':'block';
+  chev.textContent   = open?'▼':'▲';
+  chev.classList.toggle('open', !open);
+}
+
+function copySQL(event) {
+  event.stopPropagation();
+  const btn=document.getElementById('copy-btn');
+  navigator.clipboard.writeText(FULL_SQL)
+    .then(()=>{ btn.textContent='✓ Copied!'; btn.classList.add('copied'); setTimeout(()=>{btn.textContent='📋 Copy Full SQL';btn.classList.remove('copied');},2200); })
+    .catch(()=>{ btn.textContent='⚠ Failed'; setTimeout(()=>{btn.textContent='📋 Copy Full SQL';},2000); });
+}
+</script>
+</body>
+</html>
