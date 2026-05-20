@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SQL Practice — Query Lab</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:          #050d1a;
+    --surface:     #0d1b2e;
+    --surface2:    #122236;
+    --border:      #1a2f4a;
+    --accent:      #06b6d4;
+    --accent-glow: rgba(6,182,212,0.18);
+    --green:       #3ecf8e;
+    --green-bg:    rgba(62,207,142,0.1);
+    --red:         #f56565;
+    --red-bg:      rgba(245,101,101,0.1);
+    --amber:       #f6ad55;
+    --amber-bg:    rgba(246,173,85,0.1);
+    --violet:      #c084fc;
+    --text:        #e2e8f0;
+    --muted:       #7fa8c9;
+    --mono:        'Space Mono', monospace;
+    --sans:        'DM Sans', sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem 1rem 4rem;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(6,182,212,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(6,182,212,0.03) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 740px;
+  }
+
+  /* ── Header ── */
+  header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+    animation: fadeDown 0.6s ease both;
+  }
+
+  .logo {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 4px;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+  }
+
+  h1 {
+    font-size: 2rem;
+    font-weight: 600;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, #e2e8f0 30%, var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 14px;
+    margin-top: 0.4rem;
+  }
+
+  .topic-pills {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 14px;
+  }
+
+  .topic-pill {
+    font-size: 11px;
+    font-family: var(--mono);
+    padding: 3px 10px;
+    border-radius: 99px;
+    background: rgba(6,182,212,0.08);
+    border: 1px solid rgba(6,182,212,0.2);
+    color: var(--accent);
+    letter-spacing: 0.5px;
+  }
+
+  /* ── Progress ── */
+  .progress-wrap {
+    margin-bottom: 1.5rem;
+    animation: fadeDown 0.6s 0.1s ease both;
+  }
+
+  .progress-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--muted);
+    font-family: var(--mono);
+    margin-bottom: 8px;
+  }
+
+  .progress-track {
+    height: 3px;
+    background: var(--border);
+    border-radius: 99px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), #3b82f6, #8b5cf6);
+    border-radius: 99px;
+    transition: width 0.5s cubic-bezier(0.4,0,0.2,1);
+  }
+
+  /* ── Question card ── */
+  .q-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 2rem;
+    animation: slideUp 0.45s ease both;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .q-card::before {
+    content: '';
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 180px; height: 180px;
+    background: var(--accent-glow);
+    border-radius: 50%;
+    pointer-events: none;
+    filter: blur(40px);
+  }
+
+  .q-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.25rem;
+  }
+
+  .q-topic {
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .q-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .q-number {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .badge {
+    font-size: 11px;
+    font-family: var(--mono);
+    padding: 3px 10px;
+    border-radius: 99px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  .badge.easy   { background: var(--green-bg); color: var(--green); border: 1px solid rgba(62,207,142,0.2); }
+  .badge.medium { background: var(--amber-bg); color: var(--amber); border: 1px solid rgba(246,173,85,0.2); }
+  .badge.hard   { background: var(--red-bg);   color: var(--red);   border: 1px solid rgba(245,101,101,0.2); }
+
+  /* Question text */
+  .q-text {
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.7;
+    color: var(--text);
+    margin-bottom: 1.25rem;
+  }
+
+  .q-text code {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: #93c5fd;
+    background: rgba(147,197,253,0.08);
+    padding: 1px 6px;
+    border-radius: 4px;
+  }
+
+  .q-list {
+    margin: 10px 0 0 1.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .q-list li {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  .q-list li code {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: #93c5fd;
+    background: rgba(147,197,253,0.08);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+
+  /* Schema / code block */
+  .q-code {
+    background: #040c17;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: #93c5fd;
+    line-height: 1.7;
+    margin-bottom: 1.25rem;
+    white-space: pre;
+    overflow-x: auto;
+    position: relative;
+  }
+
+  .q-code::before {
+    content: 'sql';
+    position: absolute;
+    top: 8px; right: 12px;
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 1px;
+    opacity: 0.6;
+  }
+
+  /* Sample data tables */
+  .tables-row {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+  }
+
+  .table-block { flex: 1; min-width: 170px; }
+
+  .table-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--violet);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .sample-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .sample-table th {
+    background: var(--surface2);
+    color: var(--accent);
+    padding: 7px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    letter-spacing: 0.05em;
+  }
+
+  .sample-table td {
+    padding: 6px 12px;
+    border-bottom: 1px solid rgba(26,47,74,0.5);
+    color: var(--text);
+  }
+
+  .sample-table tr:last-child td { border-bottom: none; }
+
+  /* ── SQL editor ── */
+  .editor-wrap {
+    position: relative;
+    margin-bottom: 0.85rem;
+  }
+
+  .editor-label {
+    position: absolute;
+    top: 10px; right: 14px;
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 1.5px;
+    opacity: 0.6;
+    font-family: var(--mono);
+    pointer-events: none;
+    z-index: 1;
+    text-transform: uppercase;
+  }
+
+  .editor-hint {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: var(--mono);
+    margin-bottom: 6px;
+    opacity: 0.7;
+  }
+
+  .sql-input {
+    width: 100%;
+    min-height: 115px;
+    background: #040c17;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem 3.5rem 1rem 1.25rem;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: #93c5fd;
+    line-height: 1.75;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    caret-color: var(--accent);
+    display: block;
+  }
+
+  .sql-input::placeholder { color: #3a5a72; }
+
+  .sql-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(6,182,212,0.1);
+  }
+
+  .sql-input.ok  { border-color: var(--green); box-shadow: 0 0 0 3px rgba(62,207,142,0.1); }
+  .sql-input.bad { border-color: var(--red);   box-shadow: 0 0 0 3px rgba(245,101,101,0.08); }
+  .sql-input:disabled { opacity: 0.65; cursor: default; }
+
+  /* ── Check button ── */
+  .check-btn {
+    width: 100%;
+    padding: 11px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--accent);
+    background: rgba(6,182,212,0.1);
+    color: var(--accent);
+    font-family: var(--sans);
+    margin-bottom: 0.85rem;
+    transition: background 0.2s, transform 0.1s;
+    letter-spacing: 0.03em;
+  }
+
+  .check-btn:hover:not(:disabled) { background: rgba(6,182,212,0.2); }
+  .check-btn:active:not(:disabled) { transform: scale(0.98); }
+  .check-btn:disabled { cursor: default; opacity: 0.45; }
+
+  /* ── Feedback ── */
+  .feedback {
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: fadeUp 0.3s ease both;
+    margin-bottom: 0.75rem;
+  }
+  .feedback.correct-fb { background: var(--green-bg); color: var(--green); border: 1px solid rgba(62,207,142,0.2); }
+  .feedback.wrong-fb   { background: var(--red-bg);   color: var(--red);   border: 1px solid rgba(245,101,101,0.2); }
+  .fb-icon { font-size: 16px; }
+
+  /* ── Hints ── */
+  .hints {
+    margin-bottom: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 14px;
+    background: rgba(246,173,85,0.06);
+    border: 1px solid rgba(246,173,85,0.15);
+    border-radius: 8px;
+  }
+
+  .hint-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--amber);
+    font-family: var(--mono);
+    line-height: 1.5;
+  }
+
+  .hint-item::before { content: '→'; opacity: 0.7; flex-shrink: 0; margin-top: 1px; }
+
+  /* ── Solution ── */
+  .show-sol-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 16px;
+    color: var(--muted);
+    font-size: 12px;
+    font-family: var(--mono);
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+    letter-spacing: 0.5px;
+  }
+
+  .show-sol-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+  .solution-wrap {
+    margin-top: 0.75rem;
+    animation: fadeUp 0.3s ease both;
+  }
+
+  .solution-label {
+    font-size: 10px;
+    color: var(--green);
+    font-family: var(--mono);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    opacity: 0.8;
+  }
+
+  /* ── Navigation ── */
+  .nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1.5rem;
+    animation: fadeDown 0.5s 0.2s ease both;
+  }
+
+  .btn {
+    padding: 10px 22px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    font-family: var(--sans);
+    transition: background 0.2s, border-color 0.2s, transform 0.1s;
+  }
+  .btn:hover:not(:disabled) { background: var(--surface); border-color: var(--muted); }
+  .btn:disabled { opacity: 0.3; cursor: default; }
+  .btn.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #050d1a;
+    font-weight: 700;
+    box-shadow: 0 0 20px var(--accent-glow);
+  }
+  .btn.primary:hover:not(:disabled) { background: #22d3ee; border-color: #22d3ee; }
+  .btn:active:not(:disabled) { transform: scale(0.97); }
+
+  .score-pill {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  /* ── Results ── */
+  .results {
+    text-align: center;
+    padding: 3rem 2rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    animation: slideUp 0.5s ease both;
+  }
+
+  .results-emoji { font-size: 56px; margin-bottom: 1rem; }
+
+  .score-display {
+    font-family: var(--mono);
+    font-size: 52px;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--green));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1;
+    margin-bottom: 0.5rem;
+  }
+
+  .score-label { font-size: 15px; color: var(--muted); margin-bottom: 2rem; }
+
+  .result-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 2rem;
+  }
+
+  .stat-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+  }
+
+  .stat-val { font-family: var(--mono); font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .stat-val.g { color: var(--green); }
+  .stat-val.r { color: var(--red); }
+  .stat-val.a { color: var(--accent); }
+  .stat-label { font-size: 11px; color: var(--muted); letter-spacing: 0.5px; }
+
+  .restart-btn {
+    padding: 12px 32px;
+    background: var(--accent);
+    border: none;
+    border-radius: 10px;
+    color: #050d1a;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: var(--sans);
+    box-shadow: 0 0 24px var(--accent-glow);
+    transition: background 0.2s, transform 0.1s;
+  }
+  .restart-btn:hover { background: #22d3ee; }
+  .restart-btn:active { transform: scale(0.97); }
+
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--muted);
+    text-decoration: none;
+    margin-top: 20px;
+    font-family: var(--mono);
+    transition: color 0.2s;
+  }
+  .back-link:hover { color: var(--accent); }
+
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <header>
+    <div class="logo">SQL Practice · Query Lab</div>
+    <h1>Write Real SQL</h1>
+    <p class="subtitle">3 questions · type a query · instant feedback · <kbd style="font-size:11px;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:4px;padding:1px 5px;">Ctrl+Enter</kbd> to check</p>
+    <div class="topic-pills">
+      <span class="topic-pill">CREATE TABLE</span>
+      <span class="topic-pill">Aggregations</span>
+      <span class="topic-pill">JOINs</span>
+    </div>
+  </header>
+
+  <div class="progress-wrap">
+    <div class="progress-meta">
+      <span id="prog-text">0 / 3</span>
+      <span id="prog-pct">0%</span>
+    </div>
+    <div class="progress-track">
+      <div class="progress-fill" id="prog-fill" style="width:0%"></div>
+    </div>
+  </div>
+
+  <div id="q-view"></div>
+  <div id="result-view" class="hidden"></div>
+
+  <div class="nav" id="nav-bar">
+    <button class="btn" id="btn-back" onclick="go(-1)">← Back</button>
+    <span class="score-pill" id="score-pill">0 correct</span>
+    <button class="btn primary" id="btn-next" onclick="goNext()">Next →</button>
+  </div>
+
+  <div style="text-align:center">
+    <a href="../../index.html" class="back-link">← Back to SQL Course</a>
+  </div>
+
+</div>
+
+<script>
+// ── Questions ──────────────────────────────────────────────────────────────
+const questions = [
+
+  // ── Q1: CREATE TABLE ──────────────────────────────────────────────────
+  {
+    topic:  "Slides 01–02 · Schema Design",
+    level:  "easy",
+    q: `Create a table called <code>books</code> with the following columns:
+        <ul class="q-list">
+          <li><code>id</code> — integer, primary key, auto-increment</li>
+          <li><code>title</code> — text, cannot be NULL</li>
+          <li><code>price</code> — real number</li>
+        </ul>`,
+    schema:     null,
+    sampleData: null,
+    solution:   "CREATE TABLE books (\n  id    INTEGER PRIMARY KEY AUTOINCREMENT,\n  title TEXT NOT NULL,\n  price REAL\n);",
+    checks: [
+      { p: 'create table', hint: 'Use CREATE TABLE to define the table' },
+      { p: 'books',        hint: 'Table name must be books' },
+      { p: 'primary key',  hint: 'Mark id as PRIMARY KEY' },
+      { p: 'not null',     hint: 'Add NOT NULL constraint to the title column' }
+    ]
+  },
+
+  // ── Q2: MAX aggregate ─────────────────────────────────────────────────
+  {
+    topic:  "Slide 04 · Aggregations",
+    level:  "easy",
+    q:      "The table <code>students</code> holds exam results. Write a query to find the <strong>highest grade</strong> in the table.",
+    schema: "students (id INTEGER, name TEXT, grade REAL)",
+    sampleData: {
+      type: 'single',
+      cols: ['id', 'name', 'grade'],
+      rows: [[1, 'Alice', 88.5], [2, 'Bob', 95.0], [3, 'Carol', 72.3]]
+    },
+    solution: "SELECT MAX(grade) FROM students;",
+    checks: [
+      { p: 'select',   hint: 'Start the query with SELECT' },
+      { p: 'max',      hint: 'Use the MAX() aggregate function' },
+      { p: 'grade',    hint: 'Apply MAX to the grade column' },
+      { p: 'from',     hint: 'Specify the source table with FROM' },
+      { p: 'students', hint: 'Table name is students' }
+    ]
+  },
+
+  // ── Q3: INNER JOIN ────────────────────────────────────────────────────
+  {
+    topic:  "Slide 05 · INNER JOIN",
+    level:  "medium",
+    q:      "Return each employee's <code>name</code> and their department's <code>dept_name</code>. Only include employees who have a matching department — Rina (NULL dept_id) must be excluded.",
+    schema: null,
+    sampleData: {
+      type: 'multi',
+      tables: [
+        {
+          title: 'employees',
+          cols:  ['id', 'name', 'dept_id'],
+          rows:  [[1,'Alice',10],[2,'Bob',20],[3,'Rina',null]]
+        },
+        {
+          title: 'departments',
+          cols:  ['id', 'dept_name'],
+          rows:  [[10,'Engineering'],[20,'Marketing']]
+        }
+      ]
+    },
+    solution: "SELECT employees.name, departments.dept_name\nFROM employees\nINNER JOIN departments\n  ON employees.dept_id = departments.id;",
+    checks: [
+      { p: 'select',      hint: 'Start with SELECT' },
+      { p: 'join',        hint: 'Use JOIN (or INNER JOIN) to combine the tables' },
+      { p: 'on',          hint: 'Specify the join condition with ON' },
+      { p: 'employees',   hint: 'Reference the employees table' },
+      { p: 'departments', hint: 'Reference the departments table' }
+    ]
+  }
+
+];
+
+// ── State ──────────────────────────────────────────────────────────────────
+let current         = 0;
+let userQueries     = new Array(questions.length).fill('');
+let checked         = new Array(questions.length).fill(false);
+let correctArr      = new Array(questions.length).fill(false);
+let feedbackDetails = new Array(questions.length).fill(null);
+let solutionVisible = new Array(questions.length).fill(false);
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+function buildTable(cols, rows, title) {
+  let h = '';
+  if (title) h += `<div class="table-title">${esc(title)}</div>`;
+  h += '<table class="sample-table"><thead><tr>';
+  for (const c of cols) h += `<th>${esc(c)}</th>`;
+  h += '</tr></thead><tbody>';
+  for (const row of rows) {
+    h += '<tr>';
+    for (const cell of row) {
+      const v = cell === null
+        ? '<span style="opacity:0.35;font-style:italic">NULL</span>'
+        : esc(String(cell));
+      h += `<td>${v}</td>`;
+    }
+    h += '</tr>';
+  }
+  h += '</tbody></table>';
+  return h;
+}
+
+// ── Render ─────────────────────────────────────────────────────────────────
+function render() {
+  const q          = questions[current];
+  const wasChecked = checked[current];
+  const correct    = correctArr[current];
+
+  // Schema block
+  const schemaHTML = q.schema
+    ? `<div class="q-code">${esc(q.schema)}</div>`
+    : '';
+
+  // Sample data
+  let sampleHTML = '';
+  if (q.sampleData) {
+    if (q.sampleData.type === 'multi') {
+      sampleHTML = '<div class="tables-row">';
+      for (const t of q.sampleData.tables) {
+        sampleHTML += `<div class="table-block">${buildTable(t.cols, t.rows, t.title)}</div>`;
+      }
+      sampleHTML += '</div>';
+    } else {
+      sampleHTML = `<div style="margin-bottom:1.25rem">${buildTable(q.sampleData.cols, q.sampleData.rows)}</div>`;
+    }
+  }
+
+  // Editor state class
+  const inputCls = wasChecked
+    ? (correct ? 'sql-input ok' : 'sql-input bad')
+    : 'sql-input';
+
+  // Check button
+  const checkBtn = (wasChecked && correct)
+    ? `<button class="check-btn" disabled>✓ Correct!</button>`
+    : `<button class="check-btn" id="check-btn" onclick="checkQuery()">Check Query →</button>`;
+
+  // Feedback
+  let feedbackHTML = '';
+  if (wasChecked) {
+    if (correct) {
+      feedbackHTML = `<div class="feedback correct-fb"><span class="fb-icon">✓</span> Correct! Your SQL is good.</div>`;
+    } else {
+      const details = feedbackDetails[current] || [];
+      const hintsHTML = details.map(h => `<div class="hint-item">${esc(h)}</div>`).join('');
+      const solDisplay = solutionVisible[current] ? 'block' : 'none';
+      const solBtnTxt  = solutionVisible[current] ? 'Hide Solution' : 'Show Solution';
+      feedbackHTML = `
+        <div class="feedback wrong-fb"><span class="fb-icon">✗</span> Not quite — review the hints and try again.</div>
+        ${details.length ? `<div class="hints">${hintsHTML}</div>` : ''}
+        <button class="show-sol-btn" id="sol-btn" onclick="toggleSolution()">${solBtnTxt}</button>
+        <div class="solution-wrap" id="solution-wrap" style="display:${solDisplay}">
+          <div class="solution-label">✓ expected solution</div>
+          <div class="q-code">${esc(q.solution)}</div>
+        </div>`;
+    }
+  }
+
+  document.getElementById('q-view').innerHTML = `
+    <div class="q-card">
+      <div class="q-top">
+        <span class="q-topic">${q.topic}</span>
+        <div class="q-meta">
+          <span class="q-number">${current + 1} / ${questions.length}</span>
+          <span class="badge ${q.level}">${q.level}</span>
+        </div>
+      </div>
+      <div class="q-text">${q.q}</div>
+      ${schemaHTML}
+      ${sampleHTML}
+      <div class="editor-wrap">
+        <span class="editor-label">sql</span>
+        <textarea
+          class="${inputCls}"
+          id="sql-input"
+          placeholder="-- Write your SQL query here…&#10;-- Tab = indent · Ctrl+Enter = check"
+          spellcheck="false"
+          ${wasChecked && correct ? 'disabled' : ''}
+        ></textarea>
+      </div>
+      ${checkBtn}
+      ${feedbackHTML}
+    </div>`;
+
+  // Set value without HTML injection
+  const ta = document.getElementById('sql-input');
+  if (ta) {
+    ta.value = userQueries[current];
+
+    ta.addEventListener('input', e => {
+      userQueries[current] = e.target.value;
+    });
+
+    ta.addEventListener('keydown', e => {
+      // Tab → two spaces
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        const s = ta.selectionStart, end = ta.selectionEnd;
+        ta.value = ta.value.substring(0, s) + '  ' + ta.value.substring(end);
+        ta.selectionStart = ta.selectionEnd = s + 2;
+        userQueries[current] = ta.value;
+      }
+      // Ctrl/Cmd+Enter → check
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        if (!checked[current] || !correctArr[current]) checkQuery();
+      }
+    });
+  }
+
+  // Nav buttons
+  document.getElementById('btn-back').disabled = current === 0;
+  const isLast  = current === questions.length - 1;
+  const btnNext = document.getElementById('btn-next');
+  btnNext.textContent = isLast ? 'See Results' : 'Next →';
+  btnNext.onclick     = isLast ? showResults   : goNext;
+
+  updateProgress();
+}
+
+// ── Check query ────────────────────────────────────────────────────────────
+function checkQuery() {
+  const ta  = document.getElementById('sql-input');
+  const raw = ta ? ta.value : userQueries[current];
+  userQueries[current] = raw;
+
+  const norm    = raw.toLowerCase().replace(/[\s\n\r\t]+/g, ' ').trim();
+  const q       = questions[current];
+  const missing = q.checks.filter(c => !norm.includes(c.p)).map(c => c.hint);
+  const isOk    = missing.length === 0;
+
+  checked[current]         = true;
+  correctArr[current]      = isOk;
+  feedbackDetails[current] = missing;
+
+  render();
+}
+
+// ── Solution toggle ────────────────────────────────────────────────────────
+function toggleSolution() {
+  solutionVisible[current] = !solutionVisible[current];
+  const wrap = document.getElementById('solution-wrap');
+  const btn  = document.getElementById('sol-btn');
+  if (wrap) wrap.style.display = solutionVisible[current] ? 'block' : 'none';
+  if (btn)  btn.textContent    = solutionVisible[current] ? 'Hide Solution' : 'Show Solution';
+}
+
+// ── Navigation ─────────────────────────────────────────────────────────────
+function goNext() {
+  if (current < questions.length - 1) { current++; render(); }
+}
+
+function go(dir) {
+  current = Math.max(0, Math.min(questions.length - 1, current + dir));
+  render();
+}
+
+// ── Progress ───────────────────────────────────────────────────────────────
+function updateProgress() {
+  const answered = checked.filter(Boolean).length;
+  const correct  = correctArr.filter((c, i) => checked[i] && c).length;
+  const pct      = Math.round(answered / questions.length * 100);
+  document.getElementById('prog-text').textContent  = `${answered} / ${questions.length}`;
+  document.getElementById('prog-pct').textContent   = pct + '%';
+  document.getElementById('prog-fill').style.width  = pct + '%';
+  document.getElementById('score-pill').textContent = `${correct} correct`;
+}
+
+// ── Results ────────────────────────────────────────────────────────────────
+function showResults() {
+  const correct = correctArr.filter((c, i) => checked[i] &&  c).length;
+  const wrong   = correctArr.filter((c, i) => checked[i] && !c).length;
+  const skipped = checked.filter(c => !c).length;
+  const pct     = Math.round(correct / questions.length * 100);
+  const emoji   = pct >= 85 ? '🏆' : pct >= 60 ? '👍' : '📚';
+  const msg     = pct >= 85 ? 'Excellent SQL skills!'
+                : pct >= 60 ? 'Good work — keep practicing!'
+                :             "Keep at it — you've got this!";
+
+  document.getElementById('q-view').classList.add('hidden');
+  document.getElementById('nav-bar').classList.add('hidden');
+  document.getElementById('result-view').classList.remove('hidden');
+  document.getElementById('result-view').innerHTML = `
+    <div class="results">
+      <div class="results-emoji">${emoji}</div>
+      <div class="score-display">${correct}/${questions.length}</div>
+      <div class="score-label">${pct}% · ${msg}</div>
+      <div class="result-grid">
+        <div class="stat-box"><div class="stat-val g">${correct}</div><div class="stat-label">CORRECT</div></div>
+        <div class="stat-box"><div class="stat-val r">${wrong}</div><div class="stat-label">WRONG</div></div>
+        <div class="stat-box"><div class="stat-val a">${skipped}</div><div class="stat-label">SKIPPED</div></div>
+      </div>
+      <button class="restart-btn" onclick="restart()">Try Again</button>
+    </div>`;
+}
+
+// ── Restart ────────────────────────────────────────────────────────────────
+function restart() {
+  current         = 0;
+  userQueries     = new Array(questions.length).fill('');
+  checked         = new Array(questions.length).fill(false);
+  correctArr      = new Array(questions.length).fill(false);
+  feedbackDetails = new Array(questions.length).fill(null);
+  solutionVisible = new Array(questions.length).fill(false);
+  document.getElementById('q-view').classList.remove('hidden');
+  document.getElementById('nav-bar').classList.remove('hidden');
+  document.getElementById('result-view').classList.add('hidden');
+  document.getElementById('result-view').innerHTML = '';
+  render();
+}
+
+render();
+</script>
+</body>
+</html>
