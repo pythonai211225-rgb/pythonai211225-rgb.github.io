@@ -314,6 +314,105 @@
     </div>
   </section>
 
+  <!-- JULIANDAY -->
+  <section class="section card reveal">
+    <h2>JULIANDAY() — Calculate Days Between Two Dates</h2>
+    <p style="color:var(--muted);margin-bottom:14px;font-size:.9rem;">
+      You can't subtract two date strings directly. <code style="color:var(--amber)">JULIANDAY()</code> converts a date into a single number (days since a fixed point in history), so subtraction gives you the gap in days.
+    </p>
+
+    <div class="code" style="margin-bottom:12px;">
+      <div class="label">What JULIANDAY returns</div>
+<pre><span class="k">SELECT</span> <span class="fn">JULIANDAY</span>(<span class="t">'2026-03-15'</span>) <span class="k">AS</span> julian_number;
+<span class="c">-- → 2461115.5  (a plain number — days since Jan 1, 4713 BC)</span></pre>
+    </div>
+
+    <div class="code" style="margin-bottom:12px;">
+      <div class="label">Days between two fixed dates</div>
+<pre><span class="k">SELECT</span> <span class="fn">ROUND</span>(
+         <span class="fn">JULIANDAY</span>(<span class="t">'2026-05-20'</span>) <span class="op">-</span> <span class="fn">JULIANDAY</span>(<span class="t">'2026-01-15'</span>), <span class="c">0</span>
+       ) <span class="k">AS</span> days_apart;
+<span class="c">-- → 125</span></pre>
+    </div>
+
+    <div class="code" style="margin-bottom:12px;">
+      <div class="label">Days since Jan 1 for every order</div>
+<pre><span class="k">SELECT</span>   customer,
+         created_at,
+         <span class="fn">ROUND</span>(<span class="fn">JULIANDAY</span>(created_at) <span class="op">-</span> <span class="fn">JULIANDAY</span>(<span class="t">'2026-01-01'</span>), <span class="c">0</span>) <span class="k">AS</span> day_of_year
+<span class="k">FROM</span>     orders
+<span class="k">ORDER BY</span> day_of_year;</pre>
+    </div>
+
+    <table class="table" style="margin-top:12px;">
+      <thead><tr><th>customer</th><th>created_at</th><th>day_of_year</th></tr></thead>
+      <tbody>
+        <tr class="highlight-row"><td>Alice</td><td>2026-01-15 09:23:00</td><td>15</td></tr>
+        <tr class="highlight-row"><td>Bob</td><td>2026-01-15 14:05:00</td><td>15</td></tr>
+        <tr><td>Carol</td><td>2026-02-20 11:30:00</td><td>51</td></tr>
+        <tr><td>David</td><td>2026-03-10 14:45:00</td><td>69</td></tr>
+        <tr><td>…</td><td>…</td><td>…</td></tr>
+        <tr><td>Jack</td><td>2026-05-20 14:30:00</td><td>140</td></tr>
+      </tbody>
+    </table>
+
+    <div class="note note-amber" style="margin-top:12px;">
+      💡 <code>JULIANDAY</code> is the standard SQLite way to get the number of days between two dates. Wrap in <code>ROUND(..., 0)</code> to get a whole number, or <code>ROUND(..., 1)</code> to keep half-days (the <code>.5</code> comes from time-of-day).
+    </div>
+  </section>
+
+  <!-- BETWEEN + || ' 23:59:59' -->
+  <section class="section card reveal">
+    <h2>BETWEEN a Date Range — The End-of-Day Trick</h2>
+    <p style="color:var(--muted);margin-bottom:14px;font-size:.9rem;">
+      SQLite compares dates as plain text. A datetime like <code>'2026-03-15 09:00:00'</code> sorts <strong>after</strong> the bare date string <code>'2026-03-15'</code> (because a space character comes after the end of the shorter string). This means a plain BETWEEN with a date-only upper bound silently drops all rows that have a time part on the last day.
+    </p>
+
+    <div class="code" style="margin-bottom:12px;">
+      <div class="label">❌ Problem — March 15 orders are missing</div>
+<pre><span class="k">SELECT</span> customer, created_at
+<span class="k">FROM</span>   orders
+<span class="k">WHERE</span>  created_at <span class="k">BETWEEN</span> <span class="t">'2026-03-10'</span> <span class="k">AND</span> <span class="t">'2026-03-15'</span>;
+<span class="c">-- Returns only David — Emma, Felix, Greta are silently excluded!</span></pre>
+    </div>
+
+    <div class="result-wrap" style="margin-bottom:12px;">
+      <div class="result-label">Why? String comparison:</div>
+      <table class="result-table">
+        <thead><tr><th>created_at value</th><th>&lt;= '2026-03-15' ?</th><th>included?</th></tr></thead>
+        <tbody>
+          <tr><td>2026-03-10 14:45:00</td><td style="color:var(--teal);">✓ yes (Mar 10 &lt; Mar 15)</td><td style="color:var(--teal);">✓</td></tr>
+          <tr style="background:rgba(248,113,113,.07)"><td>2026-03-15 09:00:00</td><td style="color:var(--coral);">✗ no ('…15 09…' &gt; '…15')</td><td style="color:var(--coral);">✗</td></tr>
+          <tr style="background:rgba(248,113,113,.07)"><td>2026-03-15 14:10:00</td><td style="color:var(--coral);">✗ no ('…15 14…' &gt; '…15')</td><td style="color:var(--coral);">✗</td></tr>
+          <tr style="background:rgba(248,113,113,.07)"><td>2026-03-15 15:22:00</td><td style="color:var(--coral);">✗ no ('…15 15…' &gt; '…15')</td><td style="color:var(--coral);">✗</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="code" style="margin-bottom:12px;">
+      <div class="label">✅ Fix — append ' 23:59:59' to the end date using ||</div>
+<pre><span class="k">SELECT</span> customer, created_at
+<span class="k">FROM</span>   orders
+<span class="k">WHERE</span>  created_at <span class="k">BETWEEN</span> <span class="t">'2026-03-10'</span> <span class="k">AND</span> <span class="t">'2026-03-15'</span> <span class="op">||</span> <span class="t">' 23:59:59'</span>;
+<span class="c">-- '2026-03-15' || ' 23:59:59'  →  '2026-03-15 23:59:59'</span>
+<span class="c">-- Now all four March rows are included ✓</span></pre>
+    </div>
+
+    <table class="table" style="margin-top:12px;">
+      <thead><tr><th>customer</th><th>created_at</th></tr></thead>
+      <tbody>
+        <tr class="highlight-row"><td>David</td><td>2026-03-10 14:45:00</td></tr>
+        <tr class="highlight-row"><td>Emma</td><td>2026-03-15 09:00:00</td></tr>
+        <tr class="highlight-row"><td>Greta</td><td>2026-03-15 14:10:00</td></tr>
+        <tr class="highlight-row"><td>Felix</td><td>2026-03-15 15:22:00</td></tr>
+      </tbody>
+    </table>
+
+    <div class="note" style="margin-top:12px;">
+      <code>||</code> is SQLite's string concatenation operator. <code>'2026-03-15' || ' 23:59:59'</code> builds the string <code>'2026-03-15 23:59:59'</code> at query time — useful when the date comes from a column or variable rather than being hardcoded.
+    </div>
+  </section>
+
   <!-- EXERCISE -->
   <section class="section card reveal exercise-card" id="exercise">
     <div class="exercise-head">
