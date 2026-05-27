@@ -569,6 +569,91 @@
           <div>Add a second computed column: <code style="color:var(--amber)">COUNT(DISTINCT DATE(login_time)) AS active_days</code>. This shows on how many <em>different days</em> during the vacation the account was accessed — a high number across many days is more alarming than several logins on a single day.</div>
         </li>
       </ul>
+
+      <!-- ── SOLUTION ── -->
+      <h3 style="margin-top:28px;margin-bottom:12px;">Solution</h3>
+
+      <div class="code" style="margin-bottom:12px;">
+        <div class="label">Step 1 — All logins that fall inside a vacation window</div>
+<pre><span class="k">SELECT</span>   e.name,
+         l.login_time,
+         v.start_date,
+         v.end_date
+<span class="k">FROM</span>     employees  e
+<span class="k">JOIN</span>     vacations  v <span class="k">ON</span> v.employee_id <span class="op">=</span> e.id
+<span class="k">JOIN</span>     login_logs l <span class="k">ON</span> l.employee_id <span class="op">=</span> e.id
+<span class="k">WHERE</span>    l.login_time <span class="k">BETWEEN</span> v.start_date
+                       <span class="k">AND</span>     v.end_date <span class="op">||</span> <span class="t">' 23:59:59'</span>
+<span class="k">ORDER BY</span> e.name, l.login_time;</pre>
+      </div>
+
+      <div class="code" style="margin-bottom:12px;">
+        <div class="label">Step 2 — Group, count, keep only abnormal (> 3 logins)</div>
+<pre><span class="k">SELECT</span>   e.name,
+         v.start_date,
+         v.end_date,
+         <span class="fn">COUNT</span>(*) <span class="k">AS</span> login_count
+<span class="k">FROM</span>     employees  e
+<span class="k">JOIN</span>     vacations  v <span class="k">ON</span> v.employee_id <span class="op">=</span> e.id
+<span class="k">JOIN</span>     login_logs l <span class="k">ON</span> l.employee_id <span class="op">=</span> e.id
+<span class="k">WHERE</span>    l.login_time <span class="k">BETWEEN</span> v.start_date
+                       <span class="k">AND</span>     v.end_date <span class="op">||</span> <span class="t">' 23:59:59'</span>
+<span class="k">GROUP BY</span> e.id, v.id
+<span class="k">HAVING</span>   <span class="fn">COUNT</span>(*) <span class="op">&gt;</span> <span class="c">3</span>
+<span class="k">ORDER BY</span> login_count <span class="k">DESC</span>;</pre>
+      </div>
+
+      <div class="code" style="margin-bottom:12px;">
+        <div class="label">Step 3 — Add active_days (distinct login days)</div>
+<pre><span class="k">SELECT</span>   e.name,
+         v.start_date,
+         v.end_date,
+         <span class="fn">COUNT</span>(*) <span class="k">AS</span> login_count,
+         <span class="fn">COUNT</span>(<span class="k">DISTINCT</span> <span class="fn">DATE</span>(l.login_time)) <span class="k">AS</span> active_days
+<span class="k">FROM</span>     employees  e
+<span class="k">JOIN</span>     vacations  v <span class="k">ON</span> v.employee_id <span class="op">=</span> e.id
+<span class="k">JOIN</span>     login_logs l <span class="k">ON</span> l.employee_id <span class="op">=</span> e.id
+<span class="k">WHERE</span>    l.login_time <span class="k">BETWEEN</span> v.start_date
+                       <span class="k">AND</span>     v.end_date <span class="op">||</span> <span class="t">' 23:59:59'</span>
+<span class="k">GROUP BY</span> e.id, v.id
+<span class="k">HAVING</span>   <span class="fn">COUNT</span>(*) <span class="op">&gt;</span> <span class="c">3</span>
+<span class="k">ORDER BY</span> login_count <span class="k">DESC</span>;</pre>
+      </div>
+
+      <h3 style="margin-top:28px;margin-bottom:12px;">Simpler Alternative — Use CREATE TABLE</h3>
+      <p style="color:var(--muted);font-size:.9rem;margin-bottom:14px;">Save vacation logins to a table first, then count from it — no nested joins on the fly.</p>
+
+      <div class="code" style="margin-bottom:12px;">
+        <div class="label">Step 1 — Save logins that happened during a vacation</div>
+<pre><span class="k">CREATE TABLE</span> vacation_logins <span class="k">AS</span>
+<span class="k">SELECT</span>   e.name,
+         l.login_time,
+         v.start_date,
+         v.end_date
+<span class="k">FROM</span>     employees  e
+<span class="k">JOIN</span>     vacations  v <span class="k">ON</span> v.employee_id <span class="op">=</span> e.id
+<span class="k">JOIN</span>     login_logs l <span class="k">ON</span> l.employee_id <span class="op">=</span> e.id
+<span class="k">WHERE</span>    l.login_time <span class="k">BETWEEN</span> v.start_date
+                       <span class="k">AND</span>     v.end_date <span class="op">||</span> <span class="t">' 23:59:59'</span>;</pre>
+      </div>
+
+      <div class="code" style="margin-bottom:12px;">
+        <div class="label">Step 2 — Count from saved table</div>
+<pre><span class="k">SELECT</span>   name,
+         start_date,
+         end_date,
+         <span class="fn">COUNT</span>(*) <span class="k">AS</span> login_count,
+         <span class="fn">COUNT</span>(<span class="k">DISTINCT</span> <span class="fn">DATE</span>(login_time)) <span class="k">AS</span> active_days
+<span class="k">FROM</span>     vacation_logins
+<span class="k">GROUP BY</span> name, start_date, end_date
+<span class="k">HAVING</span>   <span class="fn">COUNT</span>(*) <span class="op">&gt;</span> <span class="c">3</span>
+<span class="k">ORDER BY</span> login_count <span class="k">DESC</span>;</pre>
+      </div>
+
+      <div class="note" style="margin-bottom:4px;">
+        Clean up after: <code>DROP TABLE vacation_logins;</code>
+      </div>
+
     </div>
   </section>
 

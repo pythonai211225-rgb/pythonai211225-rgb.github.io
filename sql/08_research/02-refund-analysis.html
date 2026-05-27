@@ -414,6 +414,64 @@
           <div>How many suspicious refunds are there in total? Add a final query that returns just the count.</div>
         </li>
       </ul>
+
+      <!-- ── SOLUTION ── -->
+      <h3 style="margin-top:28px;margin-bottom:12px;">Solution</h3>
+
+      <div class="code" style="margin-bottom:12px;">
+        <div class="label">Step 1 — Find mismatched customer IDs</div>
+<pre><span class="k">SELECT</span> r.order_id,
+       r.customer_id <span class="k">AS</span> refund_to,
+       o.customer_id <span class="k">AS</span> order_by
+<span class="k">FROM</span>   refunds r
+<span class="k">JOIN</span>   orders o <span class="k">ON</span> o.id <span class="op">=</span> r.order_id
+<span class="k">WHERE</span>  r.customer_id <span class="op">&lt;&gt;</span> o.customer_id;</pre>
+      </div>
+
+      <div class="code" style="margin-bottom:12px;">
+        <div class="label">Step 2 — Show buyer and recipient names (join customers twice)</div>
+<pre><span class="k">SELECT</span>   r.order_id,
+         buyer.name     <span class="k">AS</span> buyer_name,
+         recipient.name <span class="k">AS</span> received_by
+<span class="k">FROM</span>     refunds r
+<span class="k">JOIN</span>     orders    o         <span class="k">ON</span> o.id         <span class="op">=</span> r.order_id
+<span class="k">JOIN</span>     customers buyer     <span class="k">ON</span> buyer.id     <span class="op">=</span> o.customer_id
+<span class="k">JOIN</span>     customers recipient <span class="k">ON</span> recipient.id <span class="op">=</span> r.customer_id
+<span class="k">WHERE</span>    r.customer_id <span class="op">&lt;&gt;</span> o.customer_id;</pre>
+      </div>
+
+      <div class="code" style="margin-bottom:12px;">
+        <div class="label">Step 3 — Count total suspicious refunds</div>
+<pre><span class="k">SELECT</span> <span class="fn">COUNT</span>(*) <span class="k">AS</span> suspicious_count
+<span class="k">FROM</span>   refunds r
+<span class="k">JOIN</span>   orders o <span class="k">ON</span> o.id <span class="op">=</span> r.order_id
+<span class="k">WHERE</span>  r.customer_id <span class="op">&lt;&gt;</span> o.customer_id;</pre>
+      </div>
+
+      <h3 style="margin-top:28px;margin-bottom:12px;">Simpler Alternative — Use CREATE TABLE</h3>
+      <p style="color:var(--muted);font-size:.9rem;margin-bottom:14px;">Save the order owners first, then compare with a plain WHERE — no complex JOIN needed.</p>
+
+      <div class="code" style="margin-bottom:12px;">
+        <div class="label">Step 1 — Save order owners</div>
+<pre><span class="k">CREATE TABLE</span> order_owners <span class="k">AS</span>
+<span class="k">SELECT</span> id <span class="k">AS</span> order_id, customer_id <span class="k">AS</span> owner_id
+<span class="k">FROM</span>   orders;</pre>
+      </div>
+
+      <div class="code" style="margin-bottom:12px;">
+        <div class="label">Step 2 — Find mismatches (no subquery needed)</div>
+<pre><span class="k">SELECT</span>   r.order_id,
+         r.customer_id <span class="k">AS</span> refund_to,
+         oo.owner_id   <span class="k">AS</span> order_by
+<span class="k">FROM</span>     refunds r
+<span class="k">JOIN</span>     order_owners oo <span class="k">ON</span> oo.order_id <span class="op">=</span> r.order_id
+<span class="k">WHERE</span>    r.customer_id <span class="op">&lt;&gt;</span> oo.owner_id;</pre>
+      </div>
+
+      <div class="note" style="margin-bottom:4px;">
+        Clean up after: <code>DROP TABLE order_owners;</code>
+      </div>
+
     </div>
   </section>
 
@@ -504,6 +562,75 @@
           <div>Join <code style="color:var(--teal)">customers</code> (through orders) to also show the customer name next to each suspicious refund.</div>
         </li>
       </ul>
+
+      <!-- ── SOLUTION ── -->
+      <h3 style="margin-top:28px;margin-bottom:12px;">Solution</h3>
+
+      <div class="code" style="margin-bottom:12px;">
+        <div class="label">Step 1 — Refund date before purchase date</div>
+<pre><span class="k">SELECT</span> r.order_id,
+       o.created_at  <span class="k">AS</span> purchase_date,
+       r.refunded_at <span class="k">AS</span> refund_date,
+       r.amount
+<span class="k">FROM</span>   refunds r
+<span class="k">JOIN</span>   orders  o <span class="k">ON</span> o.id <span class="op">=</span> r.order_id
+<span class="k">WHERE</span>  r.refunded_at <span class="op">&lt;</span> o.created_at;</pre>
+      </div>
+
+      <div class="code" style="margin-bottom:12px;">
+        <div class="label">Step 2 — Add days_before column</div>
+<pre><span class="k">SELECT</span> r.order_id,
+       o.created_at  <span class="k">AS</span> purchase_date,
+       r.refunded_at <span class="k">AS</span> refund_date,
+       r.amount,
+       <span class="fn">ROUND</span>(<span class="fn">JULIANDAY</span>(o.created_at) <span class="op">-</span> <span class="fn">JULIANDAY</span>(r.refunded_at), <span class="c">1</span>) <span class="k">AS</span> days_before
+<span class="k">FROM</span>   refunds r
+<span class="k">JOIN</span>   orders  o <span class="k">ON</span> o.id <span class="op">=</span> r.order_id
+<span class="k">WHERE</span>  r.refunded_at <span class="op">&lt;</span> o.created_at;</pre>
+      </div>
+
+      <div class="code" style="margin-bottom:12px;">
+        <div class="label">Step 3 — Include customer_id and sort by biggest gap</div>
+<pre><span class="k">SELECT</span> o.customer_id,
+       r.order_id,
+       o.created_at  <span class="k">AS</span> purchase_date,
+       r.refunded_at <span class="k">AS</span> refund_date,
+       r.amount,
+       <span class="fn">ROUND</span>(<span class="fn">JULIANDAY</span>(o.created_at) <span class="op">-</span> <span class="fn">JULIANDAY</span>(r.refunded_at), <span class="c">1</span>) <span class="k">AS</span> days_before
+<span class="k">FROM</span>   refunds r
+<span class="k">JOIN</span>   orders  o <span class="k">ON</span> o.id <span class="op">=</span> r.order_id
+<span class="k">WHERE</span>  r.refunded_at <span class="op">&lt;</span> o.created_at
+<span class="k">ORDER BY</span> days_before <span class="k">DESC</span>;</pre>
+      </div>
+
+      <h3 style="margin-top:28px;margin-bottom:12px;">Simpler Alternative — Use CREATE TABLE</h3>
+      <p style="color:var(--muted);font-size:.9rem;margin-bottom:14px;">Save the impossible refunds to a table first, then query it cleanly.</p>
+
+      <div class="code" style="margin-bottom:12px;">
+        <div class="label">Step 1 — Save impossible refunds</div>
+<pre><span class="k">CREATE TABLE</span> impossible_refunds <span class="k">AS</span>
+<span class="k">SELECT</span> r.order_id,
+       o.customer_id,
+       o.created_at  <span class="k">AS</span> purchase_date,
+       r.refunded_at <span class="k">AS</span> refund_date,
+       r.amount
+<span class="k">FROM</span>   refunds r
+<span class="k">JOIN</span>   orders o <span class="k">ON</span> o.id <span class="op">=</span> r.order_id
+<span class="k">WHERE</span>  r.refunded_at <span class="op">&lt;</span> o.created_at;</pre>
+      </div>
+
+      <div class="code" style="margin-bottom:12px;">
+        <div class="label">Step 2 — Read with days_before</div>
+<pre><span class="k">SELECT</span> *,
+       <span class="fn">ROUND</span>(<span class="fn">JULIANDAY</span>(purchase_date) <span class="op">-</span> <span class="fn">JULIANDAY</span>(refund_date), <span class="c">1</span>) <span class="k">AS</span> days_before
+<span class="k">FROM</span>   impossible_refunds
+<span class="k">ORDER BY</span> days_before <span class="k">DESC</span>;</pre>
+      </div>
+
+      <div class="note" style="margin-bottom:4px;">
+        Clean up after: <code>DROP TABLE impossible_refunds;</code>
+      </div>
+
     </div>
   </section>
 
