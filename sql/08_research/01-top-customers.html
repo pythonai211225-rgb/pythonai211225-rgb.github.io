@@ -490,6 +490,45 @@
           </div>
         </li>
       </ul>
+
+      <!-- ── SIMPLE ALTERNATIVE ── -->
+      <h3 style="margin-top:28px;margin-bottom:12px;">Simpler Alternative — Use CREATE TABLE</h3>
+      <p style="color:var(--muted);font-size:.9rem;margin-bottom:14px;">
+        Not comfortable with subqueries yet? Break it into 3 small steps using <code style="color:var(--teal)">CREATE TABLE AS</code> to save your aggregations first, then join the saved tables.
+      </p>
+
+      <div class="code" style="margin-bottom:12px;">
+        <div class="label">Step 1 — Save revenue per branch</div>
+<pre><span class="k">CREATE TABLE</span> rev_summary <span class="k">AS</span>
+<span class="k">SELECT</span> branch_id, <span class="fn">SUM</span>(amount) <span class="k">AS</span> total_revenue
+<span class="k">FROM</span>   orders
+<span class="k">GROUP BY</span> branch_id;</pre>
+      </div>
+
+      <div class="code" style="margin-bottom:12px;">
+        <div class="label">Step 2 — Save expenses per branch</div>
+<pre><span class="k">CREATE TABLE</span> exp_summary <span class="k">AS</span>
+<span class="k">SELECT</span> branch_id, <span class="fn">SUM</span>(amount) <span class="k">AS</span> total_expenses
+<span class="k">FROM</span>   expenses
+<span class="k">GROUP BY</span> branch_id;</pre>
+      </div>
+
+      <div class="code" style="margin-bottom:12px;">
+        <div class="label">Step 3 — Simple JOIN, no subqueries</div>
+<pre><span class="k">SELECT</span>   b.name,
+         r.total_revenue,
+         e.total_expenses,
+         <span class="fn">ROUND</span>(r.total_revenue <span class="op">-</span> e.total_expenses, <span class="c">2</span>) <span class="k">AS</span> profit
+<span class="k">FROM</span>     branches b
+<span class="k">JOIN</span>     rev_summary r <span class="k">ON</span> r.branch_id <span class="op">=</span> b.id
+<span class="k">JOIN</span>     exp_summary e <span class="k">ON</span> e.branch_id <span class="op">=</span> b.id
+<span class="k">ORDER BY</span> profit <span class="k">DESC</span>;</pre>
+      </div>
+
+      <div class="note" style="margin-bottom:4px;">
+        Same result, easier to read. The trade-off: you create two extra tables that stay in your database. Clean them up after with <code>DROP TABLE rev_summary; DROP TABLE exp_summary;</code>
+      </div>
+
     </div>
   </section>
 
