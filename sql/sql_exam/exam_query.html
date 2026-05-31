@@ -1,0 +1,1170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>SQL Exam — SQL Queries</title>
+<link rel="icon" href="sqlite_icon.png" type="image/png">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/sql-wasm.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#07101f;--bg2:#0d1a2e;--surface:#111c30;--surface2:#172035;
+  --teal:#2dd4bf;--amber:#fbbf24;--coral:#f87171;--green:#4ade80;
+  --violet:#a78bfa;--blue:#60a5fa;--text:#e2e8f0;--dim:#64748b;
+}
+body{
+  font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);
+  min-height:100vh;user-select:none;-webkit-user-select:none;
+}
+
+/* ── ENTRY ── */
+#entry-screen{
+  display:flex;align-items:center;justify-content:center;
+  min-height:100vh;padding:20px;
+}
+.entry-card{
+  background:var(--surface);border:1px solid #1e3a5f;border-radius:16px;
+  padding:48px 40px;max-width:460px;width:100%;text-align:center;
+}
+.entry-logo{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:24px}
+.entry-logo img{width:36px;height:36px}
+.entry-logo span{font-size:1.3rem;font-weight:700;color:var(--teal)}
+.entry-card h2{font-size:1.5rem;font-weight:800;margin-bottom:8px}
+.entry-card p{color:var(--dim);font-size:.9rem;margin-bottom:32px}
+.entry-label{display:block;text-align:left;font-size:.8rem;font-weight:600;color:var(--dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:.07em}
+.entry-input{
+  width:100%;padding:12px 16px;background:var(--bg2);border:2px solid #1e3a5f;
+  border-radius:8px;color:var(--text);font-size:1.1rem;font-family:'JetBrains Mono',monospace;
+  outline:none;transition:border-color .2s;text-align:center;
+}
+.entry-input:focus{border-color:var(--teal)}
+.entry-err{color:var(--coral);font-size:.85rem;margin-top:8px;min-height:1.2em}
+.entry-btn{
+  margin-top:24px;width:100%;padding:14px;background:var(--teal);color:#07101f;
+  border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;transition:opacity .2s;
+}
+.entry-btn:hover{opacity:.88}
+
+/* ── NAV ── */
+.top-nav{
+  position:sticky;top:0;z-index:100;
+  background:var(--bg2);border-bottom:1px solid #1e3a5f;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 24px;height:54px;
+}
+.nav-brand{display:flex;align-items:center;gap:10px}
+.nav-brand img{width:26px;height:26px}
+.nav-brand span{font-size:.95rem;font-weight:700;color:var(--teal)}
+.nav-pills{display:flex;align-items:center;gap:10px}
+.pill{
+  padding:4px 12px;border-radius:20px;font-size:.78rem;font-weight:600;
+  background:var(--surface);border:1px solid #1e3a5f;
+}
+.pill-qnum{color:var(--amber)}
+.pill-score{color:var(--green)}
+
+/* ── PROGRESS ── */
+.prog-bar-outer{height:4px;background:#1e3a5f}
+.prog-fill{height:100%;background:var(--teal);transition:width .35s ease;width:5%}
+
+/* ── MAIN ── */
+.container{max-width:800px;margin:0 auto;padding:28px 20px 60px}
+
+/* ── STATUS ROW ── */
+.status-row{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:18px;
+}
+.q-counter{font-size:.9rem;color:var(--dim);font-weight:600}
+.check-icon .check-ok{color:var(--green);font-size:1.4rem;font-weight:800}
+
+/* ── Q-CARD ── */
+.q-card{background:var(--surface);border:1px solid #1e3a5f;border-radius:12px;padding:24px}
+.q-header{display:flex;align-items:flex-start;gap:14px;margin-bottom:20px}
+.q-num{
+  flex-shrink:0;width:38px;height:38px;border-radius:8px;display:flex;
+  align-items:center;justify-content:center;font-size:.78rem;font-weight:800;
+  background:rgba(45,212,191,.15);color:var(--teal);border:1px solid rgba(45,212,191,.3);
+}
+.q-num.d{background:rgba(167,139,250,.15);color:var(--violet);border:1px solid rgba(167,139,250,.3)}
+.q-text{font-size:1rem;font-weight:600;line-height:1.6;padding-top:6px}
+.q-text code{background:rgba(45,212,191,.12);color:var(--teal);padding:1px 5px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:.85em}
+.q-text strong{color:var(--amber)}
+.q-hint{font-size:.8rem;color:var(--dim);margin-bottom:14px;font-style:italic}
+
+/* ── PREVIEW TABLE ── */
+.prev-wrap{margin-bottom:16px}
+.prev-lbl{font-size:.72rem;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:6px}
+.prev-t{
+  border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.78rem;
+  background:var(--bg2);border-radius:6px;overflow:hidden;
+}
+.prev-t th{
+  background:var(--surface2);padding:5px 10px;color:var(--teal);
+  font-weight:700;border-bottom:1px solid #1e3a5f;
+}
+.prev-t td{padding:4px 10px;border-bottom:1px solid #1a2d49;color:#94a3b8}
+.prev-t tr:last-child td{border-bottom:none}
+.prev-t td.pv-str{color:var(--green)}
+.prev-t td.pv-num{color:var(--amber)}
+.prev-t td.pv-null{color:var(--coral)}
+.prev-t tr.ell td{color:var(--dim);font-style:italic;text-align:center}
+
+/* ── SQL EDITOR ── */
+.sql-ta{
+  width:100%;min-height:80px;padding:12px;background:var(--bg);
+  border:1px solid #1e3a5f;border-radius:8px;color:var(--text);
+  font-family:'JetBrains Mono',monospace;font-size:.88rem;line-height:1.6;
+  resize:vertical;outline:none;transition:border-color .2s;user-select:text;-webkit-user-select:text;
+}
+.sql-ta:focus{border-color:var(--teal)}
+.run-btn{
+  margin-top:10px;padding:8px 20px;background:var(--teal);color:#07101f;
+  border:none;border-radius:6px;font-size:.85rem;font-weight:700;cursor:pointer;transition:opacity .2s;
+}
+.run-btn:hover{opacity:.85}
+.run-btn:disabled{opacity:.35;cursor:not-allowed}
+
+/* ── OUTPUT ── */
+.sql-out{margin-top:14px}
+.out-table-wrap{overflow-x:auto}
+.out-table{
+  border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.8rem;width:100%;
+}
+.out-table th{
+  background:var(--surface2);padding:6px 10px;color:var(--teal);
+  font-weight:700;border-bottom:1px solid #1e3a5f;text-align:left;
+}
+.out-table td{padding:5px 10px;border-bottom:1px solid #1a2d49;color:#94a3b8}
+.out-table tr:last-child td{border-bottom:none}
+.out-info{padding:8px 12px;background:var(--bg2);border-radius:6px;font-size:.82rem;color:var(--dim);font-family:'JetBrains Mono',monospace}
+.out-error{padding:8px 12px;background:rgba(248,113,113,.1);border-left:3px solid var(--coral);border-radius:4px;font-size:.82rem;color:var(--coral);font-family:'JetBrains Mono',monospace}
+.out-ok{padding:8px 12px;background:rgba(74,222,128,.1);border-left:3px solid var(--green);border-radius:4px;font-size:.82rem;color:var(--green);font-weight:600;margin-top:6px}
+.out-wrong{padding:8px 12px;background:rgba(248,113,113,.08);border-left:3px solid var(--coral);border-radius:4px;font-size:.82rem;color:var(--coral);margin-top:6px}
+
+/* ── NAV BUTTONS ── */
+.q-nav-row{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-top:28px;
+}
+.nav-right{display:flex;gap:10px}
+.nav-prev,.nav-next{
+  padding:9px 20px;border-radius:8px;font-size:.88rem;font-weight:700;cursor:pointer;transition:all .2s;border:none;
+}
+.nav-prev{background:var(--surface2);color:var(--text)}
+.nav-prev:hover{background:var(--surface)}
+.nav-prev:disabled{opacity:.3;cursor:not-allowed}
+.nav-next{background:var(--teal);color:#07101f}
+.nav-reset{padding:9px 16px;border-radius:8px;font-size:.83rem;font-weight:600;cursor:pointer;background:transparent;border:1px solid #2a4a70;color:var(--dim);transition:all .2s}
+.nav-reset:hover{border-color:var(--coral);color:var(--coral)}
+.nav-next:hover{opacity:.85}
+
+/* ── DnD ── */
+.dnd-task{font-size:.9rem;color:var(--dim);margin-bottom:18px;line-height:1.6}
+.dnd-task code{background:rgba(45,212,191,.12);color:var(--teal);padding:1px 5px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:.85em}
+.chip-pool{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;padding:12px;background:var(--bg2);border:1px dashed #1e3a5f;border-radius:8px;min-height:50px}
+.chip{
+  padding:5px 12px;background:var(--surface2);border:1px solid var(--teal);
+  border-radius:20px;font-family:'JetBrains Mono',monospace;font-size:.82rem;
+  color:var(--teal);cursor:grab;user-select:none;-webkit-user-select:none;
+  transition:opacity .15s,transform .15s;
+}
+.chip:active{cursor:grabbing}
+.chip.dragging{opacity:.4;transform:scale(.95)}
+.drop-zone{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:90px;min-height:30px;padding:4px 8px;
+  border:2px dashed #2a4a70;border-radius:6px;font-family:'JetBrains Mono',monospace;
+  font-size:.82rem;color:var(--dim);cursor:pointer;user-select:none;-webkit-user-select:none;
+  transition:border-color .2s,background .2s;
+}
+.drop-zone.over{border-color:var(--teal);background:rgba(45,212,191,.08)}
+.drop-zone.filled{border-color:var(--violet);color:var(--violet);border-style:solid;background:rgba(167,139,250,.08)}
+.drop-zone.good{border-color:var(--green)!important;color:var(--green)!important;background:rgba(74,222,128,.08)!important}
+.drop-zone.bad{border-color:var(--coral)!important;color:var(--coral)!important;background:rgba(248,113,113,.08)!important}
+.sql-preview{
+  background:var(--bg);border:1px solid #1e3a5f;border-radius:8px;
+  padding:12px 16px;font-family:'JetBrains Mono',monospace;font-size:.8rem;
+  line-height:1.9;margin-bottom:16px;
+}
+.sql-preview .sk{color:var(--teal)}
+.sql-preview .stn{color:#60a5fa}
+.sql-preview .scol{color:var(--amber)}
+.sql-preview .sty{color:var(--violet)}
+.sql-preview .scn{color:var(--green)}
+.sql-preview .sdim{color:var(--dim)}
+.dnd-field-tbl{width:100%;border-collapse:collapse;margin-bottom:16px}
+.dnd-field-tbl th{background:var(--surface2);padding:7px 10px;font-size:.78rem;color:var(--dim);font-weight:600;text-transform:uppercase;letter-spacing:.05em;text-align:left;border-bottom:1px solid #1e3a5f}
+.dnd-field-tbl td{padding:7px 8px;border-bottom:1px solid #1a2d49}
+.dnd-field-tbl tr:last-child td{border-bottom:none}
+.type-sel,.con-sel{
+  background:var(--bg2);border:1px solid #1e3a5f;border-radius:5px;
+  color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.78rem;padding:4px 6px;
+  outline:none;cursor:pointer;user-select:text;-webkit-user-select:text;
+}
+.dnd-btns{display:flex;gap:10px;margin-bottom:14px}
+.dnd-btn{
+  padding:7px 16px;border-radius:6px;border:none;font-size:.82rem;font-weight:600;cursor:pointer;transition:opacity .2s;
+}
+.dnd-btn.check{background:var(--teal);color:#07101f}
+.dnd-btn.reveal{background:var(--violet);color:#fff}
+.dnd-btn.reset{background:var(--surface2);color:var(--dim);border:1px solid #1e3a5f}
+.dnd-btn:hover{opacity:.8}
+.dnd-msg{padding:9px 14px;border-radius:6px;font-size:.85rem;font-weight:600;margin-top:10px;display:none}
+.dnd-msg.ok{background:rgba(74,222,128,.12);color:var(--green);border-left:3px solid var(--green)}
+.dnd-msg.err{background:rgba(248,113,113,.1);color:var(--coral);border-left:3px solid var(--coral)}
+.d2-tables{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:600px){.d2-tables{grid-template-columns:1fr}}
+.d2-tbl-lbl{font-size:.72rem;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+.d2-drop-tbl{width:100%;border-collapse:collapse;background:var(--bg2);border-radius:6px;overflow:hidden;border:1px solid #1e3a5f}
+.d2-drop-tbl th{background:var(--surface2);padding:6px 8px;font-size:.75rem;color:var(--dim);font-weight:600;text-align:left;border-bottom:1px solid #1e3a5f}
+.d2-drop-tbl td{padding:6px 8px;border-bottom:1px solid #1a2d49;font-family:'JetBrains Mono',monospace;font-size:.78rem}
+.d2-drop-tbl tr:last-child td{border-bottom:none}
+
+/* ── RESULTS ── */
+#results-area{text-align:center;padding-top:20px}
+.res-title{font-size:2rem;font-weight:800;margin-bottom:8px}
+.res-score{font-size:4rem;font-weight:800;color:var(--teal);line-height:1;margin:16px 0 4px}
+.res-sub{font-size:1.2rem;color:var(--dim);margin-bottom:32px}
+.res-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:10px;
+  max-width:560px;margin:0 auto 32px;
+}
+.res-item{
+  background:var(--surface);border:1px solid #1e3a5f;border-radius:8px;
+  padding:10px 6px;text-align:center;
+}
+.res-item.res-ok{border-color:var(--green);background:rgba(74,222,128,.07)}
+.res-item.res-no{border-color:#1e3a5f}
+.res-qid{display:block;font-size:.75rem;font-weight:700;color:var(--dim);margin-bottom:4px}
+.res-icon{display:block;font-size:1.1rem;font-weight:800}
+.res-item.res-ok .res-icon{color:var(--green)}
+.res-item.res-no .res-icon{color:var(--dim)}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════ ENTRY SCREEN ═══════════════════════════════ -->
+<div id="entry-screen">
+  <div class="entry-card">
+    <div class="entry-logo">
+      <img src="sqlite_icon.png" alt="">
+      <span>SQL Exam</span>
+    </div>
+    <h2>SQL Queries Exam</h2>
+    <p>20 questions — SQL queries + drag &amp; drop schema design</p>
+    <label class="entry-label" for="qnum-input">Questionnaire Number</label>
+    <input class="entry-input" id="qnum-input" type="text" maxlength="20" placeholder="e.g. 12345" autocomplete="off">
+    <div class="entry-err" id="entry-err"></div>
+    <button class="entry-btn" onclick="startExam()">Start Exam →</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ EXAM WRAP ═══════════════════════════════ -->
+<div id="exam-wrap" style="display:none">
+
+  <!-- NAV -->
+  <nav class="top-nav">
+    <div class="nav-brand">
+      <img src="sqlite_icon.png" alt="">
+      <span>SQL Exam — SQL Queries</span>
+    </div>
+    <div class="nav-pills">
+      <div class="pill pill-qnum">Q# <span id="nav-qnum-val">—</span></div>
+      <div class="pill pill-score">Score <span id="score-cur">0</span>/20</div>
+    </div>
+  </nav>
+
+  <!-- PROGRESS BAR -->
+  <div class="prog-bar-outer">
+    <div class="prog-fill" id="prog-fill"></div>
+  </div>
+
+  <!-- CONTAINER -->
+  <div class="container">
+
+    <!-- QUESTION AREA -->
+    <div id="q-area">
+      <div class="status-row">
+        <span class="q-counter">Question <strong id="q-cur-num">1</strong> / 20</span>
+        <span class="check-icon" id="q-check-icon"></span>
+      </div>
+
+      <!-- ─── SLIDES ─── -->
+
+      <!-- slide-0 : Q1 -->
+      <div class="slide" id="slide-0" style="display:none">
+        <div class="q-card">
+          <div class="q-header">
+            <div class="q-num">Q1</div>
+            <div class="q-text">Write a query to select <strong>all rows and all columns</strong> from the <code>products</code> table</div>
+          </div>
+          <div class="prev-wrap"><span class="prev-lbl">products</span><div style="overflow-x:auto"><table class="prev-t"><thead><tr><th>id</th><th>name</th><th>category</th><th>price</th><th>stock</th></tr></thead><tbody><tr><td>1</td><td class="pv-str">'Laptop'</td><td class="pv-str">'Electronics'</td><td class="pv-num">999.99</td><td>15</td></tr><tr><td>2</td><td class="pv-str">'Mouse'</td><td class="pv-str">'Electronics'</td><td class="pv-num">29.99</td><td>120</td></tr><tr><td>3</td><td class="pv-str">'Desk'</td><td class="pv-str">'Furniture'</td><td class="pv-num">249.99</td><td>8</td></tr><tr class="ell"><td colspan="5">· · · 7 rows total</td></tr></tbody></table></div></div>
+          <textarea class="sql-ta" id="ta-0" placeholder="SELECT ..."></textarea>
+          <button class="run-btn" id="run-0" onclick="runQ(0)" disabled>▶ Run</button>
+          <div id="out-0"></div>
+        </div>
+      </div>
+
+      <!-- slide-1 : Q2 -->
+      <div class="slide" id="slide-1" style="display:none">
+        <div class="q-card">
+          <div class="q-header">
+            <div class="q-num">Q2</div>
+            <div class="q-text">From <code>products</code>, get the <strong>name</strong> and <strong>price</strong> of all <strong>Electronics</strong> products with <strong>price above 50</strong></div>
+          </div>
+          <div class="prev-wrap"><span class="prev-lbl">products</span><div style="overflow-x:auto"><table class="prev-t"><thead><tr><th>id</th><th>name</th><th>category</th><th>price</th><th>stock</th></tr></thead><tbody><tr><td>1</td><td class="pv-str">'Laptop'</td><td class="pv-str">'Electronics'</td><td class="pv-num">999.99</td><td>15</td></tr><tr><td>2</td><td class="pv-str">'Mouse'</td><td class="pv-str">'Electronics'</td><td class="pv-num">29.99</td><td>120</td></tr><tr><td>3</td><td class="pv-str">'Desk'</td><td class="pv-str">'Furniture'</td><td class="pv-num">249.99</td><td>8</td></tr><tr class="ell"><td colspan="5">· · · 7 rows total</td></tr></tbody></table></div></div>
+          <textarea class="sql-ta" id="ta-1" placeholder="SELECT ..."></textarea>
+          <button class="run-btn" id="run-1" onclick="runQ(1)" disabled>▶ Run</button>
+          <div id="out-1"></div>
+        </div>
+      </div>
+
+      <!-- slide-2 : Q3 -->
+      <div class="slide" id="slide-2" style="display:none">
+        <div class="q-card">
+          <div class="q-header">
+            <div class="q-num">Q3</div>
+            <div class="q-text">From <code>products</code>, get the <strong>average price</strong> of all products that have <strong>stock less than 10</strong> <strong>OR</strong> <strong>price greater than 200</strong></div>
+          </div>
+          <div class="prev-wrap"><span class="prev-lbl">products</span><div style="overflow-x:auto"><table class="prev-t"><thead><tr><th>id</th><th>name</th><th>category</th><th>price</th><th>stock</th></tr></thead><tbody><tr><td>1</td><td class="pv-str">'Laptop'</td><td class="pv-str">'Electronics'</td><td class="pv-num">999.99</td><td>15</td></tr><tr><td>2</td><td class="pv-str">'Mouse'</td><td class="pv-str">'Electronics'</td><td class="pv-num">29.99</td><td>120</td></tr><tr><td>3</td><td class="pv-str">'Desk'</td><td class="pv-str">'Furniture'</td><td class="pv-num">249.99</td><td>8</td></tr><tr class="ell"><td colspan="5">· · · 7 rows total</td></tr></tbody></table></div></div>
+          <textarea class="sql-ta" id="ta-2" placeholder="SELECT ..."></textarea>
+          <button class="run-btn" id="run-2" onclick="runQ(2)" disabled>▶ Run</button>
+          <div id="out-2"></div>
+        </div>
+      </div>
+
+      <!-- slide-3 : Q4 -->
+      <div class="slide" id="slide-3" style="display:none">
+        <div class="q-card">
+          <div class="q-header">
+            <div class="q-num">Q4</div>
+            <div class="q-text">From <code>products</code>, get the <strong>name</strong> and <strong>price</strong> of products named <code>'Laptop'</code>, <code>'Mouse'</code>, or <code>'Chair'</code> — use <strong>IN</strong></div>
+          </div>
+          <div class="prev-wrap"><span class="prev-lbl">products</span><div style="overflow-x:auto"><table class="prev-t"><thead><tr><th>id</th><th>name</th><th>category</th><th>price</th><th>stock</th></tr></thead><tbody><tr><td>1</td><td class="pv-str">'Laptop'</td><td class="pv-str">'Electronics'</td><td class="pv-num">999.99</td><td>15</td></tr><tr><td>2</td><td class="pv-str">'Mouse'</td><td class="pv-str">'Electronics'</td><td class="pv-num">29.99</td><td>120</td></tr><tr><td>3</td><td class="pv-str">'Desk'</td><td class="pv-str">'Furniture'</td><td class="pv-num">249.99</td><td>8</td></tr><tr class="ell"><td colspan="5">· · · 7 rows total</td></tr></tbody></table></div></div>
+          <textarea class="sql-ta" id="ta-3" placeholder="SELECT ..."></textarea>
+          <button class="run-btn" id="run-3" onclick="runQ(3)" disabled>▶ Run</button>
+          <div id="out-3"></div>
+        </div>
+      </div>
+
+      <!-- slide-4 : Q5 -->
+      <div class="slide" id="slide-4" style="display:none">
+        <div class="q-card">
+          <div class="q-header">
+            <div class="q-num">Q5</div>
+            <div class="q-text">From <code>products</code>, <strong>count</strong> all products whose name contains the letter <code>'a'</code> — use <strong>LIKE</strong></div>
+          </div>
+          <div class="prev-wrap"><span class="prev-lbl">products</span><div style="overflow-x:auto"><table class="prev-t"><thead><tr><th>id</th><th>name</th><th>category</th><th>price</th><th>stock</th></tr></thead><tbody><tr><td>1</td><td class="pv-str">'Laptop'</td><td class="pv-str">'Electronics'</td><td class="pv-num">999.99</td><td>15</td></tr><tr><td>2</td><td class="pv-str">'Mouse'</td><td class="pv-str">'Electronics'</td><td class="pv-num">29.99</td><td>120</td></tr><tr><td>3</td><td class="pv-str">'Desk'</td><td class="pv-str">'Furniture'</td><td class="pv-num">249.99</td><td>8</td></tr><tr class="ell"><td colspan="5">· · · 7 rows total</td></tr></tbody></table></div></div>
+          <textarea class="sql-ta" id="ta-4" placeholder="SELECT COUNT(...)..."></textarea>
+          <button class="run-btn" id="run-4" onclick="runQ(4)" disabled>▶ Run</button>
+          <div id="out-4"></div>
+        </div>
+      </div>
+
+      <!-- slide-5 : Q6 -->
+      <div class="slide" id="slide-5" style="display:none">
+        <div class="q-card">
+          <div class="q-header">
+            <div class="q-num">Q6</div>
+            <div class="q-text">From <code>products</code>, show the <strong>max price per category</strong>, sorted by max price <strong>cheapest first</strong> — use <strong>GROUP BY</strong> and <strong>ORDER BY</strong></div>
+          </div>
+          <div class="q-hint">hint: NULL is not a category — exclude it</div>
+          <div class="prev-wrap"><span class="prev-lbl">products</span><div style="overflow-x:auto"><table class="prev-t"><thead><tr><th>id</th><th>name</th><th>category</th><th>price</th><th>stock</th></tr></thead><tbody><tr><td>1</td><td class="pv-str">'Laptop'</td><td class="pv-str">'Electronics'</td><td class="pv-num">999.99</td><td>15</td></tr><tr><td>2</td><td class="pv-str">'Mouse'</td><td class="pv-str">'Electronics'</td><td class="pv-num">29.99</td><td>120</td></tr><tr><td>3</td><td class="pv-str">'Desk'</td><td class="pv-str">'Furniture'</td><td class="pv-num">249.99</td><td>8</td></tr><tr class="ell"><td colspan="5">· · · 7 rows total</td></tr></tbody></table></div></div>
+          <textarea class="sql-ta" id="ta-5" placeholder="SELECT category, MAX(...)..."></textarea>
+          <button class="run-btn" id="run-5" onclick="runQ(5)" disabled>▶ Run</button>
+          <div id="out-5"></div>
+        </div>
+      </div>
+
+      <!-- slide-6 : Q7 -->
+      <div class="slide" id="slide-6" style="display:none">
+        <div class="q-card">
+          <div class="q-header">
+            <div class="q-num">Q7</div>
+            <div class="q-text">From <code>products</code>, get the <strong>name</strong> of all products whose name <strong>ends with the letter 'r'</strong></div>
+          </div>
+          <div class="q-hint">hint: use GLOB (case-sensitive)</div>
+          <div class="prev-wrap"><span class="prev-lbl">products — all 7 rows</span><div style="overflow-x:auto"><table class="prev-t"><thead><tr><th>id</th><th>name</th><th>category</th><th>price</th><th>stock</th></tr></thead><tbody><tr><td>1</td><td class="pv-str">'Laptop'</td><td class="pv-str">'Electronics'</td><td class="pv-num">999.99</td><td>15</td></tr><tr><td>2</td><td class="pv-str">'Mouse'</td><td class="pv-str">'Electronics'</td><td class="pv-num">29.99</td><td>120</td></tr><tr><td>3</td><td class="pv-str">'Desk'</td><td class="pv-str">'Furniture'</td><td class="pv-num">249.99</td><td>8</td></tr><tr><td>4</td><td class="pv-str">'Keyboard'</td><td class="pv-str">'Electronics'</td><td class="pv-num">79.99</td><td>45</td></tr><tr><td>5</td><td class="pv-str">'Chair'</td><td class="pv-str">'Furniture'</td><td class="pv-num">189.99</td><td>12</td></tr><tr><td>6</td><td class="pv-str">'Monitor'</td><td class="pv-null">NULL</td><td class="pv-num">349.99</td><td>5</td></tr><tr><td>7</td><td class="pv-str">'CDR'</td><td class="pv-str">'Electronics'</td><td class="pv-num">15.99</td><td>50</td></tr></tbody></table></div></div>
+          <textarea class="sql-ta" id="ta-6" placeholder="SELECT name FROM products WHERE ..."></textarea>
+          <button class="run-btn" id="run-6" onclick="runQ(6)" disabled>▶ Run</button>
+          <div id="out-6"></div>
+        </div>
+      </div>
+
+      <!-- slide-7 : Q8 -->
+      <div class="slide" id="slide-7" style="display:none">
+        <div class="q-card">
+          <div class="q-header">
+            <div class="q-num">Q8</div>
+            <div class="q-text">From <code>products</code>, get the <strong>name</strong> and <strong>category</strong> of all products where <strong>category IS NULL</strong></div>
+          </div>
+          <div class="prev-wrap"><span class="prev-lbl">products — all 7 rows</span><div style="overflow-x:auto"><table class="prev-t"><thead><tr><th>id</th><th>name</th><th>category</th><th>price</th><th>stock</th></tr></thead><tbody><tr><td>1</td><td class="pv-str">'Laptop'</td><td class="pv-str">'Electronics'</td><td class="pv-num">999.99</td><td>15</td></tr><tr><td>2</td><td class="pv-str">'Mouse'</td><td class="pv-str">'Electronics'</td><td class="pv-num">29.99</td><td>120</td></tr><tr><td>3</td><td class="pv-str">'Desk'</td><td class="pv-str">'Furniture'</td><td class="pv-num">249.99</td><td>8</td></tr><tr><td>4</td><td class="pv-str">'Keyboard'</td><td class="pv-str">'Electronics'</td><td class="pv-num">79.99</td><td>45</td></tr><tr><td>5</td><td class="pv-str">'Chair'</td><td class="pv-str">'Furniture'</td><td class="pv-num">189.99</td><td>12</td></tr><tr><td>6</td><td class="pv-str">'Monitor'</td><td class="pv-null">NULL</td><td class="pv-num">349.99</td><td>5</td></tr><tr><td>7</td><td class="pv-str">'CDR'</td><td class="pv-str">'Electronics'</td><td class="pv-num">15.99</td><td>50</td></tr></tbody></table></div></div>
+          <textarea class="sql-ta" id="ta-7" placeholder="SELECT name, category FROM ..."></textarea>
+          <button class="run-btn" id="run-7" onclick="runQ(7)" disabled>▶ Run</button>
+          <div id="out-7"></div>
+        </div>
+      </div>
+
+      <!-- slide-8 : Q9 -->
+      <div class="slide" id="slide-8" style="display:none">
+        <div class="q-card">
+          <div class="q-header">
+            <div class="q-num">Q9</div>
+            <div class="q-text">From <code>products</code>, sort by <strong>category</strong> then <strong>price</strong> (both ASC) — show only the <strong>3rd and 4th rows</strong> using <strong>LIMIT</strong> and <strong>OFFSET</strong></div>
+          </div>
+          <div class="prev-wrap"><span class="prev-lbl">products — all 7 rows</span><div style="overflow-x:auto"><table class="prev-t"><thead><tr><th>id</th><th>name</th><th>category</th><th>price</th><th>stock</th></tr></thead><tbody><tr><td>1</td><td class="pv-str">'Laptop'</td><td class="pv-str">'Electronics'</td><td class="pv-num">999.99</td><td>15</td></tr><tr><td>2</td><td class="pv-str">'Mouse'</td><td class="pv-str">'Electronics'</td><td class="pv-num">29.99</td><td>120</td></tr><tr><td>3</td><td class="pv-str">'Desk'</td><td class="pv-str">'Furniture'</td><td class="pv-num">249.99</td><td>8</td></tr><tr><td>4</td><td class="pv-str">'Keyboard'</td><td class="pv-str">'Electronics'</td><td class="pv-num">79.99</td><td>45</td></tr><tr><td>5</td><td class="pv-str">'Chair'</td><td class="pv-str">'Furniture'</td><td class="pv-num">189.99</td><td>12</td></tr><tr><td>6</td><td class="pv-str">'Monitor'</td><td class="pv-null">NULL</td><td class="pv-num">349.99</td><td>5</td></tr><tr><td>7</td><td class="pv-str">'CDR'</td><td class="pv-str">'Electronics'</td><td class="pv-num">15.99</td><td>50</td></tr></tbody></table></div></div>
+          <textarea class="sql-ta" id="ta-8" placeholder="SELECT ... ORDER BY ... LIMIT ... OFFSET ..."></textarea>
+          <button class="run-btn" id="run-8" onclick="runQ(8)" disabled>▶ Run</button>
+          <div id="out-8"></div>
+        </div>
+      </div>
+
+      <!-- slide-9 : Q10 -->
+      <div class="slide" id="slide-9" style="display:none">
+        <div class="q-card">
+          <div class="q-header">
+            <div class="q-num">Q10</div>
+            <div class="q-text">From <code>products</code>, get all <strong>category</strong> names without duplicates — exclude <strong>NULL</strong> values</div>
+          </div>
+          <div class="prev-wrap"><span class="prev-lbl">products — all 7 rows</span><div style="overflow-x:auto"><table class="prev-t"><thead><tr><th>id</th><th>name</th><th>category</th><th>price</th><th>stock</th></tr></thead><tbody><tr><td>1</td><td class="pv-str">'Laptop'</td><td class="pv-str">'Electronics'</td><td class="pv-num">999.99</td><td>15</td></tr><tr><td>2</td><td class="pv-str">'Mouse'</td><td class="pv-str">'Electronics'</td><td class="pv-num">29.99</td><td>120</td></tr><tr><td>3</td><td class="pv-str">'Desk'</td><td class="pv-str">'Furniture'</td><td class="pv-num">249.99</td><td>8</td></tr><tr><td>4</td><td class="pv-str">'Keyboard'</td><td class="pv-str">'Electronics'</td><td class="pv-num">79.99</td><td>45</td></tr><tr><td>5</td><td class="pv-str">'Chair'</td><td class="pv-str">'Furniture'</td><td class="pv-num">189.99</td><td>12</td></tr><tr><td>6</td><td class="pv-str">'Monitor'</td><td class="pv-null">NULL</td><td class="pv-num">349.99</td><td>5</td></tr><tr><td>7</td><td class="pv-str">'CDR'</td><td class="pv-str">'Electronics'</td><td class="pv-num">15.99</td><td>50</td></tr></tbody></table></div></div>
+          <textarea class="sql-ta" id="ta-9" placeholder="SELECT DISTINCT ..."></textarea>
+          <button class="run-btn" id="run-9" onclick="runQ(9)" disabled>▶ Run</button>
+          <div id="out-9"></div>
+        </div>
+      </div>
+
+      <!-- slide-10 : Q11 -->
+      <div class="slide" id="slide-10" style="display:none">
+        <div class="q-card">
+          <div class="q-header">
+            <div class="q-num">Q11</div>
+            <div class="q-text">From <code>products</code>, show each <strong>category</strong> and its <strong>product count</strong> — only categories with <strong>more than 2 products</strong> — use <strong>GROUP BY</strong> and <strong>HAVING</strong></div>
+          </div>
+          <div class="prev-wrap"><span class="prev-lbl">products — all 7 rows</span><div style="overflow-x:auto"><table class="prev-t"><thead><tr><th>id</th><th>name</th><th>category</th><th>price</th><th>stock</th></tr></thead><tbody><tr><td>1</td><td class="pv-str">'Laptop'</td><td class="pv-str">'Electronics'</td><td class="pv-num">999.99</td><td>15</td></tr><tr><td>2</td><td class="pv-str">'Mouse'</td><td class="pv-str">'Electronics'</td><td class="pv-num">29.99</td><td>120</td></tr><tr><td>3</td><td class="pv-str">'Desk'</td><td class="pv-str">'Furniture'</td><td class="pv-num">249.99</td><td>8</td></tr><tr><td>4</td><td class="pv-str">'Keyboard'</td><td class="pv-str">'Electronics'</td><td class="pv-num">79.99</td><td>45</td></tr><tr><td>5</td><td class="pv-str">'Chair'</td><td class="pv-str">'Furniture'</td><td class="pv-num">189.99</td><td>12</td></tr><tr><td>6</td><td class="pv-str">'Monitor'</td><td class="pv-null">NULL</td><td class="pv-num">349.99</td><td>5</td></tr><tr><td>7</td><td class="pv-str">'CDR'</td><td class="pv-str">'Electronics'</td><td class="pv-num">15.99</td><td>50</td></tr></tbody></table></div></div>
+          <textarea class="sql-ta" id="ta-10" placeholder="SELECT category, COUNT(*)...GROUP BY...HAVING..."></textarea>
+          <button class="run-btn" id="run-10" onclick="runQ(10)" disabled>▶ Run</button>
+          <div id="out-10"></div>
+        </div>
+      </div>
+
+      <!-- slide-11 : Q12 -->
+      <div class="slide" id="slide-11" style="display:none">
+        <div class="q-card">
+          <div class="q-header">
+            <div class="q-num">Q12</div>
+            <div class="q-text">From <code>products</code>, count the total number of products that have a <strong>category</strong> — <strong>without using WHERE</strong></div>
+          </div>
+          <div class="q-hint">hint: COUNT(column) only counts non-NULL values</div>
+          <div class="prev-wrap"><span class="prev-lbl">products — all 7 rows</span><div style="overflow-x:auto"><table class="prev-t"><thead><tr><th>id</th><th>name</th><th>category</th><th>price</th><th>stock</th></tr></thead><tbody><tr><td>1</td><td class="pv-str">'Laptop'</td><td class="pv-str">'Electronics'</td><td class="pv-num">999.99</td><td>15</td></tr><tr><td>2</td><td class="pv-str">'Mouse'</td><td class="pv-str">'Electronics'</td><td class="pv-num">29.99</td><td>120</td></tr><tr><td>3</td><td class="pv-str">'Desk'</td><td class="pv-str">'Furniture'</td><td class="pv-num">249.99</td><td>8</td></tr><tr><td>4</td><td class="pv-str">'Keyboard'</td><td class="pv-str">'Electronics'</td><td class="pv-num">79.99</td><td>45</td></tr><tr><td>5</td><td class="pv-str">'Chair'</td><td class="pv-str">'Furniture'</td><td class="pv-num">189.99</td><td>12</td></tr><tr><td>6</td><td class="pv-str">'Monitor'</td><td class="pv-null">NULL</td><td class="pv-num">349.99</td><td>5</td></tr><tr><td>7</td><td class="pv-str">'CDR'</td><td class="pv-str">'Electronics'</td><td class="pv-num">15.99</td><td>50</td></tr></tbody></table></div></div>
+          <textarea class="sql-ta" id="ta-11" placeholder="SELECT COUNT(...)..."></textarea>
+          <button class="run-btn" id="run-11" onclick="runQ(11)" disabled>▶ Run</button>
+          <div id="out-11"></div>
+        </div>
+      </div>
+
+      <!-- slide-12 : Q13 -->
+      <div class="slide" id="slide-12" style="display:none">
+        <div class="q-card">
+          <div class="q-header">
+            <div class="q-num">Q13</div>
+            <div class="q-text">From <code>products</code>, what is the <strong>total amount of items in stock</strong> across all products?</div>
+          </div>
+          <div class="prev-wrap"><span class="prev-lbl">products — all 7 rows</span><div style="overflow-x:auto"><table class="prev-t"><thead><tr><th>id</th><th>name</th><th>category</th><th>price</th><th>stock</th></tr></thead><tbody><tr><td>1</td><td class="pv-str">'Laptop'</td><td class="pv-str">'Electronics'</td><td class="pv-num">999.99</td><td>15</td></tr><tr><td>2</td><td class="pv-str">'Mouse'</td><td class="pv-str">'Electronics'</td><td class="pv-num">29.99</td><td>120</td></tr><tr><td>3</td><td class="pv-str">'Desk'</td><td class="pv-str">'Furniture'</td><td class="pv-num">249.99</td><td>8</td></tr><tr><td>4</td><td class="pv-str">'Keyboard'</td><td class="pv-str">'Electronics'</td><td class="pv-num">79.99</td><td>45</td></tr><tr><td>5</td><td class="pv-str">'Chair'</td><td class="pv-str">'Furniture'</td><td class="pv-num">189.99</td><td>12</td></tr><tr><td>6</td><td class="pv-str">'Monitor'</td><td class="pv-null">NULL</td><td class="pv-num">349.99</td><td>5</td></tr><tr><td>7</td><td class="pv-str">'CDR'</td><td class="pv-str">'Electronics'</td><td class="pv-num">15.99</td><td>50</td></tr></tbody></table></div></div>
+          <textarea class="sql-ta" id="ta-12" placeholder="SELECT SUM(...)..."></textarea>
+          <button class="run-btn" id="run-12" onclick="runQ(12)" disabled>▶ Run</button>
+          <div id="out-12"></div>
+        </div>
+      </div>
+
+      <!-- slide-13 : Q14 -->
+      <div class="slide" id="slide-13" style="display:none">
+        <div class="q-card">
+          <div class="q-header">
+            <div class="q-num">Q14</div>
+            <div class="q-text">From <code>products</code>, get <strong>all columns</strong> of the <strong>most expensive product</strong></div>
+          </div>
+          <div class="q-hint">hint: use a subquery with MAX(price)</div>
+          <div class="prev-wrap"><span class="prev-lbl">products — all 7 rows</span><div style="overflow-x:auto"><table class="prev-t"><thead><tr><th>id</th><th>name</th><th>category</th><th>price</th><th>stock</th></tr></thead><tbody><tr><td>1</td><td class="pv-str">'Laptop'</td><td class="pv-str">'Electronics'</td><td class="pv-num">999.99</td><td>15</td></tr><tr><td>2</td><td class="pv-str">'Mouse'</td><td class="pv-str">'Electronics'</td><td class="pv-num">29.99</td><td>120</td></tr><tr><td>3</td><td class="pv-str">'Desk'</td><td class="pv-str">'Furniture'</td><td class="pv-num">249.99</td><td>8</td></tr><tr><td>4</td><td class="pv-str">'Keyboard'</td><td class="pv-str">'Electronics'</td><td class="pv-num">79.99</td><td>45</td></tr><tr><td>5</td><td class="pv-str">'Chair'</td><td class="pv-str">'Furniture'</td><td class="pv-num">189.99</td><td>12</td></tr><tr><td>6</td><td class="pv-str">'Monitor'</td><td class="pv-null">NULL</td><td class="pv-num">349.99</td><td>5</td></tr><tr><td>7</td><td class="pv-str">'CDR'</td><td class="pv-str">'Electronics'</td><td class="pv-num">15.99</td><td>50</td></tr></tbody></table></div></div>
+          <textarea class="sql-ta" id="ta-13" placeholder="SELECT * FROM products WHERE price = (SELECT ...)"></textarea>
+          <button class="run-btn" id="run-13" onclick="runQ(13)" disabled>▶ Run</button>
+          <div id="out-13"></div>
+        </div>
+      </div>
+
+      <!-- slide-14 : Q15 -->
+      <div class="slide" id="slide-14" style="display:none">
+        <div class="q-card">
+          <div class="q-header">
+            <div class="q-num">Q15</div>
+            <div class="q-text">From <code>products</code>, get the <strong>average price</strong> rounded to <strong>2 decimal places</strong></div>
+          </div>
+          <div class="prev-wrap"><span class="prev-lbl">products — all 7 rows</span><div style="overflow-x:auto"><table class="prev-t"><thead><tr><th>id</th><th>name</th><th>category</th><th>price</th><th>stock</th></tr></thead><tbody><tr><td>1</td><td class="pv-str">'Laptop'</td><td class="pv-str">'Electronics'</td><td class="pv-num">999.99</td><td>15</td></tr><tr><td>2</td><td class="pv-str">'Mouse'</td><td class="pv-str">'Electronics'</td><td class="pv-num">29.99</td><td>120</td></tr><tr><td>3</td><td class="pv-str">'Desk'</td><td class="pv-str">'Furniture'</td><td class="pv-num">249.99</td><td>8</td></tr><tr><td>4</td><td class="pv-str">'Keyboard'</td><td class="pv-str">'Electronics'</td><td class="pv-num">79.99</td><td>45</td></tr><tr><td>5</td><td class="pv-str">'Chair'</td><td class="pv-str">'Furniture'</td><td class="pv-num">189.99</td><td>12</td></tr><tr><td>6</td><td class="pv-str">'Monitor'</td><td class="pv-null">NULL</td><td class="pv-num">349.99</td><td>5</td></tr><tr><td>7</td><td class="pv-str">'CDR'</td><td class="pv-str">'Electronics'</td><td class="pv-num">15.99</td><td>50</td></tr></tbody></table></div></div>
+          <textarea class="sql-ta" id="ta-14" placeholder="SELECT ROUND(AVG(...), 2) ..."></textarea>
+          <button class="run-btn" id="run-14" onclick="runQ(14)" disabled>▶ Run</button>
+          <div id="out-14"></div>
+        </div>
+      </div>
+
+      <!-- slide-15 : Q16 -->
+      <div class="slide" id="slide-15" style="display:none">
+        <div class="q-card">
+          <div class="q-header">
+            <div class="q-num">Q16</div>
+            <div class="q-text">From <code>products</code>, get the <strong>name</strong> and a label column: <code>'Expensive'</code> if price &gt; 200, <code>'Affordable'</code> otherwise — use <strong>CASE WHEN</strong></div>
+          </div>
+          <div class="prev-wrap"><span class="prev-lbl">products — all 7 rows</span><div style="overflow-x:auto"><table class="prev-t"><thead><tr><th>id</th><th>name</th><th>category</th><th>price</th><th>stock</th></tr></thead><tbody><tr><td>1</td><td class="pv-str">'Laptop'</td><td class="pv-str">'Electronics'</td><td class="pv-num">999.99</td><td>15</td></tr><tr><td>2</td><td class="pv-str">'Mouse'</td><td class="pv-str">'Electronics'</td><td class="pv-num">29.99</td><td>120</td></tr><tr><td>3</td><td class="pv-str">'Desk'</td><td class="pv-str">'Furniture'</td><td class="pv-num">249.99</td><td>8</td></tr><tr><td>4</td><td class="pv-str">'Keyboard'</td><td class="pv-str">'Electronics'</td><td class="pv-num">79.99</td><td>45</td></tr><tr><td>5</td><td class="pv-str">'Chair'</td><td class="pv-str">'Furniture'</td><td class="pv-num">189.99</td><td>12</td></tr><tr><td>6</td><td class="pv-str">'Monitor'</td><td class="pv-null">NULL</td><td class="pv-num">349.99</td><td>5</td></tr><tr><td>7</td><td class="pv-str">'CDR'</td><td class="pv-str">'Electronics'</td><td class="pv-num">15.99</td><td>50</td></tr></tbody></table></div></div>
+          <textarea class="sql-ta" id="ta-15" placeholder="SELECT name, CASE WHEN price > 200 THEN ..."></textarea>
+          <button class="run-btn" id="run-15" onclick="runQ(15)" disabled>▶ Run</button>
+          <div id="out-15"></div>
+        </div>
+      </div>
+
+      <!-- slide-16 : Q17 -->
+      <div class="slide" id="slide-16" style="display:none">
+        <div class="q-card">
+          <div class="q-header">
+            <div class="q-num">Q17</div>
+            <div class="q-text">From <code>products</code>, get the <strong>name</strong> and <strong>category</strong> — replace any <strong>NULL</strong> category with the text <code>'Unknown'</code> — use <strong>COALESCE</strong></div>
+          </div>
+          <div class="prev-wrap"><span class="prev-lbl">products — all 7 rows</span><div style="overflow-x:auto"><table class="prev-t"><thead><tr><th>id</th><th>name</th><th>category</th><th>price</th><th>stock</th></tr></thead><tbody><tr><td>1</td><td class="pv-str">'Laptop'</td><td class="pv-str">'Electronics'</td><td class="pv-num">999.99</td><td>15</td></tr><tr><td>2</td><td class="pv-str">'Mouse'</td><td class="pv-str">'Electronics'</td><td class="pv-num">29.99</td><td>120</td></tr><tr><td>3</td><td class="pv-str">'Desk'</td><td class="pv-str">'Furniture'</td><td class="pv-num">249.99</td><td>8</td></tr><tr><td>4</td><td class="pv-str">'Keyboard'</td><td class="pv-str">'Electronics'</td><td class="pv-num">79.99</td><td>45</td></tr><tr><td>5</td><td class="pv-str">'Chair'</td><td class="pv-str">'Furniture'</td><td class="pv-num">189.99</td><td>12</td></tr><tr><td>6</td><td class="pv-str">'Monitor'</td><td class="pv-null">NULL</td><td class="pv-num">349.99</td><td>5</td></tr><tr><td>7</td><td class="pv-str">'CDR'</td><td class="pv-str">'Electronics'</td><td class="pv-num">15.99</td><td>50</td></tr></tbody></table></div></div>
+          <textarea class="sql-ta" id="ta-16" placeholder="SELECT name, COALESCE(category, 'Unknown') ..."></textarea>
+          <button class="run-btn" id="run-16" onclick="runQ(16)" disabled>▶ Run</button>
+          <div id="out-16"></div>
+        </div>
+      </div>
+
+      <!-- slide-17 : Q18 -->
+      <div class="slide" id="slide-17" style="display:none">
+        <div class="q-card">
+          <div class="q-header">
+            <div class="q-num">Q18</div>
+            <div class="q-text">Get the <strong>total sale price</strong> across <strong>both</strong> tables below — combine them with <strong>UNION</strong>, then apply <strong>SUM</strong></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+            <div class="prev-wrap"><span class="prev-lbl">jan_sales</span><div style="overflow-x:auto"><table class="prev-t"><thead><tr><th>sale_id</th><th>customer_name</th><th>sale_price</th></tr></thead><tbody><tr><td>1</td><td class="pv-str">'Alice'</td><td class="pv-num">120</td></tr><tr><td>2</td><td class="pv-str">'Bob'</td><td class="pv-num">85</td></tr><tr><td>3</td><td class="pv-str">'Charlie'</td><td class="pv-num">200</td></tr></tbody></table></div></div>
+            <div class="prev-wrap"><span class="prev-lbl">feb_sales</span><div style="overflow-x:auto"><table class="prev-t"><thead><tr><th>sale_id</th><th>customer_name</th><th>sale_price</th></tr></thead><tbody><tr><td>1</td><td class="pv-str">'Alice'</td><td class="pv-num">60</td></tr><tr><td>2</td><td class="pv-str">'David'</td><td class="pv-num">175</td></tr></tbody></table></div></div>
+          </div>
+          <textarea class="sql-ta" id="ta-17" placeholder="SELECT SUM(sale_price) FROM (SELECT ... UNION SELECT ...)"></textarea>
+          <button class="run-btn" id="run-17" onclick="runQ(17)" disabled>▶ Run</button>
+          <div id="out-17"></div>
+        </div>
+      </div>
+
+      <!-- slide-18 : D1 — students table -->
+      <div class="slide" id="slide-18" style="display:none">
+        <div class="q-card">
+          <div class="q-header">
+            <div class="q-num d">D1</div>
+            <div class="q-text">Create a <strong>students</strong> table — drag the column names into place and choose the correct <strong>type</strong> and <strong>constraint</strong> for each column</div>
+          </div>
+          <div class="dnd-task">The table should have these columns: <code>id</code>, <code>name</code>, <code>email</code>, <code>age</code> — but only 4 of the 6 chips below are correct field names</div>
+
+          <!-- chip pool -->
+          <div class="chip-pool" id="pool-d1"
+               ondragover="event.preventDefault()"
+               ondrop="d1PoolDrop(event)">
+            <div class="chip" draggable="true" data-val="id"     ondragstart="cdStart(event)" ondragend="cdEnd(event)">id</div>
+            <div class="chip" draggable="true" data-val="name"   ondragstart="cdStart(event)" ondragend="cdEnd(event)">name</div>
+            <div class="chip" draggable="true" data-val="email"  ondragstart="cdStart(event)" ondragend="cdEnd(event)">email</div>
+            <div class="chip" draggable="true" data-val="age"    ondragstart="cdStart(event)" ondragend="cdEnd(event)">age</div>
+            <div class="chip" draggable="true" data-val="salary" ondragstart="cdStart(event)" ondragend="cdEnd(event)">salary</div>
+            <div class="chip" draggable="true" data-val="phone"  ondragstart="cdStart(event)" ondragend="cdEnd(event)">phone</div>
+          </div>
+
+          <!-- SQL live preview -->
+          <div class="sql-preview">
+            <span class="sk">CREATE TABLE</span> <span class="stn">students</span> (<br>
+            <span id="d1-sql-row0"><span class="sdim">&nbsp;&nbsp;-- drop a column here --</span></span>,<br>
+            <span id="d1-sql-row1"><span class="sdim">&nbsp;&nbsp;-- drop a column here --</span></span>,<br>
+            <span id="d1-sql-row2"><span class="sdim">&nbsp;&nbsp;-- drop a column here --</span></span>,<br>
+            <span id="d1-sql-row3"><span class="sdim">&nbsp;&nbsp;-- drop a column here --</span></span><br>
+            );
+          </div>
+
+          <!-- field rows table -->
+          <table class="dnd-field-tbl">
+            <thead><tr><th>Column Name</th><th>Data Type</th><th>Constraint</th></tr></thead>
+            <tbody>
+              <tr id="d1r0">
+                <td><span class="drop-zone drop-zone-name" ondragover="d1ZOver(event)" ondragleave="d1ZLeave(event)" ondrop="d1ZDrop(event,0)">drop here</span></td>
+                <td><select class="type-sel" onchange="updateD1SQL()"><option value="">— type —</option><option>INTEGER</option><option>TEXT</option><option>REAL</option></select></td>
+                <td><select class="con-sel" onchange="updateD1SQL()"><option value="">— constraint —</option><option>NOT NULL</option><option>UNIQUE NOT NULL</option><option>PRIMARY KEY</option><option>PRIMARY KEY AUTOINCREMENT</option><option>CHECK(age > 16)</option></select></td>
+              </tr>
+              <tr id="d1r1">
+                <td><span class="drop-zone drop-zone-name" ondragover="d1ZOver(event)" ondragleave="d1ZLeave(event)" ondrop="d1ZDrop(event,1)">drop here</span></td>
+                <td><select class="type-sel" onchange="updateD1SQL()"><option value="">— type —</option><option>INTEGER</option><option>TEXT</option><option>REAL</option></select></td>
+                <td><select class="con-sel" onchange="updateD1SQL()"><option value="">— constraint —</option><option>NOT NULL</option><option>UNIQUE NOT NULL</option><option>PRIMARY KEY</option><option>PRIMARY KEY AUTOINCREMENT</option><option>CHECK(age > 16)</option></select></td>
+              </tr>
+              <tr id="d1r2">
+                <td><span class="drop-zone drop-zone-name" ondragover="d1ZOver(event)" ondragleave="d1ZLeave(event)" ondrop="d1ZDrop(event,2)">drop here</span></td>
+                <td><select class="type-sel" onchange="updateD1SQL()"><option value="">— type —</option><option>INTEGER</option><option>TEXT</option><option>REAL</option></select></td>
+                <td><select class="con-sel" onchange="updateD1SQL()"><option value="">— constraint —</option><option>NOT NULL</option><option>UNIQUE NOT NULL</option><option>PRIMARY KEY</option><option>PRIMARY KEY AUTOINCREMENT</option><option>CHECK(age > 16)</option></select></td>
+              </tr>
+              <tr id="d1r3">
+                <td><span class="drop-zone drop-zone-name" ondragover="d1ZOver(event)" ondragleave="d1ZLeave(event)" ondrop="d1ZDrop(event,3)">drop here</span></td>
+                <td><select class="type-sel" onchange="updateD1SQL()"><option value="">— type —</option><option>INTEGER</option><option>TEXT</option><option>REAL</option></select></td>
+                <td><select class="con-sel" onchange="updateD1SQL()"><option value="">— constraint —</option><option>NOT NULL</option><option>UNIQUE NOT NULL</option><option>PRIMARY KEY</option><option>PRIMARY KEY AUTOINCREMENT</option><option>CHECK(age > 16)</option></select></td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="dnd-btns">
+            <button class="dnd-btn check" onclick="checkD1()">Check ✓</button>
+            <button class="dnd-btn reset" onclick="resetD1()">↺ Reset</button>
+          </div>
+          <div class="dnd-msg" id="dnd1-msg"></div>
+        </div>
+      </div>
+
+      <!-- slide-19 : D2 — departments + employees -->
+      <div class="slide" id="slide-19" style="display:none">
+        <div class="q-card">
+          <div class="q-header">
+            <div class="q-num d">D2</div>
+            <div class="q-text">Build two related tables — <strong>departments</strong> and <strong>employees</strong> with a <strong>1:N relationship</strong>. Drag the correct columns into each table</div>
+          </div>
+          <div class="dnd-task">Departments should have: <code>id</code>, <code>name</code>, <code>budget</code>. Employees should have: <code>id</code>, <code>name</code>, <code>dept_id</code>, plus a <code>FOREIGN KEY</code> constraint</div>
+
+          <!-- chip pool -->
+          <div class="chip-pool" id="pool-d2"
+               ondragover="event.preventDefault()"
+               ondrop="poolDrop(event,'pool-d2')">
+            <div class="chip" draggable="true" data-val="id"          ondragstart="cdStart(event)" ondragend="cdEnd(event)">id</div>
+            <div class="chip" draggable="true" data-val="name"        ondragstart="cdStart(event)" ondragend="cdEnd(event)">name</div>
+            <div class="chip" draggable="true" data-val="budget"      ondragstart="cdStart(event)" ondragend="cdEnd(event)">budget</div>
+            <div class="chip" draggable="true" data-val="id"          ondragstart="cdStart(event)" ondragend="cdEnd(event)">id</div>
+            <div class="chip" draggable="true" data-val="name"        ondragstart="cdStart(event)" ondragend="cdEnd(event)">name</div>
+            <div class="chip" draggable="true" data-val="dept_id"     ondragstart="cdStart(event)" ondragend="cdEnd(event)">dept_id</div>
+            <div class="chip" draggable="true" data-val="FOREIGN KEY(dept_id) REFERENCES departments(id)" ondragstart="cdStart(event)" ondragend="cdEnd(event)">FK dept_id</div>
+            <div class="chip" draggable="true" data-val="salary"      ondragstart="cdStart(event)" ondragend="cdEnd(event)">salary</div>
+            <div class="chip" draggable="true" data-val="email"       ondragstart="cdStart(event)" ondragend="cdEnd(event)">email</div>
+            <div class="chip" draggable="true" data-val="manager_id"  ondragstart="cdStart(event)" ondragend="cdEnd(event)">manager_id</div>
+          </div>
+
+          <div id="dnd2-wrap" class="d2-tables">
+            <!-- departments -->
+            <div>
+              <div class="d2-tbl-lbl">departments</div>
+              <table class="d2-drop-tbl">
+                <thead><tr><th>Column</th></tr></thead>
+                <tbody>
+                  <tr><td><span class="drop-zone" data-pool="pool-d2" data-group="dept" data-correct="id"     ondragover="zOver(event)" ondragleave="zLeave(event)" ondrop="zDrop(event)">drop here</span> <small style="color:var(--dim);font-size:.7rem">INTEGER PRIMARY KEY</small></td></tr>
+                  <tr><td><span class="drop-zone" data-pool="pool-d2" data-group="dept" data-correct="name"   ondragover="zOver(event)" ondragleave="zLeave(event)" ondrop="zDrop(event)">drop here</span> <small style="color:var(--dim);font-size:.7rem">TEXT NOT NULL</small></td></tr>
+                  <tr><td><span class="drop-zone" data-pool="pool-d2" data-group="dept" data-correct="budget" ondragover="zOver(event)" ondragleave="zLeave(event)" ondrop="zDrop(event)">drop here</span> <small style="color:var(--dim);font-size:.7rem">REAL</small></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <!-- employees -->
+            <div>
+              <div class="d2-tbl-lbl">employees</div>
+              <table class="d2-drop-tbl">
+                <thead><tr><th>Column</th></tr></thead>
+                <tbody>
+                  <tr><td><span class="drop-zone" data-pool="pool-d2" data-group="emp" data-correct="id"      ondragover="zOver(event)" ondragleave="zLeave(event)" ondrop="zDrop(event)">drop here</span> <small style="color:var(--dim);font-size:.7rem">INTEGER PRIMARY KEY</small></td></tr>
+                  <tr><td><span class="drop-zone" data-pool="pool-d2" data-group="emp" data-correct="name"    ondragover="zOver(event)" ondragleave="zLeave(event)" ondrop="zDrop(event)">drop here</span> <small style="color:var(--dim);font-size:.7rem">TEXT NOT NULL</small></td></tr>
+                  <tr><td><span class="drop-zone" data-pool="pool-d2" data-group="emp" data-correct="dept_id" ondragover="zOver(event)" ondragleave="zLeave(event)" ondrop="zDrop(event)">drop here</span> <small style="color:var(--dim);font-size:.7rem">INTEGER</small></td></tr>
+                  <tr><td><span class="drop-zone" data-pool="pool-d2" data-group="emp" data-correct="FOREIGN KEY(dept_id) REFERENCES departments(id)" ondragover="zOver(event)" ondragleave="zLeave(event)" ondrop="zDrop(event)">drop here</span> <small style="color:var(--dim);font-size:.7rem">constraint</small></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="dnd-btns" style="margin-top:14px">
+            <button class="dnd-btn check" onclick="checkD2()">Check ✓</button>
+            <button class="dnd-btn reset" onclick="dndReset('dnd2-wrap','pool-d2','dnd2-msg')">↺ Reset</button>
+          </div>
+          <div class="dnd-msg" id="dnd2-msg"></div>
+        </div>
+      </div>
+
+      <!-- NAV BUTTONS -->
+      <div class="q-nav-row">
+        <div>
+          <button class="nav-reset" onclick="resetDB()" title="Reset database to original data">↺ Reset DB</button>
+        </div>
+        <div class="nav-right">
+          <button class="nav-prev" id="prev-btn" onclick="doPrev()" disabled>← Prev</button>
+          <button class="nav-next" id="next-btn" onclick="doNext()">Next →</button>
+        </div>
+      </div>
+    </div><!-- /#q-area -->
+
+    <!-- ─── RESULTS ─── -->
+    <div id="results-area" style="display:none">
+      <div class="res-title">Exam Complete 🎓</div>
+      <div class="res-score" id="final-score">0</div>
+      <div class="res-sub">out of 20 &nbsp;·&nbsp; <span id="final-pct">0%</span></div>
+      <div class="res-grid" id="results-grid"></div>
+    </div>
+
+  </div><!-- /.container -->
+</div><!-- /#exam-wrap -->
+
+<script>
+/* ═══════════════════════════════════════════════════════
+   GLOBALS
+═══════════════════════════════════════════════════════ */
+const TOTAL = 20;
+let currentQ = 0;
+let db = null;
+let grade = Array(TOTAL).fill(0); // 0 = not correct, 1 = correct
+
+/* ═══════════════════════════════════════════════════════
+   ENTRY
+═══════════════════════════════════════════════════════ */
+function startExam() {
+  const val = document.getElementById('qnum-input').value.trim();
+  const err = document.getElementById('entry-err');
+  if (!val) { err.textContent = 'Please enter your questionnaire number.'; return; }
+  if (!/^[a-zA-Z0-9_\-]{1,20}$/.test(val)) { err.textContent = 'Invalid format — letters and numbers only.'; return; }
+  err.textContent = '';
+  document.getElementById('nav-qnum-val').textContent = val;
+  document.getElementById('entry-screen').style.display = 'none';
+  document.getElementById('exam-wrap').style.display = '';
+  initDB();
+  showQuestion(0);
+}
+
+document.getElementById('qnum-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') startExam();
+});
+
+/* ═══════════════════════════════════════════════════════
+   DB INIT
+═══════════════════════════════════════════════════════ */
+const INIT_SQL = `
+CREATE TABLE products (id INTEGER PRIMARY KEY, name TEXT NOT NULL, category TEXT, price REAL, stock INTEGER);
+INSERT INTO products VALUES
+  (1,'Laptop','Electronics',999.99,15),
+  (2,'Mouse','Electronics',29.99,120),
+  (3,'Desk','Furniture',249.99,8),
+  (4,'Keyboard','Electronics',79.99,45),
+  (5,'Chair','Furniture',189.99,12),
+  (6,'Monitor',NULL,349.99,5),
+  (7,'CDR','Electronics',15.99,50);
+CREATE TABLE jan_sales (sale_id INTEGER PRIMARY KEY, customer_name TEXT, sale_price REAL);
+INSERT INTO jan_sales VALUES (1,'Alice',120),(2,'Bob',85),(3,'Charlie',200);
+CREATE TABLE feb_sales (sale_id INTEGER PRIMARY KEY, customer_name TEXT, sale_price REAL);
+INSERT INTO feb_sales VALUES (1,'Alice',60),(2,'David',175);
+`;
+
+function initDB() {
+  initSqlJs({
+    locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/${f}`
+  }).then(SQL => {
+    db = new SQL.Database();
+    db.run(INIT_SQL);
+    document.querySelectorAll('.run-btn').forEach(b => b.disabled = false);
+  }).catch(err => console.error('sql.js init failed:', err));
+}
+
+function resetDB() {
+  if (!db) return;
+  db.run('DROP TABLE IF EXISTS products; DROP TABLE IF EXISTS jan_sales; DROP TABLE IF EXISTS feb_sales;');
+  db.run(INIT_SQL);
+  // clear outputs for all SQL questions
+  for (let i = 0; i < 18; i++) {
+    const out = document.getElementById(`out-${i}`);
+    if (out) out.innerHTML = '';
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   NAVIGATION
+═══════════════════════════════════════════════════════ */
+function showQuestion(n) {
+  document.querySelectorAll('.slide').forEach(s => s.style.display = 'none');
+  document.getElementById(`slide-${n}`).style.display = '';
+  document.getElementById('q-cur-num').textContent = n + 1;
+  const pct = ((n + 1) / TOTAL) * 100;
+  document.getElementById('prog-fill').style.width = pct + '%';
+  document.getElementById('q-check-icon').innerHTML =
+    grade[n] === 1 ? '<span class="check-ok">✓</span>' : '';
+  document.getElementById('prev-btn').disabled = n === 0;
+  document.getElementById('next-btn').textContent =
+    n === TOTAL - 1 ? 'Finish →' : 'Next →';
+}
+
+function doNext() {
+  if (currentQ === TOTAL - 1) { showResults(); return; }
+  currentQ++;
+  showQuestion(currentQ);
+}
+
+function doPrev() {
+  if (currentQ > 0) { currentQ--; showQuestion(currentQ); }
+}
+
+/* ═══════════════════════════════════════════════════════
+   SCORE
+═══════════════════════════════════════════════════════ */
+function updateScore() {
+  const s = grade.reduce((a, b) => a + b, 0);
+  document.getElementById('score-cur').textContent = s;
+}
+
+function markCorrect(idx) {
+  if (grade[idx] === 1) return;
+  grade[idx] = 1;
+  updateScore();
+  if (currentQ === idx) {
+    document.getElementById('q-check-icon').innerHTML = '<span class="check-ok">✓</span>';
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   RESULTS
+═══════════════════════════════════════════════════════ */
+function showResults() {
+  document.getElementById('q-area').style.display = 'none';
+  document.getElementById('results-area').style.display = '';
+  const score = grade.reduce((a, b) => a + b, 0);
+  document.getElementById('final-score').textContent = score;
+  document.getElementById('final-pct').textContent = Math.round(score / TOTAL * 100) + '%';
+  const labels = ['Q1','Q2','Q3','Q4','Q5','Q6','Q7','Q8','Q9','Q10',
+                  'Q11','Q12','Q13','Q14','Q15','Q16','Q17','Q18','D1','D2'];
+  document.getElementById('results-grid').innerHTML = labels.map((lbl, i) =>
+    `<div class="res-item ${grade[i] ? 'res-ok' : 'res-no'}">
+      <span class="res-qid">${lbl}</span>
+      <span class="res-icon">${grade[i] ? '✓' : '—'}</span>
+    </div>`
+  ).join('');
+}
+
+/* ═══════════════════════════════════════════════════════
+   SQL RUNNER
+═══════════════════════════════════════════════════════ */
+const validators = {
+  q1:  (c,r) => r.length >= 5
+    && ['id','name','category','price','stock'].every(x => c.map(v => v.toLowerCase()).includes(x))
+    && ['Laptop','Mouse','Desk','Keyboard','Chair'].every(n => r.map(row => row[c.map(v=>v.toLowerCase()).indexOf('name')]).includes(n)),
+
+  q2:  (c,r) => { if (r.length !== 2) return false;
+    const ni = c.findIndex(x => x.toLowerCase() === 'name');
+    const names = r.map(row => row[ni]);
+    return names.includes('Laptop') && names.includes('Keyboard') && !names.includes('Mouse'); },
+
+  q3:  (c,r) => r.length === 1 && Math.abs(parseFloat(r[0][0]) - 533.32) < 0.1,
+
+  q4:  (c,r) => { if (r.length !== 3) return false;
+    const ni = c.map(v => v.toLowerCase()).indexOf('name');
+    return ['Laptop','Mouse','Chair'].every(n => r.map(row => String(row[ni])).includes(n)); },
+
+  q5:  (c,r) => r.length === 1 && parseInt(r[0][0]) === 3,
+
+  q6:  (c,r) => r.length === 2
+    && r[0].some(v => Math.abs(parseFloat(v) - 249.99) < 0.01)
+    && r[1].some(v => Math.abs(parseFloat(v) - 999.99) < 0.01),
+
+  q7:  (c,r) => { if (r.length !== 2) return false;
+    const ni = c.findIndex(x => x.toLowerCase() === 'name');
+    return r.map(row => String(row[ni])).includes('Chair') && r.map(row => String(row[ni])).includes('Monitor'); },
+
+  q8:  (c,r) => { if (r.length !== 1) return false;
+    const ni = c.findIndex(x => x.toLowerCase() === 'name');
+    return String(r[0][ni]) === 'Monitor'; },
+
+  q9:  (c,r) => { if (r.length !== 2) return false;
+    const ni = c.map(x => x.toLowerCase()).indexOf('name');
+    return ['Mouse','Keyboard'].every(n => r.map(row => String(row[ni])).includes(n)); },
+
+  q10: (c,r) => r.length === 2
+    && r.map(row => String(row[0])).includes('Electronics')
+    && r.map(row => String(row[0])).includes('Furniture'),
+
+  q11: (c,r) => r.length === 1
+    && r[0].some(v => String(v) === 'Electronics')
+    && r[0].some(v => parseInt(v) === 4),
+
+  q12: (c,r,sql) => r.length === 1 && !/\bwhere\b/i.test(sql) && parseInt(r[0][0]) === 6,
+
+  q13: (c,r) => r.length === 1 && parseInt(r[0][0]) === 255,
+
+  q14: (c,r) => r.length === 1 && r[0].some(v => String(v) === 'Laptop'),
+
+  q15: (c,r) => r.length === 1 && Math.abs(parseFloat(r[0][0]) - 273.70) < 0.01,
+
+  q16: (c,r) => { if (r.length !== 7) return false;
+    const flat = r.map(row => row[1] !== undefined ? String(row[1]) : '');
+    return flat.includes('Expensive') && flat.includes('Affordable'); },
+
+  q17: (c,r) => r.length === 7
+    && r.some(row => row.includes('Unknown'))
+    && r.every(row => row.every(v => v !== null)),
+
+  q18: (c,r,sql) => r.length === 1
+    && /\bunion\b/i.test(sql)
+    && Math.abs(parseFloat(r[0][0]) - 640) < 0.01
+};
+
+function runQ(idx) {
+  if (!db) { alert('DB not ready yet — please wait a moment.'); return; }
+  const sql = document.getElementById(`ta-${idx}`).value.trim();
+  const out = document.getElementById(`out-${idx}`);
+  if (!sql) { out.innerHTML = ''; return; }
+  try {
+    const res = db.exec(sql);
+    if (!res.length) {
+      out.innerHTML = buildOutBox([], [], 'Query executed — no rows returned.', null);
+      return;
+    }
+    const {columns, values} = res[0];
+    const vkey = `q${idx + 1}`;
+    const valid = validators[vkey] ? validators[vkey](columns, values, sql) : null;
+    if (valid === true) markCorrect(idx);
+    out.innerHTML = buildOutBox(columns, values, null, valid);
+  } catch(e) {
+    out.innerHTML = `<div class="sql-out"><div class="out-error">⚠ ${escHtml(e.message)}</div></div>`;
+  }
+}
+
+function buildOutBox(cols, rows, msg, valid) {
+  let html = '<div class="sql-out">';
+  if (msg) {
+    html += `<div class="out-info">${escHtml(msg)}</div>`;
+  } else if (cols.length) {
+    html += '<div class="out-table-wrap"><table class="out-table"><thead><tr>';
+    cols.forEach(c => { html += `<th>${escHtml(String(c))}</th>`; });
+    html += '</tr></thead><tbody>';
+    rows.forEach(row => {
+      html += '<tr>';
+      row.forEach(v => { html += `<td>${v === null ? '<em style="color:var(--coral)">NULL</em>' : escHtml(String(v))}</td>`; });
+      html += '</tr>';
+    });
+    html += '</tbody></table></div>';
+    html += `<div style="margin-top:6px;font-size:.75rem;color:var(--dim)">${rows.length} row${rows.length !== 1 ? 's' : ''}</div>`;
+  }
+  if (valid === true)  html += '<div class="out-ok">✓ Correct!</div>';
+  if (valid === false) html += '<div class="out-wrong">✗ Result does not match — check your query and try again</div>';
+  html += '</div>';
+  return html;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ═══════════════════════════════════════════════════════
+   DnD — SHARED (D2)
+═══════════════════════════════════════════════════════ */
+function cdStart(e) {
+  e.dataTransfer.setData('text/plain', e.currentTarget.dataset.val);
+  setTimeout(() => e.currentTarget.classList.add('dragging'), 0);
+}
+function cdEnd(e) { e.currentTarget.classList.remove('dragging'); }
+
+function zOver(e)  { e.preventDefault(); e.currentTarget.classList.add('over'); }
+function zLeave(e) { e.currentTarget.classList.remove('over'); }
+
+function zDrop(e) {
+  e.preventDefault();
+  const zone = e.currentTarget;
+  zone.classList.remove('over');
+  const val = e.dataTransfer.getData('text/plain');
+  const poolId = zone.dataset.pool;
+  const pool = document.getElementById(poolId);
+  if (zone.dataset.filled) addChipToPool(pool, zone.dataset.filled);
+  zone.textContent = val;
+  zone.dataset.filled = val;
+  zone.classList.add('filled');
+  zone.classList.remove('good','bad');
+  removeChipFromPool(pool, val);
+}
+
+function poolDrop(e, poolId) {
+  e.preventDefault();
+  const val = e.dataTransfer.getData('text/plain');
+  const pool = document.getElementById(poolId);
+  const zones = document.querySelectorAll(`[data-pool="${poolId}"]`);
+  let cleared = false;
+  zones.forEach(z => {
+    if (!cleared && z.dataset.filled === val) {
+      z.textContent = 'drop here';
+      delete z.dataset.filled;
+      z.classList.remove('filled','good','bad');
+      addChipToPool(pool, val);
+      cleared = true;
+    }
+  });
+}
+
+function addChipToPool(pool, val) {
+  const chip = document.createElement('div');
+  chip.className = 'chip';
+  chip.draggable = true;
+  chip.dataset.val = val;
+  chip.textContent = val === 'FOREIGN KEY(dept_id) REFERENCES departments(id)' ? 'FK dept_id' : val;
+  chip.addEventListener('dragstart', cdStart);
+  chip.addEventListener('dragend', cdEnd);
+  pool.appendChild(chip);
+}
+
+function removeChipFromPool(pool, val) {
+  const chip = Array.from(pool.querySelectorAll('.chip')).find(c => c.dataset.val === val);
+  if (chip) chip.remove();
+}
+
+function checkD2() {
+  const wrapId = 'dnd2-wrap', msgId = 'dnd2-msg';
+  const zones = document.querySelectorAll(`#${wrapId} .drop-zone`);
+  const expected = {}, filled = {};
+  zones.forEach(z => {
+    const g = z.dataset.group || '_';
+    if (!expected[g]) expected[g] = [];
+    expected[g].push(z.dataset.correct);
+    if (!filled[g]) filled[g] = [];
+    if (z.dataset.filled) filled[g].push(z.dataset.filled);
+  });
+  let allOk = true;
+  zones.forEach(z => {
+    z.classList.remove('good','bad');
+    const g = z.dataset.group || '_';
+    if (!z.dataset.filled) { allOk = false; return; }
+    if (expected[g].includes(z.dataset.filled)) z.classList.add('good');
+    else { z.classList.add('bad'); allOk = false; }
+  });
+  for (const g in expected) {
+    const exp = [...expected[g]].sort();
+    const fil = [...(filled[g] || [])].sort();
+    if (JSON.stringify(exp) !== JSON.stringify(fil)) allOk = false;
+  }
+  const msg = document.getElementById(msgId);
+  msg.style.display = 'block';
+  msg.className = 'dnd-msg ' + (allOk ? 'ok' : 'err');
+  msg.textContent = allOk
+    ? '✓ All columns are correct!'
+    : '✗ Some columns are wrong — highlighted in red. Fix and check again.';
+  if (allOk) markCorrect(19);
+}
+
+function dndReset(wrapId, poolId, msgId) {
+  const pool = document.getElementById(poolId);
+  document.querySelectorAll(`#${wrapId} .drop-zone`).forEach(z => {
+    if (z.dataset.filled) { addChipToPool(pool, z.dataset.filled); delete z.dataset.filled; }
+    z.textContent = 'drop here';
+    z.classList.remove('filled','good','bad');
+  });
+  document.getElementById(msgId).style.display = 'none';
+}
+
+/* ═══════════════════════════════════════════════════════
+   DnD — D1 (field + type + constraint)
+═══════════════════════════════════════════════════════ */
+function d1ZOver(e)  { e.preventDefault(); e.currentTarget.classList.add('over'); }
+function d1ZLeave(e) { e.currentTarget.classList.remove('over'); }
+
+function d1ZDrop(e, rowId) {
+  e.preventDefault();
+  const zone = e.currentTarget;
+  zone.classList.remove('over');
+  const val = e.dataTransfer.getData('text/plain');
+  const pool = document.getElementById('pool-d1');
+  if (zone.dataset.filled) addChipToPool(pool, zone.dataset.filled);
+  zone.textContent = val;
+  zone.dataset.filled = val;
+  zone.classList.add('filled');
+  zone.classList.remove('good','bad');
+  removeChipFromPool(pool, val);
+  updateD1SQL();
+}
+
+function d1PoolDrop(e) {
+  e.preventDefault();
+  const val = e.dataTransfer.getData('text/plain');
+  const pool = document.getElementById('pool-d1');
+  for (let i = 0; i < 4; i++) {
+    const zone = document.querySelector(`#d1r${i} .drop-zone-name`);
+    if (zone && zone.dataset.filled === val) {
+      zone.textContent = 'drop here';
+      delete zone.dataset.filled;
+      zone.classList.remove('filled','good','bad');
+      document.getElementById(`d1r${i}`).querySelectorAll('select').forEach(s => s.selectedIndex = 0);
+      addChipToPool(pool, val);
+      break;
+    }
+  }
+  updateD1SQL();
+}
+
+const D1_RULES = {
+  id:    { type: 'INTEGER', conOk: c => ['PRIMARY KEY','PRIMARY KEY AUTOINCREMENT'].includes(c) },
+  name:  { type: 'TEXT',    conOk: c => c === 'NOT NULL' },
+  email: { type: 'TEXT',    conOk: c => c === 'UNIQUE NOT NULL' },
+  age:   { type: 'INTEGER', conOk: c => c === 'CHECK(age > 16)' }
+};
+
+function checkD1() {
+  let allOk = true;
+  const seen = {};
+  for (let i = 0; i < 4; i++) {
+    const row  = document.getElementById(`d1r${i}`);
+    const zone = row.querySelector('.drop-zone-name');
+    const type = row.querySelector('.type-sel').value;
+    const con  = row.querySelector('.con-sel').value;
+    const name = zone.dataset.filled || '';
+    zone.classList.remove('good','bad');
+    if (!name || seen[name] || !D1_RULES[name]) { zone.classList.add('bad'); allOk = false; continue; }
+    seen[name] = true;
+    const rule = D1_RULES[name];
+    if (type === rule.type && rule.conOk(con)) zone.classList.add('good');
+    else { zone.classList.add('bad'); allOk = false; }
+  }
+  if (!['id','name','email','age'].every(r => seen[r])) allOk = false;
+  const msg = document.getElementById('dnd1-msg');
+  msg.style.display = 'block';
+  msg.className = 'dnd-msg ' + (allOk ? 'ok' : 'err');
+  msg.textContent = allOk
+    ? '✓ Correct! All columns match the table requirements'
+    : '✗ Some columns, types or constraints are wrong — check the red rows';
+  if (allOk) markCorrect(18);
+}
+
+function resetD1() {
+  const pool = document.getElementById('pool-d1');
+  for (let i = 0; i < 4; i++) {
+    const row  = document.getElementById(`d1r${i}`);
+    const zone = row.querySelector('.drop-zone-name');
+    if (zone.dataset.filled) { addChipToPool(pool, zone.dataset.filled); delete zone.dataset.filled; }
+    zone.textContent = 'drop here';
+    zone.classList.remove('filled','good','bad');
+    row.querySelectorAll('select').forEach(s => s.selectedIndex = 0);
+  }
+  updateD1SQL();
+  document.getElementById('dnd1-msg').style.display = 'none';
+}
+
+function updateD1SQL() {
+  for (let i = 0; i < 4; i++) {
+    const row  = document.getElementById(`d1r${i}`);
+    const zone = row.querySelector('.drop-zone-name');
+    const type = row.querySelector('.type-sel').value;
+    const con  = row.querySelector('.con-sel').value;
+    const span = document.getElementById(`d1-sql-row${i}`);
+    const name = zone.dataset.filled;
+    if (name) {
+      let html = `&nbsp;&nbsp;<span class="scol">${name}</span>`;
+      if (type) html += ` <span class="sty">${type}</span>`;
+      if (con)  html += ` <span class="scn">${con}</span>`;
+      span.innerHTML = html;
+    } else {
+      span.innerHTML = `&nbsp;&nbsp;<span class="sdim">-- drop a column here --</span>`;
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   COPY / PASTE BLOCKERS
+═══════════════════════════════════════════════════════ */
+document.addEventListener('copy',        e => e.preventDefault());
+document.addEventListener('cut',         e => e.preventDefault());
+document.addEventListener('contextmenu', e => e.preventDefault());
+document.addEventListener('paste', e => {
+  if (e.target && (e.target.id === 'qnum-input' || e.target.classList.contains('sql-ta'))) return;
+  e.preventDefault();
+});
+</script>
+</body>
+</html>
