@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SQL Exam — Python + SQLite</title>
+  <link rel="icon" href="sqlite_icon.png" type="image/png">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #07101f; --bg2: #0d1a2e; --surface: #111c30; --surface2: #172035;
+      --border: rgba(148,180,255,0.09); --border-hi: rgba(148,180,255,0.18);
+      --text: #e8f0fe; --muted: #8da3c4; --dim: #4a6080;
+      --teal: #2dd4bf; --amber: #fbbf24; --coral: #f87171;
+      --violet: #a78bfa; --green: #4ade80; --blue: #60a5fa;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: var(--bg2); }
+    ::-webkit-scrollbar-thumb { background: var(--teal); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--violet); }
+    * { scrollbar-width: thin; scrollbar-color: var(--teal) var(--bg2); }
+    body {
+      font-family: 'Inter', sans-serif; background: var(--bg);
+      color: var(--text); line-height: 1.7; min-height: 100vh;
+      background-image:
+        radial-gradient(ellipse 80% 60% at 10% -10%, rgba(45,212,191,0.06) 0%, transparent 55%),
+        radial-gradient(ellipse 60% 50% at 95% 5%,  rgba(167,139,250,0.06) 0%, transparent 50%);
+    }
+
+    /* ══════════════════════════════════════
+       EXAM WRAP
+    ══════════════════════════════════════ */
+
+    /* ── NAV ── */
+    .top-nav {
+      position: sticky; top: 0; z-index: 40;
+      background: rgba(7,16,31,0.88); backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border);
+    }
+    .top-nav .wrap {
+      max-width: 960px; margin: 0 auto; display: flex;
+      gap: 8px; align-items: center; padding: 11px 18px; flex-wrap: wrap;
+    }
+    .brand { font-weight: 800; font-size: .95rem; }
+    .brand span { color: var(--teal); }
+
+    /* ── LAYOUT ── */
+    .container { max-width: 960px; margin: 0 auto; padding: 0 18px 80px; }
+
+    /* ── HERO ── */
+    .hero {
+      margin-top: 28px; border-radius: 20px; padding: 28px 28px 24px;
+      background: linear-gradient(135deg, #0f1e38 0%, #121e36 60%, #160e2c 100%);
+      border: 1px solid var(--border-hi); box-shadow: 0 24px 56px rgba(0,0,0,.45);
+      position: relative; overflow: hidden;
+    }
+    .hero::before {
+      content: ''; position: absolute; inset: 0; pointer-events: none;
+      background:
+        radial-gradient(circle at 0% 0%, rgba(45,212,191,.1) 0%, transparent 50%),
+        radial-gradient(circle at 100% 100%, rgba(167,139,250,.1) 0%, transparent 50%);
+    }
+    .tag {
+      display: inline-block; padding: 4px 13px; border-radius: 999px;
+      background: rgba(45,212,191,.12); color: var(--teal);
+      font-weight: 700; font-size: .78rem; letter-spacing: .05em;
+      border: 1px solid rgba(45,212,191,.25); margin-bottom: 8px;
+    }
+    h1 {
+      font-size: clamp(1.6rem,4vw,2.4rem); line-height: 1.2; margin-bottom: 10px;
+      background: linear-gradient(120deg, #e8f0fe 30%, var(--teal) 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .lead { color: var(--muted); font-size: 1rem; max-width: 64ch; }
+    .hero-stats { display: flex; gap: 20px; margin-top: 18px; flex-wrap: wrap; }
+    .hstat { display: flex; align-items: center; gap: 7px; font-size: .85rem; color: var(--muted); }
+    .hstat-num { font-weight: 800; font-size: 1.1rem; }
+    .hstat-num.q { color: var(--amber); }
+    .hstat-num.t { color: var(--violet); }
+
+    /* ── SECTION ── */
+    .section { margin-top: 36px; }
+    .section-header {
+      display: flex; align-items: center; gap: 12px; margin-bottom: 16px;
+      padding-bottom: 10px; border-bottom: 1px solid var(--border);
+    }
+    .section-header h2 { font-size: 1.15rem; }
+    .section-badge {
+      font-size: .73rem; font-weight: 700; padding: 3px 10px;
+      border-radius: 999px; margin-left: auto;
+    }
+    .badge-q  { background: rgba(251,191,36,.15);  color: var(--amber);  border: 1px solid rgba(251,191,36,.3); }
+    .badge-py { background: rgba(167,139,250,.15); color: var(--violet); border: 1px solid rgba(167,139,250,.3); }
+
+    /* ── SETUP BLOCK ── */
+    .setup-block {
+      background: var(--surface2); border: 1px solid var(--border-hi);
+      border-radius: 14px; padding: 16px 18px; margin-bottom: 24px;
+    }
+    .setup-label {
+      font-size: .7rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .09em; color: var(--teal); margin-bottom: 12px;
+    }
+    .setup-steps { display: flex; flex-direction: column; gap: 10px; margin-bottom: 4px; }
+    .setup-step {
+      display: flex; align-items: flex-start; gap: 10px; font-size: .9rem; color: var(--muted);
+    }
+    .step-num {
+      flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%;
+      background: rgba(45,212,191,.15); color: var(--teal);
+      font-size: .72rem; font-weight: 800; display: flex; align-items: center; justify-content: center;
+      margin-top: 2px;
+    }
+
+    /* ── REFERENCES ── */
+    .ref-block {
+      background: rgba(96,165,250,.07); border: 1px solid rgba(96,165,250,.22);
+      border-radius: 14px; padding: 16px 18px; margin-bottom: 24px;
+    }
+    .ref-block .setup-label { color: var(--amber); }
+    .ref-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+    .ref-link {
+      color: var(--blue); text-decoration: none; font-size: .88rem; font-weight: 600;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .ref-link::before { content: '↗'; font-size: .8rem; opacity: .7; }
+    .ref-link:hover { color: #93c5fd; text-decoration: underline; }
+
+    /* ── CODE BLOCK ── */
+    .code-wrap { border-radius: 10px; overflow: hidden; border: 1px solid rgba(148,180,255,.1); }
+    .code-wrap .code-lbl {
+      display: block; background: #0f1929; padding: 6px 12px;
+      font-size: .68rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .09em; color: var(--dim);
+      border-bottom: 1px solid rgba(148,180,255,.08);
+    }
+    .code-wrap pre {
+      background: #060d19; margin: 0; overflow-x: auto;
+      padding: 14px 16px; font-family: 'JetBrains Mono', monospace;
+      font-size: .81rem; line-height: 1.75; color: #cdd9f0;
+    }
+    .kw  { color: #a78bfa; }
+    .fn  { color: #2dd4bf; }
+    .st  { color: #86efac; }
+    .cm  { color: #4a6080; font-style: italic; }
+    .nm  { color: #93c5fd; }
+    .op  { color: #f87171; }
+
+    /* ── QUESTION CARD ── */
+    .q-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 16px; padding: 20px 22px; margin-bottom: 16px;
+    }
+    .q-header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
+    .q-num {
+      flex-shrink: 0; min-width: 36px; height: 28px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: .8rem; padding: 0 8px;
+    }
+    .q-num.q { background: rgba(251,191,36,.15); color: var(--amber); }
+    .q-text { font-weight: 600; font-size: .98rem; line-height: 1.6; padding-top: 2px; }
+    .q-text small { display: block; font-weight: 400; color: var(--muted); font-size: .84rem; margin-top: 4px; }
+    code { font-family: 'JetBrains Mono', monospace; font-size: .88em; }
+
+    /* ── SHOW TEACHER BANNER ── */
+    .show-teacher {
+      margin: 28px 0 0; border-radius: 14px; padding: 18px 22px;
+      background: rgba(74,222,128,.08); border: 1px solid rgba(74,222,128,.3);
+      display: flex; align-items: center; gap: 14px;
+    }
+    .show-teacher-icon { font-size: 1.7rem; flex-shrink: 0; }
+    .show-teacher-text { font-size: .93rem; color: var(--green); font-weight: 600; line-height: 1.5; }
+    .show-teacher-text span { display: block; font-weight: 400; font-size: .83rem; color: var(--muted); margin-top: 2px; }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════
+     EXAM
+══════════════════════════════════════════ -->
+<div id="exam-wrap">
+
+  <nav class="top-nav">
+    <div class="wrap">
+      <div class="brand"><img src="sqlite_icon.png" alt="" style="height:22px;vertical-align:middle;margin-right:7px;">SQL Exam &mdash; <span>Python + SQLite</span></div>
+
+    </div>
+  </nav>
+
+  <main class="container">
+
+    <!-- HERO -->
+    <section class="hero">
+      <span class="tag">Exam</span>
+      <h1><img src="sqlite_icon.png" alt="" style="height:44px;vertical-align:middle;margin-right:12px;">Python + SQLite</h1>
+      <p class="lead">Set up the database using Python or DB Browser, then write Python code that connects to it and runs the queries below.</p>
+      <div class="hero-stats">
+        <div class="hstat"><span class="hstat-num q">2</span> Questions</div>
+        <div class="hstat"><span class="hstat-num t">1</span> Table</div>
+      </div>
+    </section>
+
+    <!-- SETUP SECTION -->
+    <section class="section">
+      <div class="section-header">
+        <h2>Setup</h2>
+        <span class="section-badge badge-py">do this first</span>
+      </div>
+
+      <div class="setup-block">
+        <div class="setup-label">Instructions</div>
+        <div class="setup-steps">
+          <div class="setup-step">
+            <div class="step-num">1</div>
+            <span>Create a file called <code>world_cups.db</code> using <strong>Python</strong> (run the SQL below) or open <strong>DB Browser for SQLite</strong> and execute it there.</span>
+          </div>
+          <div class="setup-step">
+            <div class="step-num">2</div>
+            <span>Create a Python project file (e.g. <code>main.py</code>) in the same folder as <code>world_cups.db</code>.</span>
+          </div>
+          <div class="setup-step">
+            <div class="step-num">3</div>
+            <span>Write the code for each question below and run it.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- REFERENCES -->
+      <div class="ref-block">
+        <div class="setup-label">References</div>
+        <ul class="ref-list">
+          <li><a class="ref-link" href="https://pythonai211225-rgb.github.io/sql/09_python/01-setup.html" target="_blank">Python + SQLite — Class Notes</a></li>
+          <li><a class="ref-link" href="https://github.com/pythonai211225-rgb/17.05.2026/tree/master" target="_blank">Class Code — GitHub (17.05.2026)</a></li>
+        </ul>
+      </div>
+
+      <!-- CREATE TABLE SQL -->
+      <div class="code-wrap" style="margin-bottom:16px">
+        <span class="code-lbl">SQL — Create table &amp; insert data (run once)</span>
+        <pre><span class="kw">CREATE TABLE</span> world_cups (
+    year                    <span class="nm">INT</span> <span class="kw">PRIMARY KEY</span>,
+    host_country            <span class="nm">VARCHAR</span>(<span class="nm">50</span>) <span class="kw">NOT NULL</span>,
+    winner                  <span class="nm">VARCHAR</span>(<span class="nm">50</span>) <span class="kw">NOT NULL</span>,
+    start_date              <span class="nm">DATE</span>        <span class="kw">NOT NULL</span>,
+    participating_countries <span class="nm">INT</span>         <span class="kw">NOT NULL</span>,
+    total_goals             <span class="nm">INT</span>         <span class="kw">NOT NULL</span>,
+    total_red_cards         <span class="nm">INT</span>,
+    total_yellow_cards      <span class="nm">INT</span>,
+    penalty_shootout        <span class="nm">BOOLEAN</span>     <span class="kw">NOT NULL</span>
+);
+
+<span class="kw">INSERT INTO</span> world_cups
+  (year, host_country, winner, start_date, participating_countries,
+   total_goals, total_red_cards, total_yellow_cards, penalty_shootout)
+<span class="kw">VALUES</span>
+  (<span class="nm">1930</span>, <span class="st">'Uruguay'</span>,            <span class="st">'Uruguay'</span>,      <span class="st">'1930-07-13'</span>, <span class="nm">13</span>, <span class="nm">70</span>,  <span class="kw">NULL</span>, <span class="kw">NULL</span>, <span class="nm">FALSE</span>),
+  (<span class="nm">1934</span>, <span class="st">'Italy'</span>,              <span class="st">'Italy'</span>,        <span class="st">'1934-05-27'</span>, <span class="nm">16</span>, <span class="nm">70</span>,  <span class="kw">NULL</span>, <span class="kw">NULL</span>, <span class="nm">FALSE</span>),
+  (<span class="nm">1938</span>, <span class="st">'France'</span>,             <span class="st">'Italy'</span>,        <span class="st">'1938-06-04'</span>, <span class="nm">15</span>, <span class="nm">84</span>,  <span class="kw">NULL</span>, <span class="kw">NULL</span>, <span class="nm">FALSE</span>),
+  (<span class="nm">1950</span>, <span class="st">'Brazil'</span>,             <span class="st">'Uruguay'</span>,      <span class="st">'1950-06-24'</span>, <span class="nm">13</span>, <span class="nm">88</span>,  <span class="kw">NULL</span>, <span class="kw">NULL</span>, <span class="nm">FALSE</span>),
+  (<span class="nm">1954</span>, <span class="st">'Switzerland'</span>,        <span class="st">'West Germany'</span>, <span class="st">'1954-06-16'</span>, <span class="nm">16</span>, <span class="nm">140</span>, <span class="kw">NULL</span>, <span class="kw">NULL</span>, <span class="nm">FALSE</span>),
+  (<span class="nm">1958</span>, <span class="st">'Sweden'</span>,             <span class="st">'Brazil'</span>,       <span class="st">'1958-06-08'</span>, <span class="nm">16</span>, <span class="nm">126</span>, <span class="kw">NULL</span>, <span class="kw">NULL</span>, <span class="nm">FALSE</span>),
+  (<span class="nm">1962</span>, <span class="st">'Chile'</span>,              <span class="st">'Brazil'</span>,       <span class="st">'1962-05-30'</span>, <span class="nm">16</span>, <span class="nm">89</span>,  <span class="kw">NULL</span>, <span class="kw">NULL</span>, <span class="nm">FALSE</span>),
+  (<span class="nm">1966</span>, <span class="st">'England'</span>,            <span class="st">'England'</span>,      <span class="st">'1966-07-11'</span>, <span class="nm">16</span>, <span class="nm">89</span>,  <span class="kw">NULL</span>, <span class="kw">NULL</span>, <span class="nm">FALSE</span>),
+  (<span class="nm">1970</span>, <span class="st">'Mexico'</span>,             <span class="st">'Brazil'</span>,       <span class="st">'1970-05-31'</span>, <span class="nm">16</span>, <span class="nm">95</span>,  <span class="nm">0</span>,    <span class="nm">33</span>,   <span class="nm">FALSE</span>),
+  (<span class="nm">1974</span>, <span class="st">'West Germany'</span>,       <span class="st">'West Germany'</span>, <span class="st">'1974-06-13'</span>, <span class="nm">16</span>, <span class="nm">97</span>,  <span class="nm">3</span>,    <span class="nm">81</span>,   <span class="nm">FALSE</span>),
+  (<span class="nm">1978</span>, <span class="st">'Argentina'</span>,          <span class="st">'Argentina'</span>,    <span class="st">'1978-06-01'</span>, <span class="nm">16</span>, <span class="nm">102</span>, <span class="nm">5</span>,    <span class="nm">104</span>,  <span class="nm">FALSE</span>),
+  (<span class="nm">1982</span>, <span class="st">'Spain'</span>,              <span class="st">'Italy'</span>,        <span class="st">'1982-06-13'</span>, <span class="nm">24</span>, <span class="nm">146</span>, <span class="nm">5</span>,    <span class="nm">95</span>,   <span class="nm">FALSE</span>),
+  (<span class="nm">1986</span>, <span class="st">'Mexico'</span>,             <span class="st">'Argentina'</span>,    <span class="st">'1986-05-31'</span>, <span class="nm">24</span>, <span class="nm">132</span>, <span class="nm">8</span>,    <span class="nm">133</span>,  <span class="nm">FALSE</span>),
+  (<span class="nm">1990</span>, <span class="st">'Italy'</span>,              <span class="st">'West Germany'</span>, <span class="st">'1990-06-08'</span>, <span class="nm">24</span>, <span class="nm">115</span>, <span class="nm">16</span>,   <span class="nm">163</span>,  <span class="nm">FALSE</span>),
+  (<span class="nm">1994</span>, <span class="st">'United States'</span>,      <span class="st">'Brazil'</span>,       <span class="st">'1994-06-17'</span>, <span class="nm">24</span>, <span class="nm">141</span>, <span class="nm">15</span>,   <span class="nm">235</span>,  <span class="nm">TRUE</span>),
+  (<span class="nm">1998</span>, <span class="st">'France'</span>,             <span class="st">'France'</span>,       <span class="st">'1998-06-10'</span>, <span class="nm">32</span>, <span class="nm">171</span>, <span class="nm">22</span>,   <span class="nm">258</span>,  <span class="nm">FALSE</span>),
+  (<span class="nm">2002</span>, <span class="st">'Japan &amp; South Korea'</span>, <span class="st">'Brazil'</span>,       <span class="st">'2002-05-31'</span>, <span class="nm">32</span>, <span class="nm">161</span>, <span class="nm">17</span>,   <span class="nm">272</span>,  <span class="nm">FALSE</span>),
+  (<span class="nm">2006</span>, <span class="st">'Germany'</span>,            <span class="st">'Italy'</span>,        <span class="st">'2006-06-09'</span>, <span class="nm">32</span>, <span class="nm">147</span>, <span class="nm">28</span>,   <span class="nm">345</span>,  <span class="nm">TRUE</span>),
+  (<span class="nm">2010</span>, <span class="st">'South Africa'</span>,       <span class="st">'Spain'</span>,        <span class="st">'2010-06-11'</span>, <span class="nm">32</span>, <span class="nm">145</span>, <span class="nm">17</span>,   <span class="nm">245</span>,  <span class="nm">FALSE</span>),
+  (<span class="nm">2014</span>, <span class="st">'Brazil'</span>,             <span class="st">'Germany'</span>,      <span class="st">'2014-06-12'</span>, <span class="nm">32</span>, <span class="nm">171</span>, <span class="nm">10</span>,   <span class="nm">187</span>,  <span class="nm">FALSE</span>),
+  (<span class="nm">2018</span>, <span class="st">'Russia'</span>,             <span class="st">'France'</span>,       <span class="st">'2018-06-14'</span>, <span class="nm">32</span>, <span class="nm">169</span>, <span class="nm">4</span>,    <span class="nm">219</span>,  <span class="nm">FALSE</span>),
+  (<span class="nm">2022</span>, <span class="st">'Qatar'</span>,              <span class="st">'Argentina'</span>,    <span class="st">'2022-11-20'</span>, <span class="nm">32</span>, <span class="nm">172</span>, <span class="nm">4</span>,    <span class="nm">227</span>,  <span class="nm">TRUE</span>);</pre>
+      </div>
+
+    </section>
+
+    <!-- QUESTIONS SECTION -->
+    <section class="section">
+      <div class="section-header">
+        <h2>Questions</h2>
+        <span class="section-badge badge-q">2 questions</span>
+      </div>
+
+      <!-- Q1 -->
+      <div class="q-card" data-qid="Q1">
+        <div class="q-header">
+          <div class="q-num q">Q1</div>
+          <div class="q-text">
+            Write and run a <strong>Python script</strong> (like we did in class) that connects to <code>world_cups.db</code> and prints all World Cups <strong>won by Brazil</strong>.
+            <small>Hint: use a parameterized query with <code>?</code> — do not hardcode the value in the SQL string</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- Q2 -->
+      <div class="q-card" data-qid="Q2">
+        <div class="q-header">
+          <div class="q-num q">Q2</div>
+          <div class="q-text">
+            Write and run a <strong>Python script</strong> (like we did in class) that connects to <code>world_cups.db</code> and updates the <strong>2002 World Cup</strong> host country to <code>'East Asia'</code>.
+            <small>Hint: use <code>UPDATE</code> with <code>?</code> parameters, then <code>conn.commit()</code> and print <code>cursor.rowcount</code></small>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- SHOW TEACHER -->
+    <div class="show-teacher">
+      <div class="show-teacher-icon">&#128104;&#8205;&#127979;</div>
+      <div class="show-teacher-text">
+        When you finish, show your screen to the teacher.
+        <span>Run both scripts and confirm the output is correct.</span>
+      </div>
+    </div>
+
+  </main>
+</div><!-- #exam-wrap -->
+
+
+
+</body>
+</html>

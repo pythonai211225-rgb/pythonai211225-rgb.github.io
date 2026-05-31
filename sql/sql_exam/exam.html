@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SQL Exam — 30 Questions</title>
+  <link rel="icon" href="sqlite_icon.png" type="image/png">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #07101f; --bg2: #0d1a2e; --surface: #111c30; --surface2: #172035;
+      --border: rgba(148,180,255,.1); --border-hi: rgba(148,180,255,.22);
+      --text: #e8f0fe; --muted: #8da3c4; --dim: #4a6080;
+      --teal: #2dd4bf; --amber: #fbbf24; --coral: #f87171;
+      --violet: #a78bfa; --green: #4ade80; --blue: #60a5fa;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Inter', sans-serif; background: var(--bg);
+      color: var(--text); min-height: 100vh;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; padding: 20px;
+      background-image:
+        radial-gradient(ellipse 80% 60% at 10% -10%, rgba(45,212,191,.06) 0%, transparent 55%),
+        radial-gradient(ellipse 60% 50% at 95% 5%,  rgba(167,139,250,.06) 0%, transparent 50%);
+    }
+
+    .exam-wrapper { width: 100%; max-width: 680px; }
+
+    /* ── HEADER ── */
+    .ex-header {
+      background: linear-gradient(135deg, #0f1e38 0%, #121e36 60%, #160e2c 100%);
+      border: 1px solid var(--border-hi); border-bottom: none;
+      border-radius: 18px 18px 0 0;
+      padding: 18px 28px;
+      display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    }
+    .ex-header h1 { font-size: 1.15rem; font-weight: 800; color: var(--text); display: flex; align-items: center; gap: 9px; }
+    .ex-header h1 img { width: 26px; height: 26px; object-fit: contain; }
+    .ex-header .header-right { display: flex; align-items: center; gap: 16px; }
+    .timer {
+      font-size: .95rem; font-weight: 700; color: var(--teal);
+      font-variant-numeric: tabular-nums; letter-spacing: .04em;
+    }
+    .timer.warn { color: var(--coral); }
+    .q-counter { font-size: .88rem; color: var(--muted); }
+
+    /* ── PROGRESS ── */
+    .prog-track { height: 4px; background: var(--surface2); }
+    .prog-fill  { height: 4px; background: var(--teal); width: 0%; transition: width .4s ease; }
+
+    /* ── CARD ── */
+    .ex-card {
+      background: var(--surface); border: 1px solid var(--border-hi); border-top: none;
+      border-radius: 0 0 18px 18px; padding: 32px 36px 28px;
+    }
+
+    /* ── INTRO ── */
+    .quiz-id-badge {
+      display: inline-block; background: rgba(45,212,191,.1); color: var(--teal);
+      border: 1px solid rgba(45,212,191,.3); border-radius: 8px;
+      font-size: .85rem; font-weight: 700; padding: 5px 15px; margin-bottom: 20px;
+      letter-spacing: .05em; font-family: 'JetBrains Mono', monospace;
+    }
+    .intro-subtitle {
+      color: var(--muted); font-size: .93rem; margin-bottom: 26px; line-height: 1.65;
+    }
+    .field-group { display: flex; flex-direction: column; gap: 16px; margin-bottom: 26px; }
+    .field label {
+      display: block; font-size: .78rem; font-weight: 700; color: var(--teal);
+      text-transform: uppercase; letter-spacing: .07em; margin-bottom: 6px;
+    }
+    .field input {
+      width: 100%; padding: 11px 15px;
+      border: 1.5px solid var(--border-hi); border-radius: 10px;
+      font-size: .97rem; font-family: 'Inter', sans-serif;
+      color: var(--text); background: var(--bg2); outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .field input:focus {
+      border-color: rgba(45,212,191,.5);
+      box-shadow: 0 0 0 3px rgba(45,212,191,.08);
+    }
+    .field input::placeholder { color: var(--dim); }
+
+    /* ── QUESTION ── */
+    .q-badge {
+      display: inline-block; background: rgba(45,212,191,.12); color: var(--teal);
+      font-size: .78rem; font-weight: 700; padding: 3px 12px;
+      border-radius: 20px; margin-bottom: 14px; border: 1px solid rgba(45,212,191,.25);
+    }
+    .q-text {
+      color: var(--text); font-size: 1.05rem; font-weight: 700;
+      line-height: 1.65; margin-bottom: 22px;
+      user-select: none; -webkit-user-select: none;
+    }
+    .q-text code {
+      font-family: 'JetBrains Mono', monospace; font-size: .9em;
+      background: rgba(96,165,250,.1); color: var(--blue);
+      padding: 1px 6px; border-radius: 4px;
+    }
+    .options { display: flex; flex-direction: column; gap: 9px; }
+    .option {
+      border: 1.5px solid var(--border); border-radius: 11px;
+      padding: 12px 16px; cursor: pointer; color: var(--muted);
+      font-size: .95rem; font-family: 'JetBrains Mono', monospace;
+      transition: background .15s, border-color .15s, color .15s;
+      user-select: none; line-height: 1.5;
+    }
+    .option:hover    { background: rgba(45,212,191,.05); border-color: rgba(45,212,191,.35); color: var(--text); }
+    .option.selected { background: rgba(45,212,191,.1);  border-color: rgba(45,212,191,.5);  color: var(--teal); font-weight: 700; }
+    .opt-lbl { opacity: .55; margin-right: 4px; }
+    .tbl-name { font-size: .78rem; font-weight: 700; color: var(--blue); text-transform: uppercase; letter-spacing: .05em; margin: 6px 0 4px; }
+    .option.selected .tbl-name { color: var(--teal); }
+    .mini-tbl { width: 100%; border-collapse: collapse; font-size: .8rem; }
+    .fk-tag { color: #fbbf24; font-size: .72rem; font-weight: 800; letter-spacing: .03em; vertical-align: middle; }
+    .two-tbls { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; align-items: flex-start; }
+    .two-tbls > div { flex: 1; min-width: 70px; }
+    .mini-tbl th { background: rgba(96,165,250,.1); color: var(--blue); font-weight: 700; padding: 3px 6px; border: 1px solid rgba(148,180,255,.15); white-space: normal; word-break: break-word; font-size: .75rem; }
+    .mini-tbl td { color: var(--muted); padding: 4px 8px; border: 1px solid rgba(148,180,255,.12); }
+    .option.selected .mini-tbl th { background: rgba(45,212,191,.12); color: var(--teal); border-color: rgba(45,212,191,.2); }
+    .option.selected .mini-tbl td { color: var(--teal); border-color: rgba(45,212,191,.15); }
+
+    .option.is-correct {
+      border-color: rgba(74,222,128,.8) !important;
+      color: var(--green) !important;
+      animation: correct-pulse .7s ease-out forwards;
+    }
+    @keyframes correct-pulse {
+      0%   { box-shadow: 0 0 0 0   rgba(74,222,128,.7); background: rgba(74,222,128,.18); }
+      55%  { box-shadow: 0 0 0 14px rgba(74,222,128,0);  background: rgba(74,222,128,.28); }
+      100% { box-shadow: 0 0 0 0   rgba(74,222,128,0);  background: rgba(74,222,128,.1);  }
+    }
+
+    /* ── FOOTER ROW ── */
+    .ex-footer {
+      margin-top: 24px; display: flex;
+      justify-content: flex-end; align-items: center; gap: 14px;
+    }
+    .warn-msg {
+      font-size: .85rem; color: var(--coral); margin-right: auto; display: none;
+    }
+    .btn {
+      background: rgba(45,212,191,.12); color: var(--teal);
+      border: 1px solid rgba(45,212,191,.4); border-radius: 10px;
+      padding: 11px 28px; font-size: .97rem; font-weight: 700;
+      cursor: pointer; transition: all .15s; font-family: 'Inter', sans-serif;
+    }
+    .btn:hover { background: rgba(45,212,191,.22); box-shadow: 0 0 18px rgba(45,212,191,.15); }
+    .btn:disabled { opacity: .4; cursor: not-allowed; }
+
+    /* ── RESULTS ── */
+    .result-accent { height: 4px; }
+    .results-card {
+      background: var(--surface); border: 1px solid var(--border-hi); border-top: none;
+      border-radius: 0 0 18px 18px; padding: 40px 36px 36px; text-align: center;
+    }
+    .student-info { font-size: .93rem; color: var(--muted); margin-bottom: 26px; }
+    .student-info strong { color: var(--text); }
+    .big-emoji { font-size: 3.2rem; margin-bottom: 10px; }
+    .pct-ring {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 130px; height: 130px; border-radius: 50%; border: 8px solid;
+      margin-bottom: 14px;
+    }
+    .pct-value { font-size: 2.2rem; font-weight: 800; }
+    .result-label { font-size: 1.1rem; font-weight: 800; margin-bottom: 6px; }
+    .result-note  { color: var(--muted); font-size: .9rem; margin-bottom: 4px; }
+    .result-time  { font-size: .88rem; color: var(--teal); font-weight: 600; margin-top: 8px; }
+    .result-quiz-id { font-size: .82rem; color: var(--dim); margin-top: 10px; font-family: 'JetBrains Mono', monospace; }
+    .result-breakdown {
+      margin: 20px auto 0; max-width: 340px; text-align: left;
+      background: var(--bg2); border-radius: 10px; border: 1px solid var(--border);
+      padding: 12px 16px; font-size: .85rem; color: var(--muted);
+    }
+    .result-breakdown strong { color: var(--text); }
+
+    /* ── HIDDEN ── */
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+
+<div class="exam-wrapper">
+
+  <!-- ═══════════ INTRO ═══════════ -->
+  <div id="intro-screen">
+    <div class="ex-header">
+      <h1><img src="sqlite_icon.png" alt=""> SQL Theory Exam</h1>
+      <span class="q-counter">30 Questions</span>
+    </div>
+    <div class="prog-track"></div>
+    <div class="ex-card">
+      <div class="quiz-id-badge" id="intro-quiz-id"></div>
+      <p class="intro-subtitle">
+        Enter your details below before starting.<br/>
+        One question per page — your score and time will be shown at the end.
+      </p>
+      <div class="field-group">
+        <div class="field">
+          <label>First Name</label>
+          <input type="text" id="inp-fname" placeholder="e.g. Dana" autocomplete="off"/>
+        </div>
+        <div class="field">
+          <label>Last Name</label>
+          <input type="text" id="inp-lname" placeholder="e.g. Cohen" autocomplete="off"/>
+        </div>
+        <div class="field">
+          <label>Student ID</label>
+          <input type="text" id="inp-id" placeholder="e.g. 20240001" autocomplete="off"/>
+        </div>
+      </div>
+      <div class="ex-footer">
+        <span class="warn-msg" id="intro-warn">⚠ Please fill in all fields.</span>
+        <button class="btn" onclick="startExam()">Start Exam →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ QUESTION ═══════════ -->
+  <div id="question-screen" class="hidden">
+    <div class="ex-header">
+      <h1><img src="sqlite_icon.png" alt=""> SQL Theory Exam</h1>
+      <div class="header-right">
+        <span class="timer" id="timer">00:00</span>
+        <span class="q-counter" id="q-counter">Q 1 / 30</span>
+      </div>
+    </div>
+    <div class="prog-track">
+      <div class="prog-fill" id="prog-fill"></div>
+    </div>
+    <div class="ex-card">
+      <div class="q-badge" id="q-badge">Q1</div>
+      <div class="q-text"  id="q-text"></div>
+      <div class="options" id="options"></div>
+      <div class="ex-footer">
+        <span class="warn-msg" id="q-warn">⚠ Please select an answer.</span>
+        <button class="btn" id="next-btn" onclick="nextQuestion()">Next →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ RESULTS ═══════════ -->
+  <div id="results-screen" class="hidden">
+    <div class="ex-header">
+      <h1><img src="sqlite_icon.png" alt=""> SQL Theory Exam</h1>
+      <span class="q-counter">Results</span>
+    </div>
+    <div class="result-accent" id="result-accent"></div>
+    <div class="results-card">
+      <div class="student-info" id="student-info"></div>
+      <div class="big-emoji"   id="res-emoji"></div>
+      <div class="pct-ring"    id="pct-ring">
+        <span class="pct-value" id="pct-value"></span>
+      </div>
+      <div class="result-label" id="result-label"></div>
+      <div class="result-note"  id="result-note"></div>
+      <div class="result-time"  id="result-time"></div>
+      <div class="result-breakdown" id="result-breakdown"></div>
+      <div class="result-quiz-id"   id="result-quiz-id"></div>
+      <div class="ex-footer" style="margin-top:28px; justify-content:center;">
+        <button class="btn" onclick="restart()">↺ Try Again</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /exam-wrapper -->
+
+<script>
+// Correct answer stored as btoa(salt + index). Salt split to avoid plain-text leak.
+const _s = atob("cXg3") + atob("IzA=").slice(0,1); // "qx7#"
+
+const QUESTIONS = [
+  {
+    q: "What does SQL stand for?",
+    o: ["A)  Structured Query Language", "B)  Simple Query Language", "C)  Sequential Query Language", "D)  Standard Query Language"],
+    _h: "cXg3IzA="
+  },
+  {
+    q: "Which SQL operations are used for Create, Read, Update, and Delete (CRUD)?",
+    o: ["A)  INSERT / SELECT / UPDATE / DELETE", "B)  ADD / GET / CHANGE / REMOVE", "C)  CREATE / READ / UPDATE / DELETE", "D)  PUT / FETCH / MODIFY / DROP"],
+    _h: "cXg3IzA="
+  },
+  {
+    q: "Which SQL clause filters results AFTER rows have been grouped?",
+    o: ["A)  WHERE", "B)  HAVING", "C)  FILTER", "D)  GROUP FILTER"],
+    _h: "cXg3IzE="
+  },
+  {
+    q: "Which type of JOIN returns only the rows that have a match in BOTH tables?",
+    o: ["A)  LEFT JOIN", "B)  FULL OUTER JOIN", "C)  CROSS JOIN", "D)  INNER JOIN"],
+    _h: "cXg3IzM="
+  },
+  {
+    q: "What does ACID stand for?",
+    o: [
+      "A)  Atomicity, Consistency, Isolation, Durability",
+      "B)  Atomicity, Consistency, Integration, Durability",
+      "C)  Analysis, Consistency, Isolation, Durability",
+      "D)  Atomicity, Constraint, Isolation, Durability"
+    ],
+    _h: "cXg3IzA="
+  },
+  {
+    q: "Which of the following is an SQL-based database?",
+    o: [
+      "A)  MongoDB, Elasticsearch, Cassandra",
+      "B)  PostgreSQL, MySQL, SQLite",
+      "C)  Redis, DynamoDB, Firebase",
+      "D)  Neo4j, Cassandra, CouchDB"
+    ],
+    _h: "cXg3IzE="
+  },
+  {
+    q: "Which data types does SQLite support?",
+    o: [
+      "A)  INTEGER, TEXT, REAL, BLOB, NULL",
+      "B)  INT, VARCHAR, DATE, FLOAT, BOOLEAN",
+      "C)  NUMBER, STRING, DATE, DECIMAL, NONE",
+      "D)  INTEGER, DATE, FLOAT, OBJECT, NULL"
+    ],
+    _h: "cXg3IzA="
+  },
+  {
+    q: "When using a Boolean field in SQLite, what values are actually stored in the database?",
+    o: ["A)  TRUE / FALSE", "B)  'true' / 'false'", "C)  1 / 0", "D)  YES / NO"],
+    _h: "cXg3IzI="
+  },
+  {
+    q: "How can you make sure a certain column will always have a value?",
+    o: ["A)  UNIQUE", "B)  NOT NULL", "C)  DEFAULT", "D)  CHECK"],
+    _h: "cXg3IzE="
+  },
+  {
+    q: "How can you make sure a certain column will not contain duplicate values?",
+    o: ["A)  NOT NULL", "B)  PRIMARY KEY", "C)  UNIQUE", "D)  FOREIGN KEY"],
+    _h: "cXg3IzI="
+  },
+  {
+    q: "How can you make sure an integer column always contains positive values?",
+    o: ["A)  NOT NULL", "B)  UNIQUE", "C)  POSITIVE", "D)  CHECK (value > 0)"],
+    _h: "cXg3IzM="
+  },
+  {
+    q: "How can you make a value be inserted automatically when an INSERT statement does not provide one?",
+    o: ["A)  AUTO INCREMENT", "B)  NOT NULL", "C)  DEFAULT", "D)  NULLABLE"],
+    _h: "cXg3IzI="
+  },
+  {
+    q: "Which constraint ensures that the primary key value is added automatically and never reused?",
+    o: ["A)  PRIMARY KEY", "B)  NOT NULL", "C)  AUTOINCREMENT", "D)  DEFAULT"],
+    _h: "cXg3IzI="
+  },
+  {
+    q: "What happens when ON DELETE CASCADE is defined on a foreign key?\n(e.g. employee (child) has a FK referencing dept (parent))",
+    o: [
+      "A)  Deleting a child row also deletes its parent row",
+      "B)  Deleting a parent row automatically deletes all matching child rows",
+      "C)  Deleting a parent row sets child FK columns to NULL",
+      "D)  Deleting any row is blocked until the FK is removed"
+    ],
+    _h: "cXg3IzE="
+  },
+  {
+    q: "What must be true about the referenced column when using a FOREIGN KEY?",
+    o: [
+      "A)  It must be TEXT type with NOT NULL",
+      "B)  It must be a PRIMARY KEY or have a UNIQUE constraint in the referenced table",
+      "C)  It must be in the same table as the FK column",
+      "D)  Both tables must have the same number of columns"
+    ],
+    _h: "cXg3IzE="
+  },
+  {
+    q: "In which SQLite internal table is the AUTOINCREMENT counter stored?",
+    o: ["A)  sqlite_master", "B)  sqlite_indexes", "C)  sqlite_sequence", "D)  sqlite_autoincrement"],
+    _h: "cXg3IzI="
+  },
+  {
+    q: "How do you rename a table in SQLite?",
+    o: [
+      "A)  RENAME TABLE old_name TO new_name;",
+      "B)  ALTER TABLE old_name RENAME TO new_name;",
+      "C)  MODIFY TABLE old_name RENAME new_name;",
+      "D)  UPDATE TABLE SET name = 'new_name';"
+    ],
+    _h: "cXg3IzE="
+  },
+  {
+    q: "How do you add a new column to an existing table?",
+    o: [
+      "A)  INSERT COLUMN age INTEGER INTO person;",
+      "B)  MODIFY TABLE person ADD age INTEGER;",
+      "C)  ALTER TABLE person ADD COLUMN age INTEGER;",
+      "D)  UPDATE TABLE person ADD age INTEGER;"
+    ],
+    _h: "cXg3IzI="
+  },
+  {
+    q: "How do you remove a column from an existing table?",
+    o: [
+      "A)  ALTER TABLE person DELETE COLUMN age;",
+      "B)  REMOVE COLUMN age FROM person;",
+      "C)  ALTER TABLE person DROP COLUMN age;",
+      "D)  DELETE COLUMN age FROM person;"
+    ],
+    _h: "cXg3IzI="
+  },
+  {
+    q: "What is the characteristic of a 1:1 Strict relationship (shared primary key)?",
+    html: true,
+    o: [
+      '<span class="opt-lbl">A)</span><div class="two-tbls"><div><div class="tbl-name">employee</div><table class="mini-tbl"><tr><th>employee_id 🔑</th></tr><tr><td>1</td></tr></table></div><div><div class="tbl-name">passport</div><table class="mini-tbl"><tr><th>passport_id 🔑</th><th>emp_id <span class="fk-tag">fk</span></th></tr><tr><td>1</td><td>1</td></tr></table></div></div>',
+      '<span class="opt-lbl">B)</span><div class="two-tbls"><div><div class="tbl-name">employee</div><table class="mini-tbl"><tr><th>employee_id 🔑</th></tr><tr><td>1</td></tr></table></div><div><div class="tbl-name">passport</div><table class="mini-tbl"><tr><th>employee_id 🔑 <span class="fk-tag">fk</span></th></tr><tr><td>1</td></tr></table></div></div>',
+      '<span class="opt-lbl">C)</span><div class="two-tbls"><div><div class="tbl-name">employee</div><table class="mini-tbl"><tr><th>employee_id 🔑</th></tr><tr><td>1</td></tr></table></div><div><div class="tbl-name">passport</div><table class="mini-tbl"><tr><th>passport_id 🔑</th></tr><tr><td>1</td></tr></table></div></div>',
+      '<span class="opt-lbl">D)</span><div class="two-tbls"><div><div class="tbl-name">employee</div><table class="mini-tbl"><tr><th>employee_id 🔑</th><th>passport_id <span class="fk-tag">fk</span></th></tr><tr><td>1</td><td>1</td></tr></table></div><div><div class="tbl-name">passport</div><table class="mini-tbl"><tr><th>passport_id 🔑</th></tr><tr><td>1</td></tr></table></div></div>'
+    ],
+    _h: "cXg3IzE="
+  },
+  {
+    q: "In a 1:1 (non-strict) relationship, how is the link defined?",
+    html: true,
+    o: [
+      '<span class="opt-lbl">A)</span><div class="two-tbls"><div><div class="tbl-name">drivers</div><table class="mini-tbl"><tr><th>driver_id 🔑</th></tr><tr><td>1</td></tr></table></div><div><div class="tbl-name">car_license</div><table class="mini-tbl"><tr><th>driver_id 🔑 <span class="fk-tag">fk</span></th></tr><tr><td>1</td></tr></table></div></div>',
+      '<span class="opt-lbl">B)</span><div class="two-tbls"><div><div class="tbl-name">drivers</div><table class="mini-tbl"><tr><th>driver_id 🔑</th></tr><tr><td>1</td></tr></table></div><div><div class="tbl-name">car_license</div><table class="mini-tbl"><tr><th>license_id 🔑</th><th>driver_id <span class="fk-tag">fk</span></th></tr><tr><td>101</td><td>1</td></tr></table></div></div>',
+      '<span class="opt-lbl">C)</span><div class="two-tbls"><div><div class="tbl-name">drivers</div><table class="mini-tbl"><tr><th>driver_id 🔑</th></tr><tr><td>1</td></tr></table></div><div><div class="tbl-name">driver_car</div><table class="mini-tbl"><tr><th>driver_id <span class="fk-tag">fk</span></th><th>license_id <span class="fk-tag">fk</span></th></tr><tr><td>1</td><td>101</td></tr></table></div></div>',
+      '<span class="opt-lbl">D)</span><div class="two-tbls"><div><div class="tbl-name">drivers</div><table class="mini-tbl"><tr><th>driver_id 🔑</th></tr><tr><td>1</td></tr></table></div><div><div class="tbl-name">car_license</div><table class="mini-tbl"><tr><th>license_id 🔑</th></tr><tr><td>101</td></tr></table></div></div>'
+    ],
+    _h: "cXg3IzE="
+  },
+  {
+    q: "Which statement best describes a 1:N (One-to-Many) relationship?",
+    html: true,
+    o: [
+      '<span class="opt-lbl">A)</span><div class="two-tbls"><div><div class="tbl-name">dept</div><table class="mini-tbl"><tr><th>dept_id 🔑</th></tr><tr><td>10</td></tr></table></div><div><div class="tbl-name">employee</div><table class="mini-tbl"><tr><th>employee_id 🔑 <span class="fk-tag">fk</span></th></tr><tr><td>10</td></tr></table></div></div>',
+      '<span class="opt-lbl">B)</span><div class="two-tbls"><div><div class="tbl-name">dept</div><table class="mini-tbl"><tr><th>dept_id 🔑</th></tr><tr><td>10</td></tr></table></div><div><div class="tbl-name">employee</div><table class="mini-tbl"><tr><th>employee_id 🔑</th><th>dept_id <span class="fk-tag">fk</span></th></tr><tr><td>1</td><td>10</td></tr></table></div></div>',
+      '<span class="opt-lbl">C)</span><div class="two-tbls"><div><div class="tbl-name">student</div><table class="mini-tbl"><tr><th>student_id 🔑</th></tr><tr><td>1</td></tr></table></div><div><div class="tbl-name">student_course</div><table class="mini-tbl"><tr><th>student_id <span class="fk-tag">fk</span></th><th>course_id <span class="fk-tag">fk</span></th></tr><tr><td>1</td><td>101</td></tr></table></div></div>',
+      '<span class="opt-lbl">D)</span><div class="two-tbls"><div><div class="tbl-name">dept</div><table class="mini-tbl"><tr><th>dept_id 🔑</th></tr><tr><td>10</td></tr></table></div><div><div class="tbl-name">employee</div><table class="mini-tbl"><tr><th>employee_id 🔑</th><th>dept_id <span class="fk-tag">fk</span> (unique)</th></tr><tr><td>1</td><td>10</td></tr></table></div></div>'
+    ],
+    _h: "cXg3IzE="
+  },
+  {
+    q: "How is an N:M (Many-to-Many) relationship typically implemented?",
+    html: true,
+    o: [
+      '<span class="opt-lbl">A)</span><div class="two-tbls"><div><div class="tbl-name">student</div><table class="mini-tbl"><tr><th>student_id 🔑</th><th>course_id <span class="fk-tag">fk</span></th></tr><tr><td>1</td><td>101</td></tr></table></div><div><div class="tbl-name">course</div><table class="mini-tbl"><tr><th>course_id 🔑</th></tr><tr><td>101</td></tr></table></div></div>',
+      '<span class="opt-lbl">B)</span><div class="two-tbls"><div><div class="tbl-name">student</div><table class="mini-tbl"><tr><th>student_id 🔑</th></tr><tr><td>1</td></tr></table></div><div><div class="tbl-name">enrollment</div><table class="mini-tbl"><tr><th>student_id <span class="fk-tag">fk</span></th><th>course_id <span class="fk-tag">fk</span></th></tr><tr><td>1</td><td>101</td></tr></table></div><div><div class="tbl-name">course</div><table class="mini-tbl"><tr><th>course_id 🔑</th></tr><tr><td>101</td></tr></table></div></div>',
+      '<span class="opt-lbl">C)</span><div class="two-tbls"><div><div class="tbl-name">student</div><table class="mini-tbl"><tr><th>student_id 🔑</th></tr><tr><td>1</td></tr></table></div><div><div class="tbl-name">course</div><table class="mini-tbl"><tr><th>course_id 🔑 <span class="fk-tag">fk</span></th></tr><tr><td>1</td></tr></table></div></div>',
+      '<span class="opt-lbl">D)</span><div class="two-tbls"><div><div class="tbl-name">student</div><table class="mini-tbl"><tr><th>student_id 🔑</th><th>course_id <span class="fk-tag">fk</span> (unique)</th></tr><tr><td>1</td><td>101</td></tr></table></div><div><div class="tbl-name">course</div><table class="mini-tbl"><tr><th>course_id 🔑</th></tr><tr><td>101</td></tr></table></div></div>'
+    ],
+    _h: "cXg3IzE="
+  },
+  {
+    q: "Which column design VIOLATES the Atomic Values rule of 1NF?",
+    o: [
+      "A)  phone_number TEXT — stores a single phone number per row",
+      "B)  full_name TEXT — stores the full name as one value",
+      "C)  tags TEXT — stores 'electronics,portable,bluetooth' in a single cell",
+      "D)  price REAL — stores a single numeric price"
+    ],
+    _h: "cXg3IzI="
+  },
+  {
+    q: "Which table design violates the No Repeating Groups rule of 1NF?",
+    o: [
+      "A)  students(id, name, email) — each column stores one value",
+      "B)  orders(id, item1, item2, item3) — multiple columns for the same type of data",
+      "C)  products(id, name, price) — all unique data per row",
+      "D)  employees(id, name, department) — one department per employee"
+    ],
+    _h: "cXg3IzE="
+  },
+  {
+    q: "What does the Unique Rows rule of 1NF require?",
+    o: [
+      "A)  All columns must store unique values",
+      "B)  No two rows can be identical — each row must be uniquely identifiable",
+      "C)  Each table must have exactly one primary key column",
+      "D)  No two tables can have the same column names"
+    ],
+    _h: "cXg3IzE="
+  },
+  {
+    q: "Which scenario violates the Consistent Column Types rule of 1NF?",
+    o: [
+      "A)  name: 'Peter', 'Peter Jackson', 'Anna', 'Tom'",
+      "B)  price: 19.99, 5.50, 120.00, 3.75",
+      "C)  dept: 'Electronics', 'HR', 106, 'Management'",
+      "D)  stock: 10, 0, 250, 4"
+    ],
+    _h: "cXg3IzI="
+  },
+  {
+    q: "What is a Partial Dependency (a 2NF violation)?",
+    html: true,
+    o: [
+      '<span class="opt-lbl">A)</span><div class="tbl-name">employee</div><table class="mini-tbl"><tr><th>employee_id 🔑</th><th>dept_id</th><th>dept_name</th></tr><tr><td>1</td><td>10</td><td>Engineering</td></tr></table>',
+      '<span class="opt-lbl">B)</span><div class="tbl-name">order_item</div><table class="mini-tbl"><tr><th>order_id 🔑</th><th>product_id 🔑</th><th>quantity</th><th>product_name</th></tr><tr><td>101</td><td>5</td><td>2</td><td>Laptop</td></tr></table>',
+      '<span class="opt-lbl">C)</span><div class="tbl-name">employee</div><table class="mini-tbl"><tr><th>employee_id 🔑</th><th>manager_id FK</th><th>name</th></tr><tr><td>1</td><td>null</td><td>Alice</td></tr></table>',
+      '<span class="opt-lbl">D)</span><div class="tbl-name">student</div><table class="mini-tbl"><tr><th>student_id 🔑</th><th>name</th><th>phones</th></tr><tr><td>1</td><td>Dana</td><td>050-111, 054-222</td></tr></table>'
+    ],
+    _h: "cXg3IzE="
+  },
+  {
+    q: "What is a composite primary key?",
+    o: [
+      "A)  A foreign key that references two different tables at once",
+      "B)  A primary key made up of two or more columns together",
+      "C)  A column that stores multiple values separated by commas",
+      "D)  An auto-incremented integer key generated by SQLite"
+    ],
+    _h: "cXg3IzE="
+  },
+  {
+    q: "Which of the following is a 3NF violation (Transitive Dependency)?",
+    html: true,
+    o: [
+      '<span class="opt-lbl">A)</span><div class="tbl-name">dept</div><table class="mini-tbl"><tr><th>dept_id 🔑</th><th>dept</th></tr><tr><td>1</td><td>Electronics</td></tr><tr><td>2</td><td>106</td></tr></table>',
+      '<span class="opt-lbl">B)</span><div class="tbl-name">employee</div><table class="mini-tbl"><tr><th>employee_id 🔑</th><th>dept_id <span class="fk-tag">fk</span></th><th>salary</th></tr><tr><td>1</td><td>10</td><td>5000</td></tr><tr><td>2</td><td>20</td><td>7000</td></tr></table>',
+      '<span class="opt-lbl">C)</span><div class="tbl-name">employee</div><table class="mini-tbl"><tr><th>employee_id 🔑</th><th>dept_id</th><th>dept_name</th></tr><tr><td>1</td><td>10</td><td>Engineering</td></tr><tr><td>2</td><td>10</td><td>Engineering</td></tr></table>',
+      '<span class="opt-lbl">D)</span><div class="tbl-name">order_item</div><table class="mini-tbl"><tr><th>order_id 🔑</th><th>product_id 🔑</th><th>product_name</th></tr><tr><td>101</td><td>5</td><td>Laptop</td></tr><tr><td>102</td><td>5</td><td>Laptop</td></tr></table>'
+    ],
+    _h: "cXg3IzI="
+  }
+];
+
+function _check(qIdx, selIdx) {
+  return btoa(_s + selIdx) === QUESTIONS[qIdx]._h;
+}
+
+// ── Quiz ID ──
+const quizId = 'S' + String(Math.floor(10000 + Math.random() * 90000));
+document.getElementById('intro-quiz-id').textContent = 'Quiz ID: ' + quizId;
+
+// ── State ──
+let student  = { fname: '', lname: '', id: '' };
+let current  = 0;
+let selected = null;
+let order    = [];
+const answers = Array(QUESTIONS.length).fill(null);
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// ── Timer ──
+let timerInterval = null;
+let startTs       = null;
+let finalTime     = null;
+
+function fmtTime(ms) {
+  const t = Math.floor(ms / 1000);
+  return String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0');
+}
+
+function startTimer() {
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    const el = document.getElementById('timer');
+    const elapsed = Date.now() - startTs;
+    el.textContent = fmtTime(elapsed);
+    el.classList.toggle('warn', elapsed > 25 * 60 * 1000);
+  }, 500);
+}
+
+function stopTimer() {
+  clearInterval(timerInterval);
+  timerInterval = null;
+  finalTime = fmtTime(Date.now() - startTs);
+}
+
+// ── localStorage ──
+const STORE = 'sqlexam_state';
+function saveState(done = false) {
+  localStorage.setItem(STORE, JSON.stringify({ student, current, answers, done, startTs, finalTime, order }));
+}
+function clearState() { localStorage.removeItem(STORE); }
+function restoreState() {
+  const raw = localStorage.getItem(STORE);
+  if (!raw) return null;
+  try {
+    const s = JSON.parse(raw);
+    if (!s.student || s.current == null) return null;
+    student   = s.student;
+    current   = s.current;
+    startTs   = s.startTs || null;
+    finalTime = s.finalTime || null;
+    order = Array.isArray(s.order) && s.order.length === QUESTIONS.length
+      ? s.order : shuffle([...Array(QUESTIONS.length).keys()]);
+    s.answers.forEach((v, i) => { answers[i] = v; });
+    return s.done ? 'done' : 'in-progress';
+  } catch(e) { return null; }
+}
+
+// ── Start ──
+function startExam() {
+  const fn = document.getElementById('inp-fname').value.trim();
+  const ln = document.getElementById('inp-lname').value.trim();
+  const id = document.getElementById('inp-id').value.trim();
+  if (!fn || !ln || !id) {
+    document.getElementById('intro-warn').style.display = 'block'; return;
+  }
+  student = { fname: fn, lname: ln, id };
+  startTs = Date.now();
+  order   = shuffle([...Array(QUESTIONS.length).keys()]);
+  saveState();
+  startTimer();
+  document.getElementById('intro-screen').classList.add('hidden');
+  document.getElementById('question-screen').classList.remove('hidden');
+  render();
+}
+
+// ── Render ──
+function render() {
+  const total = QUESTIONS.length;
+  const q     = QUESTIONS[order[current]];
+
+  document.getElementById('q-counter').textContent = `Q ${current + 1} / ${total}`;
+  document.getElementById('q-badge').textContent   = `Q${current + 1}`;
+  document.getElementById('q-text').textContent    = q.q;
+  document.getElementById('prog-fill').style.width = `${((current + 1) / total) * 100}%`;
+  document.getElementById('next-btn').textContent  = current === total - 1 ? 'Finish ✓' : 'Next →';
+  document.getElementById('q-warn').style.display  = 'none';
+
+  selected = answers[current];
+
+  const container = document.getElementById('options');
+  container.innerHTML = '';
+  q.o.forEach((opt, i) => {
+    const div = document.createElement('div');
+    div.className = 'option' + (selected === i ? ' selected' : '');
+    if (q.html) { div.innerHTML = opt; } else { div.textContent = opt; }
+    div.addEventListener('click', () => selectOption(i));
+    container.appendChild(div);
+  });
+}
+
+function selectOption(idx) {
+  selected = idx;
+  answers[current] = idx;
+  document.querySelectorAll('.option').forEach((el, i) => {
+    el.classList.toggle('selected', i === idx);
+    el.classList.remove('is-correct');
+  });
+  if (_check(order[current], idx)) {
+    document.querySelectorAll('.option')[idx].classList.add('is-correct');
+  }
+  document.getElementById('q-warn').style.display = 'none';
+  saveState();
+}
+
+function nextQuestion() {
+  if (selected === null) {
+    document.getElementById('q-warn').style.display = 'block'; return;
+  }
+  if (current < QUESTIONS.length - 1) {
+    current++;
+    saveState();
+    render();
+  } else {
+    stopTimer();
+    saveState(true);
+    showResults();
+  }
+}
+
+// ── Results ──
+function showResults() {
+  const total = order.length;
+  const score = order.reduce((acc, qIdx, i) => acc + (_check(qIdx, answers[i]) ? 1 : 0), 0);
+  const pct   = Math.round(score / total * 100);
+  const pass  = pct >= 60;
+  const color = pass ? '#4ade80' : '#f87171';
+
+  document.getElementById('question-screen').classList.add('hidden');
+  document.getElementById('results-screen').classList.remove('hidden');
+
+  document.getElementById('student-info').innerHTML =
+    `<strong>${student.fname} ${student.lname}</strong> &nbsp;·&nbsp; ID: <strong>${student.id}</strong>`;
+
+  document.getElementById('result-accent').style.background = color;
+
+  document.getElementById('res-emoji').textContent = pct === 100 ? '🎉' : (pass ? '👍' : '📚');
+
+  const ring = document.getElementById('pct-ring');
+  ring.style.borderColor = color;
+  ring.style.color       = color;
+  document.getElementById('pct-value').textContent = pct + '%';
+
+  const lbl = document.getElementById('result-label');
+  lbl.textContent = pass ? 'Passed ✓' : 'Not Passed';
+  lbl.style.color = color;
+
+  document.getElementById('result-note').textContent =
+    pass ? `You got ${score} out of ${total} correct.` : `You got ${score} out of ${total}. Keep studying!`;
+  document.getElementById('result-time').textContent =
+    finalTime ? `⏱  Time: ${finalTime}` : '';
+  document.getElementById('result-breakdown').innerHTML =
+    `<strong>Score:</strong> ${score} / ${total} &nbsp;·&nbsp; <strong>${pct}%</strong>` +
+    (pass ? '  <span style="color:var(--green)">● Pass</span>' : '  <span style="color:var(--coral)">● Fail</span>');
+  document.getElementById('result-quiz-id').textContent = 'Quiz ID: ' + quizId;
+}
+
+// ── Restart ──
+function restart() {
+  if (!confirm('Start over? Your answers will be lost.')) return;
+  current = 0; startTs = null; finalTime = null; order = [];
+  answers.fill(null); selected = null;
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+  clearState();
+  ['inp-fname','inp-lname','inp-id'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('intro-warn').style.display = 'none';
+  document.getElementById('results-screen').classList.add('hidden');
+  document.getElementById('intro-screen').classList.remove('hidden');
+}
+
+// ── Resume on load ──
+(function init() {
+  const s = restoreState();
+  if (s === 'done') {
+    document.getElementById('intro-screen').classList.add('hidden');
+    showResults();
+  } else if (s === 'in-progress') {
+    document.getElementById('intro-screen').classList.add('hidden');
+    document.getElementById('question-screen').classList.remove('hidden');
+    render();
+    if (startTs) startTimer();
+  }
+})();
+
+// Enter key on intro
+['inp-fname','inp-lname','inp-id'].forEach(id =>
+  document.getElementById(id).addEventListener('keydown', e => {
+    if (e.key === 'Enter') startExam();
+  })
+);
+</script>
+</body>
+</html>
