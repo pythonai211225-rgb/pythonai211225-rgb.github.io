@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Deck 02 — NumPy Fundamentals</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%231e1e2e'/><text x='32' y='46' text-anchor='middle' font-family='Arial,sans-serif' font-size='38' font-weight='700' fill='%233b82f6'>🔢</text></svg>">
+  <style>
+    :root {
+      --bg:      #0d1117;
+      --surface: #161b22;
+      --border:  #30363d;
+      --text:    #e6edf3;
+      --muted:   #8b949e;
+      --accent:  #3b82f6;
+      --blue:    #3b82f6;
+      --green:   #10b981;
+      --purple:  #8b5cf6;
+      --orange:  #f97316;
+      --cyan:    #06b6d4;
+      --yellow:  #facc15;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+    }
+
+    #progress {
+      position: fixed; top: 0; left: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #3b82f6, #8b5cf6, #06b6d4);
+      width: 0; z-index: 200;
+      transition: width .1s;
+    }
+
+    .top-nav {
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center; gap: 14px;
+      padding: 13px 28px;
+      background: rgba(13,17,23,.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-back {
+      color: var(--muted); text-decoration: none;
+      font-size: .85rem; font-weight: 600;
+      display: flex; align-items: center; gap: 6px;
+      transition: color .2s;
+      padding: 6px 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .nav-back:hover { color: var(--text); border-color: var(--accent); }
+    .nav-title {
+      font-size: .9rem; font-weight: 700;
+      color: var(--accent);
+      font-family: 'Courier New', monospace;
+    }
+
+    main { max-width: 960px; margin: 0 auto; padding: 60px 24px 80px; }
+
+    .hero {
+      text-align: center;
+      padding: 60px 20px 50px;
+      background: linear-gradient(180deg, rgba(59,130,246,.06) 0%, transparent 100%);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      margin-bottom: 60px;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(59,130,246,.12), transparent);
+      pointer-events: none;
+    }
+
+    .hero-icon {
+      font-size: 4rem;
+      display: block;
+      margin-bottom: 24px;
+      animation: float 3s ease-in-out infinite;
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50%       { transform: translateY(-10px); }
+    }
+
+    .hero h1 {
+      font-size: clamp(1.8rem, 4vw, 2.8rem);
+      font-weight: 900;
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6, #06b6d4);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 14px;
+    }
+
+    .hero p {
+      font-size: 1rem;
+      color: var(--muted);
+      max-width: 580px;
+      margin: 0 auto 28px;
+      line-height: 1.7;
+    }
+
+    .hero-pills {
+      display: flex; justify-content: center;
+      flex-wrap: wrap; gap: 10px;
+    }
+    .pill {
+      font-size: .73rem; font-weight: 700;
+      letter-spacing: .1em; text-transform: uppercase;
+      padding: 5px 14px; border-radius: 999px;
+      border: 1px solid rgba(59,130,246,.3);
+      background: rgba(59,130,246,.08);
+      color: var(--accent);
+    }
+    .pill.green  { color: var(--green);  background: rgba(16,185,129,.08);   border-color: rgba(16,185,129,.3); }
+    .pill.purple { color: var(--purple); background: rgba(139,92,246,.08);   border-color: rgba(139,92,246,.3); }
+    .pill.orange { color: var(--orange); background: rgba(249,115,22,.08);   border-color: rgba(249,115,22,.3); }
+    .pill.cyan   { color: var(--cyan);   background: rgba(6,182,212,.08);    border-color: rgba(6,182,212,.3); }
+
+    .topics-heading {
+      font-size: .7rem; font-weight: 700;
+      letter-spacing: .12em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 20px;
+      display: flex; align-items: center; gap: 14px;
+    }
+    .topics-heading::after {
+      content: ''; flex: 1; height: 1px;
+      background: var(--border);
+    }
+
+    .topic-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 18px;
+      margin-bottom: 50px;
+    }
+
+    .topic-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px 22px 20px;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      opacity: 0;
+      transform: translateY(28px);
+      transition: transform .3s, box-shadow .3s, border-color .3s;
+      animation: cardIn .5s ease forwards;
+    }
+    @keyframes cardIn { to { opacity: 1; transform: translateY(0); } }
+    .topic-card:hover {
+      transform: translateY(-6px);
+      border-color: var(--c, var(--accent));
+      box-shadow: 0 16px 48px color-mix(in srgb, var(--c, var(--accent)) 20%, transparent);
+    }
+
+    .tc-num {
+      font-family: 'Courier New', monospace;
+      font-size: .7rem; font-weight: 700;
+      letter-spacing: .12em;
+      color: color-mix(in srgb, var(--c, var(--accent)) 60%, transparent);
+      margin-bottom: 10px;
+    }
+    .tc-icon { font-size: 2rem; margin-bottom: 12px; }
+    .tc-tag {
+      font-size: .65rem; font-weight: 700;
+      letter-spacing: .1em; text-transform: uppercase;
+      color: var(--c, var(--accent));
+      background: color-mix(in srgb, var(--c, var(--accent)) 12%, transparent);
+      border: 1px solid color-mix(in srgb, var(--c, var(--accent)) 25%, transparent);
+      border-radius: 999px;
+      padding: 2px 9px;
+      display: inline-block;
+      margin-bottom: 8px;
+    }
+    .topic-card h3 {
+      font-size: 1rem; font-weight: 700;
+      line-height: 1.3; margin-bottom: 6px;
+    }
+    .topic-card p {
+      font-size: .82rem; color: var(--muted);
+      line-height: 1.55; flex: 1;
+    }
+    .tc-arrow {
+      margin-top: 18px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+      font-size: .78rem;
+      color: var(--c, var(--accent));
+      display: flex; align-items: center; gap: 6px;
+      opacity: .7;
+      transition: gap .2s, opacity .2s;
+    }
+    .topic-card:hover .tc-arrow { gap: 12px; opacity: 1; }
+
+    .lesson-nav {
+      display: flex; justify-content: center; margin-top: 20px;
+    }
+    .lesson-nav a {
+      display: inline-flex; align-items: center; gap: 10px;
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      color: #fff;
+      font-weight: 800; font-size: .95rem;
+      padding: 14px 36px;
+      border-radius: 12px;
+      text-decoration: none;
+      letter-spacing: .04em;
+      transition: transform .2s, box-shadow .2s;
+      box-shadow: 0 8px 28px rgba(59,130,246,.3);
+    }
+    .lesson-nav a:hover {
+      transform: translateY(-4px) scale(1.04);
+      box-shadow: 0 18px 48px rgba(59,130,246,.4);
+    }
+
+    @media (max-width: 580px) {
+      .topic-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="progress"></div>
+
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">← Home</a>
+  <span class="nav-title">DECK 02 — NumPy Fundamentals</span>
+</nav>
+
+<main>
+  <div class="hero">
+    <span class="hero-icon">🔢</span>
+    <h1>NumPy Fundamentals</h1>
+    <p>Master the foundation of Data Science in Python — understand what NumPy is, why it's fast, and how to create arrays using every essential method</p>
+    <div class="hero-pills">
+      <span class="pill">2 Topics</span>
+      <span class="pill purple">NumPy</span>
+      <span class="pill green">Arrays</span>
+      <span class="pill orange">np.random</span>
+      <span class="pill cyan">ndarray</span>
+    </div>
+  </div>
+
+  <p class="topics-heading">Topics in this deck</p>
+
+  <div class="topic-grid">
+
+    <a class="topic-card" href="01-intro-numpy.html"
+       style="--c:#8b5cf6; animation-delay:.06s">
+      <span class="tc-num">TOPIC 01</span>
+      <span class="tc-icon">🔢</span>
+      <span class="tc-tag">NumPy</span>
+      <h3>Intro to NumPy</h3>
+      <p>What NumPy is, what it's used for, how to install with pip, and how to import it in your project</p>
+      <div class="tc-arrow">Open topic →</div>
+    </a>
+
+    <a class="topic-card" href="02-numpy-arrays.html"
+       style="--c:#06b6d4; animation-delay:.12s">
+      <span class="tc-num">TOPIC 02</span>
+      <span class="tc-icon">📐</span>
+      <span class="tc-tag">NumPy Arrays</span>
+      <h3>Creating NumPy Arrays</h3>
+      <p>np.array(), np.arange(), np.zeros(), np.linspace(), np.random.rand(), np.random.randint(), and seeds</p>
+      <div class="tc-arrow">Open topic →</div>
+    </a>
+
+  </div>
+
+  <div class="lesson-nav">
+    <a href="01-intro-numpy.html">Start Topic 1 →</a>
+  </div>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

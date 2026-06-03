@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Topic 04 — Working with Jupyter Cells</title>
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    .page-wrap {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 32px 24px 80px;
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      gap: 28px;
+      align-items: start;
+    }
+
+    .side-nav {
+      position: sticky;
+      top: 70px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.4);
+    }
+
+    .side-title {
+      font-size: .7rem;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 0 6px;
+      margin-bottom: 10px;
+    }
+
+    .topic-btn {
+      display: block;
+      width: 100%;
+      text-align: left;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      padding: 9px 11px;
+      color: var(--muted);
+      font-size: .83rem;
+      font-family: inherit;
+      cursor: pointer;
+      margin-bottom: 4px;
+      transition: background .18s, color .18s, border-color .18s;
+      line-height: 1.4;
+    }
+    .topic-btn:hover {
+      background: rgba(250,204,21,.06);
+      color: var(--text);
+    }
+    .topic-btn.active {
+      background: rgba(250,204,21,.1);
+      color: var(--accent);
+      border-color: rgba(250,204,21,.25);
+      font-weight: 700;
+    }
+
+    .side-divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 10px 0;
+    }
+
+    .side-back {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin-top: 4px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      font-size: .8rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: color .2s, border-color .2s;
+    }
+    .side-back:hover { color: var(--text); border-color: var(--accent); }
+
+    .sub-btn {
+      padding-left: 24px;
+      font-size: .78rem;
+      opacity: .8;
+    }
+    .sub-btn:hover { opacity: 1; }
+    .sub-btn.active {
+      opacity: 1;
+      background: rgba(250,204,21,.08);
+      color: var(--accent);
+      border-color: rgba(250,204,21,.2);
+    }
+
+    .md-section { display: none; margin-bottom: 36px; }
+    .md-section.active { display: block; }
+    .md-section-title {
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: var(--accent);
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .md-ref-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    .md-ref-table th {
+      background: rgba(250,204,21,.08);
+      color: var(--accent);
+      font-size: .75rem;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      padding: 9px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    .md-ref-table td {
+      padding: 9px 14px;
+      border-bottom: 1px solid rgba(48,54,61,.6);
+      font-size: .88rem;
+      vertical-align: top;
+    }
+    .md-ref-table tr:last-child td { border-bottom: none; }
+    .md-ref-table tr:hover td { background: rgba(255,255,255,.02); }
+    .md-ref-table code { font-family: 'Courier New', monospace; font-size: .85em; }
+    .md-preview {
+      font-size: .88rem;
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .md-preview h1 { font-size: 1.5rem; font-weight: 900; color: var(--text); margin: 0; }
+    .md-preview h2 { font-size: 1.25rem; font-weight: 800; color: var(--text); margin: 0; }
+    .md-preview h3 { font-size: 1.05rem; font-weight: 700; color: var(--text); margin: 0; }
+    .md-preview h4 { font-size: .95rem; font-weight: 700; color: var(--muted); margin: 0; }
+    .md-preview h5 { font-size: .88rem; font-weight: 700; color: var(--muted); margin: 0; }
+    .md-preview h6 { font-size: .82rem; font-weight: 600; color: var(--muted); margin: 0; }
+
+    .content-area { min-width: 0; }
+
+    .topic-panel { display: none; }
+    .topic-panel.active { display: block; }
+
+    .panel-header { margin-bottom: 32px; }
+    .panel-num {
+      font-size: .7rem;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      opacity: .7;
+      margin-bottom: 6px;
+    }
+    .panel-header h1 {
+      font-size: 1.9rem;
+      font-weight: 900;
+      color: var(--text);
+      margin-bottom: 8px;
+      line-height: 1.25;
+    }
+    .panel-header p {
+      font-size: .95rem;
+      color: var(--muted);
+      line-height: 1.65;
+      max-width: 680px;
+    }
+
+    .panel-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 48px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+      gap: 12px;
+    }
+    .pn-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 22px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      font-size: .85rem;
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+      font-family: inherit;
+      transition: color .2s, border-color .2s, background .2s;
+    }
+    .pn-btn:hover {
+      color: var(--text);
+      border-color: var(--accent);
+      background: rgba(250,204,21,.06);
+    }
+    .pn-btn.next {
+      background: var(--accent);
+      color: #0d1117;
+      border-color: var(--accent);
+    }
+    .pn-btn.next:hover {
+      background: #fde047;
+      border-color: #fde047;
+      color: #0d1117;
+    }
+    .pn-btn.finish {
+      background: var(--green);
+      color: #0d1117;
+      border-color: var(--green);
+    }
+    .pn-btn.finish:hover {
+      background: #34d399;
+      border-color: #34d399;
+    }
+    .pn-spacer { flex: 1; }
+
+    @media (max-width: 720px) {
+      .page-wrap { grid-template-columns: 1fr; padding: 20px 16px 60px; }
+      .side-nav { position: static; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<nav class="top-nav">
+  <a href="index.html" class="nav-back">&#8592; Deck 01</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item" href="01-what-are-python-libs.html">01</a>
+    <a class="nav-item" href="02-intro-jupyter.html">02</a>
+    <a class="nav-item" href="03-anaconda-install.html">03</a>
+    <a class="nav-item active" href="04-jupyter-cells.html">04</a>
+  </div>
+</nav>
+
+<div class="page-wrap">
+
+  <aside class="side-nav">
+    <div class="side-title">Topics</div>
+    <button class="topic-btn" data-target="topic-1">1) Cell Modes</button>
+    <button class="topic-btn" data-target="topic-2">2) Running Cells</button>
+    <button class="topic-btn" data-target="topic-3">3) Execution Counter</button>
+    <button class="topic-btn" data-target="topic-4">4) Position vs Order</button>
+    <button class="topic-btn" data-target="topic-5">5) Insert &amp; Delete</button>
+    <button class="topic-btn" data-target="topic-6">6) Windows Shortcuts</button>
+    <button class="topic-btn" data-target="topic-7">7) Mac Shortcuts</button>
+    <button class="topic-btn" data-target="topic-8">8) Markdown Cells</button>
+    <button class="topic-btn sub-btn" data-target="topic-8" data-sub="md-headings">↳ Headings #&nbsp;##&nbsp;###</button>
+    <button class="topic-btn sub-btn" data-target="topic-8" data-sub="md-formatting">↳ Bold &amp; Italic</button>
+    <button class="topic-btn sub-btn" data-target="topic-8" data-sub="md-lists">↳ Lists</button>
+    <button class="topic-btn sub-btn" data-target="topic-8" data-sub="md-links">↳ Links &amp; Images</button>
+    <button class="topic-btn sub-btn" data-target="topic-8" data-sub="md-code">↳ Code Blocks</button>
+    <button class="topic-btn sub-btn" data-target="topic-8" data-sub="md-tables">↳ Tables &amp; Rules</button>
+    <hr class="side-divider"/>
+    <a class="side-back" href="03-anaconda-install.html">&#8592; Anaconda Install</a>
+    <a class="side-back" href="index.html" style="margin-top:6px">&#8962; Back to Deck</a>
+  </aside>
+
+  <main class="content-area">
+
+    <!-- TOPIC 1 -->
+    <section class="topic-panel" id="topic-1">
+      <div class="panel-header">
+        <div class="panel-num">Topic 1 of 8</div>
+        <h1>Edit Mode vs Command Mode</h1>
+        <p>Every cell in Jupyter can be in one of two modes. The colored border on the left side of the cell tells you which mode you are in.</p>
+      </div>
+      <div class="section visible">
+        <div class="card green" style="margin-bottom:16px;">
+          <div class="card-icon">&#9999;&#65039;</div>
+          <h4>Edit Mode &#8212; Green Border</h4>
+          <p>You are <strong>typing inside the cell</strong>. You can write and edit code. Enter edit mode by clicking inside a cell or pressing <code>Enter</code>.</p>
+        </div>
+        <img src="images/edit_mode.png" alt="Edit Mode" style="width:100%; border-radius:8px; margin-bottom:24px;"/>
+        <div class="card blue" style="margin-bottom:16px;">
+          <div class="card-icon">&#127918;</div>
+          <h4>Command Mode &#8212; Blue Border</h4>
+          <p>You are <strong>navigating between cells</strong>. Keyboard shortcuts work here (like pressing <code>B</code> to add a cell below). Enter command mode by pressing <code>Esc</code>.</p>
+        </div>
+        <img src="images/browse_mode.png" alt="Browse Mode" style="width:100%; border-radius:8px; margin-bottom:24px;"/>
+        <div class="callout" style="margin-top:24px">
+          <strong>Tip:</strong> Press <code>Esc</code> to go from Edit &#8594; Command mode. Press <code>Enter</code> to go from Command &#8594; Edit mode.
+        </div>
+      </div>
+      <div class="panel-nav">
+        <span class="pn-spacer"></span>
+        <button class="pn-btn next" data-goto="topic-2">Running Cells &#8594;</button>
+      </div>
+    </section>
+
+    <!-- TOPIC 2 -->
+    <section class="topic-panel" id="topic-2">
+      <div class="panel-header">
+        <div class="panel-num">Topic 2 of 8</div>
+        <h1>How to Run a Cell</h1>
+        <p>A <strong>cell</strong> is the basic building block of a Jupyter Notebook. Each cell holds a piece of code or text, and you run them one by one or all at once.</p>
+      </div>
+      <div class="section visible">
+        <table class="dt">
+          <thead>
+            <tr><th>Shortcut</th><th>Action</th><th>When to use</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>Ctrl + Enter</code></td><td>Run current cell, stay on it</td><td>Experimenting &#8212; re-run the same cell multiple times</td></tr>
+            <tr><td><code>Shift + Enter</code></td><td>Run current cell, move to next</td><td>Working through a notebook top to bottom</td></tr>
+            <tr><td><code>Alt + Enter</code></td><td>Run cell, insert new cell below</td><td>Adding new code after the current cell</td></tr>
+            <tr><td>&#9654; Run (toolbar)</td><td>Run current cell</td><td>When you prefer using the mouse</td></tr>
+          </tbody>
+        </table>
+        <div class="callout green" style="margin-top:24px">
+          <strong>Most common:</strong> <code>Ctrl + Enter</code> &#8212; run the cell and stay on it. Great for experimenting and re-running the same cell.
+        </div>
+      </div>
+      <div class="panel-nav">
+        <button class="pn-btn" data-goto="topic-1">&#8592; Cell Modes</button>
+        <button class="pn-btn next" data-goto="topic-3">Execution Counter &#8594;</button>
+      </div>
+    </section>
+
+    <!-- TOPIC 3 -->
+    <section class="topic-panel" id="topic-3">
+      <div class="panel-header">
+        <div class="panel-num">Topic 3 of 8</div>
+        <h1>Execution Order &#8212; The [ ] Counter</h1>
+        <p>On the left side of each code cell you will see brackets like <code>[ ]</code>, <code>[1]</code>, <code>[*]</code>. These show the execution state.</p>
+      </div>
+      <div class="section visible">
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-icon">&#11036;</div>
+            <h4><code>[ ]</code> &#8212; Not Run Yet</h4>
+            <p>The cell has not been executed since the kernel started. No output will show until you run it.</p>
+          </div>
+          <div class="card orange">
+            <div class="card-icon">&#9203;</div>
+            <h4><code>[*]</code> &#8212; Currently Running</h4>
+            <p>The cell is executing right now. Useful for slow operations &#8212; you know it has not crashed, it is just working.</p>
+          </div>
+          <div class="card green">
+            <div class="card-icon">&#9989;</div>
+            <h4><code>[3]</code> &#8212; Executed (3rd)</h4>
+            <p>The number shows the order this cell was run. If you re-run a cell, its number updates to the latest count.</p>
+          </div>
+          <div class="card blue">
+            <div class="card-icon">&#9888;&#65039;</div>
+            <h4>Order Matters!</h4>
+            <p>Variables created in one cell are available in later cells &#8212; but only if that cell has been run. Running cells out of order can cause errors.</p>
+          </div>
+        </div>
+        <div class="callout orange" style="margin-top:24px">
+          <strong>Important:</strong> Cell execution order is determined by <em>when you run the cell</em>, not its position in the notebook.
+          A cell at the bottom could have a lower number than a cell at the top if you ran them in that order.
+        </div>
+      </div>
+      <div class="panel-nav">
+        <button class="pn-btn" data-goto="topic-2">&#8592; Running Cells</button>
+        <button class="pn-btn next" data-goto="topic-4">Position vs Order &#8594;</button>
+      </div>
+    </section>
+
+    <!-- TOPIC 4 -->
+    <section class="topic-panel" id="topic-4">
+      <div class="panel-header">
+        <div class="panel-num">Topic 4 of 8</div>
+        <h1>Cell Position vs Execution Order</h1>
+        <p>The position of a cell in the notebook does not determine when it runs. Only the order you click run matters.</p>
+      </div>
+      <div class="section visible">
+        <div class="code-wrap">
+          <div class="code-header">
+            <span class="code-lang">Notebook &#8212; Cell A (position 1, run 2nd)</span>
+            <button class="copy-btn">Copy</button>
+          </div>
+          <pre><code><span class="line"><span class="cm"># [2] &#8212; this was run second</span></span>
+<span class="line">x = <span class="num">10</span></span>
+<span class="line"><span class="fn">print</span>(x)  <span class="cm"># prints 10</span></span></code></pre>
+        </div>
+        <div class="code-wrap">
+          <div class="code-header">
+            <span class="code-lang">Notebook &#8212; Cell B (position 2, run 1st)</span>
+            <button class="copy-btn">Copy</button>
+          </div>
+          <pre><code><span class="line"><span class="cm"># [1] &#8212; this was run first</span></span>
+<span class="line">x = <span class="num">5</span></span>
+<span class="line"><span class="fn">print</span>(x)  <span class="cm"># prints 5</span></span></code></pre>
+        </div>
+        <div class="callout" style="margin-top:24px">
+          After running Cell B first (sets x=5), then Cell A (sets x=10) &#8212; x is now 10 globally. The cell order in the notebook does not matter, only execution order does.
+        </div>
+      </div>
+      <div class="panel-nav">
+        <button class="pn-btn" data-goto="topic-3">&#8592; Execution Counter</button>
+        <button class="pn-btn next" data-goto="topic-5">Insert &amp; Delete &#8594;</button>
+      </div>
+    </section>
+
+    <!-- TOPIC 5 -->
+    <section class="topic-panel" id="topic-5">
+      <div class="panel-header">
+        <div class="panel-num">Topic 5 of 8</div>
+        <h1>Insert &amp; Delete Cells</h1>
+        <p>In <strong>Command Mode</strong> (press <code>Esc</code> to enter), you can manage cells with keyboard shortcuts.</p>
+      </div>
+      <div class="section visible">
+        <table class="dt">
+          <thead>
+            <tr><th>Shortcut</th><th>Action</th><th>Note</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>A</code></td><td>Insert cell Above current cell</td><td>Must be in Command Mode (Esc first)</td></tr>
+            <tr><td><code>B</code></td><td>Insert cell Below current cell</td><td>Most common &#8212; add next step below</td></tr>
+            <tr><td><code>D D</code></td><td>Delete current cell</td><td>Press D twice quickly</td></tr>
+            <tr><td><code>Z</code></td><td>Undo delete</td><td>Brings back the last deleted cell</td></tr>
+            <tr><td><code>M</code></td><td>Change cell to Markdown type</td><td>For writing text, not code</td></tr>
+            <tr><td><code>Y</code></td><td>Change cell back to Code type</td><td>Switch back from Markdown</td></tr>
+          </tbody>
+        </table>
+        <div class="callout blue" style="margin-top:24px">
+          <strong>Via Menu:</strong> You can also insert cells from the <strong>Insert</strong> menu &#8594; Insert Cell Above / Insert Cell Below.
+          Delete is under <strong>Edit</strong> &#8594; Delete Cells.
+        </div>
+      </div>
+      <div class="panel-nav">
+        <button class="pn-btn" data-goto="topic-4">&#8592; Position vs Order</button>
+        <button class="pn-btn next" data-goto="topic-6">Windows Shortcuts &#8594;</button>
+      </div>
+    </section>
+
+    <!-- TOPIC 6 -->
+    <section class="topic-panel" id="topic-6">
+      <div class="panel-header">
+        <div class="panel-num">Topic 6 of 8</div>
+        <h1>Windows Keyboard Shortcuts</h1>
+        <p>These shortcuts work in <strong>Jupyter Notebook</strong> and <strong>JupyterLab</strong> on Windows. Some require <strong>Command Mode</strong> — press <code>Esc</code> first to enter it.</p>
+      </div>
+      <div class="section visible">
+        <table class="dt">
+          <thead>
+            <tr><th>Shortcut</th><th>Action</th><th>Mode</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>Ctrl + Enter</code></td><td>Run current cell, stay on it</td><td>Either</td></tr>
+            <tr><td><code>Shift + Enter</code></td><td>Run cell &amp; move to next</td><td>Either</td></tr>
+            <tr><td><code>Alt + Enter</code></td><td>Run cell &amp; insert new cell below</td><td>Either</td></tr>
+            <tr><td><code>Ctrl + S</code></td><td>Save &amp; checkpoint notebook</td><td>Either</td></tr>
+            <tr><td><code>Esc</code> then <code>B</code></td><td>Insert new cell below</td><td>Command</td></tr>
+            <tr><td><code>Esc</code> then <code>D, D</code></td><td>Delete current cell</td><td>Command</td></tr>
+          </tbody>
+        </table>
+        <div class="callout blue" style="margin-top:24px">
+          <strong>Tip:</strong> Press <code>Esc</code> to enter <strong>Command Mode</strong> (blue border) before using single-key shortcuts like <code>B</code>, <code>D</code>, <code>M</code>, <code>Y</code>.
+        </div>
+      </div>
+      <div class="panel-nav">
+        <button class="pn-btn" data-goto="topic-5">&#8592; Insert &amp; Delete</button>
+        <button class="pn-btn next" data-goto="topic-7">Mac Shortcuts &#8594;</button>
+      </div>
+    </section>
+
+    <!-- TOPIC 7 -->
+    <section class="topic-panel" id="topic-7">
+      <div class="panel-header">
+        <div class="panel-num">Topic 7 of 8</div>
+        <h1>Mac Keyboard Shortcuts</h1>
+        <p>These shortcuts work in <strong>Jupyter Notebook</strong> and <strong>JupyterLab</strong> on macOS. Use <code>&#8984;</code> for Command and <code>&#8997;</code> for Option.</p>
+      </div>
+      <div class="section visible">
+        <table class="dt">
+          <thead>
+            <tr><th>Shortcut</th><th>Action</th><th>Mode</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>&#8984; + Enter</code></td><td>Run current cell, stay on it</td><td>Either</td></tr>
+            <tr><td><code>Shift + Enter</code></td><td>Run cell &amp; move to next</td><td>Either</td></tr>
+            <tr><td><code>&#8997; + Enter</code></td><td>Run cell &amp; insert new cell below</td><td>Either</td></tr>
+            <tr><td><code>&#8984; + S</code></td><td>Save &amp; checkpoint notebook</td><td>Either</td></tr>
+            <tr><td><code>Esc</code> then <code>B</code></td><td>Insert new cell below</td><td>Command</td></tr>
+            <tr><td><code>Esc</code> then <code>D, D</code></td><td>Delete current cell</td><td>Command</td></tr>
+            <tr><td><code>&#8984; + Shift + P</code></td><td>Open command palette</td><td>Either</td></tr>
+          </tbody>
+        </table>
+        <div class="callout" style="margin-top:24px">
+          <strong>Note:</strong> <code>Shift + Enter</code> is the same on both Windows and Mac &#8212; it&#8217;s the most universally used Jupyter shortcut.
+        </div>
+      </div>
+      <div class="panel-nav">
+        <button class="pn-btn" data-goto="topic-6">&#8592; Windows Shortcuts</button>
+        <button class="pn-btn next" data-goto="topic-8">Markdown Cells &#8594;</button>
+      </div>
+    </section>
+
+    <!-- TOPIC 8 -->
+    <section class="topic-panel" id="topic-8">
+      <div class="panel-header">
+        <div class="panel-num">Topic 8 of 8</div>
+        <h1>Markdown &#8212; Text in Your Notebook</h1>
+        <p>Jupyter cells can be either <strong>Code</strong> or <strong>Markdown</strong>. Markdown cells let you write formatted text to document and explain your code. Press <code>M</code> in Command Mode to switch a cell to Markdown.</p>
+      </div>
+
+      <!-- SUB-SECTION: Headings -->
+      <div class="md-section" id="md-headings">
+        <div class="md-section-title">🔤 Headings</div>
+        <p style="color:var(--muted);font-size:.88rem;margin-bottom:16px">Use <code>#</code> symbols before text to create headings. One <code>#</code> = largest; six <code>######</code> = smallest.</p>
+        <table class="md-ref-table">
+          <thead><tr><th>Markdown Syntax</th><th>Rendered Output</th></tr></thead>
+          <tbody>
+            <tr><td><code># Heading 1</code></td><td class="md-preview"><h1>Heading 1</h1></td></tr>
+            <tr><td><code>## Heading 2</code></td><td class="md-preview"><h2>Heading 2</h2></td></tr>
+            <tr><td><code>### Heading 3</code></td><td class="md-preview"><h3>Heading 3</h3></td></tr>
+            <tr><td><code>#### Heading 4</code></td><td class="md-preview"><h4>Heading 4</h4></td></tr>
+            <tr><td><code>##### Heading 5</code></td><td class="md-preview"><h5>Heading 5</h5></td></tr>
+            <tr><td><code>###### Heading 6</code></td><td class="md-preview"><h6>Heading 6</h6></td></tr>
+          </tbody>
+        </table>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">Example — Notebook structure</span><button class="copy-btn">Copy</button></div>
+          <pre><code><span class="line"><span class="mh"># My Data Analysis Project</span></span>
+<span class="line"><span class="mh">## Section 1: Loading Data</span></span>
+<span class="line"><span class="mh">### Step 1.1: Import Libraries</span></span>
+<span class="line"><span class="mh">#### Note</span></span></code></pre>
+        </div>
+        <div class="callout" style="margin-top:16px"><strong>Tip:</strong> There must be a space between the <code>#</code> and the text: <code># Title</code> ✓ &nbsp;&nbsp; <code>#Title</code> ✗</div>
+      </div>
+
+      <!-- SUB-SECTION: Text Formatting -->
+      <div class="md-section" id="md-formatting">
+        <div class="md-section-title">✍️ Bold, Italic &amp; Strikethrough</div>
+        <table class="md-ref-table">
+          <thead><tr><th>Markdown Syntax</th><th>Rendered Output</th></tr></thead>
+          <tbody>
+            <tr><td><code>**bold text**</code></td><td><strong>bold text</strong></td></tr>
+            <tr><td><code>*italic text*</code></td><td><em>italic text</em></td></tr>
+            <tr><td><code>_italic text_</code></td><td><em>italic text</em></td></tr>
+            <tr><td><code>***bold and italic***</code></td><td><strong><em>bold and italic</em></strong></td></tr>
+            <tr><td><code>~~strikethrough~~</code></td><td><s>strikethrough</s></td></tr>
+          </tbody>
+        </table>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">Example</span><button class="copy-btn">Copy</button></div>
+          <pre><code><span class="line">This is <span class="str">**important**</span> information.</span>
+<span class="line">The result is <span class="str">*approximately*</span> 3.14.</span>
+<span class="line">Use <span class="str">***both bold and italic***</span> for emphasis.</span>
+<span class="line"><span class="str">~~Old value~~</span> → New value</span></code></pre>
+        </div>
+      </div>
+
+      <!-- SUB-SECTION: Lists -->
+      <div class="md-section" id="md-lists">
+        <div class="md-section-title">📋 Lists</div>
+        <table class="md-ref-table">
+          <thead><tr><th>Markdown Syntax</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>- item</code> &nbsp;or&nbsp; <code>* item</code></td><td>Unordered (bullet) list item</td></tr>
+            <tr><td><code>1. item</code></td><td>Ordered (numbered) list item</td></tr>
+            <tr><td><code>&nbsp;&nbsp;- nested</code> (2 spaces)</td><td>Nested / indented list item</td></tr>
+            <tr><td><code>- [ ] task</code></td><td>Unchecked task / checkbox</td></tr>
+            <tr><td><code>- [x] task</code></td><td>Checked task / checkbox</td></tr>
+          </tbody>
+        </table>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">Example</span><button class="copy-btn">Copy</button></div>
+          <pre><code><span class="line"><span class="cm">## Steps</span></span>
+<span class="line"><span class="num">1.</span> Load the dataset</span>
+<span class="line"><span class="num">2.</span> Clean the data</span>
+<span class="line">   <span class="num">-</span> Remove nulls</span>
+<span class="line">   <span class="num">-</span> Fix types</span>
+<span class="line"><span class="num">3.</span> Visualise</span>
+<span class="line"></span>
+<span class="line"><span class="cm">## Checklist</span></span>
+<span class="line">- [x] Import libraries</span>
+<span class="line">- [ ] Export results</span></code></pre>
+        </div>
+      </div>
+
+      <!-- SUB-SECTION: Links & Images -->
+      <div class="md-section" id="md-links">
+        <div class="md-section-title">🔗 Links &amp; Images</div>
+        <table class="md-ref-table">
+          <thead><tr><th>Markdown Syntax</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>[link text](https://url.com)</code></td><td>Clickable hyperlink</td></tr>
+            <tr><td><code>![alt text](image.png)</code></td><td>Embed an image</td></tr>
+            <tr><td><code>![alt](img.png "tooltip")</code></td><td>Image with hover tooltip</td></tr>
+          </tbody>
+        </table>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">Example</span><button class="copy-btn">Copy</button></div>
+          <pre><code><span class="line">See [NumPy docs](<span class="str">https://numpy.org/doc/</span>) for more.</span>
+<span class="line"></span>
+<span class="line">![Data pipeline diagram](<span class="str">pipeline.png</span>)</span></code></pre>
+        </div>
+      </div>
+
+      <!-- SUB-SECTION: Code -->
+      <div class="md-section" id="md-code">
+        <div class="md-section-title">💻 Code Blocks</div>
+        <table class="md-ref-table">
+          <thead><tr><th>Markdown Syntax</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>`inline code`</code></td><td>Short inline code snippet</td></tr>
+            <tr><td><code>```python … ```</code></td><td>Fenced code block (syntax highlighted)</td></tr>
+            <tr><td><code>    indented</code> (4 spaces)</td><td>Code block (no language highlight)</td></tr>
+            <tr><td><code>&gt; blockquote</code></td><td>Quoted / callout text</td></tr>
+          </tbody>
+        </table>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">Example</span><button class="copy-btn">Copy</button></div>
+          <pre><code><span class="line">Use <span class="kw">`import numpy`</span> to load NumPy.</span>
+<span class="line"></span>
+<span class="line"><span class="kw">```python</span></span>
+<span class="line"><span class="kw">import</span> numpy <span class="kw">as</span> np</span>
+<span class="line">arr = np.array([<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>])</span>
+<span class="line"><span class="fn">print</span>(arr)</span>
+<span class="line"><span class="kw">```</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm">&gt; Note: Always run imports first!</span></span></code></pre>
+        </div>
+      </div>
+
+      <!-- SUB-SECTION: Tables & Rules -->
+      <div class="md-section" id="md-tables">
+        <div class="md-section-title">📊 Tables &amp; Horizontal Rules</div>
+        <table class="md-ref-table">
+          <thead><tr><th>Markdown Syntax</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>| Col1 | Col2 |</code><br><code>|------|------|</code><br><code>| val1 | val2 |</code></td><td>Table (pipes separate columns, dashes = header separator)</td></tr>
+            <tr><td><code>| :--- |</code></td><td>Left-align column</td></tr>
+            <tr><td><code>| ---: |</code></td><td>Right-align column</td></tr>
+            <tr><td><code>| :---: |</code></td><td>Centre-align column</td></tr>
+            <tr><td><code>---</code> &nbsp;or&nbsp; <code>***</code></td><td>Horizontal rule (divider line)</td></tr>
+          </tbody>
+        </table>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">Example</span><button class="copy-btn">Copy</button></div>
+          <pre><code><span class="line">| Library   | Purpose       | Version |</span>
+<span class="line">| :-------- | :------------ | ------: |</span>
+<span class="line">| NumPy     | Arrays        | 1.26    |</span>
+<span class="line">| Pandas    | DataFrames    | 2.1     |</span>
+<span class="line">| Matplotlib| Plotting      | 3.8     |</span>
+<span class="line"></span>
+<span class="line">---</span></code></pre>
+        </div>
+
+        <div class="callout green" style="margin-top:24px">
+          <strong>Best practice:</strong> Always start a notebook with a Markdown cell that explains what the notebook is about. Include the date, your name, and the topic.
+        </div>
+      </div>
+
+      <div class="panel-nav">
+        <button class="pn-btn" data-goto="topic-7">&#8592; Mac Shortcuts</button>
+        <a class="pn-btn finish" href="index.html">&#10003; Back to Deck</a>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="app.js"></script>
+<script>
+  function showMdSection(subId) {
+    document.querySelectorAll('.md-section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.sub-btn').forEach(b => b.classList.remove('active'));
+    var section = document.getElementById(subId);
+    var btn = document.querySelector('.sub-btn[data-sub="' + subId + '"]');
+    if (section) {
+      section.classList.add('active');
+      section.querySelectorAll('pre .line').forEach(function(l, i) {
+        if (!l.classList.contains('show')) {
+          setTimeout(function() { l.classList.add('show'); }, i * 55 + 100);
+        }
+      });
+    }
+    if (btn) btn.classList.add('active');
+  }
+
+  function showTopic(id) {
+    document.querySelectorAll('.topic-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.topic-btn:not(.sub-btn)').forEach(b => b.classList.remove('active'));
+    var panel = document.getElementById(id);
+    var btn   = document.querySelector('.topic-btn[data-target="' + id + '"]:not(.sub-btn)');
+    if (panel) panel.classList.add('active');
+    if (btn)   btn.classList.add('active');
+    if (id === 'topic-8') {
+      var active = document.querySelector('.md-section.active');
+      if (!active) showMdSection('md-headings');
+    }
+    history.replaceState(null, '', '#' + id);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  document.querySelectorAll('.topic-btn:not(.sub-btn)').forEach(function(btn) {
+    btn.addEventListener('click', function() { showTopic(btn.dataset.target); });
+  });
+
+  document.querySelectorAll('.sub-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      showTopic('topic-8');
+      showMdSection(btn.dataset.sub);
+    });
+  });
+
+  document.querySelectorAll('[data-goto]').forEach(function(btn) {
+    btn.addEventListener('click', function() { showTopic(btn.dataset.goto); });
+  });
+
+  var hash = location.hash.replace('#', '');
+  if (hash && hash.startsWith('md-')) {
+    showTopic('topic-8');
+    showMdSection(hash);
+  } else {
+    showTopic(hash && document.getElementById(hash) ? hash : 'topic-1');
+  }
+</script>
+</body>
+</html>
