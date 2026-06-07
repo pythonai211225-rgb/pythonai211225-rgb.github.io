@@ -1,0 +1,1493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Topic 05 — NumPy Placeholders &amp; Creation</title>
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    /* ── layout ── */
+    .page-layout {
+      display: flex;
+      height: calc(100vh - 54px);
+      overflow: hidden;
+    }
+
+    /* ── sidebar ── */
+    .sidebar {
+      width: 230px;
+      min-width: 230px;
+      height: 100%;
+      overflow-y: auto;
+      background: #0a0e14;
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+      flex-shrink: 0;
+    }
+    .sidebar-head {
+      padding: 20px 18px 14px;
+      font-size: .65rem;
+      font-weight: 800;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-nav { padding: 8px 0; flex: 1; }
+    .s-item {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      padding: 10px 18px;
+      text-decoration: none;
+      border-left: 3px solid transparent;
+      cursor: pointer;
+      background: none;
+      border-top: none;
+      border-right: none;
+      border-bottom: none;
+      width: 100%;
+      text-align: left;
+      transition: background .18s, border-color .18s;
+    }
+    .s-item:hover  { background: rgba(255,255,255,.04); }
+    .s-item.active { background: rgba(250,204,21,.08); border-left-color: var(--accent); }
+    .s-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      transition: transform .2s;
+    }
+    .s-item.active .s-dot { transform: scale(1.45); box-shadow: 0 0 8px currentColor; }
+    .s-num {
+      font-size: .62rem;
+      color: var(--border);
+      font-family: 'Courier New', monospace;
+      font-weight: 700;
+      min-width: 18px;
+    }
+    .s-item.active .s-num { color: var(--accent); }
+    .s-label {
+      font-size: .79rem;
+      color: var(--muted);
+      font-family: 'Courier New', monospace;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .s-item.active .s-label { color: var(--text); }
+    .s-item.done .s-label::after {
+      content: ' ✓';
+      color: var(--green);
+      font-size: .7rem;
+    }
+    .sidebar-foot {
+      padding: 16px 18px;
+      border-top: 1px solid var(--border);
+    }
+    .reshape-btn {
+      width: 100%;
+      padding: 9px 14px;
+      background: rgba(139,92,246,.1);
+      border: 1px solid rgba(139,92,246,.3);
+      border-radius: 10px;
+      color: var(--purple);
+      font-size: .76rem;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: .04em;
+      transition: background .2s, border-color .2s;
+    }
+    .reshape-btn:hover { background: rgba(139,92,246,.2); border-color: rgba(139,92,246,.5); }
+
+    /* ── panel viewport ── */
+    .panel-viewport {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* ── each panel ── */
+    .panel {
+      display: none;
+      flex-direction: column;
+      min-height: 100%;
+      padding: 40px 52px 100px;
+      max-width: 820px;
+      margin: 0 auto;
+      animation: fadeSlideIn .35s ease;
+    }
+    .panel.active { display: flex; }
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateX(32px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes fadeSlideOut {
+      from { opacity: 1; transform: translateX(0); }
+      to   { opacity: 0; transform: translateX(-32px); }
+    }
+    .panel.exit {
+      display: flex;
+      animation: fadeSlideOut .25s ease forwards;
+    }
+
+    /* ── hero image ── */
+    .m-hero {
+      position: relative;
+      height: 200px;
+      border-radius: 18px;
+      overflow: hidden;
+      margin-bottom: 26px;
+      flex-shrink: 0;
+    }
+    .m-hero img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      filter: brightness(.5) saturate(.8);
+      transition: filter .45s, transform .55s;
+    }
+    .panel.active .m-hero img { filter: brightness(.6) saturate(1.1); }
+    .m-hero-ov {
+      position: absolute; inset: 0;
+      padding: 26px 30px;
+      display: flex; flex-direction: column; justify-content: flex-end;
+      background: linear-gradient(0deg, rgba(0,0,0,.78) 0%, rgba(0,0,0,.15) 55%, transparent 100%);
+    }
+    .m-breadcrumb { font-size: .62rem; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: rgba(255,255,255,.4); margin-bottom: 5px; }
+    .m-name { font-size: 1.7rem; font-weight: 900; color: #fff; font-family: 'Courier New', monospace; }
+    .m-tagline { font-size: .86rem; color: rgba(255,255,255,.62); margin-top: 4px; }
+
+    /* ── pills ── */
+    .pills { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 20px; align-items: center; }
+    .pill { padding: 5px 14px; border-radius: 999px; font-size: .7rem; font-weight: 700; letter-spacing: .06em; }
+
+    /* signature pill */
+    .pill-sig {
+      font-family: 'Courier New', monospace; font-size: .74rem; letter-spacing: 0;
+      background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12); color: var(--text);
+    }
+
+    /* parameter pill — hoverable balloon */
+    .pill-param {
+      position: relative; cursor: help;
+      transition: filter .18s;
+    }
+    .pill-param:hover { filter: brightness(1.3); }
+
+    /* balloon box */
+    .pill-param .balloon {
+      position: absolute;
+      bottom: calc(100% + 14px);
+      left: 50%;
+      transform: translateX(-50%) translateY(6px);
+      width: 230px;
+      background: linear-gradient(155deg, #0e2845 0%, #071a2e 100%);
+      border: 1.5px solid rgba(240,182,62,.65);
+      border-radius: 14px;
+      padding: 13px 16px 11px;
+      box-shadow:
+        0 0 0 1px rgba(240,182,62,.1),
+        0 18px 48px rgba(0,0,0,.72),
+        0 0 36px rgba(240,182,62,.07);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .22s ease, transform .22s ease;
+      z-index: 300;
+      animation: none;
+    }
+    .pill-param:hover .balloon {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+      animation: balloonFloat 3s ease-in-out infinite;
+    }
+    @keyframes balloonFloat {
+      0%,100% { transform: translateX(-50%) translateY(0); }
+      50%      { transform: translateX(-50%) translateY(-5px); }
+    }
+
+    /* balloon title */
+    .balloon-title {
+      font-family: 'Courier New', monospace;
+      font-size: .7rem; font-weight: 800;
+      color: #f0b63e;
+      letter-spacing: .04em;
+      margin-bottom: 6px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .balloon-title::before {
+      content: '';
+      display: inline-block; width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #f0b63e;
+      box-shadow: 0 0 6px rgba(240,182,62,.7);
+      flex-shrink: 0;
+    }
+    /* balloon body text */
+    .balloon-body {
+      font-size: .76rem;
+      color: rgba(230,237,243,.78);
+      line-height: 1.6;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-weight: 400;
+    }
+
+    /* arrow pointing DOWN from balloon to pill */
+    .pill-param .balloon::after {
+      content: '';
+      position: absolute;
+      bottom: -10px; left: 50%; transform: translateX(-50%);
+      border-left: 10px solid transparent;
+      border-right: 10px solid transparent;
+      border-top: 10px solid rgba(240,182,62,.65);
+    }
+    .pill-param .balloon::before {
+      content: '';
+      position: absolute;
+      bottom: -8px; left: 50%; transform: translateX(-50%);
+      border-left: 9px solid transparent;
+      border-right: 9px solid transparent;
+      border-top: 9px solid #071a2e;
+      z-index: 1;
+    }
+
+    /* return type pill */
+    .pill-ret {
+      background: rgba(16,185,129,.1); border: 1px solid rgba(16,185,129,.3);
+      color: var(--green); font-family: 'Courier New', monospace; letter-spacing: 0;
+    }
+
+    /* ── description ── */
+    .m-desc { font-size: .95rem; color: var(--muted); line-height: 1.75; margin-bottom: 14px; }
+    .m-desc code { font-family: 'Courier New', monospace; font-size: .88em; padding: 1px 6px; border-radius: 4px; background: rgba(255,255,255,.06); }
+
+    /* ── demo box ── */
+    .demo-box {
+      background: #060a10;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 22px 22px 18px;
+      margin-top: 20px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .demo-lbl {
+      font-size: .64rem; font-weight: 800; letter-spacing: .13em;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 18px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .demo-lbl::before { content:''; width:3px; height:12px; border-radius:2px; background:var(--accent); flex-shrink:0; }
+    .demo-controls { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-end; margin-bottom: 18px; }
+    .ctrl { display: flex; flex-direction: column; gap: 5px; }
+    .ctrl label { font-size: .69rem; color: var(--muted); font-weight: 600; }
+    .ctrl input[type=range] { -webkit-appearance: none; width: 120px; height: 4px; background: var(--border); border-radius: 2px; outline: none; cursor: pointer; }
+    .ctrl input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 15px; height: 15px; background: var(--accent); border-radius: 50%; cursor: pointer; box-shadow: 0 0 6px rgba(250,204,21,.5); }
+    .ctrl .cval { font-size: .7rem; color: var(--accent); font-family: 'Courier New', monospace; font-weight: 700; text-align: center; }
+    .demo-canvas-wrap { background: #020509; border-radius: 10px; padding: 14px; overflow-x: auto; min-height: 72px; order: 4; }
+    canvas { display: block; }
+    .demo-out { font-family: 'Courier New', monospace; font-size: .8rem; color: #10b981; line-height: 1.65; margin-top: 0; margin-bottom: 14px; padding: 11px 15px; background: rgba(16,185,129,.05); border: 1px solid rgba(16,185,129,.18); border-radius: 8px; white-space: pre-wrap; order: 3; }
+    .demo-btn { padding: 8px 18px; border-radius: 8px; font-size: .76rem; font-weight: 700; cursor: pointer; transition: background .2s, border-color .2s; }
+
+    /* ── panel nav footer ── */
+    .panel-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 40px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .pnav-btn {
+      display: flex; align-items: center; gap: 9px;
+      padding: 10px 22px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      font-size: .83rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: color .2s, border-color .2s, background .2s;
+    }
+    .pnav-btn:hover:not(:disabled) { color: var(--text); border-color: var(--accent); background: rgba(250,204,21,.06); }
+    .pnav-btn:disabled { opacity: .28; cursor: default; }
+    .pnav-btn.next { background: rgba(250,204,21,.08); border-color: rgba(250,204,21,.35); color: var(--accent); }
+    .pnav-btn.next:hover { background: rgba(250,204,21,.16); border-color: var(--accent); }
+    .pnav-dots { display: flex; gap: 7px; align-items: center; }
+    .pnav-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); transition: background .2s, transform .2s; cursor: pointer; border: none; padding: 0; }
+    .pnav-dot.active { background: var(--accent); transform: scale(1.4); }
+
+    /* ── overview grid ── */
+    .overview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; margin-top: 24px; }
+    .ov-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px 16px 16px; cursor: pointer; transition: border-color .2s, box-shadow .2s, transform .18s; display: flex; flex-direction: column; gap: 8px; }
+    .ov-card:hover { transform: translateY(-3px); border-color: rgba(250,204,21,.4); box-shadow: 0 8px 28px rgba(250,204,21,.08); }
+    .ov-card-num { font-size: .62rem; color: var(--muted); font-weight: 800; letter-spacing: .1em; }
+    .ov-card-name { font-size: .9rem; font-family: 'Courier New', monospace; font-weight: 700; color: var(--text); }
+    .ov-card-desc { font-size: .77rem; color: var(--muted); line-height: 1.5; }
+
+    /* ── reshape panel ── */
+    .rp { position: fixed; right: 0; top: 54px; width: 290px; height: calc(100vh - 54px); background: #0a0e14; border-left: 1px solid var(--border); transform: translateX(100%); transition: transform .36s cubic-bezier(.4,0,.2,1); z-index: 60; padding: 22px 20px; overflow-y: auto; }
+    .rp.open { transform: translateX(0); }
+    .rp-title { font-size: .72rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--purple); margin-bottom: 6px; }
+    .rp-sub   { font-size: .78rem; color: var(--muted); margin-bottom: 20px; line-height: 1.55; }
+    .rp-shapes { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 22px; }
+    .rp-shape-btn { padding: 5px 13px; border-radius: 7px; font-size: .73rem; font-weight: 700; font-family: 'Courier New', monospace; cursor: pointer; transition: all .2s; }
+    .rp-shape-btn.sel { background: rgba(139,92,246,.18); border: 1px solid rgba(139,92,246,.5); color: var(--purple); }
+    .rp-shape-btn:not(.sel) { background: transparent; border: 1px solid var(--border); color: var(--muted); }
+    .rp-shape-btn:not(.sel):hover { border-color: var(--purple); color: var(--text); }
+
+    /* ── exercise panel ── */
+    .exercise-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 24px;
+      padding: 20px;
+      background: rgba(251,191,36,.06);
+      border: 1px solid rgba(251,191,36,.2);
+      border-radius: 14px;
+      position: relative;
+      overflow: hidden;
+    }
+    .exercise-header::before {
+      content: '';
+      position: absolute;
+      top: -40px; right: -40px;
+      width: 140px; height: 140px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(251,191,36,.1) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .exercise-badge {
+      width: 52px; height: 52px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: #0d1a2e;
+      background: linear-gradient(135deg, #fbbf24, #f59e0b);
+      box-shadow: 0 6px 18px rgba(251,191,36,.35);
+      flex-shrink: 0;
+    }
+    .ex-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px 20px 16px;
+      margin-bottom: 14px;
+      transition: border-color .2s;
+    }
+    .ex-card:hover { border-color: rgba(250,204,21,.3); }
+    .ex-q-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    .ex-num {
+      font-size: .68rem;
+      font-weight: 800;
+      letter-spacing: .1em;
+      padding: 3px 10px;
+      border-radius: 6px;
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.1);
+      color: var(--muted);
+      font-family: 'Courier New', monospace;
+    }
+    .ex-fn {
+      font-family: 'Courier New', monospace;
+      font-size: .92rem;
+      font-weight: 700;
+    }
+    .ex-task {
+      font-size: .88rem;
+      color: var(--muted);
+      margin-bottom: 10px;
+      line-height: 1.6;
+    }
+    .ex-task code {
+      font-family: 'Courier New', monospace;
+      font-size: .85em;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: rgba(255,255,255,.06);
+    }
+
+    @media (max-width: 700px) {
+      .sidebar { display: none; }
+      .panel { padding: 20px 16px 80px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<nav class="top-nav">
+  <a href="index.html" class="nav-back">← Deck 02</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item" href="01-intro-numpy.html">01</a>
+    <a class="nav-item" href="02-numpy-arrays.html">02</a>
+    <a class="nav-item" href="03-topics.html">03</a>
+    <a class="nav-item" href="04-cheat-sheet.html">04</a>
+    <a class="nav-item active" href="05-placeholder.html">05</a>
+    <a class="nav-item" href="06-arrays-prop-info.html">06</a>
+    <a class="nav-item" href="07-arith-opt.html">07</a>
+    <a class="nav-item" href="08-comp-stat-agg.html">08</a>
+    <a class="nav-item" href="09-copy-sort-access.html">09</a>
+    <a class="nav-item" href="10-resh-com.html">10</a>
+  </div>
+</nav>
+
+<div class="page-layout">
+
+  <!-- ════ SIDEBAR ════ -->
+  <aside class="sidebar">
+    <div class="sidebar-head">10 Methods + Exercises</div>
+    <nav class="sidebar-nav">
+      <button class="s-item active" data-panel="0" onclick="goTo(0)"><span class="s-num">00</span><span class="s-dot" style="background:#8b5cf6"></span><span class="s-label">Overview</span></button>
+      <button class="s-item" data-panel="1" onclick="goTo(1)"><span class="s-num">01</span><span class="s-dot" style="background:#facc15"></span><span class="s-label">np.array()</span></button>
+      <button class="s-item" data-panel="2" onclick="goTo(2)"><span class="s-num">02</span><span class="s-dot" style="background:#3b82f6"></span><span class="s-label">np.zeros()</span></button>
+      <button class="s-item" data-panel="3" onclick="goTo(3)"><span class="s-num">03</span><span class="s-dot" style="background:#10b981"></span><span class="s-label">np.ones()</span></button>
+      <button class="s-item" data-panel="4" onclick="goTo(4)"><span class="s-num">04</span><span class="s-dot" style="background:#f97316"></span><span class="s-label">np.arange()</span></button>
+      <button class="s-item" data-panel="5" onclick="goTo(5)"><span class="s-num">05</span><span class="s-dot" style="background:#06b6d4"></span><span class="s-label">np.linspace()</span></button>
+      <button class="s-item" data-panel="6" onclick="goTo(6)"><span class="s-num">06</span><span class="s-dot" style="background:#8b5cf6"></span><span class="s-label">np.full()</span></button>
+      <button class="s-item" data-panel="7" onclick="goTo(7)"><span class="s-num">07</span><span class="s-dot" style="background:#ec4899"></span><span class="s-label">np.eye()</span></button>
+      <button class="s-item" data-panel="8" onclick="goTo(8)"><span class="s-num">08</span><span class="s-dot" style="background:#f43f5e"></span><span class="s-label">np.random.random()</span></button>
+      <button class="s-item" data-panel="9" onclick="goTo(9)"><span class="s-num">09</span><span class="s-dot" style="background:#a855f7"></span><span class="s-label">np.random.randint()</span></button>
+      <button class="s-item" data-panel="10" onclick="goTo(10)"><span class="s-num">10</span><span class="s-dot" style="background:#64748b"></span><span class="s-label">np.empty()</span></button>
+      <button class="s-item" data-panel="11" onclick="goTo(11)"><span class="s-num">11</span><span class="s-dot" style="background:#facc15"></span><span class="s-label">Exercises</span></button>
+    </nav>
+    <div class="sidebar-foot">
+      <button class="reshape-btn" onclick="toggleReshape()">⊞ Reshape Visualizer</button>
+    </div>
+  </aside>
+
+  <!-- ════ PANEL VIEWPORT ════ -->
+  <div class="panel-viewport" id="viewport">
+
+    <!-- ══ PANEL 0: Overview ══ -->
+    <div class="panel active" id="panel-0">
+      <div class="hero" style="margin-bottom:36px;">
+        <span class="topic-label"><span class="dot"></span>Topic 05 of 05</span>
+        <h1>Placeholders &amp; Creation</h1>
+        <p>Ten NumPy functions that build arrays from scratch — plus a practice exercise. Click any card below or use the sidebar to dive in.</p>
+        <div class="hero-pills">
+          <span class="tag">10 Functions</span>
+          <span class="tag blue">Live Demos</span>
+          <span class="tag green">Canvas Viz</span>
+          <span class="tag purple">Reshape Panel</span>
+          <span class="tag orange">Interactive</span>
+        </div>
+      </div>
+      <div class="overview-grid">
+        <div class="ov-card" onclick="goTo(1)"><div class="ov-card-num">01 / 10</div><div class="ov-card-name" style="color:#facc15">np.array()</div><div class="ov-card-desc">From a Python list to an ndarray in one call.</div></div>
+        <div class="ov-card" onclick="goTo(2)"><div class="ov-card-num">02 / 10</div><div class="ov-card-name" style="color:#3b82f6">np.zeros()</div><div class="ov-card-desc">Matrix pre-filled with 0.0 — safe default allocation.</div></div>
+        <div class="ov-card" onclick="goTo(3)"><div class="ov-card-num">03 / 10</div><div class="ov-card-name" style="color:#10b981">np.ones()</div><div class="ov-card-desc">Fill every cell with 1 — great for masks &amp; scaling.</div></div>
+        <div class="ov-card" onclick="goTo(4)"><div class="ov-card-num">04 / 10</div><div class="ov-card-name" style="color:#f97316">np.arange()</div><div class="ov-card-desc">Evenly spaced values using a step size.</div></div>
+        <div class="ov-card" onclick="goTo(5)"><div class="ov-card-num">05 / 10</div><div class="ov-card-name" style="color:#06b6d4">np.linspace()</div><div class="ov-card-desc">Specify number of samples — endpoint included.</div></div>
+        <div class="ov-card" onclick="goTo(6)"><div class="ov-card-num">06 / 10</div><div class="ov-card-name" style="color:#8b5cf6">np.full()</div><div class="ov-card-desc">Every cell the same constant value you choose.</div></div>
+        <div class="ov-card" onclick="goTo(7)"><div class="ov-card-num">07 / 10</div><div class="ov-card-name" style="color:#ec4899">np.eye()</div><div class="ov-card-desc">Identity matrix — 1s on diagonal, 0s elsewhere.</div></div>
+        <div class="ov-card" onclick="goTo(8)"><div class="ov-card-num">08 / 10</div><div class="ov-card-name" style="color:#f43f5e">np.random.random()</div><div class="ov-card-desc">Random floats in [0, 1) — different each time.</div></div>
+        <div class="ov-card" onclick="goTo(9)"><div class="ov-card-num">09 / 10</div><div class="ov-card-name" style="color:#a855f7">np.random.randint()</div><div class="ov-card-desc">Random integers in [low, high) — whole numbers only.</div></div>
+        <div class="ov-card" onclick="goTo(10)"><div class="ov-card-num">10 / 10</div><div class="ov-card-name" style="color:#64748b">np.empty()</div><div class="ov-card-desc">Fastest allocation — no initialisation, garbage values.</div></div>
+        <div class="ov-card" onclick="goTo(11)" style="border-color:rgba(250,204,21,.25);"><div class="ov-card-num" style="color:#facc15">Exercises</div><div class="ov-card-name" style="color:#facc15">Practice</div><div class="ov-card-desc">10 challenges — one per function. See the output, write the call.</div></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" disabled>← Prev</button>
+        <div class="pnav-dots" id="dots-0"></div>
+        <button class="pnav-btn next" onclick="goTo(1)">np.array() →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 1: np.array() ══ -->
+    <div class="panel" id="panel-1">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1518770660439-4636190af475?w=900&q=75&fit=crop&h=200" alt="Circuit board" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Method 01 / 10 · Creation</div>
+          <div class="m-name">np.array()</div>
+          <div class="m-tagline">Turn any Python list into an ndarray</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">np.array(object, dtype, copy, order, ndmin)</span>
+        <span class="pill pill-param" style="background:rgba(250,204,21,.1);color:var(--accent);border:1px solid rgba(250,204,21,.28);">object
+          <span class="balloon"><span class="balloon-title">object</span><span class="balloon-body">The input data to convert — any Python list, tuple, or nested list. NumPy will read its structure and values to build the array.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(59,130,246,.1);color:var(--blue);border:1px solid rgba(59,130,246,.28);">dtype
+          <span class="balloon"><span class="balloon-title">dtype</span><span class="balloon-body">Controls the element type of the output array. Leave it as <code style="color:#f0b63e">None</code> and NumPy will infer it from the data automatically.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(139,92,246,.1);color:var(--purple);border:1px solid rgba(139,92,246,.28);">copy
+          <span class="balloon"><span class="balloon-title">copy</span><span class="balloon-body">When <code style="color:#f0b63e">True</code> (default) a new array is always created. Set to <code style="color:#f0b63e">False</code> to reuse the existing memory buffer when possible — useful for large datasets.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(249,115,22,.1);color:var(--orange);border:1px solid rgba(249,115,22,.28);">order
+          <span class="balloon"><span class="balloon-title">order</span><span class="balloon-body">Memory layout of the array. <code style="color:#f0b63e">'C'</code> means row-by-row (standard Python), <code style="color:#f0b63e">'F'</code> means column-by-column (Fortran/MATLAB style). Usually leave as default.</span></span>
+        </span>
+        <span class="pill pill-ret">→ ndarray</span>
+      </div>
+      <p class="m-desc">The fundamental constructor. Pass a Python list (or nested list for 2D+) and NumPy wraps it in an efficient <code>ndarray</code>. Use <code>dtype</code> to control storage type.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> numpy <span class="kw">as</span> <span class="lib">np</span>
+
+a = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>])
+b = <span class="lib">np</span>.<span class="fn">array</span>([(<span class="num">1.5</span>,<span class="num">2</span>,<span class="num">3</span>),(<span class="num">4</span>,<span class="num">5</span>,<span class="num">6</span>)], dtype=<span class="cls">float</span>)
+
+<span class="fn">print</span>(a)        <span class="cm"># [1 2 3]</span>
+<span class="fn">print</span>(b.shape)  <span class="cm"># (2, 3)</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — build your 1D array</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>Elements</label><input type="range" min="1" max="12" value="6" id="a1-n" oninput="drawArr()"><span class="cval" id="a1-nv">6</span></div>
+          <button class="demo-btn" style="background:rgba(250,204,21,.1);border:1px solid rgba(250,204,21,.3);color:var(--accent);" onclick="shuffleArr()">⟳ Shuffle values</button>
+        </div>
+        <div class="demo-canvas-wrap"><canvas id="cv-arr" height="70"></canvas></div>
+        <div class="demo-out" id="out-arr"></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(0)">← Overview</button>
+        <div class="pnav-dots" id="dots-1"></div>
+        <button class="pnav-btn next" onclick="goTo(2)">np.zeros() →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 2: np.zeros() ══ -->
+    <div class="panel" id="panel-2">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1557683316-973673baf926?w=900&q=75&fit=crop&h=200" alt="Blue empty gradient" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Method 02 / 10 · Creation</div>
+          <div class="m-name">np.zeros()</div>
+          <div class="m-tagline">Fill a matrix with silence — every cell a 0</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">np.zeros(shape, dtype, order)</span>
+        <span class="pill pill-param" style="background:rgba(59,130,246,.1);color:var(--blue);border:1px solid rgba(59,130,246,.28);">shape
+          <span class="balloon"><span class="balloon-title">shape</span><span class="balloon-body">Defines the dimensions of the output array. Pass a single integer for 1D, or a tuple like <code style="color:#f0b63e">(3, 4)</code> for a 3-row 4-column matrix.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(250,204,21,.1);color:var(--accent);border:1px solid rgba(250,204,21,.28);">dtype
+          <span class="balloon"><span class="balloon-title">dtype</span><span class="balloon-body">The data type for each element. Defaults to <code style="color:#f0b63e">float64</code>. Change it when you need integers or booleans to save memory.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(249,115,22,.1);color:var(--orange);border:1px solid rgba(249,115,22,.28);">order
+          <span class="balloon"><span class="balloon-title">order</span><span class="balloon-body">Whether rows (<code style="color:#f0b63e">'C'</code>) or columns (<code style="color:#f0b63e">'F'</code>) are stored contiguously in memory. Affects performance in loops — usually leave as default.</span></span>
+        </span>
+        <span class="pill pill-ret">→ ndarray of 0.</span>
+      </div>
+      <p class="m-desc">Allocate a new array of a given shape, pre-filled with <code>0.0</code>. Pass an integer for 1D or a tuple <code>(rows, cols)</code> for 2D. Default dtype is <code>float64</code>.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="lib">np</span>.<span class="fn">zeros</span>((<span class="num">3</span>, <span class="num">4</span>))
+<span class="cm"># [[0. 0. 0. 0.]
+#  [0. 0. 0. 0.]
+#  [0. 0. 0. 0.]]</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — resize the zeros matrix</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>Rows</label><input type="range" min="1" max="8" value="3" id="z-r" oninput="drawZeros()"><span class="cval" id="z-rv">3</span></div>
+          <div class="ctrl"><label>Cols</label><input type="range" min="1" max="10" value="4" id="z-c" oninput="drawZeros()"><span class="cval" id="z-cv">4</span></div>
+        </div>
+        <div class="demo-canvas-wrap"><canvas id="cv-zeros" height="120"></canvas></div>
+        <div class="demo-out" id="out-zeros"></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(1)">← np.array()</button>
+        <div class="pnav-dots" id="dots-2"></div>
+        <button class="pnav-btn next" onclick="goTo(3)">np.ones() →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 3: np.ones() ══ -->
+    <div class="panel" id="panel-3">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1477346611705-65d1883cee1e?w=900&q=75&fit=crop&h=200" alt="Misty mountains" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Method 03 / 10 · Creation</div>
+          <div class="m-name">np.ones()</div>
+          <div class="m-tagline">Every cell unanimous — all ones</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">np.ones(shape, dtype, order)</span>
+        <span class="pill pill-param" style="background:rgba(16,185,129,.1);color:var(--green);border:1px solid rgba(16,185,129,.28);">shape
+          <span class="balloon"><span class="balloon-title">shape</span><span class="balloon-body">Defines the dimensions of the output array. Pass a single integer for 1D, or a tuple like <code style="color:#f0b63e">(2, 3)</code> for 2D. Works for any number of dimensions.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(250,204,21,.1);color:var(--accent);border:1px solid rgba(250,204,21,.28);">dtype
+          <span class="balloon"><span class="balloon-title">dtype</span><span class="balloon-body">Element type of the filled array. Defaults to <code style="color:#f0b63e">float64</code>. Set to <code style="color:#f0b63e">int16</code> or <code style="color:#f0b63e">bool</code> when building compact masks or feature matrices.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(249,115,22,.1);color:var(--orange);border:1px solid rgba(249,115,22,.28);">order
+          <span class="balloon"><span class="balloon-title">order</span><span class="balloon-body">Memory storage order — <code style="color:#f0b63e">'C'</code> for row-major (default), <code style="color:#f0b63e">'F'</code> for column-major. Pick <code style="color:#f0b63e">'F'</code> when interoperating with Fortran or MATLAB code.</span></span>
+        </span>
+        <span class="pill pill-ret">→ ndarray of 1.</span>
+      </div>
+      <p class="m-desc">Like <code>np.zeros()</code> but filled with <code>1.0</code>. Commonly used to build masks, scale arrays, or as a starting point for custom fills. Supports 3D+ and dtype overrides.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="lib">np</span>.<span class="fn">ones</span>((<span class="num">2</span>, <span class="num">3</span>, <span class="num">4</span>), dtype=<span class="lib">np</span>.int16)
+<span class="cm"># 3D array of shape (2, 3, 4) filled with 1</span>
+
+mask = <span class="lib">np</span>.<span class="fn">ones</span>((<span class="num">4</span>, <span class="num">4</span>)) * <span class="num">5</span>  <span class="cm"># all 5s</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — glowing ones grid</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>Rows</label><input type="range" min="1" max="8" value="3" id="o-r" oninput="drawOnes()"><span class="cval" id="o-rv">3</span></div>
+          <div class="ctrl"><label>Cols</label><input type="range" min="1" max="10" value="5" id="o-c" oninput="drawOnes()"><span class="cval" id="o-cv">5</span></div>
+        </div>
+        <div class="demo-canvas-wrap"><canvas id="cv-ones" height="120"></canvas></div>
+        <div class="demo-out" id="out-ones"></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(2)">← np.zeros()</button>
+        <div class="pnav-dots" id="dots-3"></div>
+        <button class="pnav-btn next" onclick="goTo(4)">np.arange() →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 4: np.arange() ══ -->
+    <div class="panel" id="panel-4">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1509228627152-72ae9ae6848d?w=900&q=75&fit=crop&h=200" alt="Staircase ascending" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Method 04 / 10 · Creation</div>
+          <div class="m-name">np.arange()</div>
+          <div class="m-tagline">range() — but the output is an ndarray</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">np.arange(start, stop, step, dtype)</span>
+        <span class="pill pill-param" style="background:rgba(249,115,22,.1);color:var(--orange);border:1px solid rgba(249,115,22,.28);">start
+          <span class="balloon"><span class="balloon-title">start</span><span class="balloon-body">The first value in the sequence. Optional — defaults to <code style="color:#f0b63e">0</code> if only one argument is given. Can be any integer or float.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(250,204,21,.1);color:var(--accent);border:1px solid rgba(250,204,21,.28);">stop
+          <span class="balloon"><span class="balloon-title">stop</span><span class="balloon-body">The upper boundary of the sequence — <strong style="color:#f0b63e">not included</strong> in the result. Think of it like a Python <code style="color:#f0b63e">range()</code> — the loop ends just before this value.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(6,182,212,.1);color:var(--cyan);border:1px solid rgba(6,182,212,.28);">step
+          <span class="balloon"><span class="balloon-title">step</span><span class="balloon-body">The gap between consecutive values. Defaults to <code style="color:#f0b63e">1</code>. Can be a float (e.g. <code style="color:#f0b63e">0.5</code>) or negative to count downward.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(139,92,246,.1);color:var(--purple);border:1px solid rgba(139,92,246,.28);">dtype
+          <span class="balloon"><span class="balloon-title">dtype</span><span class="balloon-body">Output element type. If not specified, NumPy infers it from your inputs — integers stay integers, floats stay floats.</span></span>
+        </span>
+        <span class="pill pill-ret">→ ndarray (1D)</span>
+      </div>
+      <p class="m-desc">Returns evenly-spaced values using a <strong style="color:var(--orange)">step size</strong>. Analogous to Python's built-in <code>range()</code> but returns an ndarray. The stop value is <em>exclusive</em>.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>d = <span class="lib">np</span>.<span class="fn">arange</span>(<span class="num">10</span>, <span class="num">25</span>, <span class="num">5</span>)
+<span class="fn">print</span>(d)  <span class="cm"># [10 15 20]</span>
+
+<span class="lib">np</span>.<span class="fn">arange</span>(<span class="num">0</span>, <span class="num">1</span>, <span class="num">0.25</span>)  <span class="cm"># [0.  0.25 0.5  0.75]</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — animated number line</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>Start</label><input type="range" min="0" max="20" value="0" id="ar-s" oninput="drawArange()"><span class="cval" id="ar-sv">0</span></div>
+          <div class="ctrl"><label>Stop</label><input type="range" min="2" max="50" value="20" id="ar-e" oninput="drawArange()"><span class="cval" id="ar-ev">20</span></div>
+          <div class="ctrl"><label>Step</label><input type="range" min="1" max="10" value="2" id="ar-t" oninput="drawArange()"><span class="cval" id="ar-tv">2</span></div>
+        </div>
+        <div class="demo-canvas-wrap"><canvas id="cv-arange" height="90"></canvas></div>
+        <div class="demo-out" id="out-arange"></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(3)">← np.ones()</button>
+        <div class="pnav-dots" id="dots-4"></div>
+        <button class="pnav-btn next" onclick="goTo(5)">np.linspace() →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 5: np.linspace() ══ -->
+    <div class="panel" id="panel-5">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1614732414444-096e5f1122d5?w=900&q=75&fit=crop&h=200" alt="Rainbow spectrum" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Method 05 / 10 · Creation</div>
+          <div class="m-name">np.linspace()</div>
+          <div class="m-tagline">Specify samples, not step size</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">np.linspace(start, stop, num, endpoint, dtype)</span>
+        <span class="pill pill-param" style="background:rgba(6,182,212,.1);color:var(--cyan);border:1px solid rgba(6,182,212,.28);">num
+          <span class="balloon"><span class="balloon-title">num</span><span class="balloon-body">How many evenly-spaced samples to generate. Defaults to <code style="color:#f0b63e">50</code>. This is the key difference from <code style="color:#f0b63e">arange</code> — you control the count, not the step size.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(59,130,246,.1);color:var(--blue);border:1px solid rgba(59,130,246,.28);">endpoint
+          <span class="balloon"><span class="balloon-title">endpoint</span><span class="balloon-body">When <code style="color:#f0b63e">True</code> (default) the stop value <strong style="color:#f0b63e">is included</strong> as the last sample. Set to <code style="color:#f0b63e">False</code> to exclude it — handy for periodic signals like full circles.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(250,204,21,.1);color:var(--accent);border:1px solid rgba(250,204,21,.28);">dtype
+          <span class="balloon"><span class="balloon-title">dtype</span><span class="balloon-body">Output element type. Defaults to <code style="color:#f0b63e">float64</code>, which is almost always what you want for plotting or scientific computation.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(139,92,246,.1);color:var(--purple);border:1px solid rgba(139,92,246,.28);">retstep
+          <span class="balloon"><span class="balloon-title">retstep</span><span class="balloon-body">If <code style="color:#f0b63e">True</code>, the function returns a tuple <code style="color:#f0b63e">(array, step_size)</code> instead of just the array — useful when you need to know the exact computed step.</span></span>
+        </span>
+        <span class="pill pill-ret">→ ndarray (1D)</span>
+      </div>
+      <p class="m-desc">Like <code>arange()</code> but you specify the <strong style="color:var(--cyan)">number of samples</strong> instead of the step. The endpoint is <em>included</em> by default — great for plotting axes and signal generation.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="lib">np</span>.<span class="fn">linspace</span>(<span class="num">0</span>, <span class="num">2</span>, <span class="num">9</span>)
+<span class="cm"># [0.   0.25 0.5  0.75 1.   1.25 1.5  1.75 2.  ]</span>
+
+x = <span class="lib">np</span>.<span class="fn">linspace</span>(<span class="num">0</span>, <span class="num">2</span> * <span class="lib">np</span>.pi, <span class="num">100</span>)  <span class="cm"># x-axis for sin()</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — gradient spectrum dots</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>Start</label><input type="range" min="0" max="5" value="0" step="0.5" id="ls-s" oninput="drawLinspace()"><span class="cval" id="ls-sv">0</span></div>
+          <div class="ctrl"><label>Stop</label><input type="range" min="1" max="10" value="2" step="0.5" id="ls-e" oninput="drawLinspace()"><span class="cval" id="ls-ev">2</span></div>
+          <div class="ctrl"><label>Num samples</label><input type="range" min="2" max="20" value="9" id="ls-n" oninput="drawLinspace()"><span class="cval" id="ls-nv">9</span></div>
+        </div>
+        <div class="demo-canvas-wrap"><canvas id="cv-linspace" height="90"></canvas></div>
+        <div class="demo-out" id="out-linspace"></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(4)">← np.arange()</button>
+        <div class="pnav-dots" id="dots-5"></div>
+        <button class="pnav-btn next" onclick="goTo(6)">np.full() →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 6: np.full() ══ -->
+    <div class="panel" id="panel-6">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1528360983277-13d401cdc186?w=900&q=75&fit=crop&h=200" alt="Uniform colored tiles" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Method 06 / 10 · Creation</div>
+          <div class="m-name">np.full()</div>
+          <div class="m-tagline">Every cell the same constant value</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">np.full(shape, fill_value, dtype, order)</span>
+        <span class="pill pill-param" style="background:rgba(139,92,246,.1);color:var(--purple);border:1px solid rgba(139,92,246,.28);">shape
+          <span class="balloon"><span class="balloon-title">shape</span><span class="balloon-body">The dimensions of the array to create. A single int gives you 1D; a tuple like <code style="color:#f0b63e">(2, 2)</code> gives you a 2×2 grid filled with your constant.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(249,115,22,.1);color:var(--orange);border:1px solid rgba(249,115,22,.28);">fill_value
+          <span class="balloon"><span class="balloon-title">fill_value</span><span class="balloon-body">The constant that fills every cell. Can be any scalar — an integer, float, boolean, or even <code style="color:#f0b63e">np.nan</code> / <code style="color:#f0b63e">np.inf</code>. This is what makes <code style="color:#f0b63e">np.full</code> more expressive than zeros * 7.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(250,204,21,.1);color:var(--accent);border:1px solid rgba(250,204,21,.28);">dtype
+          <span class="balloon"><span class="balloon-title">dtype</span><span class="balloon-body">Element type of the array. Automatically inferred from <code style="color:#f0b63e">fill_value</code> if not specified. Override when you need a specific precision or type.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(59,130,246,.1);color:var(--blue);border:1px solid rgba(59,130,246,.28);">order
+          <span class="balloon"><span class="balloon-title">order</span><span class="balloon-body">Memory layout — row-major <code style="color:#f0b63e">'C'</code> (default) or column-major <code style="color:#f0b63e">'F'</code>. Only matters when passing the result to C or Fortran extensions.</span></span>
+        </span>
+        <span class="pill pill-ret">→ ndarray (constant)</span>
+      </div>
+      <p class="m-desc">Creates an array of a given shape filled with a <strong style="color:var(--purple)">constant value</strong>. More explicit and readable than <code>np.zeros((2,2)) * 7</code> — the intent is crystal clear.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>e = <span class="lib">np</span>.<span class="fn">full</span>((<span class="num">2</span>, <span class="num">2</span>), <span class="num">7</span>)
+<span class="fn">print</span>(e)
+<span class="cm"># [[7 7]
+#  [7 7]]</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — change fill value &amp; shape</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>Rows</label><input type="range" min="1" max="7" value="3" id="fu-r" oninput="drawFull()"><span class="cval" id="fu-rv">3</span></div>
+          <div class="ctrl"><label>Cols</label><input type="range" min="1" max="9" value="4" id="fu-c" oninput="drawFull()"><span class="cval" id="fu-cv">4</span></div>
+          <div class="ctrl"><label>Fill value (0–99)</label><input type="range" min="0" max="99" value="7" id="fu-v" oninput="drawFull()"><span class="cval" id="fu-vv">7</span></div>
+        </div>
+        <div class="demo-canvas-wrap"><canvas id="cv-full" height="120"></canvas></div>
+        <div class="demo-out" id="out-full"></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(5)">← np.linspace()</button>
+        <div class="pnav-dots" id="dots-6"></div>
+        <button class="pnav-btn next" onclick="goTo(7)">np.eye() →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 7: np.eye() ══ -->
+    <div class="panel" id="panel-7">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=900&q=75&fit=crop&h=200" alt="Space diagonal galaxy" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Method 07 / 10 · Creation</div>
+          <div class="m-name">np.eye()</div>
+          <div class="m-tagline">The identity matrix — diagonal of 1s</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">np.eye(N, M, k, dtype)</span>
+        <span class="pill pill-param" style="background:rgba(236,72,153,.1);color:var(--pink);border:1px solid rgba(236,72,153,.28);">N
+          <span class="balloon"><span class="balloon-title">N</span><span class="balloon-body">The number of rows in the output matrix. If <code style="color:#f0b63e">M</code> is not given, the matrix will be square (N×N).</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(59,130,246,.1);color:var(--blue);border:1px solid rgba(59,130,246,.28);">M
+          <span class="balloon"><span class="balloon-title">M</span><span class="balloon-body">Number of columns. Defaults to <code style="color:#f0b63e">N</code>, giving a square matrix. Set a different value to produce a rectangular matrix with the diagonal shifted.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(249,115,22,.1);color:var(--orange);border:1px solid rgba(249,115,22,.28);">k
+          <span class="balloon"><span class="balloon-title">k</span><span class="balloon-body">Which diagonal to place the 1s on. <code style="color:#f0b63e">0</code> is the main diagonal (default). Positive values shift up (superdiagonal), negative shift down (subdiagonal).</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(250,204,21,.1);color:var(--accent);border:1px solid rgba(250,204,21,.28);">dtype
+          <span class="balloon"><span class="balloon-title">dtype</span><span class="balloon-body">Data type for the elements. Defaults to <code style="color:#f0b63e">float64</code>, so the diagonal contains <code style="color:#f0b63e">1.0</code>. Use <code style="color:#f0b63e">int</code> if you need whole numbers.</span></span>
+        </span>
+        <span class="pill pill-ret">→ ndarray (2D identity)</span>
+      </div>
+      <p class="m-desc">Creates a 2D identity matrix — <code>1</code> on the main diagonal, <code>0</code> everywhere else. Multiplying any matrix <strong>A</strong> by the identity gives back <strong>A</strong>.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>f = <span class="lib">np</span>.<span class="fn">eye</span>(<span class="num">4</span>)
+<span class="cm"># [[1. 0. 0. 0.]
+#  [0. 1. 0. 0.]
+#  [0. 0. 1. 0.]
+#  [0. 0. 0. 1.]]</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — animated identity matrix</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>N (matrix size)</label><input type="range" min="2" max="9" value="4" id="ey-n" oninput="drawEye()"><span class="cval" id="ey-nv">4</span></div>
+        </div>
+        <div class="demo-canvas-wrap"><canvas id="cv-eye" height="160"></canvas></div>
+        <div class="demo-out" id="out-eye"></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(6)">← np.full()</button>
+        <div class="pnav-dots" id="dots-7"></div>
+        <button class="pnav-btn next" onclick="goTo(8)">np.random.random() →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 8: np.random.random() ══ -->
+    <div class="panel" id="panel-8">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=900&q=75&fit=crop&h=200" alt="Digital data noise" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Method 08 / 10 · Creation</div>
+          <div class="m-name">np.random.random()</div>
+          <div class="m-tagline">Random floats in [0, 1) — every call different</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">np.random.random(size)</span>
+        <span class="pill pill-param" style="background:rgba(244,63,94,.1);color:#f43f5e;border:1px solid rgba(244,63,94,.28);">size
+          <span class="balloon"><span class="balloon-title">size</span><span class="balloon-body">Shape of the output. Omit it to get a single float. Pass an int for a 1D array, or a tuple like <code style="color:#f0b63e">(5, 3)</code> for a 2D grid of random values.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(249,115,22,.1);color:var(--orange);border:1px solid rgba(249,115,22,.28);">range
+          <span class="balloon"><span class="balloon-title">range</span><span class="balloon-body">Always produces values in <code style="color:#f0b63e">[0.0, 1.0)</code> — 0 is possible, 1 is never returned. To shift the range, multiply and add: <code style="color:#f0b63e">a + (b-a)*np.random.random()</code>.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(250,204,21,.1);color:var(--accent);border:1px solid rgba(250,204,21,.28);">seed
+          <span class="balloon"><span class="balloon-title">seed</span><span class="balloon-body">Not a direct parameter — call <code style="color:#f0b63e">np.random.seed(42)</code> first to make results reproducible. For modern code use <code style="color:#f0b63e">np.random.default_rng(42)</code> instead.</span></span>
+        </span>
+        <span class="pill pill-ret">→ float or ndarray</span>
+      </div>
+      <p class="m-desc">Returns uniformly-distributed random floats in <code>[0.0, 1.0)</code>. Each call generates a fresh array — ideal for Monte Carlo, weight initialisation, and anything that needs randomness.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="lib">np</span>.random.<span class="fn">random</span>((<span class="num">2</span>, <span class="num">3</span>))
+<span class="cm"># [[0.37 0.95 0.73]
+#  [0.60 0.16 0.06]]</span>
+
+<span class="lib">np</span>.random.<span class="fn">seed</span>(<span class="num">42</span>)  <span class="cm"># for reproducibility</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — heatmap (re-roll any time)</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>Rows</label><input type="range" min="1" max="10" value="5" id="rn-r" oninput="drawRandom()"><span class="cval" id="rn-rv">5</span></div>
+          <div class="ctrl"><label>Cols</label><input type="range" min="1" max="12" value="7" id="rn-c" oninput="drawRandom()"><span class="cval" id="rn-cv">7</span></div>
+          <button class="demo-btn" style="background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.3);color:#f43f5e;" onclick="drawRandom()">⟳ Re-roll</button>
+        </div>
+        <div class="demo-canvas-wrap"><canvas id="cv-random" height="140"></canvas></div>
+        <div class="demo-out" id="out-random"></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(7)">← np.eye()</button>
+        <div class="pnav-dots" id="dots-8"></div>
+        <button class="pnav-btn next" onclick="goTo(9)">np.random.randint() →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 9: np.random.randint() ══ -->
+    <div class="panel" id="panel-9">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1606092195730-5d7b9af1efc5?w=900&q=75&fit=crop&h=200" alt="Colorful dice" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Method 09 / 10 · Creation</div>
+          <div class="m-name">np.random.randint()</div>
+          <div class="m-tagline">Random integers in a given range</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">np.random.randint(low, high, size, dtype)</span>
+        <span class="pill pill-param" style="background:rgba(168,85,247,.1);color:#a855f7;border:1px solid rgba(168,85,247,.28);">low
+          <span class="balloon"><span class="balloon-title">low</span><span class="balloon-body">The minimum integer value (inclusive). If only one argument is passed, it acts as the upper bound and <code style="color:#f0b63e">0</code> becomes the lower bound.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(249,115,22,.1);color:var(--orange);border:1px solid rgba(249,115,22,.28);">high
+          <span class="balloon"><span class="balloon-title">high</span><span class="balloon-body">Upper bound — <strong style="color:#f0b63e">exclusive</strong>. Integers are drawn from <code style="color:#f0b63e">[low, high)</code>. For example <code style="color:#f0b63e">randint(1, 7)</code> gives 1 through 6 — a perfect die roll.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(16,185,129,.1);color:var(--green);border:1px solid rgba(16,185,129,.28);">size
+          <span class="balloon"><span class="balloon-title">size</span><span class="balloon-body">Output shape. Omit for a single integer, pass an int for 1D, or a tuple like <code style="color:#f0b63e">(3, 4)</code> for a 2D grid of random integers.</span></span>
+        </span>
+        <span class="pill pill-ret">→ int or ndarray</span>
+      </div>
+      <p class="m-desc">Returns random integers from <code>low</code> (inclusive) to <code>high</code> (exclusive). Use it to simulate dice rolls, generate random labels, sample indices, or build any integer dataset.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="lib">np</span>.random.<span class="fn">randint</span>(<span class="num">1</span>, <span class="num">7</span>, size=<span class="num">6</span>)   <span class="cm"># 6 dice rolls</span>
+<span class="cm"># [4 2 6 1 5 3]</span>
+
+<span class="lib">np</span>.random.<span class="fn">randint</span>(<span class="num">0</span>, <span class="num">100</span>, size=(<span class="num">3</span>, <span class="num">4</span>))
+<span class="cm"># [[73 45 12 88]</span>
+<span class="cm">#  [61  7 93 24]</span>
+<span class="cm">#  [50 38 17 79]]</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — random integer grid</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>Rows</label><input type="range" min="1" max="8" value="3" id="ri-r" oninput="drawRandint()"><span class="cval" id="ri-rv">3</span></div>
+          <div class="ctrl"><label>Cols</label><input type="range" min="1" max="10" value="4" id="ri-c" oninput="drawRandint()"><span class="cval" id="ri-cv">4</span></div>
+          <div class="ctrl"><label>Low</label><input type="range" min="0" max="50" value="1" id="ri-lo" oninput="drawRandint()"><span class="cval" id="ri-lov">1</span></div>
+          <div class="ctrl"><label>High</label><input type="range" min="2" max="100" value="10" id="ri-hi" oninput="drawRandint()"><span class="cval" id="ri-hiv">10</span></div>
+          <button class="demo-btn" style="background:rgba(168,85,247,.1);border:1px solid rgba(168,85,247,.3);color:#a855f7;" onclick="drawRandint()">⟳ Re-roll</button>
+        </div>
+        <div class="demo-canvas-wrap"><canvas id="cv-randint" height="140"></canvas></div>
+        <div class="demo-out" id="out-randint"></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(8)">← np.random.random()</button>
+        <div class="pnav-dots" id="dots-9"></div>
+        <button class="pnav-btn next" onclick="goTo(10)">np.empty() →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 10: np.empty() ══ -->
+    <div class="panel" id="panel-10">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1534972195531-d756b9bfa9f2?w=900&q=75&fit=crop&h=200" alt="Dark void abstract" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Method 10 / 10 · Creation</div>
+          <div class="m-name">np.empty()</div>
+          <div class="m-tagline">Fastest allocation — but no initialisation</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">np.empty(shape, dtype, order)</span>
+        <span class="pill pill-param" style="background:rgba(100,116,139,.1);color:#94a3b8;border:1px solid rgba(100,116,139,.28);">shape
+          <span class="balloon"><span class="balloon-title">shape</span><span class="balloon-body">Size of the array to allocate. Memory is reserved but <strong style="color:#f0b63e">not zeroed out</strong> — whatever was there before stays. You must overwrite every element before reading.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(249,115,22,.1);color:var(--orange);border:1px solid rgba(249,115,22,.28);">dtype
+          <span class="balloon"><span class="balloon-title">dtype</span><span class="balloon-body">The data type to allocate space for. Defaults to <code style="color:#f0b63e">float64</code>. Choosing a smaller type like <code style="color:#f0b63e">float32</code> cuts memory use in half — useful for large pre-allocated buffers.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(244,63,94,.1);color:#f43f5e;border:1px solid rgba(244,63,94,.28);">order
+          <span class="balloon"><span class="balloon-title">order</span><span class="balloon-body">Memory layout — <code style="color:#f0b63e">'C'</code> row-major (default) or <code style="color:#f0b63e">'F'</code> column-major. Only relevant when you need maximum performance in inner loops or when passing the buffer to C/Fortran code.</span></span>
+        </span>
+        <span class="pill pill-ret">→ ndarray (uninit)</span>
+      </div>
+      <p class="m-desc">Allocates memory without initialising it. Values are <strong style="color:var(--orange)">whatever bytes were already there</strong> — garbage. Faster than <code>np.zeros()</code> because it skips the fill step. Only use it when you'll overwrite every cell immediately.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="lib">np</span>.<span class="fn">empty</span>((<span class="num">3</span>, <span class="num">2</span>))
+<span class="cm"># e.g. [[1.07e-311  0.00e+000]
+#        [0.00e+000  6.91e-310]]</span>
+
+arr = <span class="lib">np</span>.<span class="fn">empty</span>((<span class="num">3</span>, <span class="num">2</span>))
+arr[:] = <span class="num">0</span>   <span class="cm"># always fill before reading!</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — simulated malloc (uninitialized memory)</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>Rows</label><input type="range" min="1" max="8" value="3" id="em-r" oninput="drawEmpty()"><span class="cval" id="em-rv">3</span></div>
+          <div class="ctrl"><label>Cols</label><input type="range" min="1" max="10" value="4" id="em-c" oninput="drawEmpty()"><span class="cval" id="em-cv">4</span></div>
+          <button class="demo-btn" style="background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.3);color:var(--orange);" onclick="animateEmpty()">⚡ Simulate malloc</button>
+        </div>
+        <div class="demo-canvas-wrap"><canvas id="cv-empty" height="120"></canvas></div>
+        <div class="demo-out" id="out-empty"></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(9)">← np.random.randint()</button>
+        <div class="pnav-dots" id="dots-10"></div>
+        <button class="pnav-btn next" onclick="goTo(11)" style="background:rgba(250,204,21,.08);border-color:rgba(250,204,21,.35);color:var(--accent);">Exercises →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 11: Exercises ══ -->
+    <div class="panel" id="panel-11">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=900&q=75&fit=crop&h=200" alt="Notebook and pen" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Panel 11 · Practice</div>
+          <div class="m-name">Exercises</div>
+          <div class="m-tagline">10 challenges — one per creation function</div>
+        </div>
+      </div>
+
+      <div class="exercise-header">
+        <div class="exercise-badge">?</div>
+        <div>
+          <h2 style="font-size:1.15rem;font-weight:900;color:var(--text);margin-bottom:4px;">Practice Time</h2>
+          <p style="color:#fbbf24;font-size:.88rem;font-weight:700;">Each question shows the expected output — write the NumPy call that produces it. No solutions shown!</p>
+        </div>
+      </div>
+
+      <!-- Q1 -->
+      <div class="ex-card">
+        <div class="ex-q-head">
+          <span class="ex-num">Q1</span>
+        </div>
+        <p class="ex-task">Write a single <code>np.array()</code> call that creates exactly this 1D array:</p>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">output</span></div>
+          <pre>array([<span class="num">3</span>, <span class="num">14</span>, <span class="num"> 7</span>, <span class="num">21</span>, <span class="num"> 9</span>])</pre>
+        </div>
+      </div>
+
+      <!-- Q2 -->
+      <div class="ex-card">
+        <div class="ex-q-head">
+          <span class="ex-num">Q2</span>
+        </div>
+        <p class="ex-task">Create this 2D matrix using a single <code>np.zeros()</code> call:</p>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">output</span></div>
+          <pre>array([[<span class="num">0.</span>, <span class="num">0.</span>, <span class="num">0.</span>, <span class="num">0.</span>],
+       [<span class="num">0.</span>, <span class="num">0.</span>, <span class="num">0.</span>, <span class="num">0.</span>],
+       [<span class="num">0.</span>, <span class="num">0.</span>, <span class="num">0.</span>, <span class="num">0.</span>]])
+<span class="cm"># shape: (3, 4)</span></pre>
+        </div>
+      </div>
+
+      <!-- Q3 -->
+      <div class="ex-card">
+        <div class="ex-q-head">
+          <span class="ex-num">Q3</span>
+        </div>
+        <p class="ex-task">Create this 2D matrix using a single <code>np.ones()</code> call:</p>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">output</span></div>
+          <pre>array([[<span class="num">1.</span>, <span class="num">1.</span>, <span class="num">1.</span>, <span class="num">1.</span>, <span class="num">1.</span>],
+       [<span class="num">1.</span>, <span class="num">1.</span>, <span class="num">1.</span>, <span class="num">1.</span>, <span class="num">1.</span>]])
+<span class="cm"># shape: (2, 5)</span></pre>
+        </div>
+      </div>
+
+      <!-- Q4 -->
+      <div class="ex-card">
+        <div class="ex-q-head">
+          <span class="ex-num">Q4</span>
+        </div>
+        <p class="ex-task">Create this evenly-spaced 1D array using <code>np.arange()</code>:</p>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">output</span></div>
+          <pre>array([ <span class="num"> 0</span>,  <span class="num"> 5</span>,  <span class="num">10</span>,  <span class="num">15</span>,  <span class="num">20</span>,  <span class="num">25</span>])</pre>
+        </div>
+      </div>
+
+      <!-- Q5 -->
+      <div class="ex-card">
+        <div class="ex-q-head">
+          <span class="ex-num">Q5</span>
+        </div>
+        <p class="ex-task">Create this array of exactly 5 evenly-spaced values using <code>np.linspace()</code>:</p>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">output</span></div>
+          <pre>array([<span class="num">0.  </span>, <span class="num">0.25</span>, <span class="num">0.5 </span>, <span class="num">0.75</span>, <span class="num">1.  </span>])</pre>
+        </div>
+      </div>
+
+      <!-- Q6 -->
+      <div class="ex-card">
+        <div class="ex-q-head">
+          <span class="ex-num">Q6</span>
+        </div>
+        <p class="ex-task">Create this constant-filled 2D matrix using <code>np.full()</code>:</p>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">output</span></div>
+          <pre>array([[<span class="num">9</span>, <span class="num">9</span>, <span class="num">9</span>],
+       [<span class="num">9</span>, <span class="num">9</span>, <span class="num">9</span>],
+       [<span class="num">9</span>, <span class="num">9</span>, <span class="num">9</span>]])
+<span class="cm"># shape: (3, 3)  |  fill_value = 9</span></pre>
+        </div>
+      </div>
+
+      <!-- Q7 -->
+      <div class="ex-card">
+        <div class="ex-q-head">
+          <span class="ex-num">Q7</span>
+        </div>
+        <p class="ex-task">Create this identity matrix using a single <code>np.eye()</code> call:</p>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">output</span></div>
+          <pre>array([[<span class="num">1.</span>, <span class="num">0.</span>, <span class="num">0.</span>, <span class="num">0.</span>],
+       [<span class="num">0.</span>, <span class="num">1.</span>, <span class="num">0.</span>, <span class="num">0.</span>],
+       [<span class="num">0.</span>, <span class="num">0.</span>, <span class="num">1.</span>, <span class="num">0.</span>],
+       [<span class="num">0.</span>, <span class="num">0.</span>, <span class="num">0.</span>, <span class="num">1.</span>]])
+<span class="cm"># shape: (4, 4)</span></pre>
+        </div>
+      </div>
+
+      <!-- Q8 -->
+      <div class="ex-card">
+        <div class="ex-q-head">
+          <span class="ex-num">Q8</span>
+        </div>
+        <p class="ex-task">Create a random float array of this exact shape. Your values will differ — that is expected!</p>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">output</span></div>
+          <pre><span class="cm"># Example output (your values will differ):</span>
+array([[<span class="num">0.37</span>, <span class="num">0.95</span>, <span class="num">0.73</span>],
+       [<span class="num">0.60</span>, <span class="num">0.16</span>, <span class="num">0.06</span>],
+       [<span class="num">0.84</span>, <span class="num">0.22</span>, <span class="num">0.48</span>]])
+<span class="cm"># shape: (3, 3)  |  dtype: float64  |  values in [0, 1)</span></pre>
+        </div>
+      </div>
+
+      <!-- Q9 -->
+      <div class="ex-card">
+        <div class="ex-q-head">
+          <span class="ex-num">Q9</span>
+        </div>
+        <p class="ex-task">Create a random integer array of this shape with values in [1, 10). Your values will differ!</p>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">output</span></div>
+          <pre><span class="cm"># Example output (your values will differ):</span>
+array([[<span class="num">4</span>, <span class="num">9</span>, <span class="num">2</span>, <span class="num">7</span>, <span class="num">1</span>],
+       [<span class="num">8</span>, <span class="num">5</span>, <span class="num">3</span>, <span class="num">6</span>, <span class="num">4</span>]])
+<span class="cm"># shape: (2, 5)  |  dtype: int64  |  range: [1, 10)</span></pre>
+        </div>
+      </div>
+
+      <!-- Q10 -->
+      <div class="ex-card">
+        <div class="ex-q-head">
+          <span class="ex-num">Q10</span>
+        </div>
+        <p class="ex-task">Allocate an uninitialized block of memory for a <code>(4, 3)</code> array — the fastest possible allocation. You will fill every cell before reading it.</p>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">output</span></div>
+          <pre><span class="cm"># Goal: reserve uninitialized memory</span>
+<span class="cm"># shape: (4, 3)  |  dtype: float64</span>
+<span class="cm"># ⚡ Fastest allocation — no fill step</span>
+<span class="cm"># ⚠  You must overwrite every cell before reading!</span></pre>
+        </div>
+      </div>
+
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(10)">← np.empty()</button>
+        <div class="pnav-dots" id="dots-11"></div>
+        <button class="pnav-btn next" onclick="goTo(0)" style="background:rgba(139,92,246,.1);border-color:rgba(139,92,246,.4);color:var(--purple);">⟳ Back to Overview</button>
+      </div>
+    </div>
+
+  </div><!-- end panel-viewport -->
+</div><!-- end page-layout -->
+
+<!-- ════ RESHAPE PANEL ════ -->
+<div class="rp" id="rp">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+    <div class="rp-title">⊞ Reshape Visualizer</div>
+    <button onclick="toggleReshape()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.2rem;line-height:1;">✕</button>
+  </div>
+  <div class="rp-sub">The same 12 values can be reshaped into any compatible grid. Click a shape to see how they rearrange.</div>
+  <div class="rp-shapes" id="rp-shapes"></div>
+  <div style="font-size:.64rem;color:var(--muted);text-transform:uppercase;letter-spacing:.11em;font-weight:700;margin-bottom:10px;">Current layout</div>
+  <canvas id="cv-reshape" width="250" height="220" style="border-radius:10px;"></canvas>
+  <div style="margin-top:12px;font-family:'Courier New',monospace;font-size:.76rem;color:var(--green);background:rgba(16,185,129,.05);border:1px solid rgba(16,185,129,.18);border-radius:8px;padding:10px;white-space:pre-wrap;" id="rp-label"></div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+/* ── navigation ──────────────────────────── */
+const TOTAL = 12;
+const LABELS = ['Overview','np.array()','np.zeros()','np.ones()','np.arange()','np.linspace()','np.full()','np.eye()','np.random.random()','np.random.randint()','np.empty()','Exercises'];
+let current = 0;
+
+function goTo(idx) {
+  if (idx === current) return;
+  const oldPanel = $('panel-' + current);
+  const newPanel = $('panel-' + idx);
+
+  // mark old sidebar item as done (not overview)
+  if (current > 0) document.querySelector(`[data-panel="${current}"]`).classList.add('done');
+
+  oldPanel.classList.remove('active');
+  oldPanel.classList.add('exit');
+  setTimeout(() => oldPanel.classList.remove('exit'), 280);
+
+  current = idx;
+  newPanel.classList.add('active');
+  $('viewport').scrollTop = 0;
+
+  document.querySelectorAll('.s-item').forEach(b => b.classList.toggle('active', +b.dataset.panel === idx));
+  updateDots();
+
+  // draw demo for newly shown panel
+  const draws = [null, drawArr, drawZeros, drawOnes, drawArange, drawLinspace, drawFull, drawEye, drawRandom, drawRandint, drawEmpty, null];
+  if (draws[idx]) setTimeout(draws[idx], 60);
+}
+
+function updateDots() {
+  for (let i = 0; i < TOTAL; i++) {
+    const cont = $('dots-' + i);
+    if (!cont) continue;
+    cont.innerHTML = '';
+    for (let d = 0; d < TOTAL; d++) {
+      const btn = document.createElement('button');
+      btn.className = 'pnav-dot' + (d === current ? ' active' : '');
+      btn.title = LABELS[d];
+      btn.onclick = () => goTo(d);
+      cont.appendChild(btn);
+    }
+  }
+}
+
+/* ── scroll progress ──────────────────────── */
+$('viewport').addEventListener('scroll', () => {
+  const el = $('viewport');
+  $('progress').style.width = (el.scrollTop / (el.scrollHeight - el.clientHeight) * 100) + '%';
+});
+
+/* ── copy button ─────────────────────────── */
+function cp(btn) {
+  navigator.clipboard.writeText(btn.closest('.code-wrap').querySelector('pre').innerText.trim()).then(() => {
+    btn.textContent = '✓ copied';
+    setTimeout(() => btn.textContent = 'copy', 1600);
+  });
+}
+
+/* ── grid painter ────────────────────────── */
+function paintGrid(cvId, rows, cols, valFn, textColor, bgColor, borderColor) {
+  const cv = $(cvId), cs = Math.min(46, ~~(520/cols)), p = 4;
+  cv.width = cols*(cs+p)+p; cv.height = rows*(cs+p)+p;
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0,0,cv.width,cv.height);
+  for (let r=0;r<rows;r++) for (let c=0;c<cols;c++) {
+    const x=p+c*(cs+p), y=p+r*(cs+p);
+    ctx.fillStyle=bgColor; ctx.beginPath(); ctx.roundRect(x,y,cs,cs,5); ctx.fill();
+    ctx.strokeStyle=borderColor; ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle=textColor; ctx.font=`bold ${Math.min(15,cs/2.8)}px 'Courier New'`;
+    ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(valFn(r,c),x+cs/2,y+cs/2);
+  }
+}
+
+/* ── 1. np.array() ──────────────────────── */
+let arrVals = Array.from({length:6}, () => ~~(Math.random()*20)+1);
+function shuffleArr() { arrVals=Array.from({length:+$('a1-n').value},()=>~~(Math.random()*20)+1); renderArr(); }
+function drawArr() { const n=+$('a1-n').value; $('a1-nv').textContent=n; if(arrVals.length!==n) arrVals=Array.from({length:n},()=>~~(Math.random()*20)+1); renderArr(); }
+function renderArr() {
+  const cv=$('cv-arr'),n=arrVals.length,cs=52,p=6;
+  cv.width=n*(cs+p)+p; cv.height=74;
+  const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+  arrVals.forEach((v,i)=>{
+    const x=p+i*(cs+p),y=10;
+    ctx.fillStyle='rgba(250,204,21,.1)'; ctx.beginPath(); ctx.roundRect(x,y,cs,52,6); ctx.fill();
+    ctx.strokeStyle='rgba(250,204,21,.35)'; ctx.lineWidth=1.5; ctx.stroke();
+    ctx.fillStyle='#facc15'; ctx.font='bold 17px Courier New'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(v,x+cs/2,y+26);
+    ctx.fillStyle='#374151'; ctx.font='10px Courier New'; ctx.fillText('['+i+']',x+cs/2,y+60);
+  });
+  $('out-arr').textContent=`np.array([${arrVals.join(', ')}])\n# dtype: int64  |  shape: (${n},)`;
+}
+
+/* ── 2. np.zeros() ──────────────────────── */
+function drawZeros() {
+  const r=+$('z-r').value,c=+$('z-c').value; $('z-rv').textContent=r; $('z-cv').textContent=c;
+  paintGrid('cv-zeros',r,c,()=>'0.','#3b82f6','rgba(59,130,246,.1)','rgba(59,130,246,.32)');
+  $('out-zeros').textContent=`np.zeros((${r}, ${c}))\n# shape: (${r}, ${c})  |  dtype: float64\n# total: ${r*c}`;
+}
+
+/* ── 3. np.ones() ───────────────────────── */
+function drawOnes() {
+  const r=+$('o-r').value,c=+$('o-c').value; $('o-rv').textContent=r; $('o-cv').textContent=c;
+  paintGrid('cv-ones',r,c,()=>'1.','#10b981','rgba(16,185,129,.13)','rgba(16,185,129,.42)');
+  $('out-ones').textContent=`np.ones((${r}, ${c}))\n# shape: (${r}, ${c})  |  dtype: float64\n# total: ${r*c}`;
+}
+
+/* ── 4. np.arange() ─────────────────────── */
+function drawArange() {
+  let s=+$('ar-s').value,e=+$('ar-e').value,t=+$('ar-t').value; if(e<=s)e=s+1;
+  $('ar-sv').textContent=s; $('ar-ev').textContent=e; $('ar-tv').textContent=t;
+  const vals=[]; for(let v=s;v<e;v+=t){vals.push(v);if(vals.length>42)break;}
+  const cv=$('cv-arange'),h=90,pad=22;
+  cv.width=Math.max(320,vals.length*54+pad*2); cv.height=h;
+  const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+  ctx.strokeStyle='#30363d'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(pad,h/2); ctx.lineTo(cv.width-pad,h/2); ctx.stroke();
+  const sp=(cv.width-pad*2)/Math.max(vals.length-1,1);
+  vals.forEach((v,i)=>{
+    const x=pad+i*sp;
+    ctx.fillStyle='#f97316'; ctx.beginPath(); ctx.arc(x,h/2,9,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#000'; ctx.font='bold 8px Courier New'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(v,x,h/2);
+    ctx.fillStyle='#facc15'; ctx.font='10px Courier New'; ctx.fillText(v,x,h/2-20);
+  });
+  $('out-arange').textContent=`np.arange(${s}, ${e}, ${t})\n# → [${vals.join(', ')}]\n# length: ${vals.length}`;
+}
+
+/* ── 5. np.linspace() ───────────────────── */
+function drawLinspace() {
+  const s=+$('ls-s').value,e=+$('ls-e').value,n=+$('ls-n').value;
+  $('ls-sv').textContent=s; $('ls-ev').textContent=e; $('ls-nv').textContent=n;
+  const vals=Array.from({length:n},(_,i)=>+(s+(e-s)*i/(n-1)).toFixed(3));
+  const cv=$('cv-linspace'),h=90,pad=26;
+  cv.width=Math.max(320,n*46+pad*2); cv.height=h;
+  const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+  const g=ctx.createLinearGradient(pad,0,cv.width-pad,0);
+  g.addColorStop(0,'#3b82f6'); g.addColorStop(.5,'#8b5cf6'); g.addColorStop(1,'#06b6d4');
+  ctx.strokeStyle=g; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(pad,h/2); ctx.lineTo(cv.width-pad,h/2); ctx.stroke();
+  const sp=(cv.width-pad*2)/Math.max(n-1,1);
+  vals.forEach((v,i)=>{
+    const x=pad+i*sp,t2=i/(n-1);
+    const ri=~~(59+t2*(6-59)),gi=~~(130+t2*(182-130)),bi=~~(246+t2*(212-246));
+    ctx.fillStyle=`rgb(${ri},${gi},${bi})`; ctx.beginPath(); ctx.arc(x,h/2,8,0,Math.PI*2); ctx.fill();
+    if(n<=13){ctx.fillStyle='#e6edf3';ctx.font='9px Courier New';ctx.textAlign='center';ctx.fillText(v,x,h/2-17);}
+  });
+  const step=n>1?+((e-s)/(n-1)).toFixed(4):'N/A';
+  $('out-linspace').textContent=`np.linspace(${s}, ${e}, ${n})\n# → [${vals.join(', ')}]\n# step ≈ ${step}`;
+}
+
+/* ── 6. np.full() ───────────────────────── */
+function drawFull() {
+  const r=+$('fu-r').value,c=+$('fu-c').value,v=+$('fu-v').value;
+  $('fu-rv').textContent=r; $('fu-cv').textContent=c; $('fu-vv').textContent=v;
+  const t=v/99,ri=~~(139+t*(249-139)),gi=~~(92-t*50),bi=~~(246-t*(246-22));
+  paintGrid('cv-full',r,c,()=>v,`rgb(${ri},${gi},${bi})`,`rgba(${ri},${gi},${bi},.13)`,`rgba(${ri},${gi},${bi},.38)`);
+  $('out-full').textContent=`np.full((${r}, ${c}), ${v})\n# shape: (${r}, ${c})  |  fill: ${v}\n# total: ${r*c}`;
+}
+
+/* ── 7. np.eye() ────────────────────────── */
+function drawEye() {
+  const n=+$('ey-n').value; $('ey-nv').textContent=n;
+  const cv=$('cv-eye'),cs=Math.min(44,~~(420/n)),p=4;
+  cv.width=n*(cs+p)+p; cv.height=n*(cs+p)+p;
+  const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+  for(let r=0;r<n;r++) for(let c=0;c<n;c++){
+    const d=r===c,x=p+c*(cs+p),y=p+r*(cs+p);
+    ctx.fillStyle=d?'rgba(236,72,153,.22)':'rgba(255,255,255,.025)'; ctx.beginPath(); ctx.roundRect(x,y,cs,cs,4); ctx.fill();
+    ctx.strokeStyle=d?'rgba(236,72,153,.65)':'#30363d'; ctx.lineWidth=d?2:1; ctx.stroke();
+    ctx.fillStyle=d?'#ec4899':'#374151'; ctx.font=`bold ${Math.min(15,cs/2.6)}px Courier New`;
+    ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(d?'1':'0',x+cs/2,y+cs/2);
+  }
+  const rows=Array.from({length:n},(_,r)=>'['+Array.from({length:n},(_,c)=>r===c?'1.':'0.').join(' ')+']');
+  $('out-eye').textContent=`np.eye(${n})\n# shape: (${n}, ${n})\n${rows.join('\n')}`;
+}
+
+/* ── 8. np.random.random() ──────────────── */
+function drawRandom() {
+  const r=+$('rn-r').value,c=+$('rn-c').value; $('rn-rv').textContent=r; $('rn-cv').textContent=c;
+  const cv=$('cv-random'),cs=Math.min(44,~~(530/c)),p=4;
+  cv.width=c*(cs+p)+p; cv.height=r*(cs+p)+p;
+  const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+  const flat=[];
+  for(let ri=0;ri<r;ri++) for(let ci=0;ci<c;ci++){
+    const v=Math.random(); flat.push(v);
+    const x=p+ci*(cs+p),y=p+ri*(cs+p);
+    ctx.fillStyle=`rgb(${~~(v*244)},${~~((1-Math.abs(v-.5)*2)*80)},${~~((1-v)*246)})`;
+    ctx.beginPath(); ctx.roundRect(x,y,cs,cs,4); ctx.fill();
+    ctx.fillStyle=v>.5?'rgba(0,0,0,.75)':'rgba(255,255,255,.75)';
+    ctx.font=`bold ${Math.min(10,cs/4)}px Courier New`; ctx.textAlign='center'; ctx.textBaseline='middle';
+    if(cs>=28) ctx.fillText(v.toFixed(2),x+cs/2,y+cs/2);
+  }
+  $('out-random').textContent=`np.random.random((${r}, ${c}))\n# shape: (${r}, ${c})  |  range: [0, 1)\n# min: ${Math.min(...flat).toFixed(3)}  max: ${Math.max(...flat).toFixed(3)}`;
+}
+
+/* ── 9. np.random.randint() ─────────────── */
+function drawRandint() {
+  const r=+$('ri-r').value,c=+$('ri-c').value;
+  let lo=+$('ri-lo').value,hi=+$('ri-hi').value;
+  if(hi<=lo+1) hi=lo+2;
+  $('ri-rv').textContent=r; $('ri-cv').textContent=c;
+  $('ri-lov').textContent=lo; $('ri-hiv').textContent=hi;
+  const cv=$('cv-randint'),cs=Math.min(46,~~(530/c)),p=4;
+  cv.width=c*(cs+p)+p; cv.height=r*(cs+p)+p;
+  const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+  const flat=[];
+  for(let ri2=0;ri2<r;ri2++) for(let ci=0;ci<c;ci++){
+    const v=~~(Math.random()*(hi-lo))+lo; flat.push(v);
+    const x=p+ci*(cs+p),y=p+ri2*(cs+p);
+    const t=(v-lo)/Math.max(hi-lo-1,1);
+    ctx.fillStyle=`rgba(168,85,247,${0.1+t*0.35})`;
+    ctx.beginPath(); ctx.roundRect(x,y,cs,cs,4); ctx.fill();
+    ctx.strokeStyle=`rgba(168,85,247,${0.3+t*0.4})`; ctx.lineWidth=1.5; ctx.stroke();
+    ctx.fillStyle='#e9d5ff'; ctx.font=`bold ${Math.min(14,cs/3)}px Courier New`;
+    ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(v,x+cs/2,y+cs/2);
+  }
+  const rows=[]; let k=0;
+  for(let ri2=0;ri2<r;ri2++){rows.push('['+flat.slice(k,k+c).join(' ')+']'); k+=c;}
+  $('out-randint').textContent=`np.random.randint(${lo}, ${hi}, size=(${r}, ${c}))\n# shape: (${r}, ${c})  |  range: [${lo}, ${hi})\n${rows.join('\n')}`;
+}
+
+/* ── 10. np.empty() ──────────────────────── */
+function drawEmpty() {
+  const r=+$('em-r').value,c=+$('em-c').value; $('em-rv').textContent=r; $('em-cv').textContent=c;
+  const cv=$('cv-empty'),cs=Math.min(46,~~(530/c)),p=4;
+  cv.width=c*(cs+p)+p; cv.height=r*(cs+p)+p;
+  const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+  for(let ri=0;ri<r;ri++) for(let ci=0;ci<c;ci++){
+    const x=p+ci*(cs+p),y=p+ri*(cs+p);
+    ctx.fillStyle='rgba(100,116,139,.07)'; ctx.beginPath(); ctx.roundRect(x,y,cs,cs,4); ctx.fill();
+    ctx.strokeStyle='#1e2733'; ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle='#374151'; ctx.font=`bold ${Math.min(14,cs/2.8)}px Courier New`;
+    ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('?',x+cs/2,y+cs/2);
+  }
+  $('out-empty').textContent=`np.empty((${r}, ${c}))\n# uninitialized — simulated above\n# Always fill before reading!`;
+}
+
+function animateEmpty() {
+  const r=+$('em-r').value,c=+$('em-c').value;
+  const cv=$('cv-empty'),cs=Math.min(46,~~(530/c)),p=4;
+  cv.width=c*(cs+p)+p; cv.height=r*(cs+p)+p;
+  const ctx=cv.getContext('2d');
+  const garbage=Array.from({length:r*c},()=>{
+    const k=Math.random();
+    if(k<.4) return (Math.random()*1e-310).toExponential(1);
+    if(k<.7) return (Math.random()*6.9e-310).toExponential(1);
+    return (Math.random()*1e14).toExponential(1);
+  });
+  let frame=0,total=20;
+  (function tick(){
+    ctx.clearRect(0,0,cv.width,cv.height);
+    for(let ri=0;ri<r;ri++) for(let ci=0;ci<c;ci++){
+      const idx=ri*c+ci,x=p+ci*(cs+p),y=p+ri*(cs+p);
+      const rev=idx<=frame*(r*c/total),fl=Math.random()>.6;
+      ctx.fillStyle=rev?(fl?'rgba(249,115,22,.18)':'rgba(249,115,22,.08)'):'rgba(100,116,139,.07)';
+      ctx.beginPath(); ctx.roundRect(x,y,cs,cs,4); ctx.fill();
+      ctx.strokeStyle=rev?'rgba(249,115,22,.38)':'#1e2733'; ctx.lineWidth=1; ctx.stroke();
+      ctx.fillStyle=rev?'#f97316':'#374151';
+      ctx.font=`bold ${Math.min(8,cs/5.5)}px Courier New`; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(rev?garbage[idx]:'?',x+cs/2,y+cs/2);
+    }
+    if(++frame<=total) requestAnimationFrame(tick);
+  })();
+  $('out-empty').textContent=`np.empty((${r}, ${c}))\n# ⚠ garbage values simulated\n# NEVER read uninitialized memory!`;
+}
+
+/* ── Reshape Visualizer ──────────────────── */
+const SHAPES=[[1,12],[2,6],[3,4],[4,3],[6,2],[12,1]];
+let activeShape=2;
+function toggleReshape(){$('rp').classList.toggle('open');if($('rp').classList.contains('open'))renderReshape();}
+function renderReshape(){
+  const cont=$('rp-shapes'); cont.innerHTML='';
+  SHAPES.forEach(([r,c],i)=>{
+    const btn=document.createElement('button');
+    btn.className='rp-shape-btn'+(i===activeShape?' sel':'');
+    btn.textContent=`${r}×${c}`; btn.onclick=()=>{activeShape=i;renderReshape();};
+    cont.appendChild(btn);
+  });
+  const[rows,cols]=SHAPES[activeShape];
+  const cv=$('cv-reshape'),cs=Math.min(34,~~(240/Math.max(rows,cols))),p=3;
+  cv.width=250; cv.height=rows*(cs+p)+p+10;
+  const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+  let idx=0;
+  for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
+    const x=p+c*(cs+p),y=p+r*(cs+p),hue=(idx/12)*300;
+    ctx.fillStyle=`hsla(${hue},72%,56%,.85)`; ctx.beginPath(); ctx.roundRect(x,y,cs,cs,3); ctx.fill();
+    ctx.fillStyle='#000'; ctx.font=`bold ${Math.min(11,cs/2.5)}px Courier New`;
+    ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(idx,x+cs/2,y+cs/2); idx++;
+  }
+  $('rp-label').textContent=`np.arange(12).reshape(${rows}, ${cols})\n# shape: (${rows}, ${cols})  total: 12`;
+}
+
+/* ── init ────────────────────────────────── */
+updateDots();
+renderArr();
+</script>
+</body>
+</html>

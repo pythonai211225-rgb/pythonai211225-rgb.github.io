@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Topic 08 — Comparison &amp; Statistics</title>
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    .page-layout { display:flex; height:calc(100vh - 54px); overflow:hidden; }
+    .sidebar { width:230px; min-width:230px; height:100%; overflow-y:auto; background:#0a0e14; border-right:1px solid var(--border); display:flex; flex-direction:column; scrollbar-width:thin; scrollbar-color:var(--border) transparent; flex-shrink:0; }
+    .sidebar-head { padding:20px 18px 14px; font-size:.65rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--border); }
+    .sidebar-nav { padding:8px 0; flex:1; }
+    .s-item { display:flex; align-items:center; gap:11px; padding:10px 18px; cursor:pointer; background:none; border:none; border-left:3px solid transparent; width:100%; text-align:left; transition:background .18s,border-color .18s; }
+    .s-item:hover { background:rgba(255,255,255,.04); }
+    .s-item.active { background:rgba(250,204,21,.08); border-left-color:var(--accent); }
+    .s-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; transition:transform .2s; }
+    .s-item.active .s-dot { transform:scale(1.45); box-shadow:0 0 8px currentColor; }
+    .s-num { font-size:.62rem; color:var(--border); font-family:'Courier New',monospace; font-weight:700; min-width:18px; }
+    .s-item.active .s-num { color:var(--accent); }
+    .s-label { font-size:.79rem; color:var(--muted); font-family:'Courier New',monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .s-item.active .s-label { color:var(--text); }
+    .s-item.done .s-label::after { content:' ✓'; color:var(--green); font-size:.7rem; }
+
+    .panel-viewport { flex:1; overflow-y:auto; overflow-x:hidden; position:relative; }
+    .panel { display:none; flex-direction:column; min-height:100%; padding:40px 52px 100px; max-width:820px; margin:0 auto; animation:fadeIn .35s ease; }
+    .panel.active { display:flex; }
+    @keyframes fadeIn { from{opacity:0;transform:translateX(28px)} to{opacity:1;transform:translateX(0)} }
+    .panel.exit { display:flex; animation:fadeOut .25s ease forwards; }
+    @keyframes fadeOut { from{opacity:1;transform:translateX(0)} to{opacity:0;transform:translateX(-28px)} }
+
+    .m-hero { position:relative; height:200px; border-radius:18px; overflow:hidden; margin-bottom:26px; flex-shrink:0; }
+    .m-hero img { width:100%; height:100%; object-fit:cover; filter:brightness(.5) saturate(.8); transition:filter .45s; }
+    .panel.active .m-hero img { filter:brightness(.6) saturate(1.1); }
+    .m-hero-ov { position:absolute; inset:0; padding:26px 30px; display:flex; flex-direction:column; justify-content:flex-end; background:linear-gradient(0deg,rgba(0,0,0,.78) 0%,rgba(0,0,0,.15) 55%,transparent 100%); }
+    .m-breadcrumb { font-size:.62rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:rgba(255,255,255,.4); margin-bottom:5px; }
+    .m-name { font-size:1.7rem; font-weight:900; color:#fff; font-family:'Courier New',monospace; }
+    .m-tagline { font-size:.86rem; color:rgba(255,255,255,.62); margin-top:4px; }
+
+    .pills { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 20px; align-items:center; }
+    .pill { padding:5px 14px; border-radius:999px; font-size:.7rem; font-weight:700; letter-spacing:.06em; }
+    .pill-sig { font-family:'Courier New',monospace; font-size:.74rem; letter-spacing:0; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.12); color:var(--text); }
+    .pill-ret { background:rgba(16,185,129,.1); border:1px solid rgba(16,185,129,.3); color:var(--green); font-family:'Courier New',monospace; letter-spacing:0; }
+    .pill-note { background:rgba(249,115,22,.1); border:1px solid rgba(249,115,22,.3); color:var(--orange); font-family:'Courier New',monospace; font-size:.7rem; }
+    .pill-param { position:relative; cursor:help; transition:filter .18s; }
+    .pill-param:hover { filter:brightness(1.3); }
+    .pill-param .balloon { position:absolute; bottom:calc(100% + 14px); left:50%; transform:translateX(-50%) translateY(6px); width:230px; background:linear-gradient(155deg,#0e2845 0%,#071a2e 100%); border:1.5px solid rgba(240,182,62,.65); border-radius:14px; padding:13px 16px 11px; box-shadow:0 0 0 1px rgba(240,182,62,.1),0 18px 48px rgba(0,0,0,.72),0 0 36px rgba(240,182,62,.07); opacity:0; pointer-events:none; transition:opacity .22s ease,transform .22s ease; z-index:300; animation:none; }
+    .pill-param:hover .balloon { opacity:1; transform:translateX(-50%) translateY(0); animation:balloonFloat 3s ease-in-out infinite; }
+    @keyframes balloonFloat { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(-5px)} }
+    .balloon-title { font-family:'Courier New',monospace; font-size:.7rem; font-weight:800; color:#f0b63e; letter-spacing:.04em; margin-bottom:6px; display:flex; align-items:center; gap:6px; }
+    .balloon-title::before { content:''; display:inline-block; width:7px; height:7px; border-radius:50%; background:#f0b63e; box-shadow:0 0 6px rgba(240,182,62,.7); flex-shrink:0; }
+    .balloon-body { font-size:.76rem; color:rgba(230,237,243,.78); line-height:1.6; font-family:'Segoe UI',system-ui,sans-serif; font-weight:400; }
+    .pill-param .balloon::after { content:''; position:absolute; bottom:-10px; left:50%; transform:translateX(-50%); border-left:10px solid transparent; border-right:10px solid transparent; border-top:10px solid rgba(240,182,62,.65); }
+    .pill-param .balloon::before { content:''; position:absolute; bottom:-8px; left:50%; transform:translateX(-50%); border-left:9px solid transparent; border-right:9px solid transparent; border-top:9px solid #071a2e; z-index:1; }
+
+    .m-desc { font-size:.95rem; color:var(--muted); line-height:1.75; margin-bottom:14px; }
+    .m-desc code { font-family:'Courier New',monospace; font-size:.88em; padding:1px 6px; border-radius:4px; background:rgba(255,255,255,.06); }
+
+    .demo-box { background:#060a10; border:1px solid var(--border); border-radius:14px; padding:22px 22px 18px; margin-top:20px; flex-shrink:0; display:flex; flex-direction:column; }
+    .demo-lbl { font-size:.64rem; font-weight:800; letter-spacing:.13em; text-transform:uppercase; color:var(--muted); margin-bottom:18px; display:flex; align-items:center; gap:8px; }
+    .demo-lbl::before { content:''; width:3px; height:12px; border-radius:2px; background:var(--accent); flex-shrink:0; }
+    .demo-controls { display:flex; flex-wrap:wrap; gap:18px; align-items:flex-end; margin-bottom:18px; }
+    .ctrl { display:flex; flex-direction:column; gap:5px; }
+    .ctrl label { font-size:.69rem; color:var(--muted); font-weight:600; }
+    .ctrl input[type=range] { -webkit-appearance:none; width:130px; height:4px; background:var(--border); border-radius:2px; outline:none; cursor:pointer; }
+    .ctrl input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:15px; height:15px; background:var(--accent); border-radius:50%; cursor:pointer; box-shadow:0 0 6px rgba(250,204,21,.5); }
+    .ctrl .cval { font-size:.7rem; color:var(--accent); font-family:'Courier New',monospace; font-weight:700; text-align:center; }
+    .demo-canvas-wrap { background:#020509; border-radius:10px; padding:14px; overflow-x:auto; min-height:72px; order:4; }
+    canvas { display:block; }
+    .demo-out { font-family:'Courier New',monospace; font-size:.8rem; color:#10b981; line-height:1.65; margin-top:0; margin-bottom:14px; padding:11px 15px; background:rgba(16,185,129,.05); border:1px solid rgba(16,185,129,.18); border-radius:8px; white-space:pre-wrap; order:3; }
+    .demo-btn { padding:8px 18px; border-radius:8px; font-size:.76rem; font-weight:700; cursor:pointer; transition:background .2s,border-color .2s; }
+    .toggle-group { display:flex; gap:6px; flex-wrap:wrap; }
+    .tgl-btn { padding:6px 16px; border-radius:8px; font-size:.74rem; font-weight:700; cursor:pointer; font-family:'Courier New',monospace; transition:all .2s; }
+    .tgl-btn.on { background:rgba(250,204,21,.15); border:1px solid rgba(250,204,21,.45); color:var(--accent); }
+    .tgl-btn:not(.on) { background:transparent; border:1px solid var(--border); color:var(--muted); }
+    .tgl-btn:not(.on):hover { border-color:var(--accent); color:var(--text); }
+
+    .panel-nav { display:flex; justify-content:space-between; align-items:center; margin-top:40px; padding-top:24px; border-top:1px solid var(--border); flex-shrink:0; }
+    .pnav-btn { display:flex; align-items:center; gap:9px; padding:10px 22px; border-radius:10px; border:1px solid var(--border); background:transparent; color:var(--muted); font-size:.83rem; font-weight:700; cursor:pointer; transition:color .2s,border-color .2s,background .2s; }
+    .pnav-btn:hover:not(:disabled) { color:var(--text); border-color:var(--accent); background:rgba(250,204,21,.06); }
+    .pnav-btn:disabled { opacity:.28; cursor:default; }
+    .pnav-btn.next { background:rgba(250,204,21,.08); border-color:rgba(250,204,21,.35); color:var(--accent); }
+    .pnav-btn.next:hover { background:rgba(250,204,21,.16); border-color:var(--accent); }
+    .pnav-dots { display:flex; gap:7px; align-items:center; }
+    .pnav-dot { width:7px; height:7px; border-radius:50%; background:var(--border); transition:background .2s,transform .2s; cursor:pointer; border:none; padding:0; }
+    .pnav-dot.active { background:var(--accent); transform:scale(1.4); }
+
+    .overview-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:14px; margin-top:24px; }
+    .ov-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px 16px 16px; cursor:pointer; transition:border-color .2s,box-shadow .2s,transform .18s; display:flex; flex-direction:column; gap:8px; }
+    .ov-card:hover { transform:translateY(-3px); border-color:rgba(250,204,21,.4); box-shadow:0 8px 28px rgba(250,204,21,.08); }
+    .ov-card-num { font-size:.62rem; color:var(--muted); font-weight:800; letter-spacing:.1em; }
+    .ov-card-name { font-size:.9rem; font-family:'Courier New',monospace; font-weight:700; }
+    .ov-card-desc { font-size:.77rem; color:var(--muted); line-height:1.5; }
+
+    @media(max-width:700px){.sidebar{display:none}.panel{padding:20px 16px 80px}}
+  </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<nav class="top-nav">
+  <a href="index.html" class="nav-back">← Deck 02</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item" href="01-intro-numpy.html">01</a>
+    <a class="nav-item" href="02-numpy-arrays.html">02</a>
+    <a class="nav-item" href="03-topics.html">03</a>
+    <a class="nav-item" href="04-cheat-sheet.html">04</a>
+    <a class="nav-item" href="05-placeholder.html">05</a>
+    <a class="nav-item" href="06-arrays-prop-info.html">06</a>
+    <a class="nav-item" href="07-arith-opt.html">07</a>
+    <a class="nav-item active" href="08-comp-stat-agg.html">08</a>
+    <a class="nav-item" href="09-copy-sort-access.html">09</a>
+    <a class="nav-item" href="10-resh-com.html">10</a>
+  </div>
+</nav>
+
+<div class="page-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-head">11 Ops — Compare &amp; Stats</div>
+    <nav class="sidebar-nav">
+      <button class="s-item active" data-panel="0" onclick="goTo(0)"><span class="s-num">00</span><span class="s-dot" style="background:#8b5cf6"></span><span class="s-label">Overview</span></button>
+      <!-- Comparison -->
+      <button class="s-item" data-panel="1" onclick="goTo(1)"><span class="s-num">01</span><span class="s-dot" style="background:#3b82f6"></span><span class="s-label">a == b</span></button>
+      <button class="s-item" data-panel="2" onclick="goTo(2)"><span class="s-num">02</span><span class="s-dot" style="background:#06b6d4"></span><span class="s-label">a &lt; 2 / a &gt; 2</span></button>
+      <button class="s-item" data-panel="3" onclick="goTo(3)"><span class="s-num">03</span><span class="s-dot" style="background:#ec4899"></span><span class="s-label">np.array_equal()</span></button>
+      <!-- Stats -->
+      <button class="s-item" data-panel="4" onclick="goTo(4)"><span class="s-num">04</span><span class="s-dot" style="background:#10b981"></span><span class="s-label">.sum()</span></button>
+      <button class="s-item" data-panel="5" onclick="goTo(5)"><span class="s-num">05</span><span class="s-dot" style="background:#facc15"></span><span class="s-label">.min() / .max()</span></button>
+      <button class="s-item" data-panel="6" onclick="goTo(6)"><span class="s-num">06</span><span class="s-dot" style="background:#e879f9"></span><span class="s-label">.argmin() / .argmax()</span></button>
+      <button class="s-item" data-panel="7" onclick="goTo(7)"><span class="s-num">07</span><span class="s-dot" style="background:#f97316"></span><span class="s-label">.cumsum()</span></button>
+      <button class="s-item" data-panel="8" onclick="goTo(8)"><span class="s-num">08</span><span class="s-dot" style="background:#8b5cf6"></span><span class="s-label">.mean()</span></button>
+      <button class="s-item" data-panel="9" onclick="goTo(9)"><span class="s-num">09</span><span class="s-dot" style="background:#14b8a6"></span><span class="s-label">np.median()</span></button>
+      <button class="s-item" data-panel="10" onclick="goTo(10)"><span class="s-num">10</span><span class="s-dot" style="background:#f43f5e"></span><span class="s-label">np.corrcoef()</span></button>
+      <button class="s-item" data-panel="11" onclick="goTo(11)"><span class="s-num">11</span><span class="s-dot" style="background:#a78bfa"></span><span class="s-label">np.std()</span></button>
+      <button class="s-item" data-panel="12" onclick="goTo(12)"><span class="s-num">12</span><span class="s-dot" style="background:#34d399"></span><span class="s-label">np.var()</span></button>
+    </nav>
+  </aside>
+
+  <!-- PANEL VIEWPORT -->
+  <div class="panel-viewport" id="viewport">
+
+    <!-- ══ PANEL 0: Overview ══ -->
+    <div class="panel active" id="panel-0">
+      <div class="hero" style="margin-bottom:36px;">
+        <span class="topic-label"><span class="dot"></span>Topic 08 of 08</span>
+        <h1>Comparison &amp; Statistics</h1>
+        <p>Three comparison operators that produce boolean masks, plus nine aggregation functions that summarise an array into a single number — or a row/column of numbers when an axis is specified.</p>
+        <div class="hero-pills">
+          <span class="tag">3 Comparison Ops</span>
+          <span class="tag green">9 Stat Functions</span>
+          <span class="tag blue">Live Charts</span>
+          <span class="tag orange">Interactive</span>
+        </div>
+      </div>
+      <div style="font-size:.72rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--blue);margin-bottom:10px;display:flex;align-items:center;gap:8px;"><span style="width:3px;height:12px;border-radius:2px;background:var(--blue);display:inline-block;"></span>Comparison</div>
+      <div class="overview-grid" style="margin-top:0;margin-bottom:28px;">
+        <div class="ov-card" onclick="goTo(1)"><div class="ov-card-num">01 / 12</div><div class="ov-card-name" style="color:#3b82f6">a == b</div><div class="ov-card-desc">Element-wise equality — returns a True/False array.</div></div>
+        <div class="ov-card" onclick="goTo(2)"><div class="ov-card-num">02 / 12</div><div class="ov-card-name" style="color:#06b6d4">a &lt; 2 / a &gt; 2</div><div class="ov-card-desc">Compare each element to a scalar — great for masking.</div></div>
+        <div class="ov-card" onclick="goTo(3)"><div class="ov-card-num">03 / 12</div><div class="ov-card-name" style="color:#ec4899">np.array_equal()</div><div class="ov-card-desc">Are two arrays identical in shape and values? One boolean.</div></div>
+      </div>
+      <div style="font-size:.72rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--green);margin-bottom:10px;display:flex;align-items:center;gap:8px;"><span style="width:3px;height:12px;border-radius:2px;background:var(--green);display:inline-block;"></span>Statistics &amp; Aggregation</div>
+      <div class="overview-grid" style="margin-top:0;">
+        <div class="ov-card" onclick="goTo(4)"><div class="ov-card-num">04 / 12</div><div class="ov-card-name" style="color:#10b981">.sum()</div><div class="ov-card-desc">Add all elements — or per-axis for 2D.</div></div>
+        <div class="ov-card" onclick="goTo(5)"><div class="ov-card-num">05 / 12</div><div class="ov-card-name" style="color:#facc15">.min() / .max()</div><div class="ov-card-desc">Smallest and largest value — supports axis.</div></div>
+        <div class="ov-card" onclick="goTo(6)"><div class="ov-card-num">06 / 12</div><div class="ov-card-name" style="color:#e879f9">.argmin() / .argmax()</div><div class="ov-card-desc">Index of the min or max — where is the extreme value?</div></div>
+        <div class="ov-card" onclick="goTo(7)"><div class="ov-card-num">07 / 12</div><div class="ov-card-name" style="color:#f97316">.cumsum()</div><div class="ov-card-desc">Running total — each cell holds sum up to that point.</div></div>
+        <div class="ov-card" onclick="goTo(8)"><div class="ov-card-num">08 / 12</div><div class="ov-card-name" style="color:#8b5cf6">.mean()</div><div class="ov-card-desc">Average value across all elements or per axis.</div></div>
+        <div class="ov-card" onclick="goTo(9)"><div class="ov-card-num">09 / 12</div><div class="ov-card-name" style="color:#14b8a6">np.median()</div><div class="ov-card-desc">Middle value — resistant to outliers unlike mean.</div></div>
+        <div class="ov-card" onclick="goTo(10)"><div class="ov-card-num">10 / 12</div><div class="ov-card-name" style="color:#f43f5e">np.corrcoef()</div><div class="ov-card-desc">Correlation matrix — how linearly related are two arrays?</div></div>
+        <div class="ov-card" onclick="goTo(11)"><div class="ov-card-num">11 / 12</div><div class="ov-card-name" style="color:#a78bfa">np.std()</div><div class="ov-card-desc">How spread out are the values? Standard deviation.</div></div>
+        <div class="ov-card" onclick="goTo(12)"><div class="ov-card-num">12 / 12</div><div class="ov-card-name" style="color:#34d399">np.var()</div><div class="ov-card-desc">Variance — std squared. Same spread, different scale.</div></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" disabled>← Prev</button>
+        <div class="pnav-dots" id="dots-0"></div>
+        <button class="pnav-btn next" onclick="goTo(1)">a == b →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 1: a == b ══ -->
+    <div class="panel" id="panel-1">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1535378917042-10a22c95931a?w=900&q=75&fit=crop&h=200" alt="Mirror symmetry" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Comparison 01 / 03 · Boolean Mask</div>
+          <div class="m-name">a == b</div>
+          <div class="m-tagline">Element-wise equality — a mask of True and False</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">a == b &nbsp;/&nbsp; np.equal(a, b)</span>
+        <span class="pill pill-param" style="background:rgba(59,130,246,.1);color:var(--blue);border:1px solid rgba(59,130,246,.28);">a
+          <span class="balloon"><span class="balloon-title">a</span><span class="balloon-body">The first array to compare. Each element is tested against the matching element of <code>b</code>. Must be broadcast-compatible with <code>b</code>.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(139,92,246,.1);color:var(--purple);border:1px solid rgba(139,92,246,.28);">b
+          <span class="balloon"><span class="balloon-title">b</span><span class="balloon-body">The second array compared element-wise against <code>a</code>. Can also be a scalar to test every element of <code>a</code> at once.</span></span>
+        </span>
+        <span class="pill pill-note">element-wise</span>
+        <span class="pill pill-ret">→ bool ndarray</span>
+      </div>
+      <p class="m-desc">Compares each element of <code>a</code> with the matching element of <code>b</code> and returns a boolean array of the same shape. The result is a <strong style="color:var(--blue)">mask</strong> — use it directly to filter values: <code>a[a == b]</code> extracts only the matching elements.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> numpy <span class="kw">as</span> <span class="lib">np</span>
+
+a = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>])
+b = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">1</span>, <span class="num">5</span>, <span class="num">3</span>])
+<span class="fn">print</span>(a == b)      <span class="cm"># [ True False  True]</span>
+<span class="fn">print</span>(a != b)      <span class="cm"># [False  True False]</span>
+
+<span class="cm"># use mask to filter</span>
+<span class="fn">print</span>(a[a == b])   <span class="cm"># [1 3]</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — see which elements match</div>
+        <div class="demo-controls">
+          <button class="demo-btn" style="background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.3);color:var(--blue);" onclick="shuffleEq()">⟳ Shuffle arrays</button>
+        </div>
+        <div class="demo-out" id="out-eq"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-eq" height="100"></canvas></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(0)">← Overview</button>
+        <div class="pnav-dots" id="dots-1"></div>
+        <button class="pnav-btn next" onclick="goTo(2)">a &lt; 2 →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 2: a < 2 ══ -->
+    <div class="panel" id="panel-2">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1509228627152-72ae9ae6848d?w=900&q=75&fit=crop&h=200" alt="Staircase threshold" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Comparison 02 / 03 · Scalar Filter</div>
+          <div class="m-name">a &lt; 2 / a &gt; 2</div>
+          <div class="m-tagline">Compare every element to a threshold</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">a &lt; n &nbsp;/&nbsp; a &gt; n &nbsp;/&nbsp; a &lt;= n &nbsp;/&nbsp; a &gt;= n</span>
+        <span class="pill pill-param" style="background:rgba(6,182,212,.1);color:var(--cyan);border:1px solid rgba(6,182,212,.28);">a
+          <span class="balloon"><span class="balloon-title">a</span><span class="balloon-body">The array to filter. Every element is independently compared against the threshold <code>n</code>. The result is a boolean mask of the same shape.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(249,115,22,.1);color:var(--orange);border:1px solid rgba(249,115,22,.28);">n
+          <span class="balloon"><span class="balloon-title">n</span><span class="balloon-body">The scalar threshold. NumPy broadcasts it against every element of <code>a</code>. Can also be another array for element-wise comparison.</span></span>
+        </span>
+        <span class="pill pill-note">broadcasts scalar</span>
+        <span class="pill pill-ret">→ bool ndarray</span>
+      </div>
+      <p class="m-desc">Compares every element against a single scalar and returns a boolean mask. This is the basis of <strong style="color:var(--cyan)">boolean indexing</strong> — the single most powerful filtering technique in NumPy. Chain conditions with <code>&amp;</code> and <code>|</code> for multiple filters.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>a = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>])
+<span class="fn">print</span>(a &lt; <span class="num">2</span>)          <span class="cm"># [ True False False]</span>
+<span class="fn">print</span>(a &gt;= <span class="num">2</span>)         <span class="cm"># [False  True  True]</span>
+
+<span class="cm"># filter values above threshold</span>
+vals = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">5</span>, <span class="num">12</span>, <span class="num">3</span>, <span class="num">8</span>, <span class="num">1</span>])
+<span class="fn">print</span>(vals[vals &gt; <span class="num">5</span>])  <span class="cm"># [12  8]</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — drag threshold to filter the array</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>Threshold</label><input type="range" min="1" max="20" value="8" id="thr-v" oninput="drawThreshold()"><span class="cval" id="thr-vv">8</span></div>
+          <button class="demo-btn" style="background:rgba(6,182,212,.1);border:1px solid rgba(6,182,212,.3);color:var(--cyan);" onclick="shuffleThr()">⟳ New values</button>
+        </div>
+        <div class="demo-out" id="out-thr"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-thr" height="100"></canvas></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(1)">← a == b</button>
+        <div class="pnav-dots" id="dots-2"></div>
+        <button class="pnav-btn next" onclick="goTo(3)">np.array_equal() →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 3: np.array_equal() ══ -->
+    <div class="panel" id="panel-3">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1544197150-b99a580bb7a8?w=900&q=75&fit=crop&h=200" alt="Identical twins network" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Comparison 03 / 03 · Array-Wise</div>
+          <div class="m-name">np.array_equal()</div>
+          <div class="m-tagline">Are two entire arrays identical?</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">np.array_equal(a1, a2)</span>
+        <span class="pill pill-param" style="background:rgba(236,72,153,.1);color:var(--pink);border:1px solid rgba(236,72,153,.28);">a1, a2
+          <span class="balloon"><span class="balloon-title">a1 / a2</span><span class="balloon-body">Two arrays to compare. Both shape <em>and</em> values must match for the result to be <code style="color:#f0b63e">True</code>. Works for any number of dimensions.</span></span>
+        </span>
+        <span class="pill pill-ret">→ bool (single value)</span>
+      </div>
+      <p class="m-desc">Returns a single <code>True</code> or <code>False</code> — not an array. Both the <strong style="color:var(--pink)">shape</strong> and every <strong style="color:var(--pink)">value</strong> must match. Useful in tests and assertions. For approximate float comparison use <code>np.allclose(a, b)</code> instead.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="lib">np</span>.<span class="fn">array_equal</span>(<span class="lib">np</span>.<span class="fn">array</span>([<span class="num">1</span>,<span class="num">2</span>]), <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">1</span>,<span class="num">2</span>]))   <span class="cm"># True</span>
+<span class="lib">np</span>.<span class="fn">array_equal</span>(<span class="lib">np</span>.<span class="fn">array</span>([<span class="num">1</span>,<span class="num">2</span>]), <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">1</span>,<span class="num">9</span>]))   <span class="cm"># False</span>
+
+<span class="cm"># shape mismatch → False</span>
+<span class="lib">np</span>.<span class="fn">array_equal</span>(<span class="lib">np</span>.<span class="fn">array</span>([<span class="num">1</span>,<span class="num">2</span>]), <span class="lib">np</span>.<span class="fn">array</span>([[<span class="num">1</span>,<span class="num">2</span>]]))  <span class="cm"># False</span>
+
+<span class="cm"># floats — use allclose instead</span>
+<span class="lib">np</span>.<span class="fn">allclose</span>(<span class="lib">np</span>.<span class="fn">array</span>([<span class="num">0.1</span>+<span class="num">0.2</span>]), <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">0.3</span>]))   <span class="cm"># True</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — match or mismatch?</div>
+        <div class="demo-controls">
+          <div class="toggle-group">
+            <button class="tgl-btn on" id="eq-same" onclick="setEqMode('same')">Identical arrays</button>
+            <button class="tgl-btn" id="eq-diff" onclick="setEqMode('diff')">One value changed</button>
+            <button class="tgl-btn" id="eq-shape" onclick="setEqMode('shape')">Different shape</button>
+          </div>
+        </div>
+        <div class="demo-out" id="out-areq"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-areq" height="100"></canvas></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(2)">← a &lt; 2</button>
+        <div class="pnav-dots" id="dots-3"></div>
+        <button class="pnav-btn next" onclick="goTo(4)">.sum() →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 4: .sum() ══ -->
+    <div class="panel" id="panel-4">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=900&q=75&fit=crop&h=200" alt="Sum calculator" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Aggregation 04 / 11 · Sum</div>
+          <div class="m-name">.sum()</div>
+          <div class="m-tagline">Add everything up — or just one axis</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">array.sum(axis=None)</span>
+        <span class="pill pill-param" style="background:rgba(16,185,129,.1);color:var(--green);border:1px solid rgba(16,185,129,.28);">axis
+          <span class="balloon"><span class="balloon-title">axis</span><span class="balloon-body">Which axis to reduce. <code style="color:#f0b63e">None</code> (default) sums all elements. <code style="color:#f0b63e">axis=0</code> collapses rows (sum per column), <code style="color:#f0b63e">axis=1</code> collapses columns (sum per row).</span></span>
+        </span>
+        <span class="pill pill-ret">→ scalar or ndarray</span>
+      </div>
+      <p class="m-desc">Reduces all elements to a total. On a 2D array, <code>axis=0</code> gives one sum per column (collapse rows), <code>axis=1</code> gives one sum per row (collapse columns). Also available as <code>np.sum(a)</code>.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>a = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>, <span class="num">4</span>])
+<span class="fn">print</span>(a.<span class="fn">sum</span>())            <span class="cm"># 10</span>
+
+b = <span class="lib">np</span>.<span class="fn">array</span>([[<span class="num">1</span>,<span class="num">2</span>,<span class="num">3</span>],[<span class="num">4</span>,<span class="num">5</span>,<span class="num">6</span>]])
+<span class="fn">print</span>(b.<span class="fn">sum</span>(axis=<span class="num">0</span>))      <span class="cm"># [5 7 9]  — per column</span>
+<span class="fn">print</span>(b.<span class="fn">sum</span>(axis=<span class="num">1</span>))      <span class="cm"># [6 15]  — per row</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — total, per-column, per-row</div>
+        <div class="demo-controls">
+          <div class="toggle-group">
+            <button class="tgl-btn on" id="sum-all" onclick="setSumAxis('all')">sum all</button>
+            <button class="tgl-btn" id="sum-0" onclick="setSumAxis(0)">axis=0 (cols)</button>
+            <button class="tgl-btn" id="sum-1" onclick="setSumAxis(1)">axis=1 (rows)</button>
+          </div>
+          <button class="demo-btn" style="background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);color:var(--green);" onclick="shuffleSum()">⟳ New values</button>
+        </div>
+        <div class="demo-out" id="out-sum"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-sum" height="130"></canvas></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(3)">← np.array_equal()</button>
+        <div class="pnav-dots" id="dots-4"></div>
+        <button class="pnav-btn next" onclick="goTo(5)">.min() / .max() →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 5: .min() / .max() ══ -->
+    <div class="panel" id="panel-5">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=900&q=75&fit=crop&h=200" alt="Stock chart peaks valleys" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Aggregation 05 / 12 · Extremes</div>
+          <div class="m-name">.min() / .max()</div>
+          <div class="m-tagline">Smallest and largest — flat or per axis</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">array.min(axis=None) / array.max(axis=None)</span>
+        <span class="pill pill-param" style="background:rgba(250,204,21,.1);color:var(--accent);border:1px solid rgba(250,204,21,.28);">axis
+          <span class="balloon"><span class="balloon-title">axis</span><span class="balloon-body"><code style="color:#f0b63e">None</code> finds the global min/max across the whole array. <code style="color:#f0b63e">axis=0</code> finds the min/max of each column; <code style="color:#f0b63e">axis=1</code> for each row.</span></span>
+        </span>
+        <span class="pill pill-ret">→ scalar or ndarray</span>
+      </div>
+      <p class="m-desc">Returns the minimum or maximum value. On 2D arrays, use <code>axis=0</code> to get the max/min for each column, or <code>axis=1</code> for each row. Use <code>.argmin()</code> / <code>.argmax()</code> to get the <em>index</em> of the extreme value instead.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>b = <span class="lib">np</span>.<span class="fn">array</span>([[<span class="num">1</span>,<span class="num">5</span>,<span class="num">3</span>],[<span class="num">4</span>,<span class="num">2</span>,<span class="num">6</span>]])
+<span class="fn">print</span>(b.<span class="fn">min</span>())           <span class="cm"># 1  — global</span>
+<span class="fn">print</span>(b.<span class="fn">max</span>(axis=<span class="num">0</span>))    <span class="cm"># [4 5 6]  — per column</span>
+<span class="fn">print</span>(b.<span class="fn">min</span>(axis=<span class="num">1</span>))    <span class="cm"># [1 2]  — per row</span>
+<span class="fn">print</span>(b.<span class="fn">argmax</span>())       <span class="cm"># 5  — flat index of 6</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — highlight min and max in the grid</div>
+        <div class="demo-controls">
+          <button class="demo-btn" style="background:rgba(250,204,21,.1);border:1px solid rgba(250,204,21,.3);color:var(--accent);" onclick="shuffleMinMax()">⟳ New values</button>
+        </div>
+        <div class="demo-out" id="out-minmax"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-minmax" height="120"></canvas></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(4)">← .sum()</button>
+        <div class="pnav-dots" id="dots-5"></div>
+        <button class="pnav-btn next" onclick="goTo(6)">.argmin() / .argmax() →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 7: .cumsum() ══ -->
+    <div class="panel" id="panel-7">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1518186285589-2f7649de83e0?w=900&q=75&fit=crop&h=200" alt="Accumulation growth" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Aggregation 07 / 12 · Cumulative</div>
+          <div class="m-name">.cumsum()</div>
+          <div class="m-tagline">Running total — each cell carries the history</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">array.cumsum(axis=None)</span>
+        <span class="pill pill-param" style="background:rgba(249,115,22,.1);color:var(--orange);border:1px solid rgba(249,115,22,.28);">axis
+          <span class="balloon"><span class="balloon-title">axis</span><span class="balloon-body"><code style="color:#f0b63e">None</code> flattens first then accumulates. <code style="color:#f0b63e">axis=1</code> accumulates left-to-right along each row, keeping the original 2D shape.</span></span>
+        </span>
+        <span class="pill pill-ret">→ ndarray (same shape)</span>
+      </div>
+      <p class="m-desc">Each output element is the <strong style="color:var(--orange)">sum of all previous elements</strong> up to that position. The output is the same shape as the input. Useful for building price curves, probability distributions, and rolling totals.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>b = <span class="lib">np</span>.<span class="fn">array</span>([[<span class="num">1</span>,<span class="num">2</span>,<span class="num">3</span>],[<span class="num">4</span>,<span class="num">5</span>,<span class="num">6</span>]])
+<span class="fn">print</span>(b.<span class="fn">cumsum</span>(axis=<span class="num">1</span>))
+<span class="cm"># [[ 1  3  6]
+#  [ 4  9 15]]</span>
+
+a = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>, <span class="num">4</span>])
+<span class="fn">print</span>(a.<span class="fn">cumsum</span>())   <span class="cm"># [ 1  3  6 10]</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — watch the running total grow</div>
+        <div class="demo-controls">
+          <button class="demo-btn" style="background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.3);color:var(--orange);" onclick="shuffleCumsum()">⟳ New values</button>
+        </div>
+        <div class="demo-out" id="out-cumsum"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-cumsum" height="130"></canvas></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(6)">← .argmin() / .argmax()</button>
+        <div class="pnav-dots" id="dots-7"></div>
+        <button class="pnav-btn next" onclick="goTo(8)">.mean() →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 8: .mean() ══ -->
+    <div class="panel" id="panel-8">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=900&q=75&fit=crop&h=200" alt="Average analytics" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Aggregation 08 / 12 · Average</div>
+          <div class="m-name">.mean()</div>
+          <div class="m-tagline">The centre of mass of your data</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">array.mean(axis=None)</span>
+        <span class="pill pill-param" style="background:rgba(139,92,246,.1);color:var(--purple);border:1px solid rgba(139,92,246,.28);">axis
+          <span class="balloon"><span class="balloon-title">axis</span><span class="balloon-body"><code style="color:#f0b63e">None</code> returns the mean of all elements. <code style="color:#f0b63e">axis=0</code> returns the mean of each column; <code style="color:#f0b63e">axis=1</code> returns the mean of each row.</span></span>
+        </span>
+        <span class="pill pill-ret">→ float or ndarray</span>
+      </div>
+      <p class="m-desc">Returns the arithmetic mean — <code>sum / count</code>. Sensitive to outliers; a single large value can pull the mean far from the "typical" value. Compare with <code>np.median()</code> to spot skewed data.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>a = <span class="lib">np</span>.<span class="fn">arange</span>(<span class="num">0</span>, <span class="num">10</span>)
+<span class="fn">print</span>(a.<span class="fn">mean</span>())   <span class="cm"># 4.5</span>
+
+b = <span class="lib">np</span>.<span class="fn">array</span>([[<span class="num">1</span>,<span class="num">2</span>,<span class="num">3</span>],[<span class="num">4</span>,<span class="num">5</span>,<span class="num">6</span>]])
+<span class="fn">print</span>(b.<span class="fn">mean</span>(axis=<span class="num">0</span>))   <span class="cm"># [2.5 3.5 4.5]</span>
+<span class="fn">print</span>(b.<span class="fn">mean</span>(axis=<span class="num">1</span>))   <span class="cm"># [2.  5. ]</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — mean line on a bar chart</div>
+        <div class="demo-controls">
+          <button class="demo-btn" style="background:rgba(139,92,246,.1);border:1px solid rgba(139,92,246,.3);color:var(--purple);" onclick="shuffleMean()">⟳ New values</button>
+        </div>
+        <div class="demo-out" id="out-mean"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-mean" height="140"></canvas></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(7)">← .cumsum()</button>
+        <div class="pnav-dots" id="dots-8"></div>
+        <button class="pnav-btn next" onclick="goTo(9)">np.median() →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 9: np.median() ══ -->
+    <div class="panel" id="panel-9">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1507413245164-6160d8298b31?w=900&q=75&fit=crop&h=200" alt="Middle point" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Aggregation 09 / 12 · Middle Value</div>
+          <div class="m-name">np.median()</div>
+          <div class="m-tagline">The true middle — outlier-resistant</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">np.median(a, axis=None)</span>
+        <span class="pill pill-param" style="background:rgba(20,184,166,.1);color:#14b8a6;border:1px solid rgba(20,184,166,.28);">a
+          <span class="balloon"><span class="balloon-title">a</span><span class="balloon-body">The input array. Values are sorted internally to find the middle. For even-length arrays, the median is the average of the two central values.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(167,139,250,.1);color:#a78bfa;border:1px solid rgba(167,139,250,.28);">axis
+          <span class="balloon"><span class="balloon-title">axis</span><span class="balloon-body">Axis along which to compute the median. Default <code style="color:#f0b63e">None</code> flattens the array first. Pass <code style="color:#f0b63e">0</code> for column-wise, <code style="color:#f0b63e">1</code> for row-wise.</span></span>
+        </span>
+        <span class="pill pill-ret">→ float or ndarray</span>
+      </div>
+      <p class="m-desc">The value at the exact middle after sorting. Half the values are above, half below. Unlike <code>.mean()</code>, a single giant outlier barely moves the median — making it the preferred measure for skewed data like salaries or house prices.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>a = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">1</span>, <span class="num">3</span>, <span class="num">2</span>, <span class="num">5</span>, <span class="num">4</span>])
+<span class="fn">print</span>(<span class="lib">np</span>.<span class="fn">median</span>(a))    <span class="cm"># 3.0</span>
+
+<span class="cm"># outlier barely moves median</span>
+b = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">1</span>, <span class="num">3</span>, <span class="num">2</span>, <span class="num">5</span>, <span class="num">4</span>, <span class="num">1000</span>])
+<span class="fn">print</span>(<span class="lib">np</span>.<span class="fn">median</span>(b))    <span class="cm"># 3.5</span>
+<span class="fn">print</span>(b.<span class="fn">mean</span>())        <span class="cm"># 169.17  ← pulled far!</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — add an outlier, watch mean jump but median hold</div>
+        <div class="demo-controls">
+          <div class="toggle-group">
+            <button class="tgl-btn on" id="med-clean" onclick="setMedianMode(false)">Normal data</button>
+            <button class="tgl-btn" id="med-out" onclick="setMedianMode(true)">Add outlier (×20)</button>
+          </div>
+        </div>
+        <div class="demo-out" id="out-median"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-median" height="140"></canvas></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(8)">← .mean()</button>
+        <div class="pnav-dots" id="dots-9"></div>
+        <button class="pnav-btn next" onclick="goTo(10)">np.corrcoef() →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 10: np.corrcoef() ══ -->
+    <div class="panel" id="panel-10">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=900&q=75&fit=crop&h=200" alt="Connected graphs" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Aggregation 10 / 12 · Correlation</div>
+          <div class="m-name">np.corrcoef()</div>
+          <div class="m-tagline">How closely do two arrays move together?</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">np.corrcoef(x, y)</span>
+        <span class="pill pill-param" style="background:rgba(244,63,94,.1);color:#f43f5e;border:1px solid rgba(244,63,94,.28);">x, y
+          <span class="balloon"><span class="balloon-title">x / y</span><span class="balloon-body">Two 1D arrays of the same length. Returns a 2×2 correlation matrix — the off-diagonal values are the Pearson correlation coefficient between <code style="color:#f0b63e">x</code> and <code style="color:#f0b63e">y</code>.</span></span>
+        </span>
+        <span class="pill pill-ret">→ 2×2 ndarray</span>
+      </div>
+      <p class="m-desc">Returns a <strong style="color:#f43f5e">2×2 matrix</strong>. The diagonal is always <code>1.0</code> (each array correlates perfectly with itself). The off-diagonal value is the Pearson <em>r</em> — ranging from <code>-1</code> (perfectly inverse) to <code>+1</code> (perfectly aligned).</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>x = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>])
+y = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">4</span>, <span class="num">5</span>, <span class="num">6</span>])
+<span class="fn">print</span>(<span class="lib">np</span>.<span class="fn">corrcoef</span>(x, y))
+<span class="cm"># [[1. 1.]
+#  [1. 1.]]  ← r=1, perfectly correlated</span>
+
+<span class="cm"># off-diagonal is the useful r value</span>
+r = <span class="lib">np</span>.<span class="fn">corrcoef</span>(x, y)[<span class="num">0</span>, <span class="num">1</span>]</pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — switch correlation direction</div>
+        <div class="demo-controls">
+          <div class="toggle-group">
+            <button class="tgl-btn on" id="cor-pos" onclick="setCorrMode('pos')">Positive (r≈+1)</button>
+            <button class="tgl-btn" id="cor-none" onclick="setCorrMode('none')">No correlation (r≈0)</button>
+            <button class="tgl-btn" id="cor-neg" onclick="setCorrMode('neg')">Negative (r≈−1)</button>
+          </div>
+        </div>
+        <div class="demo-out" id="out-corr"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-corr" height="140"></canvas></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(9)">← np.median()</button>
+        <div class="pnav-dots" id="dots-10"></div>
+        <button class="pnav-btn next" onclick="goTo(11)">np.std() →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 11: np.std() ══ -->
+    <div class="panel" id="panel-11">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1590859808308-3d2d9c515b1a?w=900&q=75&fit=crop&h=200" alt="Spread distribution" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Aggregation 11 / 12 · Spread</div>
+          <div class="m-name">np.std()</div>
+          <div class="m-tagline">How widely scattered are your values?</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">np.std(a, axis=None, ddof=0)</span>
+        <span class="pill pill-param" style="background:rgba(6,182,212,.1);color:var(--cyan);border:1px solid rgba(6,182,212,.28);">a
+          <span class="balloon"><span class="balloon-title">a</span><span class="balloon-body">The input array. Standard deviation is computed over its elements. Use <code>axis</code> to operate along a specific dimension instead of the whole array.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(249,115,22,.1);color:var(--orange);border:1px solid rgba(249,115,22,.28);">axis
+          <span class="balloon"><span class="balloon-title">axis</span><span class="balloon-body">Axis along which to compute. Default <code style="color:#f0b63e">None</code> flattens the array. Pass <code style="color:#f0b63e">0</code> for column std, <code style="color:#f0b63e">1</code> for row std.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(167,139,250,.1);color:#a78bfa;border:1px solid rgba(167,139,250,.28);">ddof
+          <span class="balloon"><span class="balloon-title">ddof</span><span class="balloon-body">Degrees of freedom correction. Default <code style="color:#f0b63e">0</code> gives population std. Use <code style="color:#f0b63e">ddof=1</code> for sample std (Bessel's correction) — needed for unbiased estimates from a sample.</span></span>
+        </span>
+        <span class="pill pill-ret">→ float or ndarray</span>
+      </div>
+      <p class="m-desc">The standard deviation measures average distance from the mean. A small std means values cluster tightly; a large std means they spread far. It is the square root of variance: <code>std = √var</code>. Use <code>ddof=1</code> when working with a sample, not the full population.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>a = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">2</span>, <span class="num">4</span>, <span class="num">4</span>, <span class="num">4</span>, <span class="num">5</span>, <span class="num">5</span>, <span class="num">7</span>, <span class="num">9</span>])
+<span class="fn">print</span>(<span class="lib">np</span>.<span class="fn">std</span>(a))        <span class="cm"># 2.0</span>
+<span class="fn">print</span>(<span class="lib">np</span>.<span class="fn">std</span>(a, ddof=<span class="num">1</span>)) <span class="cm"># 2.138  sample std</span>
+<span class="fn">print</span>(a.<span class="fn">mean</span>())         <span class="cm"># 5.0</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — tight vs spread distributions</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>Spread factor</label><input type="range" min="1" max="10" value="3" id="std-s" oninput="drawStd()"><span class="cval" id="std-sv">3</span></div>
+        </div>
+        <div class="demo-out" id="out-std"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-std" height="140"></canvas></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(10)">← np.corrcoef()</button>
+        <div class="pnav-dots" id="dots-11"></div>
+        <button class="pnav-btn next" onclick="goTo(12)">np.var() →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 12: np.var() ══ -->
+    <div class="panel" id="panel-12">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?w=900&q=75&fit=crop&h=200" alt="Variance waves" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Aggregation 12 / 12 · Variance</div>
+          <div class="m-name">np.var()</div>
+          <div class="m-tagline">Spread squared — std without the root</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">np.var(a, axis=None, ddof=0)</span>
+        <span class="pill pill-param" style="background:rgba(6,182,212,.1);color:var(--cyan);border:1px solid rgba(6,182,212,.28);">a
+          <span class="balloon"><span class="balloon-title">a</span><span class="balloon-body">The input array. Variance is computed over its elements. Use <code>axis</code> to operate along a specific dimension instead of the whole array.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(249,115,22,.1);color:var(--orange);border:1px solid rgba(249,115,22,.28);">axis
+          <span class="balloon"><span class="balloon-title">axis</span><span class="balloon-body">Axis along which to compute. Default <code style="color:#f0b63e">None</code> flattens the array. Pass <code style="color:#f0b63e">0</code> for column variance, <code style="color:#f0b63e">1</code> for row variance.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(52,211,153,.1);color:#34d399;border:1px solid rgba(52,211,153,.28);">ddof
+          <span class="balloon"><span class="balloon-title">ddof</span><span class="balloon-body">Same as in <code style="color:#f0b63e">np.std()</code> — use <code style="color:#f0b63e">ddof=1</code> for sample variance. Note: <code style="color:#f0b63e">var = std²</code>, so the units of variance are the square of the original data units.</span></span>
+        </span>
+        <span class="pill pill-ret">→ float or ndarray</span>
+      </div>
+      <p class="m-desc">Variance is <strong style="color:#34d399">standard deviation squared</strong> — the mean of squared deviations from the mean. Because the units are squared, it is harder to interpret directly than std, but it's additive across independent sources of variation, making it useful in statistics.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>a = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">2</span>, <span class="num">4</span>, <span class="num">4</span>, <span class="num">4</span>, <span class="num">5</span>, <span class="num">5</span>, <span class="num">7</span>, <span class="num">9</span>])
+<span class="fn">print</span>(<span class="lib">np</span>.<span class="fn">var</span>(a))         <span class="cm"># 4.0   — std² = 2²</span>
+<span class="fn">print</span>(<span class="lib">np</span>.<span class="fn">std</span>(a)**<span class="num">2</span>)      <span class="cm"># 4.0   — same thing</span>
+<span class="fn">print</span>(<span class="lib">np</span>.<span class="fn">var</span>(a, ddof=<span class="num">1</span>)) <span class="cm"># 4.571 — sample var</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — variance vs std side by side</div>
+        <div class="demo-controls">
+          <button class="demo-btn" style="background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.3);color:#34d399;" onclick="shuffleVar()">⟳ New values</button>
+        </div>
+        <div class="demo-out" id="out-var"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-var" height="140"></canvas></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(11)">← np.std()</button>
+        <div class="pnav-dots" id="dots-12"></div>
+        <button class="pnav-btn next" disabled>End ✓</button>
+      </div>
+    </div>
+
+  </div><!-- /panel-viewport -->
+</div><!-- /page-layout -->
+
+<script>
+const $ = id => document.getElementById(id);
+const TOTAL = 13;
+const LABELS = ['Overview','a==b','a<2/a>2','np.array_equal()','.sum()','.min()/.max()','.argmin()/.argmax()','.cumsum()','.mean()','np.median()','np.corrcoef()','np.std()','np.var()'];
+let current = 0;
+
+function goTo(idx) {
+  if (idx === current) return;
+  const oldP = $('panel-' + current), newP = $('panel-' + idx);
+  if (current > 0) document.querySelector(`[data-panel="${current}"]`).classList.add('done');
+  oldP.classList.remove('active'); oldP.classList.add('exit');
+  setTimeout(() => oldP.classList.remove('exit'), 280);
+  current = idx;
+  newP.classList.add('active');
+  $('viewport').scrollTop = 0;
+  document.querySelectorAll('.s-item').forEach(b => b.classList.toggle('active', +b.dataset.panel === idx));
+  updateDots();
+  const draws = [null, drawEq, drawThreshold, () => drawAreq(curEqMode), () => drawSum(curSumAxis), shuffleMinMax, shuffleArgMinMax, shuffleCumsum, shuffleMean, () => drawMedian(hasOutlier), () => drawCorr(corrMode), drawStd, shuffleVar];
+  if (draws[idx]) setTimeout(draws[idx], 60);
+}
+
+function updateDots() {
+  for (let i = 0; i < TOTAL; i++) {
+    const cont = $('dots-' + i); if (!cont) continue;
+    cont.innerHTML = '';
+    for (let d = 0; d < TOTAL; d++) {
+      const btn = document.createElement('button');
+      btn.className = 'pnav-dot' + (d === current ? ' active' : '');
+      btn.title = LABELS[d]; btn.onclick = () => goTo(d);
+      cont.appendChild(btn);
+    }
+  }
+}
+
+$('viewport').addEventListener('scroll', () => {
+  const el = $('viewport');
+  $('progress').style.width = (el.scrollTop / (el.scrollHeight - el.clientHeight) * 100) + '%';
+});
+
+function cp(btn) {
+  navigator.clipboard.writeText(btn.closest('.code-wrap').querySelector('pre').innerText.trim()).then(() => {
+    btn.textContent = '✓ copied'; setTimeout(() => btn.textContent = 'copy', 1600);
+  });
+}
+
+/* ── shared canvas helpers ── */
+function drawCells(ctx, vals, y, cs, p, colFn, labelFn) {
+  vals.forEach((v, i) => {
+    const x = p + i*(cs+p);
+    ctx.fillStyle = colFn(v, i) + '28'; ctx.beginPath(); ctx.roundRect(x, y, cs, cs-4, 5); ctx.fill();
+    ctx.strokeStyle = colFn(v, i) + '66'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = colFn(v, i); ctx.font = `bold ${String(labelFn(v,i)).length > 5 ? 9:12}px Courier New`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(labelFn(v, i), x+cs/2, y+(cs-4)/2);
+  });
+}
+
+/* ═══ PANEL 1: == ═══ */
+let eqA = [1,2,3,4,5,6], eqB = [1,5,3,4,2,6];
+function shuffleEq() { eqA=Array.from({length:6},()=>~~(Math.random()*9)+1); eqB=Array.from({length:6},()=>~~(Math.random()*9)+1); drawEq(); }
+function drawEq() {
+  const mask = eqA.map((v,i) => v === eqB[i]);
+  const cs=56, p=5, cv=$('cv-eq');
+  cv.width=eqA.length*(cs+p)+p; cv.height=100;
+  const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+  drawCells(ctx,eqA,4,cs,p,()=>'#3b82f6',v=>v);
+  drawCells(ctx,eqB,46,cs,p,()=>'#8b5cf6',v=>v);
+  mask.forEach((m,i) => {
+    const x=p+i*(cs+p);
+    ctx.fillStyle = m ? '#10b98155' : '#ef444422';
+    ctx.beginPath(); ctx.roundRect(x,2,cs,94,5); ctx.fill();
+    ctx.fillStyle = m ? '#10b981' : '#ef4444'; ctx.font='bold 11px Courier New'; ctx.textAlign='center';
+    ctx.fillText(m?'True':'False', x+cs/2, 90);
+  });
+  $('out-eq').textContent = `a = [${eqA.join(', ')}]\nb = [${eqB.join(', ')}]\na == b → [${mask.map(v=>v?'T':'F').join(', ')}]`;
+}
+
+/* ═══ PANEL 2: threshold ═══ */
+let thrVals = [5,12,3,8,1,15,7,10];
+function shuffleThr() { thrVals=Array.from({length:8},()=>~~(Math.random()*20)+1); drawThreshold(); }
+function drawThreshold() {
+  const thr=+$('thr-v').value; $('thr-vv').textContent=thr;
+  const mask=thrVals.map(v=>v>thr);
+  const cs=48, p=5, cv=$('cv-thr');
+  cv.width=thrVals.length*(cs+p)+p; cv.height=100;
+  const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+  thrVals.forEach((v,i) => {
+    const x=p+i*(cs+p), above=v>thr;
+    ctx.fillStyle = above ? 'rgba(6,182,212,.22)' : 'rgba(255,255,255,.04)';
+    ctx.beginPath(); ctx.roundRect(x,4,cs,56,5); ctx.fill();
+    ctx.strokeStyle = above ? 'rgba(6,182,212,.6)' : 'rgba(255,255,255,.1)'; ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle = above ? '#06b6d4' : '#8b949e'; ctx.font='bold 14px Courier New'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(v, x+cs/2, 32);
+    ctx.fillStyle = above ? '#06b6d4' : '#ef4444'; ctx.font='bold 10px Courier New';
+    ctx.fillText(above?'True':'False', x+cs/2, 74);
+  });
+  const above=thrVals.filter(v=>v>thr);
+  $('out-thr').textContent = `a = [${thrVals.join(', ')}]\na > ${thr} → [${mask.map(v=>v?'T':'F').join(', ')}]\na[a > ${thr}] → [${above.join(', ')}]`;
+}
+
+/* ═══ PANEL 3: array_equal ═══ */
+let curEqMode = 'same';
+const aeqBase = [3, 7, 2, 8, 5];
+function setEqMode(m) {
+  curEqMode = m;
+  ['same','diff','shape'].forEach(x => $('eq-'+x).className='tgl-btn'+(x===m?' on':''));
+  drawAreq(m);
+}
+function drawAreq(m) {
+  const a = [...aeqBase];
+  let b, eq;
+  if (m === 'same')  { b=[...aeqBase]; eq=true; }
+  else if(m==='diff'){ b=[...aeqBase]; b[2]=99; eq=false; }
+  else               { b=[[3,7],[2,8,5]]; eq=false; }
+  const cs=56, p=5, cv=$('cv-areq'), n=5;
+  cv.width=n*(cs+p)+p; cv.height=100;
+  const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+  const colA='#ec4899', colB = eq ? '#10b981' : (m==='shape' ? '#f97316' : '#ef4444');
+  a.forEach((v,i) => {
+    const x=p+i*(cs+p);
+    ctx.fillStyle=colA+'22'; ctx.beginPath(); ctx.roundRect(x,4,cs,38,5); ctx.fill();
+    ctx.strokeStyle=colA+'55'; ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle=colA; ctx.font='bold 13px Courier New'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(v,x+cs/2,23);
+  });
+  if (m !== 'shape') {
+    b.forEach((v,i) => {
+      const x=p+i*(cs+p), diff = v !== a[i];
+      ctx.fillStyle=(diff?'rgba(239,68,68,.25)':colB+'22'); ctx.beginPath(); ctx.roundRect(x,46,cs,38,5); ctx.fill();
+      ctx.strokeStyle=(diff?'rgba(239,68,68,.6)':colB+'55'); ctx.lineWidth=1; ctx.stroke();
+      ctx.fillStyle=diff?'#ef4444':colB; ctx.font='bold 13px Courier New'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(v,x+cs/2,65);
+    });
+  } else {
+    ctx.fillStyle='rgba(249,115,22,.2)'; ctx.beginPath(); ctx.roundRect(p,46,3*(cs+p)-p,38,5); ctx.fill();
+    ctx.strokeStyle='rgba(249,115,22,.5)'; ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle='#f97316'; ctx.font='bold 12px Segoe UI'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('[[3,7],[2,8,5]]  (nested — different shape)', p+(3*(cs+p)-p)/2, 65);
+  }
+  const badge = eq ? '✓  True' : '✗  False';
+  const badgeCol = eq ? '#10b981' : '#ef4444';
+  ctx.fillStyle=badgeCol+'22'; ctx.beginPath(); ctx.roundRect(cv.width-80,4,76,34,8); ctx.fill();
+  ctx.strokeStyle=badgeCol+'66'; ctx.lineWidth=1; ctx.stroke();
+  ctx.fillStyle=badgeCol; ctx.font='bold 13px Courier New'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(badge, cv.width-42, 21);
+  $('out-areq').textContent = `np.array_equal(a, b)  →  ${eq}${m==='shape'?' (shape mismatch)':m==='diff'?' (value mismatch at index 2)':''}`;
+}
+
+/* ═══ PANEL 4: sum ═══ */
+let sumGrid = [[1,2,3],[4,5,6]], curSumAxis = 'all';
+function shuffleSum() {
+  sumGrid = Array.from({length:2},()=>Array.from({length:3},()=>~~(Math.random()*9)+1));
+  drawSum(curSumAxis);
+}
+function setSumAxis(ax) {
+  curSumAxis = ax;
+  ['all','0','1'].forEach(x => $('sum-'+x).className='tgl-btn'+(String(ax)===x?' on':''));
+  drawSum(ax);
+}
+function drawSum(ax) {
+  const rows=2, cols=3, cs=54, p=6;
+  const cv=$('cv-sum'); cv.width=cols*(cs+p)+p+80; cv.height=rows*(cs+p)+p+36;
+  const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+  const colNorm='rgba(16,185,129,', colHigh='rgba(16,185,129,';
+  sumGrid.forEach((row,r) => row.forEach((v,c) => {
+    const x=p+c*(cs+p), y=p+r*(cs+p);
+    ctx.fillStyle='rgba(16,185,129,.12)'; ctx.beginPath(); ctx.roundRect(x,y,cs,cs,5); ctx.fill();
+    ctx.strokeStyle='rgba(16,185,129,.35)'; ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle='#10b981'; ctx.font='bold 16px Courier New'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(v,x+cs/2,y+cs/2);
+  }));
+  let result, outText;
+  if (ax === 'all') {
+    const total = sumGrid.flat().reduce((a,b)=>a+b,0);
+    result = total;
+    ctx.fillStyle='rgba(16,185,129,.18)'; ctx.beginPath(); ctx.roundRect(p,p,cols*(cs+p)-p,rows*(cs+p)-p,8); ctx.fill();
+    ctx.fillStyle='#10b981'; ctx.font='bold 22px Courier New'; ctx.textAlign='right';
+    ctx.fillText('= '+total, cv.width-6, cv.height-10);
+    outText = `b.sum()  →  ${total}`;
+  } else if (ax === 0) {
+    const colSums = [0,1,2].map(c=>sumGrid[0][c]+sumGrid[1][c]);
+    colSums.forEach((s,c) => {
+      const x=p+c*(cs+p), y=rows*(cs+p)+p+4;
+      ctx.fillStyle='rgba(16,185,129,.2)'; ctx.beginPath(); ctx.roundRect(x,y,cs,28,5); ctx.fill();
+      ctx.strokeStyle='rgba(16,185,129,.5)'; ctx.lineWidth=1; ctx.stroke();
+      ctx.fillStyle='#10b981'; ctx.font='bold 14px Courier New'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(s,x+cs/2,y+14);
+    });
+    outText = `b.sum(axis=0)  →  [${colSums.join(', ')}]`;
+  } else {
+    const rowSums = sumGrid.map(r=>r.reduce((a,b)=>a+b,0));
+    rowSums.forEach((s,r) => {
+      const x=cols*(cs+p)+p+4, y=p+r*(cs+p);
+      ctx.fillStyle='rgba(16,185,129,.2)'; ctx.beginPath(); ctx.roundRect(x,y,56,cs,5); ctx.fill();
+      ctx.strokeStyle='rgba(16,185,129,.5)'; ctx.lineWidth=1; ctx.stroke();
+      ctx.fillStyle='#10b981'; ctx.font='bold 14px Courier New'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(s,x+28,y+cs/2);
+    });
+    outText = `b.sum(axis=1)  →  [${rowSums.join(', ')}]`;
+  }
+  $('out-sum').textContent = outText;
+}
+
+/* ═══ PANEL 5: min/max ═══ */
+let mmVals = Array.from({length:3*4},()=>~~(Math.random()*20)+1);
+function shuffleMinMax() { mmVals=Array.from({length:12},()=>~~(Math.random()*20)+1); drawMinMax(); }
+function drawMinMax() {
+  const rows=3, cols=4, cs=50, p=5;
+  const flat=mmVals; const mn=Math.min(...flat), mx=Math.max(...flat);
+  const cv=$('cv-minmax'); cv.width=cols*(cs+p)+p; cv.height=rows*(cs+p)+p;
+  const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+  flat.forEach((v,i) => {
+    const r=~~(i/cols), c=i%cols, x=p+c*(cs+p), y=p+r*(cs+p);
+    const isMin=v===mn, isMax=v===mx;
+    ctx.fillStyle = isMax?'rgba(250,204,21,.25)':isMin?'rgba(59,130,246,.25)':'rgba(255,255,255,.05)';
+    ctx.beginPath(); ctx.roundRect(x,y,cs,cs,5); ctx.fill();
+    ctx.strokeStyle = isMax?'rgba(250,204,21,.7)':isMin?'rgba(59,130,246,.7)':'rgba(255,255,255,.1)';
+    ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle = isMax?'#facc15':isMin?'#3b82f6':'#8b949e';
+    ctx.font=`bold 15px Courier New`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(v,x+cs/2,y+cs/2);
+  });
+  $('out-minmax').textContent = `a.min()  →  ${mn}  (blue)\na.max()  →  ${mx}  (yellow)\na.max(axis=0) → [${[0,1,2,3].map(c=>Math.max(flat[c],flat[4+c],flat[8+c])).join(', ')}]`;
+}
+
+/* ═══ PANEL 6: argmin / argmax ═══ */
+let argVals = Array.from({length:8},()=>~~(Math.random()*20)+1);
+function shuffleArgMinMax() { argVals=Array.from({length:8},()=>~~(Math.random()*20)+1); drawArgMinMax(); }
+function drawArgMinMax() {
+  const mn=Math.min(...argVals), mx=Math.max(...argVals);
+  const idxMin=argVals.indexOf(mn), idxMax=argVals.indexOf(mx);
+  const cs=56, p=5, cv=$('cv-argminmax');
+  cv.width=argVals.length*(cs+p)+p; cv.height=100;
+  const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+  argVals.forEach((v,i) => {
+    const x=p+i*(cs+p), isMin=i===idxMin, isMax=i===idxMax;
+    ctx.fillStyle = isMax?'rgba(250,204,21,.25)':isMin?'rgba(59,130,246,.25)':'rgba(255,255,255,.05)';
+    ctx.beginPath(); ctx.roundRect(x,4,cs,cs,5); ctx.fill();
+    ctx.strokeStyle = isMax?'rgba(250,204,21,.7)':isMin?'rgba(59,130,246,.7)':'rgba(255,255,255,.12)';
+    ctx.lineWidth=isMax||isMin?2:1; ctx.stroke();
+    ctx.fillStyle = isMax?'#facc15':isMin?'#3b82f6':'#8b949e';
+    ctx.font='bold 16px Courier New'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(v,x+cs/2,4+cs/2);
+    ctx.fillStyle='rgba(255,255,255,.3)'; ctx.font='9px Courier New';
+    ctx.fillText('['+i+']', x+cs/2, 4+cs+11);
+    if(isMin || isMax) {
+      ctx.fillStyle=isMax?'#facc15':'#3b82f6'; ctx.font='bold 8px Courier New';
+      ctx.fillText(isMax?'argmax':'argmin', x+cs/2, 2);
+    }
+  });
+  $('out-argminmax').textContent=`a = [${argVals.join(', ')}]\na.argmin() → ${idxMin}  (value: ${mn})\na.argmax() → ${idxMax}  (value: ${mx})`;
+}
+
+/* ═══ PANEL 7: cumsum ═══ */
+let csVals = [1,3,2,5,4,2];
+function shuffleCumsum() { csVals=Array.from({length:6},()=>~~(Math.random()*8)+1); drawCumsum(); }
+function drawCumsum() {
+  const cum=[]; let s=0; csVals.forEach(v=>{s+=v; cum.push(s);});
+  const cs=60, p=5, cv=$('cv-cumsum');
+  cv.width=csVals.length*(cs+p)+p; cv.height=130;
+  const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+  const maxC=cum[cum.length-1];
+  csVals.forEach((v,i) => {
+    const x=p+i*(cs+p);
+    ctx.fillStyle='rgba(249,115,22,.15)'; ctx.beginPath(); ctx.roundRect(x,4,cs,42,5); ctx.fill();
+    ctx.strokeStyle='rgba(249,115,22,.4)'; ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle='#f97316'; ctx.font='bold 14px Courier New'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(v,x+cs/2,25);
+  });
+  // cumsum bar + value
+  cum.forEach((v,i) => {
+    const x=p+i*(cs+p), bh=Math.max(6,~~(v/maxC*42));
+    ctx.fillStyle=`hsla(${150+i*15},70%,55%,.25)`; ctx.beginPath(); ctx.roundRect(x,56+(42-bh),cs,bh,4); ctx.fill();
+    ctx.strokeStyle=`hsla(${150+i*15},70%,60%,.5)`; ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle=`hsla(${150+i*15},80%,72%,1)`; ctx.font='bold 13px Courier New'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(v,x+cs/2,112);
+  });
+  ctx.fillStyle='rgba(255,255,255,.3)'; ctx.font='10px Segoe UI'; ctx.textAlign='left';
+  ctx.fillText('values →', p, 16);
+  ctx.fillText('cumsum →', p, 108);
+  $('out-cumsum').textContent = `a = [${csVals.join(', ')}]\na.cumsum()  →  [${cum.join(', ')}]`;
+}
+
+/* ═══ PANEL 7: mean ═══ */
+let meanVals = [2,8,5,9,3,7,6,4];
+function shuffleMean() { meanVals=Array.from({length:8},()=>~~(Math.random()*14)+1); drawMean(); }
+function drawMean() {
+  const mu=meanVals.reduce((a,b)=>a+b,0)/meanVals.length;
+  const mx=Math.max(...meanVals)+1;
+  const cs=46, p=5, bh=100, cv=$('cv-mean');
+  cv.width=meanVals.length*(cs+p)+p; cv.height=bh+30;
+  const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+  meanVals.forEach((v,i) => {
+    const x=p+i*(cs+p), h=~~(v/mx*bh);
+    ctx.fillStyle='rgba(139,92,246,.22)'; ctx.beginPath(); ctx.roundRect(x,bh-h,cs,h,4); ctx.fill();
+    ctx.strokeStyle='rgba(139,92,246,.5)'; ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle='#8b5cf6'; ctx.font='bold 11px Courier New'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(v, x+cs/2, bh+16);
+  });
+  const my=bh-~~(mu/mx*bh);
+  ctx.strokeStyle='#facc15'; ctx.lineWidth=2; ctx.setLineDash([6,4]);
+  ctx.beginPath(); ctx.moveTo(p,my); ctx.lineTo(cv.width-p,my); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle='#facc15'; ctx.font='bold 10px Segoe UI'; ctx.textAlign='right';
+  ctx.fillText('mean = '+mu.toFixed(2), cv.width-4, my-5);
+  $('out-mean').textContent = `a = [${meanVals.join(', ')}]\na.mean()  →  ${mu.toFixed(4)}`;
+}
+
+/* ═══ PANEL 8: median ═══ */
+let hasOutlier = false;
+const medBase = [4, 7, 2, 9, 5, 3];
+function setMedianMode(out) {
+  hasOutlier = out;
+  $('med-clean').className='tgl-btn'+(!out?' on':'');
+  $('med-out').className='tgl-btn'+(out?' on':'');
+  drawMedian(out);
+}
+function drawMedian(withOut) {
+  const vals = withOut ? [...medBase, 120] : [...medBase];
+  const sorted=[...vals].sort((a,b)=>a-b);
+  const n=sorted.length, medV=n%2===0?(sorted[n/2-1]+sorted[n/2])/2:sorted[~~(n/2)];
+  const meanV=(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1);
+  const mx=Math.max(...vals)*1.05;
+  const cs=50, p=5, bh=100, cv=$('cv-median');
+  cv.width=vals.length*(cs+p)+p; cv.height=bh+32;
+  const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+  vals.forEach((v,i) => {
+    const x=p+i*(cs+p), h=Math.max(4,~~(v/mx*bh));
+    const isOut=withOut && i===vals.length-1;
+    ctx.fillStyle=isOut?'rgba(239,68,68,.3)':'rgba(20,184,166,.2)';
+    ctx.beginPath(); ctx.roundRect(x,bh-h,cs,h,4); ctx.fill();
+    ctx.strokeStyle=isOut?'rgba(239,68,68,.6)':'rgba(20,184,166,.5)'; ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle=isOut?'#ef4444':'#14b8a6'; ctx.font=`bold ${v>99?10:13}px Courier New`;
+    ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(v,x+cs/2,bh+16);
+  });
+  const medY=bh-~~(medV/mx*bh);
+  const meanY=bh-~~(+meanV/mx*bh);
+  ctx.strokeStyle='#14b8a6'; ctx.lineWidth=2; ctx.setLineDash([6,4]);
+  ctx.beginPath(); ctx.moveTo(p,medY); ctx.lineTo(cv.width-p,medY); ctx.stroke();
+  ctx.strokeStyle='#f43f5e'; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(p,meanY); ctx.lineTo(cv.width-p,meanY); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle='#14b8a6'; ctx.font='bold 10px Segoe UI'; ctx.textAlign='left'; ctx.fillText('median='+medV,p+2,medY-5);
+  ctx.fillStyle='#f43f5e'; ctx.textAlign='right'; ctx.fillText('mean='+meanV,cv.width-4,meanY-5);
+  $('out-median').textContent = `a = [${vals.join(', ')}]\nnp.median(a)  →  ${medV}\na.mean()      →  ${meanV}${withOut?' ← pulled by outlier':''}`;
+}
+
+/* ═══ PANEL 9: corrcoef ═══ */
+let corrMode = 'pos';
+function setCorrMode(m) {
+  corrMode = m;
+  ['pos','none','neg'].forEach(x=>$('cor-'+x).className='tgl-btn'+(x===m?' on':''));
+  drawCorr(m);
+}
+function drawCorr(m) {
+  const n=8;
+  let x,y;
+  if (m==='pos')  { x=[1,2,3,4,5,6,7,8]; y=x.map(v=>v+Math.random()*0.8); }
+  else if(m==='none') { x=[1,2,3,4,5,6,7,8]; y=Array.from({length:n},()=>Math.random()*8+1); }
+  else             { x=[1,2,3,4,5,6,7,8]; y=x.map(v=>9-v+Math.random()*0.8); }
+  const mx=Math.max(...x), my=Math.max(...y);
+  const cv=$('cv-corr'), W=500, H=140, pad=30;
+  cv.width=W; cv.height=H;
+  const ctx=cv.getContext('2d'); ctx.clearRect(0,0,W,H);
+  ctx.strokeStyle='rgba(255,255,255,.08)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(pad,pad); ctx.lineTo(pad,H-pad); ctx.lineTo(W-pad,H-pad); ctx.stroke();
+  const toSx=v=>pad+(v/mx)*(W-2*pad);
+  const toSy=v=>H-pad-(v/my)*(H-2*pad);
+  x.forEach((_,i) => {
+    ctx.fillStyle = m==='pos'?'#06b6d4':m==='neg'?'#f43f5e':'#8b5cf6';
+    ctx.beginPath(); ctx.arc(toSx(x[i]),toSy(y[i]),5,0,Math.PI*2); ctx.fill();
+  });
+  const xm=x.reduce((a,b)=>a+b)/n, ym=y.reduce((a,b)=>a+b)/n;
+  const num=x.reduce((s,v,i)=>s+(v-xm)*(y[i]-ym),0);
+  const den=Math.sqrt(x.reduce((s,v)=>s+(v-xm)**2,0)*y.reduce((s,v)=>s+(v-ym)**2,0));
+  const r=(num/den).toFixed(3);
+  ctx.fillStyle='rgba(255,255,255,.6)'; ctx.font='bold 12px Segoe UI'; ctx.textAlign='right';
+  ctx.fillText('r = '+r, W-pad, pad+14);
+  $('out-corr').textContent = `np.corrcoef(x, y)[0, 1]  →  ${r}\n(correlation between x and y: "${m==='pos'?'strongly positive':m==='none'?'none / random':'strongly negative'}")`;
+}
+
+/* ═══ PANEL 10: std ═══ */
+function drawStd() {
+  const spread=+$('std-s').value; $('std-sv').textContent=spread;
+  const mu=10, n=10;
+  const vals=Array.from({length:n},(_,i)=>+(mu+(i-(n-1)/2)*(spread/2)).toFixed(1));
+  const std=Math.sqrt(vals.reduce((s,v)=>s+(v-mu)**2,0)/n).toFixed(3);
+  const mx=Math.max(...vals)+1, mn=Math.min(...vals)-1;
+  const cs=42, p=4, cv=$('cv-std'), bh=100;
+  cv.width=n*(cs+p)+p; cv.height=bh+30;
+  const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+  vals.forEach((v,i) => {
+    const x=p+i*(cs+p), h=~~((v-mn)/(mx-mn)*bh);
+    ctx.fillStyle='rgba(167,139,250,.22)'; ctx.beginPath(); ctx.roundRect(x,bh-h,cs,h,4); ctx.fill();
+    ctx.strokeStyle='rgba(167,139,250,.5)'; ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle='#a78bfa'; ctx.font='bold 9px Courier New'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(v,x+cs/2,bh+16);
+  });
+  const muY=bh-~~((mu-mn)/(mx-mn)*bh);
+  ctx.strokeStyle='#facc15'; ctx.lineWidth=2; ctx.setLineDash([5,4]);
+  ctx.beginPath(); ctx.moveTo(p,muY); ctx.lineTo(cv.width-p,muY); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle='#facc15'; ctx.font='bold 10px Segoe UI'; ctx.textAlign='right';
+  ctx.fillText('μ = '+mu, cv.width-4, muY-5);
+  $('out-std').textContent = `np.std([${vals.join(', ')}])\n→  ${std}\n(mean = ${mu}, spread factor = ${spread})`;
+}
+
+/* ═══ PANEL 11: var ═══ */
+let varVals = [2,4,4,4,5,5,7,9];
+function shuffleVar() { varVals=Array.from({length:8},()=>~~(Math.random()*14)+1); drawVar(); }
+function drawVar() {
+  const mu=varVals.reduce((a,b)=>a+b)/varVals.length;
+  const variance=(varVals.reduce((s,v)=>s+(v-mu)**2,0)/varVals.length).toFixed(3);
+  const std=Math.sqrt(+variance).toFixed(3);
+  const mx=Math.max(...varVals)+1;
+  const cs=50, p=5, bh=100, cv=$('cv-var');
+  cv.width=varVals.length*(cs+p)+p; cv.height=bh+30;
+  const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+  varVals.forEach((v,i) => {
+    const x=p+i*(cs+p), h=~~(v/mx*bh);
+    const dev=Math.abs(v-mu)/mx;
+    const hue=dev<0.1?140:dev<0.25?60:30;
+    ctx.fillStyle=`hsla(${hue},70%,50%,.22)`; ctx.beginPath(); ctx.roundRect(x,bh-h,cs,h,4); ctx.fill();
+    ctx.strokeStyle=`hsla(${hue},70%,60%,.5)`; ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle=`hsla(${hue},80%,75%,1)`; ctx.font='bold 13px Courier New'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(v,x+cs/2,bh+16);
+  });
+  const muY=bh-~~(mu/mx*bh);
+  ctx.strokeStyle='#34d399'; ctx.lineWidth=2; ctx.setLineDash([6,4]);
+  ctx.beginPath(); ctx.moveTo(p,muY); ctx.lineTo(cv.width-p,muY); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle='#34d399'; ctx.font='bold 10px Segoe UI'; ctx.textAlign='right';
+  ctx.fillText('μ = '+mu.toFixed(2),cv.width-4,muY-5);
+  $('out-var').textContent = `a = [${varVals.join(', ')}]\nnp.var(a)   →  ${variance}\nnp.std(a)   →  ${std}\n(var = std²: ${std}² = ${variance})`;
+}
+
+/* ── init ── */
+updateDots();
+drawEq();
+</script>
+</body>
+</html>
