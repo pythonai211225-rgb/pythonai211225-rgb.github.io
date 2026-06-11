@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 3 — NumPy Deep Dive</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='white'/><text x='32' y='45' text-anchor='middle' font-family='Arial, sans-serif' font-size='42' font-weight='700' fill='%2310b981'>🐍</text></svg>">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded',function(){renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}],throwOnError:false});});</script>
+  <style>
+    :root {
+      --bg-soft: #ffffff;
+      --green-1: #0f5a2e;
+      --green-2: #1f8f4e;
+      --green-3: #dbf6e5;
+      --mint: #e6fff2;
+      --text: #14281d;
+      --muted: #426654;
+      --border: #aadfbd;
+      --code-bg: #0b2517;
+      --code-text: #d2ffe3;
+      --accent-a: #ddfbe7;
+      --accent-b: #f2ffe6;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Trebuchet MS", "Lucida Sans", "Segoe UI", sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at 15% 10%, #e7fff0 0%, transparent 35%),
+                  radial-gradient(circle at 85% 18%, #f6ffe8 0%, transparent 36%),
+                  linear-gradient(180deg, #f4fff6 0%, #ffffff 45%, #edfff4 100%);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    body::before, body::after {
+      content: "";
+      position: fixed;
+      width: 240px; height: 240px;
+      z-index: -1;
+      border-radius: 999px;
+      filter: blur(2px);
+      opacity: 0.35;
+      animation: blobMove 8s ease-in-out infinite alternate;
+    }
+    body::before { background: #bff0d0; top: -30px; left: -40px; }
+    body::after  { background: #dfffc8; bottom: -40px; right: -40px; animation-delay: 1.4s; }
+
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 24px; }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .side-nav {
+      position: sticky;
+      top: 14px;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 8px 22px rgba(18,102,55,.1);
+      padding: 12px;
+    }
+
+    .side-title { margin: 0 0 8px; font-size: 0.9rem; color: var(--green-1); font-weight: 700; }
+
+    .topic-link {
+      display: block;
+      width: 100%;
+      text-align: left;
+      border: 1px solid transparent;
+      border-radius: 9px;
+      padding: 8px 10px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.89rem;
+      text-transform: lowercase;
+      margin-bottom: 6px;
+      transition: all 0.2s ease;
+    }
+    .topic-link:hover { background: #f0fff4; color: var(--green-1); border-color: var(--border); }
+    .topic-link.active { background: #e8faee; color: var(--green-1); border-color: var(--green-2); font-weight: 700; }
+
+    .hero {
+      background: linear-gradient(135deg, var(--bg-soft) 0%, var(--accent-a) 55%, var(--accent-b) 100%);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow: 0 12px 30px rgba(24,110,58,.12);
+      margin-bottom: 22px;
+      animation: riseIn 0.75s ease both;
+    }
+
+    h1, h2, h3 { margin-top: 0; color: var(--green-1); }
+    h1 { font-size: 2rem; margin-bottom: 8px; }
+
+    .tag {
+      display: inline-block;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      background: var(--green-3);
+      color: var(--green-1);
+      border: 1px solid var(--border);
+      margin-bottom: 10px;
+    }
+
+    .card {
+      background: var(--bg-soft);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 22px;
+      margin-bottom: 16px;
+      box-shadow: 0 7px 22px rgba(18,102,55,.08);
+      animation: riseIn 0.65s ease both;
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+    .card:hover { transform: translateY(-2px); box-shadow: 0 13px 28px rgba(18,102,55,.15); }
+
+    .topic-panel { display: none; }
+    .topic-panel.active { display: block; }
+
+    .step-title { margin: 0 0 12px; color: var(--green-1); font-size: 1.25rem; }
+
+    .code {
+      background: var(--code-bg);
+      color: var(--code-text);
+      border-radius: 10px;
+      border: 1px solid #2f5a3d;
+      padding: 16px 18px;
+      overflow-x: auto;
+      margin: 10px 0 14px;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.95rem;
+      white-space: pre;
+      line-height: 1.7;
+    }
+    .code .cm  { color: #6dbf8a; }
+    .code .str { color: #ffd580; }
+    .code .kw  { color: #79c0ff; }
+    .code .num { color: #d2a8ff; }
+    .code .fn  { color: #ffa657; }
+    .code .out { color: #a5d6ff; }
+
+    .note {
+      background: var(--mint);
+      border-left: 4px solid var(--green-2);
+      padding: 10px 14px;
+      color: var(--muted);
+      margin: 10px 0;
+      border-radius: 6px;
+      font-size: 0.94rem;
+    }
+
+    .big-result {
+      font-size: 1.1rem;
+      margin: 18px 0 8px;
+      color: var(--green-1);
+      font-weight: 700;
+    }
+
+    .hw-badge {
+      display: inline-block;
+      padding: 3px 12px;
+      border-radius: 999px;
+      font-size: .75rem;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      background: var(--green-3);
+      color: var(--green-1);
+      border: 1px solid var(--border);
+      margin-bottom: 12px;
+    }
+
+    .task-list { padding-left: 22px; margin: 10px 0 0; }
+    .task-list li { margin-bottom: 10px; color: #1a3a2a; }
+    .task-list li strong { color: var(--green-1); }
+
+    .side-divider { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+    .side-section-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--green-2);
+      padding: 4px 4px 6px;
+    }
+
+    .nav-back {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--green-2);
+      background: #e9fbe8;
+      color: var(--green-1);
+      text-decoration: none;
+      font-weight: 700;
+      transition: all 0.2s ease;
+      width: 100%;
+      text-align: center;
+    }
+    .nav-back:hover { background: #d8f7df; transform: translateY(-1px); }
+
+    .footer { text-align: center; color: var(--muted); font-size: 0.86rem; padding: 10px 0 16px; }
+
+    .formula-box {
+      background: #f0fff4;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin: 10px 0 14px;
+      text-align: center;
+      font-size: 1.05rem;
+      overflow-x: auto;
+    }
+    .formula-label {
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--green-2);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .formula-label::before {
+      content: '';
+      display: inline-block;
+      width: 3px; height: 10px;
+      background: var(--green-2);
+      border-radius: 2px;
+    }
+
+    .matrix-vis {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin: 12px 0;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: .9rem;
+    }
+    .mat-block {
+      background: var(--code-bg);
+      border: 1px solid #2f5a3d;
+      border-radius: 8px;
+      padding: 10px 16px;
+      color: var(--code-text);
+      white-space: pre;
+      line-height: 1.7;
+    }
+    .mat-op { font-size: 1.5rem; color: var(--green-2); font-weight: 700; }
+
+    .exercise-link-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 13px 22px;
+      border-radius: 12px;
+      border: 2px solid var(--green-2);
+      background: linear-gradient(135deg, #e8faee, #d4f7df);
+      color: var(--green-1);
+      font-size: 1rem;
+      font-weight: 800;
+      text-decoration: none;
+      margin: 16px 0 8px;
+      transition: all .2s ease;
+      box-shadow: 0 4px 14px rgba(18,102,55,.12);
+    }
+    .exercise-link-btn:hover { background: linear-gradient(135deg, #d4f7df, #c0f0cc); transform: translateY(-2px); box-shadow: 0 8px 22px rgba(18,102,55,.2); }
+
+    @keyframes riseIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes blobMove {
+      from { transform: translate(0, 0) scale(1); }
+      to   { transform: translate(24px, 18px) scale(1.06); }
+    }
+
+    @media (max-width: 760px) {
+      .wrap { padding: 14px; }
+      .layout { grid-template-columns: 1fr; }
+      .side-nav { position: static; }
+      h1 { font-size: 1.6rem; }
+      .code { font-size: 0.86rem; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <section class="hero">
+    <span class="tag">Lesson 3 — Deep Dive</span>
+    <h1>NumPy: Math Functions &amp; Statistics</h1>
+    <p>argmax row/col decoding, exponential &amp; log functions, matrix dot product, and statistical aggregations — each with the mathematical formula and a worked code example.</p>
+  </section>
+
+  <div class="layout">
+
+    <aside class="side-nav" aria-label="Topic navigation">
+      <h2 class="side-title">Topics</h2>
+      <button class="topic-link active" data-target="topic-1">argmax → row + col</button>
+      <button class="topic-link" data-target="topic-2">np.exp</button>
+      <button class="topic-link" data-target="topic-3">np.log / np.log2</button>
+      <button class="topic-link" data-target="topic-4">.dot — matrix multiply</button>
+      <button class="topic-link" data-target="topic-5">.cumsum</button>
+      <button class="topic-link" data-target="topic-6">np.median</button>
+      <button class="topic-link" data-target="topic-7">np.std</button>
+      <button class="topic-link" data-target="topic-8">np.var</button>
+      <button class="topic-link" data-target="topic-9">exercise</button>
+      <hr class="side-divider">
+      <div class="side-section-label">Navigation</div>
+      <a class="nav-back" href="../../index.html">← back to python libs</a>
+    </aside>
+
+    <main>
+
+      <!-- ── TOPIC 1: argmax → row + col ── -->
+      <section class="card topic-panel active" id="topic-1">
+        <h2 class="step-title">Finding Row &amp; Column from <code style="color:var(--green-2)">argmax()</code> / <code style="color:var(--green-2)">argmin()</code></h2>
+
+        <p><code>argmax()</code> returns a <strong>flat (1D) index</strong> — as if the 2D array were unrolled into a single row. To convert back to <strong>row</strong> and <strong>col</strong> use integer division and modulo:</p>
+
+        <div class="formula-box">
+          <div class="formula-label">Formula</div>
+          $$\text{row} = \frac{\text{flat\_index}}{\text{num\_cols}} \quad \text{(integer division)} \qquad \text{col} = \text{flat\_index} \bmod \text{num\_cols}$$
+        </div>
+
+        <div class="big-result">📋 5 × 5 example — argmax</div>
+        <div class="code"><span class="kw">import</span> numpy <span class="kw">as</span> np
+
+np.random.seed(<span class="num">42</span>)
+arr = np.random.randint(<span class="num">0</span>, <span class="num">100</span>, size=(<span class="num">5</span>, <span class="num">5</span>))
+<span class="fn">print</span>(arr)
+<span class="out"># [[51 92 14 71 60]
+#  [20 82 86 74 74]
+#  [87 99 23  2 21]   ← max = 99 is here
+#  [52  1 87 29 37]
+#  [10 14 72 98 76]]</span>
+
+<span class="fn">print</span>(<span class="str">'arg_max'</span>, arr.argmax())   <span class="cm"># 11  (flat index)</span>
+
+<span class="cm"># 11 // 5 = row 2</span>
+<span class="cm"># 11 %  5 = col 1</span>
+<span class="fn">print</span>(<span class="fn">f</span><span class="str">"row: {arr.argmax() // arr.shape[1]}, col: {arr.argmax() % arr.shape[1]}"</span>)
+<span class="out"># row: 2 col: 1</span></div>
+
+        <div class="big-result">📋 6 × 3 example — argmin</div>
+        <div class="code">arr = np.random.randint(<span class="num">0</span>, <span class="num">100</span>, size=(<span class="num">6</span>, <span class="num">3</span>))
+<span class="fn">print</span>(arr)
+
+<span class="fn">print</span>(<span class="str">'arg_min'</span>, arr.argmin())   <span class="cm"># flat index of minimum</span>
+<span class="fn">print</span>(<span class="fn">f</span><span class="str">"row: {arr.argmin() // arr.shape[1]}, col: {arr.argmin() % arr.shape[1]}"</span>)</div>
+
+        <div class="note">💡 <code>arr.shape[1]</code> is the number of columns. The pattern <code>flat // cols</code> and <code>flat % cols</code> is universal — works for any 2D shape.</div>
+      </section>
+
+      <!-- ── TOPIC 2: np.exp() ── -->
+      <section class="card topic-panel" id="topic-2">
+        <h2 class="step-title">Exponential — <code style="color:var(--green-2)">np.exp()</code></h2>
+
+        <p>Applies <strong>e<sup>x</sup></strong> element-wise to every value in the array, where <em>e</em> ≈ 2.71828 is Euler's number.</p>
+
+        <div class="formula-box">
+          <div class="formula-label">Formula</div>
+          $$e^x = \sum_{n=0}^{\infty} \frac{x^n}{n!} = 1 + x + \frac{x^2}{2!} + \frac{x^3}{3!} + \cdots$$
+        </div>
+
+        <div class="big-result">📋 Basic usage</div>
+        <div class="code">a = np.array([<span class="num">0</span>, <span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>])
+<span class="fn">print</span>(np.exp(a))
+<span class="out"># [ 1.          2.71828183  7.3890561  20.08553692]</span>
+
+<span class="cm"># e⁰ = 1,  e¹ = e,  e² ≈ 7.389,  e³ ≈ 20.09</span>
+<span class="fn">print</span>(np.exp(<span class="num">1</span>))   <span class="cm"># 2.718281828459045  ← Euler's number</span>
+<span class="fn">print</span>(np.exp(<span class="num">0</span>))   <span class="cm"># 1.0</span></div>
+
+        <div class="big-result">📋 Common use — softmax temperature</div>
+        <div class="code">scores = np.array([<span class="num">1.0</span>, <span class="num">2.0</span>, <span class="num">3.0</span>])
+e_x    = np.exp(scores)
+softmax = e_x / e_x.<span class="fn">sum</span>()
+<span class="fn">print</span>(softmax)
+<span class="out"># [0.09003057 0.24472847 0.66524096]</span>
+<span class="cm"># All values sum to 1.0 — used in neural network output layers</span></div>
+
+        <div class="note">💡 <code>np.exp(x)</code> is the inverse of <code>np.log(x)</code>: <code>np.exp(np.log(x)) == x</code></div>
+      </section>
+
+      <!-- ── TOPIC 3: np.log / log2 ── -->
+      <section class="card topic-panel" id="topic-3">
+        <h2 class="step-title">Logarithms — <code style="color:var(--green-2)">np.log</code>, <code style="color:var(--green-2)">np.log10</code>, <code style="color:var(--green-2)">np.log2</code></h2>
+
+        <p>A logarithm answers the question: <strong>"what exponent do I need?"</strong><br>
+        $\log_b(x) = y$ means $b^y = x$. NumPy has three variants covering the most common bases.</p>
+
+        <div class="formula-box">
+          <div class="formula-label">Core idea</div>
+          $$\log_b(x) = y \;\;\Longleftrightarrow\;\; b^{\,y} = x$$
+        </div>
+
+        <div class="big-result">📋 Simple examples — reading logs intuitively</div>
+        <div class="code"><span class="cm"># log₃(9) = 2  because  3² = 9</span>
+<span class="kw">import</span> math
+<span class="fn">print</span>(math.log(<span class="num">9</span>, <span class="num">3</span>))    <span class="out"># 2.0</span>
+
+<span class="cm"># log₁₀(1000) = 3  because  10³ = 1000</span>
+<span class="fn">print</span>(math.log(<span class="num">1000</span>, <span class="num">10</span>))  <span class="out"># 3.0</span></div>
+
+        <div class="big-result">📋 np.log10() — base 10</div>
+        <div class="code"><span class="fn">print</span>(np.log10(<span class="num">1</span>))      <span class="cm"># 0.0  ← 10⁰ = 1</span>
+<span class="fn">print</span>(np.log10(<span class="num">10</span>))     <span class="cm"># 1.0  ← 10¹ = 10</span>
+<span class="fn">print</span>(np.log10(<span class="num">1000</span>))   <span class="cm"># 3.0  ← 10³ = 1000</span>
+<span class="fn">print</span>(np.log10(<span class="num">100000</span>)) <span class="cm"># 5.0  ← 10⁵ = 100000</span></div>
+
+        <div class="big-result">📋 np.log() — natural log (base e)</div>
+        <div class="code"><span class="cm"># base is e ≈ 2.71828</span>
+<span class="fn">print</span>(np.log(<span class="num">1</span>))        <span class="cm"># 0.0  ← e⁰ = 1</span>
+<span class="fn">print</span>(np.log(np.e))    <span class="cm"># 1.0  ← e¹ = e</span>
+<span class="fn">print</span>(np.log(np.e**<span class="num">3</span>)) <span class="cm"># 3.0  ← e³</span>
+
+<span class="cm"># Element-wise on array</span>
+a = np.array([<span class="num">1</span>, np.e, np.e**<span class="num">2</span>, np.e**<span class="num">3</span>])
+<span class="fn">print</span>(np.log(a))
+<span class="out"># [0. 1. 2. 3.]</span></div>
+
+        <div class="big-result">📋 np.log2() — base 2</div>
+        <div class="code"><span class="fn">print</span>(np.log2(<span class="num">1</span>))    <span class="cm"># 0.0  ← 2⁰ = 1</span>
+<span class="fn">print</span>(np.log2(<span class="num">2</span>))    <span class="cm"># 1.0  ← 2¹ = 2</span>
+<span class="fn">print</span>(np.log2(<span class="num">8</span>))    <span class="cm"># 3.0  ← 2³ = 8</span>
+<span class="fn">print</span>(np.log2(<span class="num">1024</span>)) <span class="cm"># 10.0 ← 2¹⁰ = 1024</span>
+
+<span class="cm"># Element-wise on array</span>
+bits = np.array([<span class="num">1</span>, <span class="num">2</span>, <span class="num">4</span>, <span class="num">8</span>, <span class="num">16</span>, <span class="num">32</span>])
+<span class="fn">print</span>(np.log2(bits))
+<span class="out"># [0. 1. 2. 3. 4. 5.]</span></div>
+
+        <div class="note">⚠️ <code>np.log(0)</code> returns <code>-inf</code> and <code>np.log(negative)</code> returns <code>nan</code> — always check your data for zeros or negatives before taking a log.</div>
+      </section>
+
+      <!-- ── TOPIC 4: .dot() ── -->
+      <section class="card topic-panel" id="topic-4">
+        <h2 class="step-title">Matrix Multiply — <code style="color:var(--green-2)">.dot()</code> / <code style="color:var(--green-2)">@</code></h2>
+
+        <p>Each cell in the output is the <strong>sum of products</strong> of one row from A with one column from B. Shape rule: A is <strong>m × p</strong>, B is <strong>p × n</strong> → result is <strong>m × n</strong>.</p>
+
+        <div class="big-result">📋 3 × 2 · 2 × 3 = 3 × 3</div>
+
+        <div class="matrix-vis">
+          <div>
+            <div style="font-size:.75rem;color:var(--muted);margin-bottom:4px;font-weight:700;">A &nbsp;(3 × 2)</div>
+            <div class="mat-block">[[1, 2],
+ [3, 4],
+ [5, 6]]</div>
+          </div>
+          <div class="mat-op">@</div>
+          <div>
+            <div style="font-size:.75rem;color:var(--muted);margin-bottom:4px;font-weight:700;">B &nbsp;(2 × 3)</div>
+            <div class="mat-block">[[ 7,  8,  9],
+ [10, 11, 12]]</div>
+          </div>
+          <div class="mat-op">=</div>
+          <div>
+            <div style="font-size:.75rem;color:var(--muted);margin-bottom:4px;font-weight:700;">C &nbsp;(3 × 3)</div>
+            <div class="mat-block">[[ 27,  30,  33],
+ [ 61,  68,  75],
+ [ 95, 106, 117]]</div>
+          </div>
+        </div>
+
+        <div class="code">A = np.array([[<span class="num">1</span>, <span class="num">2</span>],
+              [<span class="num">3</span>, <span class="num">4</span>],
+              [<span class="num">5</span>, <span class="num">6</span>]])   <span class="cm"># shape (3, 2)</span>
+
+B = np.array([[<span class="num">7</span>,  <span class="num">8</span>,  <span class="num">9</span>],
+              [<span class="num">10</span>, <span class="num">11</span>, <span class="num">12</span>]])  <span class="cm"># shape (2, 3)</span>
+
+C = A.dot(B)            <span class="cm"># or: C = A @ B</span>
+<span class="fn">print</span>(C)
+<span class="out"># [[ 27  30  33]
+#  [ 61  68  75]
+#  [ 95 106 117]]</span>
+<span class="fn">print</span>(C.shape)   <span class="cm"># (3, 3)</span></div>
+
+        <div class="matrix-vis" style="margin-top:0;gap:8px;font-size:.82rem;flex-direction:column;align-items:flex-start;">
+          <div style="font-size:.72rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--green-2);margin-bottom:2px;">How each cell is calculated (row · col)</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;width:100%;max-width:560px;">
+            <div class="mat-block" style="padding:8px 12px;font-size:.82rem;">C[0,0]<br><span style="color:#ffd580">1×7 + 2×10</span><br>= 7 + 20 = <strong style="color:#7ee89a">27</strong></div>
+            <div class="mat-block" style="padding:8px 12px;font-size:.82rem;">C[0,1]<br><span style="color:#ffd580">1×8 + 2×11</span><br>= 8 + 22 = <strong style="color:#7ee89a">30</strong></div>
+            <div class="mat-block" style="padding:8px 12px;font-size:.82rem;">C[0,2]<br><span style="color:#ffd580">1×9 + 2×12</span><br>= 9 + 24 = <strong style="color:#7ee89a">33</strong></div>
+            <div class="mat-block" style="padding:8px 12px;font-size:.82rem;">C[1,0]<br><span style="color:#ffd580">3×7 + 4×10</span><br>= 21 + 40 = <strong style="color:#7ee89a">61</strong></div>
+            <div class="mat-block" style="padding:8px 12px;font-size:.82rem;">C[1,1]<br><span style="color:#ffd580">3×8 + 4×11</span><br>= 24 + 44 = <strong style="color:#7ee89a">68</strong></div>
+            <div class="mat-block" style="padding:8px 12px;font-size:.82rem;">C[1,2]<br><span style="color:#ffd580">3×9 + 4×12</span><br>= 27 + 48 = <strong style="color:#7ee89a">75</strong></div>
+            <div class="mat-block" style="padding:8px 12px;font-size:.82rem;">C[2,0]<br><span style="color:#ffd580">5×7 + 6×10</span><br>= 35 + 60 = <strong style="color:#7ee89a">95</strong></div>
+            <div class="mat-block" style="padding:8px 12px;font-size:.82rem;">C[2,1]<br><span style="color:#ffd580">5×8 + 6×11</span><br>= 40 + 66 = <strong style="color:#7ee89a">106</strong></div>
+            <div class="mat-block" style="padding:8px 12px;font-size:.82rem;">C[2,2]<br><span style="color:#ffd580">5×9 + 6×12</span><br>= 45 + 72 = <strong style="color:#7ee89a">117</strong></div>
+          </div>
+        </div>
+
+        <div class="note">⚠️ Columns of A must equal rows of B. A(3×<strong>2</strong>) · B(<strong>2</strong>×3) ✅ &nbsp;|&nbsp; A(3×2) · B(3×3) ❌ — shapes don't align.</div>
+      </section>
+
+      <!-- ── TOPIC 5: cumsum ── -->
+      <section class="card topic-panel" id="topic-5">
+        <h2 class="step-title">Cumulative Sum — <code style="color:var(--green-2)">.cumsum()</code></h2>
+
+        <p>Returns an array of the same shape where each element is the <strong>running total</strong> of all previous elements up to and including that position.</p>
+
+        <div class="formula-box">
+          <div class="formula-label">Formula</div>
+          $$\text{out}[k] = \sum_{i=0}^{k} a_i \qquad k = 0, 1, \ldots, n-1$$
+        </div>
+
+        <div class="big-result">📋 1-D cumulative sum</div>
+        <div class="code">a = np.array([<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>, <span class="num">4</span>, <span class="num">5</span>])
+<span class="fn">print</span>(a.cumsum())
+<span class="out"># [ 1  3  6 10 15]</span>
+<span class="cm"># out[0]=1, out[1]=1+2=3, out[2]=1+2+3=6, ...</span></div>
+
+        <div class="big-result">📋 2-D with axis</div>
+        <div class="code">b = np.array([[<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>],
+              [<span class="num">4</span>, <span class="num">5</span>, <span class="num">6</span>]])
+
+<span class="fn">print</span>(b.cumsum(axis=<span class="num">1</span>))   <span class="cm"># running total along each row</span>
+<span class="out"># [[ 1  3  6]
+#  [ 4  9 15]]</span>
+
+<span class="fn">print</span>(b.cumsum(axis=<span class="num">0</span>))   <span class="cm"># running total down each column</span>
+<span class="out"># [[1 2 3]
+#  [5 7 9]]</span></div>
+
+        <div class="big-result">📋 Real-world use — cumulative sales</div>
+        <div class="code">daily_sales = np.array([<span class="num">120</span>, <span class="num">95</span>, <span class="num">140</span>, <span class="num">110</span>, <span class="num">160</span>])
+<span class="fn">print</span>(daily_sales.cumsum())
+<span class="out"># [120 215 355 465 625]</span>
+<span class="cm"># By end of day 5, total sales = 625</span></div>
+
+        <div class="note">💡 <code>cumsum()[-1]</code> equals <code>sum()</code> — the last element is always the grand total.</div>
+      </section>
+
+      <!-- ── TOPIC 6: np.median() ── -->
+      <section class="card topic-panel" id="topic-6">
+        <h2 class="step-title">Median — <code style="color:var(--green-2)">np.median()</code></h2>
+
+        <p>The <strong>middle value</strong> of a sorted dataset. Resistant to outliers — a single extreme value barely moves it, unlike the mean.</p>
+
+        <div class="formula-box">
+          <div class="formula-label">Formula — sort first, then pick the middle</div>
+          $$\text{median} = \begin{cases} a_{\left\lfloor n/2 \right\rfloor} & \text{if } n \text{ is odd} \\[6pt] \dfrac{a_{n/2-1} + a_{n/2}}{2} & \text{if } n \text{ is even} \end{cases}$$
+          <div style="font-size:.82rem;color:var(--muted);margin-top:8px;">where $a_0 \leq a_1 \leq \cdots \leq a_{n-1}$ is the sorted array</div>
+        </div>
+
+        <div class="big-result">📋 Odd length (n = 5)</div>
+        <div class="code">a = np.array([<span class="num">3</span>, <span class="num">1</span>, <span class="num">4</span>, <span class="num">1</span>, <span class="num">5</span>])
+<span class="cm"># sorted: [1, 1, 3, 4, 5]  → middle index = 5//2 = 2</span>
+<span class="fn">print</span>(np.median(a))   <span class="cm"># 3.0</span></div>
+
+        <div class="big-result">📋 Even length (n = 6)</div>
+        <div class="code">b = np.array([<span class="num">3</span>, <span class="num">1</span>, <span class="num">4</span>, <span class="num">1</span>, <span class="num">5</span>, <span class="num">9</span>])
+<span class="cm"># sorted: [1, 1, 3, 4, 5, 9]  → avg of [2] and [3] = (3+4)/2</span>
+<span class="fn">print</span>(np.median(b))   <span class="cm"># 3.5</span></div>
+
+        <div class="big-result">📋 Outlier resistance</div>
+        <div class="code">salaries = np.array([<span class="num">50000</span>, <span class="num">52000</span>, <span class="num">54000</span>, <span class="num">56000</span>, <span class="num">2000000</span>])
+<span class="fn">print</span>(np.median(salaries))   <span class="cm"># 54000 — barely moved</span>
+<span class="fn">print</span>(salaries.mean())       <span class="cm"># 442400 — pulled way up by the outlier!</span></div>
+
+        <div class="note">💡 Rule of thumb: if <code>mean</code> ≫ <code>median</code>, the data is <strong>right-skewed</strong> (a large outlier pulling the mean up). Use median for salary, house prices, response times.</div>
+      </section>
+
+      <!-- ── TOPIC 7: np.std() ── -->
+      <section class="card topic-panel" id="topic-7">
+        <h2 class="step-title">Standard Deviation — <code style="color:var(--green-2)">np.std()</code></h2>
+
+        <p>Measures how far values <strong>spread from the mean</strong>. Small std → tightly clustered. Large std → widely scattered. Same units as the original data.</p>
+
+        <div class="formula-box">
+          <div class="formula-label">Formula (population, ddof=0)</div>
+          $$\sigma = \sqrt{\frac{\displaystyle\sum_{i=1}^{n}(x_i - \mu)^2}{n}} \qquad \mu = \frac{1}{n}\sum_{i=1}^{n} x_i$$
+        </div>
+
+        <div class="big-result">📋 Step-by-step walkthrough</div>
+        <div class="code">a = np.array([<span class="num">2</span>, <span class="num">4</span>, <span class="num">4</span>, <span class="num">4</span>, <span class="num">5</span>, <span class="num">5</span>, <span class="num">7</span>, <span class="num">9</span>])
+<span class="cm"># Step 1 — mean</span>
+mu = a.mean()         <span class="cm"># 40/8 = 5.0</span>
+<span class="cm"># Step 2 — deviations from mean: [-3,-1,-1,-1,0,0,2,4]</span>
+<span class="cm"># Step 3 — squared deviations:   [ 9, 1, 1, 1,0,0,4,16]</span>
+<span class="cm"># Step 4 — mean of squares:      32/8 = 4  ← this is variance</span>
+<span class="cm"># Step 5 — square root:          √4 = 2.0</span>
+
+<span class="fn">print</span>(np.std(a))         <span class="cm"># 2.0  ← population std</span>
+<span class="fn">print</span>(np.std(a, ddof=<span class="num">1</span>)) <span class="cm"># 2.138 ← sample std (use for surveys/samples)</span></div>
+
+        <div class="big-result">📋 Axis-wise on 2D</div>
+        <div class="code">m = np.array([[<span class="num">2</span>, <span class="num">4</span>, <span class="num">6</span>],
+              [<span class="num">1</span>, <span class="num">5</span>, <span class="num">9</span>]])
+<span class="fn">print</span>(np.std(m, axis=<span class="num">0</span>))   <span class="cm"># std of each column: [0.5 0.5 1.5]</span>
+<span class="fn">print</span>(np.std(m, axis=<span class="num">1</span>))   <span class="cm"># std of each row:    [1.633 3.266]</span></div>
+
+        <div class="note">💡 Use <code>ddof=0</code> (default) for the <strong>whole population</strong>. Use <code>ddof=1</code> for a <strong>sample</strong> (e.g. survey data) — it applies Bessel's correction for an unbiased estimate.</div>
+      </section>
+
+      <!-- ── TOPIC 8: np.var() ── -->
+      <section class="card topic-panel" id="topic-8">
+        <h2 class="step-title">Variance — <code style="color:var(--green-2)">np.var()</code></h2>
+
+        <p>Variance is <strong>std²</strong> — the mean of squared deviations from the mean. Units are squared (e.g. metres²), so it's less interpretable than std, but it's <em>additive</em> across independent sources of error.</p>
+
+        <div class="formula-box">
+          <div class="formula-label">Formula (population, ddof=0)</div>
+          $$\sigma^2 = \frac{\displaystyle\sum_{i=1}^{n}(x_i - \mu)^2}{n}$$
+        </div>
+
+        <div class="formula-box" style="background:#fff8e6;border-color:#d4a850;">
+          <div class="formula-label" style="color:#a07020;">Key relationship</div>
+          $$\sigma^2 = \sigma^2 \quad\Leftrightarrow\quad \text{var} = \text{std}^2 \qquad \text{std} = \sqrt{\text{var}}$$
+        </div>
+
+        <div class="big-result">📋 Basic usage</div>
+        <div class="code">a = np.array([<span class="num">2</span>, <span class="num">4</span>, <span class="num">4</span>, <span class="num">4</span>, <span class="num">5</span>, <span class="num">5</span>, <span class="num">7</span>, <span class="num">9</span>])
+<span class="fn">print</span>(np.var(a))          <span class="cm"># 4.0    ← population variance</span>
+<span class="fn">print</span>(np.std(a) ** <span class="num">2</span>)    <span class="cm"># 4.0    ← same thing (std²)</span>
+<span class="fn">print</span>(np.var(a, ddof=<span class="num">1</span>)) <span class="cm"># 4.571  ← sample variance</span></div>
+
+        <div class="big-result">📋 Variance decomposition — why it matters</div>
+        <div class="code"><span class="cm"># Independent noise sources — variances ADD, std does NOT</span>
+sensor_var  = <span class="num">0.04</span>   <span class="cm"># σ² from sensor noise</span>
+process_var = <span class="num">0.09</span>   <span class="cm"># σ² from process variation</span>
+total_var   = sensor_var + process_var   <span class="cm"># = 0.13</span>
+total_std   = np.sqrt(total_var)          <span class="cm"># ≈ 0.36</span></div>
+
+        <div class="note">💡 <strong>var = std²</strong> — always. They measure the same thing on different scales. Prefer std for communicating results (same units); prefer var for calculations (additive).</div>
+      </section>
+
+      <!-- ── TOPIC 9: Exercise ── -->
+      <section class="card topic-panel" id="topic-9">
+        <span class="hw-badge">Exercise</span>
+        <h2 class="step-title">Lesson 3 Exercises</h2>
+
+        <p>Practice all 8 topics using the exercise panel in the Comparison &amp; Statistics page. Complete each question in a Jupyter notebook, run the cells, then submit.</p>
+
+        <a class="exercise-link-btn" href="../../02_numpy/07-comp-stat-agg.html#exercises" target="_blank">
+          🏋️ Open Exercise Panel →
+        </a>
+
+        <div class="big-result">📝 Tasks</div>
+        <ol class="task-list">
+          <li>Work through the <strong>14 exercises</strong> in the panel — one for each operator covered in Topics 07.</li>
+          <li>Also write and run the <strong>argmax row+col</strong> snippet from Topic 1 with your own random array size.</li>
+          <li>For each of <strong>exp, log, dot, cumsum</strong> — write at least one example of your own (different input from the lesson) and verify the result.</li>
+          <li>Open Jupyter, run all cells, and <strong>save your notebook</strong>.</li>
+          <li>Upload it to GitHub and paste the link in your submission email below.</li>
+        </ol>
+
+        <div class="big-result">📤 Submission</div>
+        <div class="card" style="background:var(--mint);border-color:var(--green-2);margin-top:0">
+          <ol class="task-list" style="margin:0">
+            <li>
+              <strong>Upload to GitHub:</strong> Add your <code style="background:#e8faee;padding:2px 6px;border-radius:4px">.ipynb</code> file to a repository and push it.
+            </li>
+            <li>
+              <strong>Send the link</strong> to your repository or notebook to:<br>
+              <a href="mailto:pythonai211225+libs3@gmail.com"
+                 style="color:var(--green-1);font-weight:800;font-size:1.05rem;word-break:break-all">
+                pythonai211225+libs3@gmail.com
+              </a>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <footer class="footer">
+    Python Libraries — Lesson 3 Summary &mdash; <a href="../../index.html" style="color:var(--green-2)">Back to Module</a>
+  </footer>
+
+</div>
+
+<script>
+  const links = document.querySelectorAll('.topic-link');
+  const panels = document.querySelectorAll('.topic-panel');
+
+  function showTopic(id) {
+    panels.forEach(p => p.classList.toggle('active', p.id === id));
+    links.forEach(l => l.classList.toggle('active', l.dataset.target === id));
+  }
+
+  links.forEach(l => {
+    if (l.dataset.target) {
+      l.addEventListener('click', () => {
+        showTopic(l.dataset.target);
+        location.hash = l.dataset.target;
+      });
+    }
+  });
+
+  const hash = location.hash.replace('#', '');
+  if (hash && document.getElementById(hash)) showTopic(hash);
+</script>
+</body>
+</html>
