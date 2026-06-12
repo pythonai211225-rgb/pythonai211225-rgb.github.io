@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Topic 10 — Missing Data &amp; New Columns</title>
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    .ser-out { border-collapse:collapse; font-family:'Courier New',monospace; font-size:.82rem; width:100%; }
+    .ser-out th { color:var(--muted); font-size:.64rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; padding:4px 14px 4px 0; border-bottom:1px solid var(--border); text-align:left; white-space:nowrap; }
+    .ser-out td { padding:5px 14px 5px 0; border-bottom:1px solid rgba(255,255,255,.04); vertical-align:top; white-space:nowrap; }
+    .ser-out td:first-child { color:var(--accent); }
+    .ser-wrap { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px 18px; display:inline-block; overflow-x:auto; }
+    .ser-label { font-size:.62rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:8px; }
+    .code-result-list { display:grid; gap:14px; margin:16px 0 4px; }
+    .code-result { display:grid; grid-template-columns:minmax(260px,1fr) auto; align-items:start; gap:14px; }
+    .code-result .code-wrap { margin:0; }
+    .code-result .ser-wrap { display:block; justify-self:end; min-width:270px; max-width:100%; }
+    /* ── sidebar layout ── */
+    .page-layout{display:flex;height:calc(100vh - 54px);overflow:hidden;}
+    .sidebar{width:210px;min-width:210px;height:100%;overflow-y:auto;background:#0a0e14;border-right:1px solid var(--border);display:flex;flex-direction:column;scrollbar-width:thin;scrollbar-color:var(--border) transparent;flex-shrink:0;}
+    .sidebar-head{padding:18px 14px 12px;font-size:.6rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);}
+    .sidebar-nav{padding:6px 0;flex:1;}
+    .s-item{display:flex;align-items:center;gap:9px;padding:9px 14px;cursor:pointer;border-left:3px solid transparent;background:none;border-top:none;border-right:none;border-bottom:none;width:100%;text-align:left;transition:background .18s,border-color .18s;}
+    .s-item:hover{background:rgba(255,255,255,.04);}
+    .s-item.active{background:rgba(168,85,247,.08);border-left-color:var(--accent);}
+    .s-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;transition:transform .2s;}
+    .s-item.active .s-dot{transform:scale(1.45);box-shadow:0 0 8px currentColor;}
+    .s-num{font-size:.58rem;color:var(--border);font-family:'Courier New',monospace;font-weight:700;min-width:16px;}
+    .s-item.active .s-num{color:var(--accent);}
+    .s-label{font-size:.74rem;color:var(--muted);font-family:'Courier New',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .s-item.active .s-label{color:var(--text);}
+    .s-item.done .s-label::after{content:' ✓';color:var(--green);font-size:.67rem;}
+    .panel-viewport{flex:1;overflow-y:auto;overflow-x:hidden;}
+    .panel{display:none;flex-direction:column;min-height:100%;padding:36px 48px 80px;max-width:800px;margin:0 auto;animation:pdIn .3s ease;}
+    .panel.active{display:flex;}
+    @keyframes pdIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:translateX(0)}}
+    .panel.exit{display:flex;animation:pdOut .22s ease forwards;}
+    @keyframes pdOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(-24px)}}
+    .pnav{display:flex;justify-content:space-between;align-items:center;margin-top:36px;padding-top:20px;border-top:1px solid var(--border);flex-shrink:0;}
+    .pnav-btn{display:flex;align-items:center;gap:7px;padding:9px 20px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:.82rem;font-weight:700;cursor:pointer;transition:color .2s,border-color .2s,background .2s;}
+    .pnav-btn:hover:not(:disabled){color:var(--text);border-color:var(--accent);background:rgba(168,85,247,.06);}
+    .pnav-btn:disabled{opacity:.28;cursor:default;}
+    .pnav-btn.next{background:rgba(168,85,247,.08);border-color:rgba(168,85,247,.35);color:var(--accent);}
+    .pnav-btn.next:hover{background:rgba(168,85,247,.16);border-color:var(--accent);}
+    @media(max-width:700px){.sidebar{display:none;}.panel{padding:20px 16px 60px;}.code-result{grid-template-columns:1fr;}.code-result .ser-wrap{min-width:0;justify-self:stretch;}}
+  </style>
+</head>
+<body>
+<div class="progress-bar" id="progress"></div>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">← Python Libs</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item" href="01-intro.html">01</a>
+    <a class="nav-item" href="02-topic.html">02</a>
+    <a class="nav-item" href="03-cheat-sheet.html">03</a>
+    <a class="nav-item" href="04-series.html">04</a>
+    <a class="nav-item" href="05-creating-df.html">05</a>
+    <a class="nav-item" href="06-subsetting.html">06</a>
+    <a class="nav-item" href="07-reshaping.html">07</a>
+    <a class="nav-item" href="08-groupby-agg.html">08</a>
+    <a class="nav-item" href="09-combining.html">09</a>
+    <a class="nav-item active" href="10-missing-newcol.html">10</a>
+  </div>
+</nav>
+
+<div class="page-layout">
+
+  <aside class="sidebar">
+    <div class="sidebar-head">Topic 10 · Missing &amp; New Col</div>
+    <nav class="sidebar-nav">
+      <button class="s-item active" data-panel="0" onclick="goTo(0)"><span class="s-num">00</span><span class="s-dot" style="background:#a855f7"></span><span class="s-label">Overview</span></button>
+      <button class="s-item" data-panel="1" onclick="goTo(1)"><span class="s-num">01</span><span class="s-dot" style="background:#facc15"></span><span class="s-label">Detect NaN</span></button>
+      <button class="s-item" data-panel="2" onclick="goTo(2)"><span class="s-num">02</span><span class="s-dot" style="background:#3b82f6"></span><span class="s-label">Drop Missing</span></button>
+      <button class="s-item" data-panel="3" onclick="goTo(3)"><span class="s-num">03</span><span class="s-dot" style="background:#10b981"></span><span class="s-label">Fill Missing</span></button>
+      <button class="s-item" data-panel="4" onclick="goTo(4)"><span class="s-num">04</span><span class="s-dot" style="background:#f97316"></span><span class="s-label">New Columns</span></button>
+      <button class="s-item" data-panel="5" onclick="goTo(5)"><span class="s-num">05</span><span class="s-dot" style="background:#06b6d4"></span><span class="s-label">Binning</span></button>
+      <button class="s-item" data-panel="6" onclick="goTo(6)"><span class="s-num">06</span><span class="s-dot" style="background:#facc15"></span><span class="s-label">Exercises</span></button>
+    </nav>
+  </aside>
+
+  <div class="panel-viewport" id="viewport">
+
+    <div class="panel active" id="panel-0">
+      <div class="hero">
+        <span class="topic-label"><span class="dot"></span>Topic 10 of 10</span>
+        <h1>Missing Data &amp; New Columns</h1>
+        <p>Real data is messy — learn to detect and handle NaN values with <code>dropna</code> and <code>fillna</code>, and build new columns from existing ones with <code>assign</code> and direct assignment.</p>
+        <div class="hero-pills">
+          <span class="tag">dropna</span>
+          <span class="tag blue">fillna</span>
+          <span class="tag green">df.assign</span>
+          <span class="tag orange">pd.qcut</span>
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" disabled>← Prev</button>
+        <button class="pnav-btn next" onclick="goTo(1)">Detect NaN →</button>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-1">
+      <!-- Detect missing -->
+      <div class="section">
+        <div class="section-label">Detect Missing Values</div>
+        <h2>Finding NaN in a DataFrame</h2>
+        <div class="code-result-list">
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="kw">import</span> <span class="lib">pandas</span> <span class="kw">as</span> <span class="lib">pd</span></span>
+<span class="line"><span class="kw">import</span> <span class="lib">numpy</span> <span class="kw">as</span> <span class="lib">np</span></span>
+<span class="line"></span>
+<span class="line">df = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({</span>
+<span class="line">    <span class="str">'name'</span>:   [<span class="str">'Alice'</span>, <span class="str">'Bob'</span>, <span class="str">'Carol'</span>, <span class="str">'David'</span>],</span>
+<span class="line">    <span class="str">'score'</span>:  [<span class="num">88</span>, <span class="lib">np</span>.nan, <span class="num">75</span>, <span class="lib">np</span>.nan],</span>
+<span class="line">    <span class="str">'dept'</span>:   [<span class="str">'Eng'</span>, <span class="str">'HR'</span>, <span class="kw">None</span>, <span class="str">'Eng'</span>]</span>
+<span class="line">})</span>
+<span class="line">df</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">df</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>name</th><th>score</th><th>dept</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>Alice</td><td>88.0</td><td>Eng</td></tr>
+                  <tr><td>1</td><td>Bob</td><td>NaN</td><td>HR</td></tr>
+                  <tr><td>2</td><td>Carol</td><td>75.0</td><td>None</td></tr>
+                  <tr><td>3</td><td>David</td><td>NaN</td><td>Eng</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># check which cells are NaN</span></span>
+<span class="line">df.<span class="fn">isnull</span>()</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">df.isnull()</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>name</th><th>score</th><th>dept</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>False</td><td>False</td><td>False</td></tr>
+                  <tr><td>1</td><td>False</td><td>True</td><td>False</td></tr>
+                  <tr><td>2</td><td>False</td><td>False</td><td>True</td></tr>
+                  <tr><td>3</td><td>False</td><td>True</td><td>False</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># count NaN per column</span></span>
+<span class="line">df.<span class="fn">isnull</span>().<span class="fn">sum</span>()</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">missing count</div>
+              <table class="ser-out">
+                <thead><tr><th>column</th><th>missing</th></tr></thead>
+                <tbody>
+                  <tr><td>name</td><td>0</td></tr>
+                  <tr><td>score</td><td>2</td></tr>
+                  <tr><td>dept</td><td>1</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="code-wrap" style="display:none">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line"><span class="kw">import</span> <span class="lib">pandas</span> <span class="kw">as</span> <span class="lib">pd</span></span>
+<span class="line"><span class="kw">import</span> <span class="lib">numpy</span> <span class="kw">as</span> <span class="lib">np</span></span>
+<span class="line"></span>
+<span class="line">df = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({</span>
+<span class="line">    <span class="str">'name'</span>:   [<span class="str">'Alice'</span>, <span class="str">'Bob'</span>, <span class="str">'Carol'</span>, <span class="str">'David'</span>],</span>
+<span class="line">    <span class="str">'score'</span>:  [<span class="num">88</span>, <span class="lib">np</span>.nan, <span class="num">75</span>, <span class="lib">np</span>.nan],</span>
+<span class="line">    <span class="str">'dept'</span>:   [<span class="str">'Eng'</span>, <span class="str">'HR'</span>, <span class="kw">None</span>, <span class="str">'Eng'</span>]</span>
+<span class="line">})</span>
+<span class="line"></span>
+<span class="line"><span class="cm"># check which cells are NaN</span></span>
+<span class="line"><span class="fn">print</span>(df.<span class="fn">isnull</span>())</span>
+<span class="line"><span class="out">#     name  score   dept</span></span>
+<span class="line"><span class="out"># 0  False  False  False</span></span>
+<span class="line"><span class="out"># 1  False   True  False</span></span>
+<span class="line"><span class="out"># 2  False  False   True</span></span>
+<span class="line"><span class="out"># 3  False   True  False</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm"># count NaN per column</span></span>
+<span class="line"><span class="fn">print</span>(df.<span class="fn">isnull</span>().<span class="fn">sum</span>())</span>
+<span class="line"><span class="out"># name     0</span></span>
+<span class="line"><span class="out"># score    2</span></span>
+<span class="line"><span class="out"># dept     1</span></span></pre>
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(0)">← Overview</button>
+        <button class="pnav-btn next" onclick="goTo(2)">Drop Missing →</button>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-2">
+      <!-- dropna -->
+      <div class="section">
+        <div class="section-label">Drop Missing</div>
+        <h2>df.dropna() — Remove Rows with NaN</h2>
+        <div class="code-result-list">
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># drop any row that has at least one NaN</span></span>
+<span class="line">df.<span class="fn">dropna</span>()</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">dropna()</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>name</th><th>score</th><th>dept</th></tr></thead>
+                <tbody><tr><td>0</td><td>Alice</td><td>88.0</td><td>Eng</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># drop only rows where score is NaN</span></span>
+<span class="line">df.<span class="fn">dropna</span>(subset=[<span class="str">'score'</span>])</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">dropna(subset=['score'])</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>name</th><th>score</th><th>dept</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>Alice</td><td>88.0</td><td>Eng</td></tr>
+                  <tr><td>2</td><td>Carol</td><td>75.0</td><td>None</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># drop rows where ALL values are NaN</span></span>
+<span class="line">df.<span class="fn">dropna</span>(how=<span class="str">'all'</span>)</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">dropna(how='all')</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>name</th><th>score</th><th>dept</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>Alice</td><td>88.0</td><td>Eng</td></tr>
+                  <tr><td>1</td><td>Bob</td><td>NaN</td><td>HR</td></tr>
+                  <tr><td>2</td><td>Carol</td><td>75.0</td><td>None</td></tr>
+                  <tr><td>3</td><td>David</td><td>NaN</td><td>Eng</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="code-wrap" style="display:none">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line"><span class="cm"># drop any row that has at least one NaN</span></span>
+<span class="line"><span class="fn">print</span>(df.<span class="fn">dropna</span>())</span>
+<span class="line"><span class="out">#     name  score dept</span></span>
+<span class="line"><span class="out"># 0  Alice   88.0  Eng</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm"># drop only rows where a specific column is NaN</span></span>
+<span class="line"><span class="fn">print</span>(df.<span class="fn">dropna</span>(subset=[<span class="str">'score'</span>]))</span>
+<span class="line"><span class="out">#     name  score   dept</span></span>
+<span class="line"><span class="out"># 0  Alice   88.0    Eng</span></span>
+<span class="line"><span class="out"># 2  Carol   75.0   None</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm"># drop rows where ALL values are NaN (more lenient)</span></span>
+<span class="line">df.<span class="fn">dropna</span>(how=<span class="str">'all'</span>)</span></pre>
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(1)">← Detect NaN</button>
+        <button class="pnav-btn next" onclick="goTo(3)">Fill Missing →</button>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-3">
+      <!-- fillna -->
+      <div class="section">
+        <div class="section-label">Fill Missing</div>
+        <h2>df.fillna() — Replace NaN with a Value</h2>
+        <div class="code-result-list">
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># fill all NaN with a constant</span></span>
+<span class="line">df.<span class="fn">fillna</span>(<span class="num">0</span>)</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">fillna(0)</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>name</th><th>score</th><th>dept</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>Alice</td><td>88.0</td><td>Eng</td></tr>
+                  <tr><td>1</td><td>Bob</td><td>0.0</td><td>HR</td></tr>
+                  <tr><td>2</td><td>Carol</td><td>75.0</td><td>0</td></tr>
+                  <tr><td>3</td><td>David</td><td>0.0</td><td>Eng</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line">df.<span class="fn">fillna</span>(<span class="str">'Unknown'</span>)</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">fillna('Unknown')</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>name</th><th>score</th><th>dept</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>Alice</td><td>88.0</td><td>Eng</td></tr>
+                  <tr><td>1</td><td>Bob</td><td>Unknown</td><td>HR</td></tr>
+                  <tr><td>2</td><td>Carol</td><td>75.0</td><td>Unknown</td></tr>
+                  <tr><td>3</td><td>David</td><td>Unknown</td><td>Eng</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># fill each column with a different value</span></span>
+<span class="line">df.<span class="fn">fillna</span>({<span class="str">'score'</span>: df[<span class="str">'score'</span>].<span class="fn">mean</span>(), <span class="str">'dept'</span>: <span class="str">'Unknown'</span>})</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">column-specific fill</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>name</th><th>score</th><th>dept</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>Alice</td><td>88.0</td><td>Eng</td></tr>
+                  <tr><td>1</td><td>Bob</td><td>81.5</td><td>HR</td></tr>
+                  <tr><td>2</td><td>Carol</td><td>75.0</td><td>Unknown</td></tr>
+                  <tr><td>3</td><td>David</td><td>81.5</td><td>Eng</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># forward-fill: copy value from previous row</span></span>
+<span class="line">df.<span class="fn">ffill</span>()</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">ffill()</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>name</th><th>score</th><th>dept</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>Alice</td><td>88.0</td><td>Eng</td></tr>
+                  <tr><td>1</td><td>Bob</td><td>88.0</td><td>HR</td></tr>
+                  <tr><td>2</td><td>Carol</td><td>75.0</td><td>HR</td></tr>
+                  <tr><td>3</td><td>David</td><td>75.0</td><td>Eng</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># backward-fill: copy value from next row</span></span>
+<span class="line">df.<span class="fn">bfill</span>()</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">bfill()</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>name</th><th>score</th><th>dept</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>Alice</td><td>88.0</td><td>Eng</td></tr>
+                  <tr><td>1</td><td>Bob</td><td>75.0</td><td>HR</td></tr>
+                  <tr><td>2</td><td>Carol</td><td>75.0</td><td>Eng</td></tr>
+                  <tr><td>3</td><td>David</td><td>NaN</td><td>Eng</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="code-wrap" style="display:none">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line"><span class="cm"># fill all NaN with a constant</span></span>
+<span class="line"><span class="fn">print</span>(df.<span class="fn">fillna</span>(<span class="num">0</span>))             <span class="cm"># numeric NaN → 0</span></span>
+<span class="line"><span class="fn">print</span>(df.<span class="fn">fillna</span>(<span class="str">'Unknown'</span>))     <span class="cm"># string NaN → 'Unknown'</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm"># fill each column with a different value</span></span>
+<span class="line">df.<span class="fn">fillna</span>({<span class="str">'score'</span>: df[<span class="str">'score'</span>].<span class="fn">mean</span>(), <span class="str">'dept'</span>: <span class="str">'Unknown'</span>})</span>
+<span class="line"></span>
+<span class="line"><span class="cm"># forward-fill: copy value from the previous row</span></span>
+<span class="line">df.<span class="fn">ffill</span>()</span>
+<span class="line"></span>
+<span class="line"><span class="cm"># backward-fill: copy value from the next row</span></span>
+<span class="line">df.<span class="fn">bfill</span>()</span></pre>
+        </div>
+        <div class="callout blue">
+          <strong>fillna vs interpolate:</strong> <code>fillna(df['col'].mean())</code> replaces with the column mean. <code>df['col'].interpolate()</code> fills by linear interpolation between surrounding values — useful for time-series data.
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(2)">← Drop Missing</button>
+        <button class="pnav-btn next" onclick="goTo(4)">New Columns →</button>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-4">
+      <!-- New columns -->
+      <div class="section">
+        <div class="section-label">New Columns</div>
+        <h2>Adding New Columns</h2>
+        <div class="code-result-list">
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line">df = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({</span>
+<span class="line">    <span class="str">'length'</span>: [<span class="num">10</span>, <span class="num">20</span>, <span class="num">15</span>],</span>
+<span class="line">    <span class="str">'width'</span>:  [<span class="num">5</span>,  <span class="num">8</span>,  <span class="num">6</span> ],</span>
+<span class="line">    <span class="str">'depth'</span>:  [<span class="num">2</span>,  <span class="num">3</span>,  <span class="num">4</span> ]</span>
+<span class="line">})</span>
+<span class="line">df</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">df</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>length</th><th>width</th><th>depth</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>10</td><td>5</td><td>2</td></tr>
+                  <tr><td>1</td><td>20</td><td>8</td><td>3</td></tr>
+                  <tr><td>2</td><td>15</td><td>6</td><td>4</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># direct assignment</span></span>
+<span class="line">df[<span class="str">'area'</span>]   = df.length * df.width</span>
+<span class="line">df[<span class="str">'volume'</span>] = df.length * df.width * df.depth</span>
+<span class="line">df</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">direct assignment</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>length</th><th>width</th><th>depth</th><th>area</th><th>volume</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>10</td><td>5</td><td>2</td><td>50</td><td>100</td></tr>
+                  <tr><td>1</td><td>20</td><td>8</td><td>3</td><td>160</td><td>480</td></tr>
+                  <tr><td>2</td><td>15</td><td>6</td><td>4</td><td>90</td><td>360</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># df.assign returns a new DataFrame</span></span>
+<span class="line">df2 = df.<span class="fn">assign</span>(</span>
+<span class="line">    area   = <span class="kw">lambda</span> d: d.length * d.width,</span>
+<span class="line">    volume = <span class="kw">lambda</span> d: d.length * d.width * d.depth,</span>
+<span class="line">    label  = <span class="kw">lambda</span> d: <span class="lib">pd</span>.<span class="cls">Series</span>([<span class="str">'small'</span>,<span class="str">'large'</span>,<span class="str">'medium'</span>])</span>
+<span class="line">)</span>
+<span class="line">df2</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">df2</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>length</th><th>width</th><th>depth</th><th>area</th><th>volume</th><th>label</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>10</td><td>5</td><td>2</td><td>50</td><td>100</td><td>small</td></tr>
+                  <tr><td>1</td><td>20</td><td>8</td><td>3</td><td>160</td><td>480</td><td>large</td></tr>
+                  <tr><td>2</td><td>15</td><td>6</td><td>4</td><td>90</td><td>360</td><td>medium</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="code-wrap" style="display:none">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line">df = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({</span>
+<span class="line">    <span class="str">'length'</span>: [<span class="num">10</span>, <span class="num">20</span>, <span class="num">15</span>],</span>
+<span class="line">    <span class="str">'width'</span>:  [<span class="num">5</span>,  <span class="num">8</span>,  <span class="num">6</span> ],</span>
+<span class="line">    <span class="str">'depth'</span>:  [<span class="num">2</span>,  <span class="num">3</span>,  <span class="num">4</span> ]</span>
+<span class="line">})</span>
+<span class="line"></span>
+<span class="line"><span class="cm"># ── direct assignment ──</span></span>
+<span class="line">df[<span class="str">'area'</span>]   = df.length * df.width</span>
+<span class="line">df[<span class="str">'volume'</span>] = df.length * df.width * df.depth</span>
+<span class="line"><span class="fn">print</span>(df)</span>
+<span class="line"><span class="out">#    length  width  depth  area  volume</span></span>
+<span class="line"><span class="out"># 0      10      5      2    50     100</span></span>
+<span class="line"><span class="out"># 1      20      8      3   160     480</span></span>
+<span class="line"><span class="out"># 2      15      6      4    90     360</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm"># ── df.assign — returns new DataFrame, original unchanged ──</span></span>
+<span class="line">df2 = df.<span class="fn">assign</span>(</span>
+<span class="line">    area   = <span class="kw">lambda</span> d: d.length * d.width,</span>
+<span class="line">    volume = <span class="kw">lambda</span> d: d.length * d.width * d.depth,</span>
+<span class="line">    label  = <span class="kw">lambda</span> d: <span class="lib">pd</span>.<span class="cls">Series</span>([<span class="str">'small'</span>,<span class="str">'large'</span>,<span class="str">'medium'</span>])</span>
+<span class="line">)</span>
+<span class="line"><span class="fn">print</span>(df2)</span></pre>
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(3)">← Fill Missing</button>
+        <button class="pnav-btn next" onclick="goTo(5)">Binning →</button>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-5">
+      <!-- qcut -->
+      <div class="section">
+        <div class="section-label">Binning Values</div>
+        <h2>pd.qcut() — Bin into Quantile Buckets</h2>
+        <div class="code-result-list">
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line">scores = <span class="lib">pd</span>.<span class="cls">Series</span>([<span class="num">45</span>, <span class="num">60</span>, <span class="num">72</span>, <span class="num">80</span>, <span class="num">88</span>, <span class="num">91</span>, <span class="num">95</span>, <span class="num">99</span>])</span>
+<span class="line">scores</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">scores</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>score</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>45</td></tr>
+                  <tr><td>1</td><td>60</td></tr>
+                  <tr><td>2</td><td>72</td></tr>
+                  <tr><td>3</td><td>80</td></tr>
+                  <tr><td>4</td><td>88</td></tr>
+                  <tr><td>5</td><td>91</td></tr>
+                  <tr><td>6</td><td>95</td></tr>
+                  <tr><td>7</td><td>99</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># equal-frequency bins</span></span>
+<span class="line">bins = <span class="lib">pd</span>.<span class="fn">qcut</span>(scores, q=<span class="num">4</span>, labels=[<span class="str">'D'</span>,<span class="str">'C'</span>,<span class="str">'B'</span>,<span class="str">'A'</span>])</span>
+<span class="line">bins</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">qcut bins</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>bin</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>D</td></tr>
+                  <tr><td>1</td><td>D</td></tr>
+                  <tr><td>2</td><td>C</td></tr>
+                  <tr><td>3</td><td>C</td></tr>
+                  <tr><td>4</td><td>B</td></tr>
+                  <tr><td>5</td><td>B</td></tr>
+                  <tr><td>6</td><td>A</td></tr>
+                  <tr><td>7</td><td>A</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># equal-width bins</span></span>
+<span class="line">bins2 = <span class="lib">pd</span>.<span class="fn">cut</span>(scores, bins=<span class="num">4</span>, labels=[<span class="str">'D'</span>,<span class="str">'C'</span>,<span class="str">'B'</span>,<span class="str">'A'</span>])</span>
+<span class="line">bins2</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">cut bins</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>bin</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>D</td></tr>
+                  <tr><td>1</td><td>C</td></tr>
+                  <tr><td>2</td><td>C</td></tr>
+                  <tr><td>3</td><td>B</td></tr>
+                  <tr><td>4</td><td>A</td></tr>
+                  <tr><td>5</td><td>A</td></tr>
+                  <tr><td>6</td><td>A</td></tr>
+                  <tr><td>7</td><td>A</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="code-wrap" style="display:none">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line">scores = <span class="lib">pd</span>.<span class="cls">Series</span>([<span class="num">45</span>, <span class="num">60</span>, <span class="num">72</span>, <span class="num">80</span>, <span class="num">88</span>, <span class="num">91</span>, <span class="num">95</span>, <span class="num">99</span>])</span>
+<span class="line"></span>
+<span class="line"><span class="cm"># pd.qcut — equal-frequency bins (same number of items per bin)</span></span>
+<span class="line">bins = <span class="lib">pd</span>.<span class="fn">qcut</span>(scores, q=<span class="num">4</span>, labels=[<span class="str">'D'</span>,<span class="str">'C'</span>,<span class="str">'B'</span>,<span class="str">'A'</span>])</span>
+<span class="line"><span class="fn">print</span>(bins)</span>
+<span class="line"><span class="out"># 0    D</span></span>
+<span class="line"><span class="out"># 1    D</span></span>
+<span class="line"><span class="out"># 2    C</span></span>
+<span class="line"><span class="out"># 3    C</span></span>
+<span class="line"><span class="out"># 4    B</span></span>
+<span class="line"><span class="out"># 5    B</span></span>
+<span class="line"><span class="out"># 6    A</span></span>
+<span class="line"><span class="out"># 7    A</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm"># pd.cut — equal-width bins (same range per bin)</span></span>
+<span class="line">bins2 = <span class="lib">pd</span>.<span class="fn">cut</span>(scores, bins=<span class="num">4</span>, labels=[<span class="str">'D'</span>,<span class="str">'C'</span>,<span class="str">'B'</span>,<span class="str">'A'</span>])</span>
+<span class="line"><span class="fn">print</span>(bins2)</span></pre>
+        </div>
+        <div class="callout orange">
+          <strong>qcut vs cut:</strong> <code>pd.qcut(q=4)</code> puts the same number of observations into each quartile. <code>pd.cut(bins=4)</code> divides the value range into equal-width intervals — fewer items may fall in sparse regions.
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(4)">← New Columns</button>
+        <button class="pnav-btn next" onclick="goTo(6)">Exercises →</button>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-6">
+      <!-- Exercises -->
+      <div class="section">
+        <div class="section-label">Exercises</div>
+        <h2>Practice — Missing Data &amp; New Columns</h2>
+
+        <div class="ex-block">
+          <span class="ex-num">Q1</span>
+          <p>Create the DataFrame below and fill the NaN in <code>temperature</code> with the column mean. Fill the NaN in <code>city</code> with <code>'Unknown'</code>.</p>
+          <div class="code-wrap"><pre><span class="line">df = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({</span>
+<span class="line">    <span class="str">'city'</span>:        [<span class="str">'Paris'</span>, <span class="kw">None</span>, <span class="str">'Rome'</span>, <span class="str">'Berlin'</span>],</span>
+<span class="line">    <span class="str">'temperature'</span>: [<span class="num">18.0</span>, <span class="num">22.0</span>, <span class="lib">np</span>.nan, <span class="num">15.0</span>]</span>
+<span class="line">})</span></pre></div>
+          <details class="answer">
+            <summary>Show answer</summary>
+            <div class="answer-body">
+              <div class="code-wrap" style="margin:0">
+                <pre><span class="line">df[<span class="str">'temperature'</span>] = df[<span class="str">'temperature'</span>].<span class="fn">fillna</span>(df[<span class="str">'temperature'</span>].<span class="fn">mean</span>())</span>
+<span class="line">df[<span class="str">'city'</span>]        = df[<span class="str">'city'</span>].<span class="fn">fillna</span>(<span class="str">'Unknown'</span>)</span>
+<span class="line"><span class="fn">print</span>(df)</span>
+<span class="line"><span class="out">#       city  temperature</span></span>
+<span class="line"><span class="out"># 0    Paris         18.0</span></span>
+<span class="line"><span class="out"># 1  Unknown         22.0</span></span>
+<span class="line"><span class="out"># 2     Rome         18.3  ← mean of 18, 22, 15</span></span>
+<span class="line"><span class="out"># 3   Berlin         15.0</span></span></pre>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="ex-block">
+          <span class="ex-num">Q2</span>
+          <p>Add a new column <code>revenue</code> = <code>price * qty</code> and a column <code>discount_price</code> = <code>price * 0.9</code> using <code>df.assign()</code>.</p>
+          <div class="code-wrap"><pre><span class="line">df = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({<span class="str">'product'</span>:[<span class="str">'A'</span>,<span class="str">'B'</span>,<span class="str">'C'</span>], <span class="str">'price'</span>:[<span class="num">10</span>,<span class="num">25</span>,<span class="num">8</span>], <span class="str">'qty'</span>:[<span class="num">5</span>,<span class="num">2</span>,<span class="num">10</span>]})</span></pre></div>
+          <details class="answer">
+            <summary>Show answer</summary>
+            <div class="answer-body">
+              <div class="code-wrap" style="margin:0">
+                <pre><span class="line">df2 = df.<span class="fn">assign</span>(</span>
+<span class="line">    revenue       = <span class="kw">lambda</span> d: d.price * d.qty,</span>
+<span class="line">    discount_price = <span class="kw">lambda</span> d: d.price * <span class="num">0.9</span></span>
+<span class="line">)</span>
+<span class="line"><span class="fn">print</span>(df2)</span>
+<span class="line"><span class="out">#   product  price  qty  revenue  discount_price</span></span>
+<span class="line"><span class="out"># 0       A     10    5       50             9.0</span></span>
+<span class="line"><span class="out"># 1       B     25    2       50            22.5</span></span>
+<span class="line"><span class="out"># 2       C      8   10       80             7.2</span></span></pre>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="ex-block">
+          <span class="ex-num">Q3</span>
+          <p>Use <code>pd.qcut</code> to assign each score into one of 3 equal-frequency tiers: <code>'low'</code>, <code>'mid'</code>, <code>'high'</code>. Add it as a new column <code>tier</code>.</p>
+          <div class="code-wrap"><pre><span class="line">df = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({<span class="str">'student'</span>:[<span class="str">'A'</span>,<span class="str">'B'</span>,<span class="str">'C'</span>,<span class="str">'D'</span>,<span class="str">'E'</span>,<span class="str">'F'</span>], <span class="str">'score'</span>:[<span class="num">55</span>,<span class="num">65</span>,<span class="num">70</span>,<span class="num">80</span>,<span class="num">88</span>,<span class="num">95</span>]})</span></pre></div>
+          <details class="answer">
+            <summary>Show answer</summary>
+            <div class="answer-body">
+              <div class="code-wrap" style="margin:0">
+                <pre><span class="line">df[<span class="str">'tier'</span>] = <span class="lib">pd</span>.<span class="fn">qcut</span>(df[<span class="str">'score'</span>], q=<span class="num">3</span>, labels=[<span class="str">'low'</span>,<span class="str">'mid'</span>,<span class="str">'high'</span>])</span>
+<span class="line"><span class="fn">print</span>(df)</span>
+<span class="line"><span class="out">#   student  score  tier</span></span>
+<span class="line"><span class="out"># 0       A     55   low</span></span>
+<span class="line"><span class="out"># 1       B     65   low</span></span>
+<span class="line"><span class="out"># 2       C     70   mid</span></span>
+<span class="line"><span class="out"># 3       D     80   mid</span></span>
+<span class="line"><span class="out"># 4       E     88  high</span></span>
+<span class="line"><span class="out"># 5       F     95  high</span></span></pre>
+              </div>
+            </div>
+          </details>
+        </div>
+
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(5)">← Binning</button>
+        <button class="pnav-btn next" onclick="goTo(0)">⟳ Overview</button>
+      </div>
+    </div>
+
+  </div><!-- /panel-viewport -->
+</div><!-- /page-layout -->
+
+<script src="app.js"></script>
+<script>
+let _cur = 0;
+function goTo(idx) {
+  if (idx === _cur) return;
+  const oldP = document.getElementById('panel-' + _cur);
+  const newP = document.getElementById('panel-' + idx);
+  if (!oldP || !newP) return;
+  if (_cur > 0) { const sb = document.querySelector('[data-panel="' + _cur + '"]'); if (sb) sb.classList.add('done'); }
+  oldP.classList.remove('active'); oldP.classList.add('exit');
+  setTimeout(() => oldP.classList.remove('exit'), 240);
+  _cur = idx;
+  newP.classList.add('active');
+  document.getElementById('viewport').scrollTop = 0;
+  document.querySelectorAll('.s-item').forEach(b => b.classList.toggle('active', +b.dataset.panel === idx));
+  newP.querySelectorAll('.section:not(.visible)').forEach((s, i) => {
+    setTimeout(() => {
+      s.classList.add('visible');
+      if (typeof animatePre === 'function') animatePre(s);
+      if (typeof animateRows === 'function') animateRows(s);
+    }, i * 80 + 60);
+  });
+}
+(function() {
+  const vp = document.getElementById('viewport');
+  const pb = document.getElementById('progress');
+  if (vp && pb) vp.addEventListener('scroll', () => {
+    pb.style.width = (vp.scrollTop / (vp.scrollHeight - vp.clientHeight) * 100) + '%';
+  });
+})();
+</script>
+</body>
+</html>

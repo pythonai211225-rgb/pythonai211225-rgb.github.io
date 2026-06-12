@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Topic 06 — Subsetting Data</title>
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    /* ── sidebar layout ── */
+    .page-layout{display:flex;height:calc(100vh - 54px);overflow:hidden;}
+    .sidebar{width:210px;min-width:210px;height:100%;overflow-y:auto;background:#0a0e14;border-right:1px solid var(--border);display:flex;flex-direction:column;scrollbar-width:thin;scrollbar-color:var(--border) transparent;flex-shrink:0;}
+    .sidebar-head{padding:18px 14px 12px;font-size:.6rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);}
+    .sidebar-nav{padding:6px 0;flex:1;}
+    .s-item{display:flex;align-items:center;gap:9px;padding:9px 14px;cursor:pointer;border-left:3px solid transparent;background:none;border-top:none;border-right:none;border-bottom:none;width:100%;text-align:left;transition:background .18s,border-color .18s;}
+    .s-item:hover{background:rgba(255,255,255,.04);}
+    .s-item.active{background:rgba(168,85,247,.08);border-left-color:var(--accent);}
+    .s-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;transition:transform .2s;}
+    .s-item.active .s-dot{transform:scale(1.45);box-shadow:0 0 8px currentColor;}
+    .s-num{font-size:.58rem;color:var(--border);font-family:'Courier New',monospace;font-weight:700;min-width:16px;}
+    .s-item.active .s-num{color:var(--accent);}
+    .s-label{font-size:.74rem;color:var(--muted);font-family:'Courier New',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .s-item.active .s-label{color:var(--text);}
+    .s-item.done .s-label::after{content:' ✓';color:var(--green);font-size:.67rem;}
+    .panel-viewport{flex:1;overflow-y:auto;overflow-x:hidden;}
+    .panel{display:none;flex-direction:column;min-height:100%;padding:36px 48px 80px;max-width:800px;margin:0 auto;animation:pdIn .3s ease;}
+    .panel.active{display:flex;}
+    @keyframes pdIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:translateX(0)}}
+    .panel.exit{display:flex;animation:pdOut .22s ease forwards;}
+    @keyframes pdOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(-24px)}}
+    .pnav{display:flex;justify-content:space-between;align-items:center;margin-top:36px;padding-top:20px;border-top:1px solid var(--border);flex-shrink:0;}
+    .pnav-btn{display:flex;align-items:center;gap:7px;padding:9px 20px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:.82rem;font-weight:700;cursor:pointer;transition:color .2s,border-color .2s,background .2s;}
+    .pnav-btn:hover:not(:disabled){color:var(--text);border-color:var(--accent);background:rgba(168,85,247,.06);}
+    .pnav-btn:disabled{opacity:.28;cursor:default;}
+    .pnav-btn.next{background:rgba(168,85,247,.08);border-color:rgba(168,85,247,.35);color:var(--accent);}
+    .pnav-btn.next:hover{background:rgba(168,85,247,.16);border-color:var(--accent);}
+    @media(max-width:700px){.sidebar{display:none;}.panel{padding:20px 16px 60px;}}
+  </style>
+</head>
+<body>
+<div class="progress-bar" id="progress"></div>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">← Python Libs</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item" href="01-intro.html">01</a>
+    <a class="nav-item" href="02-topic.html">02</a>
+    <a class="nav-item" href="03-cheat-sheet.html">03</a>
+    <a class="nav-item" href="04-series.html">04</a>
+    <a class="nav-item" href="05-creating-df.html">05</a>
+    <a class="nav-item active" href="06-subsetting.html">06</a>
+    <a class="nav-item" href="07-reshaping.html">07</a>
+    <a class="nav-item" href="08-groupby-agg.html">08</a>
+    <a class="nav-item" href="09-combining.html">09</a>
+    <a class="nav-item" href="10-missing-newcol.html">10</a>
+  </div>
+</nav>
+
+<div class="page-layout">
+
+  <aside class="sidebar">
+    <div class="sidebar-head">Topic 06 · 6 Sections</div>
+    <nav class="sidebar-nav">
+      <button class="s-item active" data-panel="0" onclick="goTo(0)"><span class="s-num">00</span><span class="s-dot" style="background:#a855f7"></span><span class="s-label">Overview</span></button>
+      <button class="s-item" data-panel="1" onclick="goTo(1)"><span class="s-num">01</span><span class="s-dot" style="background:#facc15"></span><span class="s-label">Sample Data</span></button>
+      <button class="s-item" data-panel="2" onclick="goTo(2)"><span class="s-num">02</span><span class="s-dot" style="background:#3b82f6"></span><span class="s-label">Subset Rows</span></button>
+      <button class="s-item" data-panel="3" onclick="goTo(3)"><span class="s-num">03</span><span class="s-dot" style="background:#10b981"></span><span class="s-label">Subset Cols</span></button>
+      <button class="s-item" data-panel="4" onclick="goTo(4)"><span class="s-num">04</span><span class="s-dot" style="background:#f97316"></span><span class="s-label">loc &amp; iloc</span></button>
+      <button class="s-item" data-panel="5" onclick="goTo(5)"><span class="s-num">05</span><span class="s-dot" style="background:#06b6d4"></span><span class="s-label">query()</span></button>
+      <button class="s-item" data-panel="6" onclick="goTo(6)"><span class="s-num">06</span><span class="s-dot" style="background:#facc15"></span><span class="s-label">Exercises</span></button>
+    </nav>
+  </aside>
+
+  <!-- PANEL VIEWPORT -->
+  <div class="panel-viewport" id="viewport">
+
+    <!-- Panel 0: Overview -->
+    <div class="panel active" id="panel-0">
+      <div class="hero">
+        <span class="topic-label"><span class="dot"></span>Topic 06 of 10</span>
+        <h1>Subsetting Data</h1>
+        <p>Slice rows, select columns, or combine both using boolean masks, label-based <code>loc</code>, position-based <code>iloc</code>, and the readable <code>query()</code> syntax.</p>
+        <div class="hero-pills">
+          <span class="tag">Boolean mask</span>
+          <span class="tag blue">loc / iloc</span>
+          <span class="tag green">query()</span>
+          <span class="tag orange">at / iat</span>
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" disabled>← Prev</button>
+        <button class="pnav-btn next" onclick="goTo(1)">Sample Data →</button>
+      </div>
+    </div>
+
+    <!-- Panel 1: Sample Data -->
+    <div class="panel" id="panel-1">
+      <div class="section">
+        <div class="section-label">Sample Data</div>
+        <h2>The DataFrame Used in All Examples</h2>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line"><span class="kw">import</span> <span class="lib">pandas</span> <span class="kw">as</span> <span class="lib">pd</span></span>
+<span class="line"></span>
+<span class="line">df = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({</span>
+<span class="line">    <span class="str">'name'</span>:   [<span class="str">'Alice'</span>, <span class="str">'Bob'</span>, <span class="str">'Carol'</span>, <span class="str">'David'</span>, <span class="str">'Eve'</span>],</span>
+<span class="line">    <span class="str">'score'</span>:  [<span class="num">88</span>, <span class="num">92</span>, <span class="num">75</span>, <span class="num">61</span>, <span class="num">95</span>],</span>
+<span class="line">    <span class="str">'grade'</span>:  [<span class="str">'B'</span>, <span class="str">'A'</span>, <span class="str">'C'</span>, <span class="str">'D'</span>, <span class="str">'A'</span>],</span>
+<span class="line">    <span class="str">'age'</span>:    [<span class="num">22</span>, <span class="num">25</span>, <span class="num">23</span>, <span class="num">21</span>, <span class="num">24</span>]</span>
+<span class="line">})</span>
+<span class="line"><span class="fn">print</span>(df)</span>
+<span class="line"><span class="out">#     name  score grade  age</span></span>
+<span class="line"><span class="out"># 0  Alice     88     B   22</span></span>
+<span class="line"><span class="out"># 1    Bob     92     A   25</span></span>
+<span class="line"><span class="out"># 2  Carol     75     C   23</span></span>
+<span class="line"><span class="out"># 3  David     61     D   21</span></span>
+<span class="line"><span class="out"># 4    Eve     95     A   24</span></span></pre>
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(0)">← Overview</button>
+        <button class="pnav-btn next" onclick="goTo(2)">Subset Rows →</button>
+      </div>
+    </div>
+
+    <!-- Panel 2: Subset Rows -->
+    <div class="panel" id="panel-2">
+      <div class="section">
+        <div class="section-label">Subset Rows</div>
+        <h2>Filtering Rows with Boolean Masks</h2>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line"><span class="cm"># single condition</span></span>
+<span class="line"><span class="fn">print</span>(df[df.score &gt; <span class="num">80</span>])</span>
+<span class="line"><span class="out">#    name  score grade  age</span></span>
+<span class="line"><span class="out"># 0  Alice     88     B   22</span></span>
+<span class="line"><span class="out"># 1    Bob     92     A   25</span></span>
+<span class="line"><span class="out"># 4    Eve     95     A   24</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm"># AND  — use &amp; (not 'and')</span></span>
+<span class="line"><span class="fn">print</span>(df[(df.score &gt; <span class="num">80</span>) &amp; (df.age &lt; <span class="num">25</span>)])</span>
+<span class="line"><span class="out">#    name  score grade  age</span></span>
+<span class="line"><span class="out"># 0  Alice     88     B   22</span></span>
+<span class="line"><span class="out"># 4    Eve     95     A   24</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm"># OR — use |</span></span>
+<span class="line"><span class="fn">print</span>(df[(df.grade == <span class="str">'A'</span>) | (df.score &lt; <span class="num">70</span>)])</span>
+<span class="line"></span>
+<span class="line"><span class="cm"># isin — match a list</span></span>
+<span class="line"><span class="fn">print</span>(df[df.grade.<span class="fn">isin</span>([<span class="str">'A'</span>, <span class="str">'B'</span>])])</span>
+<span class="line"></span>
+<span class="line"><span class="cm"># nlargest / nsmallest</span></span>
+<span class="line"><span class="fn">print</span>(df.<span class="fn">nlargest</span>(<span class="num">2</span>, <span class="str">'score'</span>))   <span class="cm"># top 2 by score</span></span>
+<span class="line"><span class="fn">print</span>(df.<span class="fn">nsmallest</span>(<span class="num">2</span>, <span class="str">'age'</span>))    <span class="cm"># 2 youngest</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm"># head / tail / sample</span></span>
+<span class="line"><span class="fn">print</span>(df.<span class="fn">head</span>(<span class="num">2</span>))             <span class="cm"># first 2 rows</span></span>
+<span class="line"><span class="fn">print</span>(df.<span class="fn">tail</span>(<span class="num">2</span>))             <span class="cm"># last 2 rows</span></span>
+<span class="line"><span class="fn">print</span>(df.<span class="fn">sample</span>(n=<span class="num">3</span>))         <span class="cm"># 3 random rows</span></span></pre>
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(1)">← Sample Data</button>
+        <button class="pnav-btn next" onclick="goTo(3)">Subset Cols →</button>
+      </div>
+    </div>
+
+    <!-- Panel 3: Subset Cols -->
+    <div class="panel" id="panel-3">
+      <div class="section">
+        <div class="section-label">Subset Columns</div>
+        <h2>Selecting Columns</h2>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line"><span class="cm"># single column → returns a Series</span></span>
+<span class="line"><span class="fn">print</span>(df[<span class="str">'score'</span>])           <span class="cm"># or: df.score</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm"># multiple columns → returns a DataFrame</span></span>
+<span class="line"><span class="fn">print</span>(df[[<span class="str">'name'</span>, <span class="str">'score'</span>]])</span>
+<span class="line"></span>
+<span class="line"><span class="cm"># filter columns by regex pattern</span></span>
+<span class="line"><span class="fn">print</span>(df.<span class="fn">filter</span>(regex=<span class="str">'e$'</span>))  <span class="cm"># columns ending in 'e': name, score, grade, age</span></span></pre>
+        </div>
+        <div class="callout blue">
+          <strong><code>df['col']</code> vs <code>df[['col']]</code>:</strong> Single brackets return a <strong>Series</strong>. Double brackets return a <strong>DataFrame</strong>. This matters when passing to functions that expect a DataFrame.
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(2)">← Subset Rows</button>
+        <button class="pnav-btn next" onclick="goTo(4)">loc &amp; iloc →</button>
+      </div>
+    </div>
+
+    <!-- Panel 4: loc & iloc -->
+    <div class="panel" id="panel-4">
+      <div class="section">
+        <div class="section-label">loc &amp; iloc</div>
+        <h2>Selecting Rows AND Columns Together</h2>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line"><span class="cm"># ── df.loc[row_label, col_label] — by NAME ──</span></span>
+<span class="line">df.<span class="fn">loc</span>[<span class="num">0</span>]                      <span class="cm"># row with index label 0</span></span>
+<span class="line">df.<span class="fn">loc</span>[<span class="num">0</span>, <span class="str">'score'</span>]             <span class="cm"># single cell: row 0, col 'score' → 88</span></span>
+<span class="line">df.<span class="fn">loc</span>[<span class="num">1</span>:<span class="num">3</span>, <span class="str">'name'</span>:<span class="str">'grade'</span>]    <span class="cm"># rows 1–3, cols 'name' to 'grade' (inclusive)</span></span>
+<span class="line">df.<span class="fn">loc</span>[df.score &gt; <span class="num">80</span>, [<span class="str">'name'</span>, <span class="str">'score'</span>]]  <span class="cm"># condition + specific cols</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm"># ── df.iloc[row_pos, col_pos] — by POSITION ──</span></span>
+<span class="line">df.<span class="fn">iloc</span>[<span class="num">0</span>]                     <span class="cm"># first row (position 0)</span></span>
+<span class="line">df.<span class="fn">iloc</span>[<span class="num">1</span>:<span class="num">3</span>]                   <span class="cm"># rows at positions 1 and 2</span></span>
+<span class="line">df.<span class="fn">iloc</span>[:, [<span class="num">0</span>, <span class="num">2</span>]]            <span class="cm"># all rows, columns at positions 0 and 2</span></span>
+<span class="line">df.<span class="fn">iloc</span>[<span class="num">2</span>, <span class="num">1</span>]                  <span class="cm"># row pos 2, col pos 1 → 75</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm"># ── single value accessors (fastest) ──</span></span>
+<span class="line">df.<span class="fn">at</span>[<span class="num">0</span>, <span class="str">'score'</span>]              <span class="cm"># by label  → 88</span></span>
+<span class="line">df.<span class="fn">iat</span>[<span class="num">0</span>, <span class="num">1</span>]                   <span class="cm"># by position → 88</span></span></pre>
+        </div>
+        <table class="dt">
+          <thead><tr><th>Accessor</th><th>Selects by</th><th>Returns</th></tr></thead>
+          <tbody>
+            <tr><td><code>loc</code></td><td>Label (name)</td><td>Series or DataFrame</td></tr>
+            <tr><td><code>iloc</code></td><td>Integer position</td><td>Series or DataFrame</td></tr>
+            <tr><td><code>at</code></td><td>Label — single cell</td><td>Scalar value</td></tr>
+            <tr><td><code>iat</code></td><td>Position — single cell</td><td>Scalar value</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(3)">← Subset Cols</button>
+        <button class="pnav-btn next" onclick="goTo(5)">query() →</button>
+      </div>
+    </div>
+
+    <!-- Panel 5: query() -->
+    <div class="panel" id="panel-5">
+      <div class="section">
+        <div class="section-label">query()</div>
+        <h2>Readable Filters with query()</h2>
+        <p><code>query()</code> accepts a string expression — cleaner than nested boolean conditions for complex filters.</p>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line">df.<span class="fn">query</span>(<span class="str">'score &gt; 80'</span>)</span>
+<span class="line">df.<span class="fn">query</span>(<span class="str">'score &gt; 80 and age &lt; 25'</span>)</span>
+<span class="line">df.<span class="fn">query</span>(<span class="str">'grade in ["A", "B"]'</span>)</span>
+<span class="line"></span>
+<span class="line"><span class="cm"># reference a Python variable with @</span></span>
+<span class="line">threshold = <span class="num">85</span></span>
+<span class="line">df.<span class="fn">query</span>(<span class="str">'score &gt; @threshold'</span>)</span>
+<span class="line"></span>
+<span class="line"><span class="cm"># string methods (needs engine="python")</span></span>
+<span class="line">df.<span class="fn">query</span>(<span class="str">'name.str.startswith("A")'</span>, engine=<span class="str">"python"</span>)</span></pre>
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(4)">← loc &amp; iloc</button>
+        <button class="pnav-btn next" onclick="goTo(6)">Exercises →</button>
+      </div>
+    </div>
+
+    <!-- Panel 6: Exercises -->
+    <div class="panel" id="panel-6">
+      <div class="section">
+        <div class="section-label">Exercises</div>
+        <h2>Practice — Subsetting</h2>
+
+        <div class="ex-block">
+          <span class="ex-num">Q1</span>
+          <p>Using the sample DataFrame above, filter all rows where <code>score</code> is between 70 and 90 (inclusive). Print only the <code>name</code> and <code>score</code> columns.</p>
+          <details class="answer">
+            <summary>Show answer</summary>
+            <div class="answer-body">
+              <div class="code-wrap" style="margin:0">
+                <pre><span class="line">result = df[(df.score &gt;= <span class="num">70</span>) &amp; (df.score &lt;= <span class="num">90</span>)][[<span class="str">'name'</span>, <span class="str">'score'</span>]]</span>
+<span class="line"><span class="fn">print</span>(result)</span>
+<span class="line"><span class="out">#     name  score</span></span>
+<span class="line"><span class="out"># 0  Alice     88</span></span>
+<span class="line"><span class="out"># 2  Carol     75</span></span></pre>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="ex-block">
+          <span class="ex-num">Q2</span>
+          <p>Use <code>df.loc</code> to select rows where <code>grade</code> is <code>'A'</code>, and return only the <code>name</code> and <code>age</code> columns.</p>
+          <details class="answer">
+            <summary>Show answer</summary>
+            <div class="answer-body">
+              <div class="code-wrap" style="margin:0">
+                <pre><span class="line">result = df.<span class="fn">loc</span>[df.grade == <span class="str">'A'</span>, [<span class="str">'name'</span>, <span class="str">'age'</span>]]</span>
+<span class="line"><span class="fn">print</span>(result)</span>
+<span class="line"><span class="out">#   name  age</span></span>
+<span class="line"><span class="out"># 1  Bob   25</span></span>
+<span class="line"><span class="out"># 4  Eve   24</span></span></pre>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="ex-block">
+          <span class="ex-num">Q3</span>
+          <p>Write the same filter from Q2 using <code>query()</code>. Then also add a second condition: age must be less than 25.</p>
+          <details class="answer">
+            <summary>Show answer</summary>
+            <div class="answer-body">
+              <div class="code-wrap" style="margin:0">
+                <pre><span class="line"><span class="cm"># same as Q2</span></span>
+<span class="line">df.<span class="fn">query</span>(<span class="str">'grade == "A"'</span>)[[<span class="str">'name'</span>, <span class="str">'age'</span>]]</span>
+<span class="line"></span>
+<span class="line"><span class="cm"># with extra condition</span></span>
+<span class="line">df.<span class="fn">query</span>(<span class="str">'grade == "A" and age &lt; 25'</span>)[[<span class="str">'name'</span>, <span class="str">'age'</span>]]</span>
+<span class="line"><span class="out">#   name  age</span></span>
+<span class="line"><span class="out"># 4  Eve   24</span></span></pre>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="ex-block">
+          <span class="ex-num">Q4</span>
+          <p>Use <code>df.iloc</code> to select the value at the 3rd row and 2nd column (zero-based). What is the value?</p>
+          <details class="answer">
+            <summary>Show answer</summary>
+            <div class="answer-body">
+              <div class="code-wrap" style="margin:0">
+                <pre><span class="line"><span class="fn">print</span>(df.<span class="fn">iloc</span>[<span class="num">2</span>, <span class="num">1</span>])   <span class="cm"># row index 2, col index 1 → score of Carol</span></span>
+<span class="line"><span class="out"># 75</span></span></pre>
+              </div>
+            </div>
+          </details>
+        </div>
+
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(5)">← query()</button>
+        <button class="pnav-btn next" onclick="goTo(0)">⟳ Overview</button>
+      </div>
+    </div>
+
+  </div><!-- /panel-viewport -->
+</div><!-- /page-layout -->
+
+<script src="app.js"></script>
+<script>
+let _cur = 0;
+function goTo(idx) {
+  if (idx === _cur) return;
+  const oldP = document.getElementById('panel-' + _cur);
+  const newP = document.getElementById('panel-' + idx);
+  if (!oldP || !newP) return;
+  if (_cur > 0) { const sb = document.querySelector('[data-panel="' + _cur + '"]'); if (sb) sb.classList.add('done'); }
+  oldP.classList.remove('active'); oldP.classList.add('exit');
+  setTimeout(() => oldP.classList.remove('exit'), 240);
+  _cur = idx;
+  newP.classList.add('active');
+  document.getElementById('viewport').scrollTop = 0;
+  document.querySelectorAll('.s-item').forEach(b => b.classList.toggle('active', +b.dataset.panel === idx));
+  newP.querySelectorAll('.section:not(.visible)').forEach((s, i) => {
+    setTimeout(() => {
+      s.classList.add('visible');
+      if (typeof animatePre === 'function') animatePre(s);
+      if (typeof animateRows === 'function') animateRows(s);
+    }, i * 80 + 60);
+  });
+}
+(function() {
+  const vp = document.getElementById('viewport');
+  const pb = document.getElementById('progress');
+  if (vp && pb) vp.addEventListener('scroll', () => {
+    pb.style.width = (vp.scrollTop / (vp.scrollHeight - vp.clientHeight) * 100) + '%';
+  });
+})();
+</script>
+</body>
+</html>

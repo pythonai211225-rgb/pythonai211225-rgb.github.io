@@ -1,0 +1,1834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Topic 02 — Pandas Reference</title>
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    /* ── page layout with left sidebar ── */
+    .page-wrap { display:flex; min-height:calc(100vh - 54px); }
+    .left-nav {
+      width:175px; min-width:175px;
+      background:var(--surface);
+      border-right:1px solid var(--border);
+      padding:20px 12px;
+      position:sticky;
+      top:54px;
+      height:calc(100vh - 54px);
+      overflow-y:auto;
+    }
+    .content-area { flex:1; min-width:0; }
+    /* sub-topic buttons */
+    .st-title { font-size:.68rem; font-weight:800; text-transform:uppercase; letter-spacing:.12em; color:var(--muted); padding:0 8px 10px; border-bottom:1px solid var(--border); margin-bottom:8px; display:block; }
+    .st-btn { display:block; width:100%; text-align:left; background:none; border:none; color:var(--muted); padding:9px 12px; border-radius:8px; font-size:.84rem; cursor:pointer; transition:background .15s,color .15s; }
+    .st-btn:hover { background:rgba(255,255,255,.06); color:var(--text); }
+    .st-btn.active { background:rgba(168,85,247,.15); color:var(--accent); font-weight:700; }
+    /* fn-table */
+    .fn-table { width:100%; border-collapse:collapse; font-size:.93rem; margin-top:10px; }
+    .fn-table thead th { background:#1c2230; color:var(--accent); text-align:left; padding:10px 14px; border-bottom:2px solid var(--border); font-size:.8rem; letter-spacing:.08em; text-transform:uppercase; }
+    .fn-table tbody tr { border-bottom:1px solid var(--border); }
+    .fn-table tbody tr:last-child { border-bottom:none; }
+    .fn-table tbody td { padding:10px 14px; vertical-align:top; }
+    .fn-table tbody tr:hover { background:rgba(255,255,255,.03); }
+    .fn-left { vertical-align:top; width:36%; }
+    .fn-name { display:block; color:var(--accent); font-family:'Courier New',monospace; font-weight:700; padding-bottom:8px; margin-bottom:8px; border-bottom:1px solid var(--border); }
+    .fn-desc { display:block; color:var(--muted); font-size:.88rem; line-height:1.55; }
+    .fn-example { background:#0d1117; border:1px solid var(--border); border-radius:8px; padding:10px 14px; font-family:'Courier New',monospace; font-size:.84rem; white-space:pre; line-height:1.6; overflow-x:auto; max-width:100%; }
+    .code-result { display:block; }
+    .code-result .fn-example { margin:0; }
+    .ser-wrap { background:#0d1117; border:1px solid var(--border); border-radius:8px; padding:10px 14px; overflow-x:auto; max-width:100%; margin-top:10px; }
+    .ser-out { width:100%; border-collapse:collapse; font-family:'Courier New',monospace; font-size:.82rem; line-height:1.55; white-space:nowrap; }
+    .ser-out thead { background:#1c2230; }
+    .ser-out th { color:var(--muted); font-weight:700; padding:4px 22px; text-align:left; border-bottom:1px solid var(--border); }
+    .ser-out td { color:var(--text); padding:4px 22px 4px 0; text-align:left; }
+    .ser-out th:last-child,
+    .ser-out td:last-child { padding-right:0; }
+    .ser-out tbody tr + tr td { border-top:1px solid rgba(255,255,255,.05); }
+    .ser-out .idx { color:var(--accent); }
+    .cm  { color:#6a9955; }
+    .kw  { color:#569cd6; }
+    .fn  { color:#dcdcaa; }
+    .num { color:#b5cea8; }
+    .str { color:#ce9178; }
+    .cls { color:#4ec9b0; }
+    .out { color:#888; }
+    .nan { color:#f97316; }
+    /* section tags */
+    .section-tag { display:inline-block; padding:3px 10px; border-radius:999px; font-size:.72rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; margin-bottom:12px; }
+    .tag-purple { background:rgba(168,85,247,.15);  color:var(--purple); border:1px solid rgba(168,85,247,.3); }
+    .tag-blue   { background:rgba(59,130,246,.15);  color:var(--blue);   border:1px solid rgba(59,130,246,.3); }
+    .tag-green  { background:rgba(16,185,129,.15);  color:var(--green);  border:1px solid rgba(16,185,129,.3); }
+    .tag-orange { background:rgba(249,115,22,.15);  color:var(--orange); border:1px solid rgba(249,115,22,.3); }
+    .tag-cyan   { background:rgba(6,182,212,.15);   color:var(--cyan);   border:1px solid rgba(6,182,212,.3); }
+    /* download box */
+    .download-box { display:flex; align-items:center; gap:16px; background:rgba(168,85,247,.08); border:1px solid rgba(168,85,247,.25); border-radius:10px; padding:14px 18px; margin:16px 0; flex-wrap:wrap; }
+    .download-box span { color:var(--muted); font-size:.9rem; }
+    .download-btn { display:inline-flex; align-items:center; gap:6px; background:var(--accent); color:#fff; padding:8px 18px; border-radius:8px; text-decoration:none; font-size:.85rem; font-weight:600; transition:opacity .2s; white-space:nowrap; }
+    .download-btn:hover { opacity:.8; }
+    /* intro card */
+    .intro-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px 24px; margin-bottom:20px; line-height:1.7; color:var(--muted); }
+    .intro-card p+p { margin-top:10px; }
+    .intro-card strong { color:var(--text); }
+    .topic-pane { padding-top:0; }
+    /* merge join blocks */
+    .join-block { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px 18px; margin-bottom:20px; }
+    .jb-head { display:flex; align-items:baseline; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
+    .jb-name { font-size:.85rem; font-weight:800; font-family:'Courier New',monospace; color:var(--accent); }
+    .jb-desc { font-size:.78rem; color:var(--muted); }
+    .jb-tables { display:flex; flex-direction:column; gap:12px; margin-top:14px; }
+    .jb-inputs { display:flex; gap:12px; align-items:flex-start; overflow-x:auto; padding-bottom:2px; }
+    .jb-result-row { display:flex; gap:12px; align-items:flex-start; overflow-x:auto; }
+    .jb-tbl { flex-shrink:0; }
+    .jb-tbl-lbl { font-size:.6rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:7px; }
+    .jb-arrow { align-self:center; font-size:1.3rem; color:var(--border); flex-shrink:0; padding:0 2px; }
+    @media(max-width:700px) {
+      .left-nav { display:none; }
+      .ser-wrap { width:100%; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">← Python Libs</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item" href="01-intro.html">01</a>
+    <a class="nav-item active" href="02-topic.html">02</a>
+    <a class="nav-item" href="03-cheat-sheet.html">03</a>
+    <a class="nav-item" href="04-series.html">04</a>
+    <a class="nav-item" href="05-creating-df.html">05</a>
+    <a class="nav-item" href="06-subsetting.html">06</a>
+    <a class="nav-item" href="07-reshaping.html">07</a>
+    <a class="nav-item" href="08-groupby-agg.html">08</a>
+    <a class="nav-item" href="09-combining.html">09</a>
+    <a class="nav-item" href="10-missing-newcol.html">10</a>
+  </div>
+</nav>
+
+<div class="page-wrap">
+
+  <!-- ─── Left sidebar ──────────────────────────────────────────────────── -->
+  <nav class="left-nav">
+    <span class="st-title">Sub-topics</span>
+    <button class="st-btn active" id="btn-1" onclick="showTopic(1)">1 · Series</button>
+    <button class="st-btn" id="btn-2" onclick="showTopic(2)">2 · DataFrame</button>
+    <button class="st-btn" id="btn-3" onclick="showTopic(3)">3 · Columns</button>
+    <button class="st-btn" id="btn-4" onclick="showTopic(4)">4 · Filtering</button>
+    <button class="st-btn" id="btn-5" onclick="showTopic(5)">5 · Custom</button>
+    <button class="st-btn" id="btn-6" onclick="showTopic(6)">6 · Missing Data</button>
+    <button class="st-btn" id="btn-7" onclick="showTopic(7)">7 · Group By</button>
+    <button class="st-btn" id="btn-8" onclick="showTopic(8)">8 · Merge</button>
+    <button class="st-btn" id="btn-9" onclick="showTopic(9)">9 · String Methods</button>
+    <button class="st-btn" id="btn-10" onclick="showTopic(10)">10 · Time Methods</button>
+    <button class="st-btn" id="btn-11" onclick="showTopic(11)">11 · Pivot Table</button>
+    <button class="st-btn" id="btn-12" onclick="showTopic(12)">12 · Export</button>
+  </nav>
+
+  <div class="content-area">
+  <main>
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         SUB-TOPIC 1 — PANDAS SERIES REFERENCE
+         ══════════════════════════════════════════════════════════════════ -->
+    <div id="topic-1" class="topic-pane">
+
+      <div class="hero">
+        <span class="topic-label"><span class="dot"></span>Sub-topic 1 of 12</span>
+        <h1>Pandas Series Reference</h1>
+        <p>A full reference of all Pandas Series creation functions and methods — each with a short description and a working code example.</p>
+        <div class="hero-pills">
+          <span class="tag">pd.Series</span>
+          <span class="tag blue">Label Index</span>
+          <span class="tag green">Arithmetic</span>
+          <span class="tag orange">dtype / astype</span>
+          <span class="tag cyan">keys()</span>
+        </div>
+      </div>
+
+      <!-- Section 1 · Creating a Series -->
+      <div class="section">
+        <span class="section-tag tag-purple">Creating a Series</span>
+        <h2>Creating Pandas Series</h2>
+        <p>Use <code>pd.Series()</code> to create a one-dimensional labelled array. You can pass a Python list, a list with a custom index, or a dictionary.</p>
+        <table class="fn-table">
+          <thead><tr><th style="width:40%">Function / Description</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="fn-left"><span class="fn-name">pd.Series(list)</span><div class="fn-desc">Create a Series from a Python list. Pandas automatically assigns integer indexes starting at 0. Printing shows the index on the left and the value on the right, followed by the dtype.</div></td>
+              <td><div class="fn-example"><span class="kw">import</span> pandas <span class="kw">as</span> pd
+
+s = pd.<span class="cls">Series</span>([<span class="num">10</span>, <span class="num">100</span>, <span class="num">15</span>, <span class="num">35</span>])
+<span class="fn">print</span>(s)
+<span class="out"># 0     10</span>
+<span class="out"># 1    100</span>
+<span class="out"># 2     15</span>
+<span class="out"># 3     35</span>
+<span class="out"># dtype: int64</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">pd.Series(list, index=)</span><div class="fn-desc">Pass an <code>index</code> parameter with a list of labels to replace the default integer index with custom string labels (label indexing). Label indexes are unique — no duplicates allowed.</div></td>
+              <td><div class="fn-example">data   = [<span class="num">1776</span>, <span class="num">1867</span>, <span class="num">1821</span>]
+labels = [<span class="str">'USA'</span>, <span class="str">'CANADA'</span>, <span class="str">'MEXICO'</span>]
+
+s = pd.<span class="cls">Series</span>(data=data, index=labels)
+<span class="fn">print</span>(s)
+<span class="out"># USA       1776</span>
+<span class="out"># CANADA    1867</span>
+<span class="out"># MEXICO    1821</span>
+<span class="out"># dtype: int64</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">pd.Series(dict)</span><div class="fn-desc">Pass a Python dictionary. Dictionary keys become the index and values become the data — no need for a separate <code>index</code> parameter.</div></td>
+              <td><div class="fn-example">countries = {
+    <span class="str">'USA'</span>:    <span class="num">1776</span>,
+    <span class="str">'CANADA'</span>: <span class="num">1867</span>,
+    <span class="str">'MEXICO'</span>: <span class="num">1821</span>
+}
+s = pd.<span class="cls">Series</span>(countries)
+<span class="fn">print</span>(s)
+<span class="out"># USA       1776</span>
+<span class="out"># CANADA    1867</span>
+<span class="out"># MEXICO    1821</span>
+<span class="out"># dtype: int64</span></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Section 2 · Accessing Data -->
+      <div class="section">
+        <span class="section-tag tag-blue">Accessing Data</span>
+        <h2>Indexing and Keys</h2>
+        <p>Access values by label or by integer position. Both approaches work on the same Series.</p>
+        <table class="fn-table">
+          <thead><tr><th style="width:40%">Syntax / Description</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="fn-left"><span class="fn-name">series['label']</span><div class="fn-desc">Get a single value by its label index. Works like accessing a dictionary by key. Raises <code>KeyError</code> if the label doesn't exist.</div></td>
+              <td><div class="fn-example">s = pd.<span class="cls">Series</span>(
+    {<span class="str">'USA'</span>: <span class="num">1776</span>, <span class="str">'CANADA'</span>: <span class="num">1867</span>, <span class="str">'MEXICO'</span>: <span class="num">1821</span>}
+)
+<span class="fn">print</span>(s[<span class="str">'USA'</span>])  <span class="out"># 1776</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">series[0]</span><div class="fn-desc">Get a value by its integer (positional) index. Even with label indexes, the default numeric position still works alongside the label.</div></td>
+              <td><div class="fn-example">s = pd.<span class="cls">Series</span>(
+    {<span class="str">'USA'</span>: <span class="num">1776</span>, <span class="str">'CANADA'</span>: <span class="num">1867</span>, <span class="str">'MEXICO'</span>: <span class="num">1821</span>}
+)
+<span class="fn">print</span>(s[<span class="str">'USA'</span>])  <span class="out"># 1776  ← by label</span>
+<span class="fn">print</span>(s[<span class="num">0</span>])      <span class="out"># 1776  ← same result by position</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">series.keys()</span><div class="fn-desc">Returns an <code>Index</code> object containing all the Series indexes. Behaves like a Python list — you can subscript it with <code>[i]</code> to get a specific label.</div></td>
+              <td><div class="fn-example">s = pd.<span class="cls">Series</span>(
+    {<span class="str">'USA'</span>: <span class="num">1776</span>, <span class="str">'CANADA'</span>: <span class="num">1867</span>, <span class="str">'MEXICO'</span>: <span class="num">1821</span>}
+)
+<span class="fn">print</span>(s.<span class="fn">keys</span>())
+<span class="out"># Index(['USA', 'CANADA', 'MEXICO'], dtype='object')</span>
+<span class="fn">print</span>(s.<span class="fn">keys</span>()[<span class="num">0</span>])  <span class="out"># USA</span></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Section 3 · Arithmetic -->
+      <div class="section">
+        <span class="section-tag tag-green">Arithmetic</span>
+        <h2>Series Arithmetic &amp; Addition</h2>
+        <p>Use <code>+</code> to combine two Series — pandas aligns by matching index labels. Labels in only one Series produce <code>NaN</code>. Use <code>.add(fill_value=)</code> to avoid this.</p>
+        <table class="fn-table">
+          <thead><tr><th style="width:40%">Operator / Method / Description</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="fn-left"><span class="fn-name">series_a + series_b</span><div class="fn-desc">Adds two Series together by aligning on matching index labels. Labels that exist in only one Series produce <code>NaN</code> because pandas cannot add a known value to a missing one.</div></td>
+              <td><div class="fn-example">first  = pd.<span class="cls">Series</span>({<span class="str">'Japan'</span>: <span class="num">100</span>, <span class="str">'China'</span>: <span class="num">450</span>, <span class="str">'USA'</span>: <span class="num">250</span>})
+second = pd.<span class="cls">Series</span>({<span class="str">'Brazil'</span>: <span class="num">70</span>, <span class="str">'China'</span>: <span class="num">350</span>, <span class="str">'USA'</span>: <span class="num">200</span>})
+
+result = first + second
+<span class="fn">print</span>(result)
+<span class="out"># Brazil     <span class="nan">NaN</span>   ← only in second</span>
+<span class="out"># China    800.0</span>
+<span class="out"># Japan      <span class="nan">NaN</span>   ← only in first</span>
+<span class="out"># USA      450.0</span>
+<span class="out"># dtype: float64</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">.add(other, fill_value=)</span><div class="fn-desc">Same as <code>+</code> but accepts a <code>fill_value</code> parameter. Missing labels are treated as <code>fill_value</code> before adding, so non-overlapping indexes get <code>fill_value + actual_value</code> instead of <code>NaN</code>.</div></td>
+              <td><div class="fn-example">first  = pd.<span class="cls">Series</span>({<span class="str">'Japan'</span>: <span class="num">100</span>, <span class="str">'China'</span>: <span class="num">450</span>, <span class="str">'USA'</span>: <span class="num">250</span>})
+second = pd.<span class="cls">Series</span>({<span class="str">'Brazil'</span>: <span class="num">70</span>, <span class="str">'China'</span>: <span class="num">350</span>, <span class="str">'USA'</span>: <span class="num">200</span>})
+
+result = first.<span class="fn">add</span>(second, fill_value=<span class="num">0</span>)
+<span class="fn">print</span>(result)
+<span class="out"># Brazil     70.0  ← 0 + 70</span>
+<span class="out"># China     800.0</span>
+<span class="out"># Japan     100.0  ← 100 + 0</span>
+<span class="out"># USA       450.0</span>
+<span class="out"># dtype: float64</span></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Section 4 · dtype & astype -->
+      <div class="section">
+        <span class="section-tag tag-orange">Data Types</span>
+        <h2>dtype &amp; astype</h2>
+        <p>Every Series stores values of a single data type. Use <code>.dtype</code> to inspect it and <code>.astype()</code> to convert it.</p>
+        <table class="fn-table">
+          <thead><tr><th style="width:40%">Property / Method / Description</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="fn-left"><span class="fn-name">.dtype</span><div class="fn-desc">Property (no parentheses) that returns the data type of all values stored in the Series. Common types: <code>int64</code>, <code>float64</code>, <code>object</code> (strings), <code>bool</code>.</div></td>
+              <td><div class="fn-example">s = pd.<span class="cls">Series</span>({
+    <span class="str">'Brazil'</span>: <span class="num">70.0</span>, <span class="str">'China'</span>: <span class="num">800.0</span>,
+    <span class="str">'Japan'</span>:  <span class="num">100.0</span>, <span class="str">'USA'</span>:   <span class="num">450.0</span>
+})
+<span class="fn">print</span>(s.dtype)  <span class="out"># float64</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">.astype(type)</span><div class="fn-desc">Convert all values in the Series to a new type. Pass a Python type (<code>int</code>, <code>float</code>, <code>str</code>) or a dtype string. Returns a new Series — the original is unchanged.</div></td>
+              <td><div class="fn-example">s = pd.<span class="cls">Series</span>({
+    <span class="str">'Brazil'</span>: <span class="num">70.0</span>, <span class="str">'China'</span>: <span class="num">800.0</span>,
+    <span class="str">'Japan'</span>:  <span class="num">100.0</span>, <span class="str">'USA'</span>:   <span class="num">450.0</span>
+})
+<span class="fn">print</span>(s.dtype)          <span class="out"># float64</span>
+s_int = s.<span class="fn">astype</span>(<span class="cls">int</span>)
+<span class="fn">print</span>(s_int.dtype)      <span class="out"># int64</span>
+<span class="fn">print</span>(s_int[<span class="str">'Brazil'</span>])  <span class="out"># 70</span></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div><!-- /topic-1 -->
+
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         SUB-TOPIC 2 — PANDAS DATAFRAME REFERENCE
+         ══════════════════════════════════════════════════════════════════ -->
+    <div id="topic-2" class="topic-pane" style="display:none">
+
+      <div class="hero">
+        <span class="topic-label"><span class="dot"></span>Sub-topic 2 of 12</span>
+        <h1>Pandas DataFrame Reference</h1>
+        <p>A complete reference for creating, reading, and working with Pandas DataFrames — from basic creation to conditional filtering.</p>
+        <div class="hero-pills">
+          <span class="tag">pd.DataFrame</span>
+          <span class="tag blue">iloc / loc</span>
+          <span class="tag green">Filtering</span>
+          <span class="tag orange">pd.read_csv</span>
+          <span class="tag cyan">drop / concat</span>
+        </div>
+      </div>
+
+      <!-- Section A · Introduction -->
+      <div class="section">
+        <span class="section-tag tag-purple">Introduction</span>
+        <h2>What is a DataFrame?</h2>
+        <div class="intro-card">
+          <p>Until now we only used the <strong>Series</strong> data structure, which stores 1 value per key. In real life we need structures that can hold <strong>multiple values for a given key</strong> — like a table with columns and rows. For that we use the <strong>DataFrame</strong>.</p>
+          <p>A <strong>Pandas DataFrame</strong> is a two-dimensional, size-mutable data structure with labelled axes (rows and columns). It handles integers, floats, strings, and complex structures like lists and dictionaries — and is used for data cleaning, transformation, statistical analysis, and machine learning.</p>
+          <p>Pandas uses <strong>Series to represent each column</strong> in the DataFrame. A DataFrame can be thought of as a dictionary of Series objects that all share the same row index.</p>
+        </div>
+      </div>
+
+      <!-- Section B · Creating a DataFrame -->
+      <div class="section">
+        <span class="section-tag tag-blue">Creating</span>
+        <h2>Creating a DataFrame</h2>
+        <p>Use <code>pd.DataFrame()</code> to create a DataFrame from a numpy matrix or list of lists. Add optional <code>index</code> and <code>columns</code> parameters for custom labels.</p>
+        <table class="fn-table">
+          <thead><tr><th style="width:40%">Function / Parameter / Description</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="fn-left"><span class="fn-name">pd.DataFrame(matrix)</span><div class="fn-desc">Create a DataFrame from a 2-D array or numpy matrix. Pandas assigns default numeric indexes (0, 1, 2…) to both rows and columns.</div></td>
+              <td><div class="fn-example"><span class="kw">import</span> pandas <span class="kw">as</span> pd
+<span class="kw">import</span> numpy  <span class="kw">as</span> np
+
+np.random.<span class="fn">seed</span>(<span class="num">100</span>)
+my_data = np.random.<span class="fn">randint</span>(<span class="num">0</span>, <span class="num">101</span>, (<span class="num">4</span>, <span class="num">3</span>))
+my_df   = pd.<span class="cls">DataFrame</span>(my_data)
+<span class="fn">print</span>(my_df)
+<span class="out">#     0   1   2</span>
+<span class="out"># 0   8  24  67</span>
+<span class="out"># 1  87  79  48</span>
+<span class="out"># 2  10  94  52</span>
+<span class="out"># 3  98  53  66</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">pd.DataFrame(data, index=)</span><div class="fn-desc">Pass a list of labels as the <code>index</code> parameter to replace default numeric row indexes. The order of labels in the list maps label → row in order.</div></td>
+              <td><div class="fn-example">my_data  = np.random.<span class="fn">randint</span>(<span class="num">0</span>, <span class="num">101</span>, (<span class="num">4</span>, <span class="num">3</span>))
+my_index = [<span class="str">'CA'</span>, <span class="str">'NY'</span>, <span class="str">'AZ'</span>, <span class="str">'TX'</span>]
+my_df    = pd.<span class="cls">DataFrame</span>(data=my_data, index=my_index)
+<span class="fn">print</span>(my_df)
+<span class="out">#       0    1    2</span>
+<span class="out"># CA   98   14   34</span>
+<span class="out"># NY   24   15  100</span>
+<span class="out"># AZ   60   58   16</span>
+<span class="out"># TX    9   93   86</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">pd.DataFrame(data, index=, columns=)</span><div class="fn-desc">Add a <code>columns</code> parameter to label each column. Note: adding label indexes does <em>not</em> replace the default numeric index — both coexist.</div></td>
+              <td><div class="fn-example">my_data  = np.random.<span class="fn">randint</span>(<span class="num">0</span>, <span class="num">101</span>, (<span class="num">4</span>, <span class="num">3</span>))
+my_index = [<span class="str">'CA'</span>, <span class="str">'NY'</span>, <span class="str">'AZ'</span>, <span class="str">'TX'</span>]
+my_cols  = [<span class="str">'Jan'</span>, <span class="str">'Feb'</span>, <span class="str">'Mar'</span>]
+my_df    = pd.<span class="cls">DataFrame</span>(data=my_data,
+                        index=my_index,
+                        columns=my_cols)
+<span class="fn">print</span>(my_df)
+<span class="out">#     Jan  Feb  Mar</span>
+<span class="out"># CA    2   27    4</span>
+<span class="out"># NY   31    1   13</span>
+<span class="out"># AZ   83  100    4</span>
+<span class="out"># TX   91   59   67</span></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Section C · Reading CSV Files -->
+      <div class="section">
+        <span class="section-tag tag-green">CSV Files</span>
+        <h2>Reading CSV Files</h2>
+        <p>Because DataFrames have a table-like structure they can represent any SQL table or Excel/CSV file. Use <code>pd.read_csv()</code> to load a CSV file directly into a DataFrame.</p>
+        <div class="download-box">
+          <span>Practice dataset used in the examples below:</span>
+          <a href="tips.csv" download="tips.csv" class="download-btn">↓ Download tips.csv</a>
+        </div>
+        <table class="fn-table">
+          <thead><tr><th style="width:40%">Function / Description</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="fn-left"><span class="fn-name">pd.read_csv('file.csv')</span><div class="fn-desc">Load any CSV file into a DataFrame. Pass the filename (or full path) as a string. The first row of the CSV becomes the column headers, and rows get default numeric indexes.</div></td>
+              <td><div class="fn-example"><span class="cm"># simple 4×4 CSV with columns a, b, c, d</span>
+excel_df = pd.<span class="fn">read_csv</span>(<span class="str">'example.csv'</span>)
+<span class="fn">print</span>(excel_df)
+<span class="out">#     a   b   c   d</span>
+<span class="out"># 0   0   1   2   3</span>
+<span class="out"># 1   4   5   6   7</span>
+<span class="out"># 2   8   9  10  11</span>
+<span class="out"># 3  12  13  14  15</span>
+
+<span class="cm"># load the tips restaurant dataset</span>
+tips_df = pd.<span class="fn">read_csv</span>(<span class="str">'tips.csv'</span>)
+<span class="fn">print</span>(tips_df.shape)  <span class="out"># (244, 11)</span></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Section D · Basic Functions -->
+      <div class="section">
+        <span class="section-tag tag-orange">Basic Functions</span>
+        <h2>Exploring a DataFrame</h2>
+        <p>Use these properties and methods to quickly inspect the shape, structure, and statistics of any DataFrame.</p>
+        <table class="fn-table">
+          <thead><tr><th style="width:40%">Property / Method / Description</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df.columns</span><div class="fn-desc">Property that returns an <code>Index</code> object with all column names. Useful for checking what columns exist before selecting or dropping them.</div></td>
+              <td><div class="fn-example"><span class="fn">print</span>(excel_df.columns)
+<span class="out"># Index(['a', 'b', 'c', 'd'], dtype='object')</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df.index</span><div class="fn-desc">Property that returns an <code>Index</code> (or <code>RangeIndex</code>) object with all row indexes. Changes when you call <code>set_index()</code>.</div></td>
+              <td><div class="fn-example"><span class="fn">print</span>(excel_df.index)
+<span class="out"># RangeIndex(start=0, stop=4, step=1)</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df.head(n)</span><div class="fn-desc">Returns the first <code>n</code> rows of the DataFrame. Default is 5 rows if no argument is passed. Useful for quickly previewing data structure after loading a file.</div></td>
+              <td><div class="fn-example">excel_df.<span class="fn">head</span>(<span class="num">2</span>)
+<span class="out">#    a  b  c  d</span>
+<span class="out"># 0  0  1  2  3</span>
+<span class="out"># 1  4  5  6  7</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df.tail(n)</span><div class="fn-desc">Returns the last <code>n</code> rows of the DataFrame. Default is 5 rows. Useful for checking the end of a dataset after sorting or appending rows.</div></td>
+              <td><div class="fn-example">excel_df.<span class="fn">tail</span>(<span class="num">2</span>)
+<span class="out">#     a   b   c   d</span>
+<span class="out"># 2   8   9  10  11</span>
+<span class="out"># 3  12  13  14  15</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df.info()</span><div class="fn-desc">Prints a summary of the DataFrame: row count, column names, non-null count, dtype per column, and memory usage. Useful for spotting missing data or wrong dtypes.</div></td>
+              <td><div class="fn-example">excel_df.<span class="fn">info</span>()
+<span class="out"># &lt;class 'pandas.core.frame.DataFrame'&gt;</span>
+<span class="out"># RangeIndex: 4 entries, 0 to 3</span>
+<span class="out"># Data columns (total 4 columns):</span>
+<span class="out">#  #  Column  Non-Null Count  Dtype</span>
+<span class="out"># --  ------  --------------  -----</span>
+<span class="out">#  0  a       4 non-null      int64</span>
+<span class="out">#  1  b       4 non-null      int64</span>
+<span class="out">#  2  c       4 non-null      int64</span>
+<span class="out">#  3  d       4 non-null      int64</span>
+<span class="out"># dtypes: int64(4)</span>
+<span class="out"># memory usage: 256.0 bytes</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df.describe()</span><div class="fn-desc">Returns statistics for each numeric column: count, mean, std, min, 25th/50th/75th percentile, max. Chain <code>.transpose()</code> to swap rows and columns for a wider DataFrame.</div></td>
+              <td><div class="fn-example">excel_df.<span class="fn">describe</span>()
+<span class="out">#           a         b         c         d</span>
+<span class="out"># count  4.000000  4.000000  4.000000  4.000000</span>
+<span class="out"># mean   6.000000  7.000000  8.000000  9.000000</span>
+<span class="out"># std    5.163978  5.163978  5.163978  5.163978</span>
+<span class="out"># min    0.000000  1.000000  2.000000  3.000000</span>
+<span class="out"># ...    ...</span>
+<span class="out"># max   12.000000 13.000000 14.000000 15.000000</span>
+
+excel_df.<span class="fn">describe</span>().<span class="fn">transpose</span>()
+<span class="out">#  count  mean       std  min  25%  50%   75%   max</span>
+<span class="out"># a  4.0   6.0  5.163978  0.0  3.0  6.0   9.0  12.0</span>
+<span class="out"># b  4.0   7.0  5.163978  1.0  4.0  7.0  10.0  13.0</span>
+<span class="out"># c  4.0   8.0  5.163978  2.0  5.0  8.0  11.0  14.0</span>
+<span class="out"># d  4.0   9.0  5.163978  3.0  6.0  9.0  12.0  15.0</span></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div><!-- /topic-2 -->
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         SUB-TOPIC 3 — COLUMNS & INDEXING
+         ══════════════════════════════════════════════════════════════════ -->
+    <div id="topic-3" class="topic-pane" style="display:none">
+
+      <div class="hero">
+        <span class="topic-label"><span class="dot"></span>Sub-topic 3 of 12</span>
+        <h1>Columns &amp; Indexing</h1>
+        <p>Select, add and drop columns, set a custom row index, and access rows by position or label with <code>iloc</code> and <code>loc</code>.</p>
+        <div class="hero-pills">
+          <span class="tag">df['col']</span>
+          <span class="tag blue">iloc / loc</span>
+          <span class="tag green">df.drop()</span>
+          <span class="tag orange">set_index()</span>
+        </div>
+      </div>
+
+      <!-- Section E · Working with Columns -->
+      <div class="section">
+        <span class="section-tag tag-purple">Column Operations</span>
+        <h2>Selecting, Adding &amp; Dropping Columns</h2>
+        <p>Select one or more columns using <code>[]</code> notation, create new computed columns by assignment, and remove columns or rows with <code>df.drop()</code>.</p>
+        <table class="fn-table">
+          <thead><tr><th style="width:40%">Syntax / Method / Description</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df['col']</span><div class="fn-desc">Select a single column — returns a <strong>Series</strong>. The column name is passed as a string inside square brackets.</div></td>
+              <td><div class="fn-example">excel_df[<span class="str">'a'</span>]
+<span class="out"># 0     0</span>
+<span class="out"># 1     4</span>
+<span class="out"># 2     8</span>
+<span class="out"># 3    12</span>
+<span class="out"># Name: a, dtype: int64</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df[['col1','col2']]</span><div class="fn-desc">Select multiple columns by passing a <strong>Python list</strong> inside <code>[]</code>. Returns a new DataFrame. The order of column names in the list controls the output order.</div></td>
+              <td><div class="fn-example">excel_df[[<span class="str">'a'</span>, <span class="str">'c'</span>, <span class="str">'b'</span>]]
+<span class="out">#     a   c  b</span>
+<span class="out"># 0   0   2  1</span>
+<span class="out"># 1   4   6  5</span>
+<span class="out"># 2   8  10  9</span>
+<span class="out"># 3  12  14 13</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df['a'] + df['b']</span><div class="fn-desc">Combine two columns using arithmetic operators (<code>+</code> <code>-</code> <code>*</code> <code>/</code>). Pandas aligns by row index and returns a new Series with the computed values.</div></td>
+              <td><div class="fn-example">excel_df[<span class="str">'a'</span>] + excel_df[<span class="str">'b'</span>]
+<span class="out"># 0     1</span>
+<span class="out"># 1     9</span>
+<span class="out"># 2    17</span>
+<span class="out"># 3    25</span>
+<span class="out"># dtype: int64</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df['new'] = expr</span><div class="fn-desc">Add a new column by assigning to a name that doesn't yet exist. If the name already exists, the column values are <strong>overwritten</strong>. Saves directly to the original DataFrame.</div></td>
+              <td><div class="fn-example">excel_df[<span class="str">'calculation'</span>] = (
+    <span class="num">10</span> * excel_df[<span class="str">'a'</span>] / excel_df[<span class="str">'b'</span>]
+)
+excel_df
+<span class="out">#     a   b   c   d  calculation</span>
+<span class="out"># 0   0   1   2   3     0.000000</span>
+<span class="out"># 1   4   5   6   7     8.000000</span>
+<span class="out"># 2   8   9  10  11     8.888889</span>
+<span class="out"># 3  12  13  14  15     9.230769</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df.drop(idx, axis=0)</span><div class="fn-desc">Remove a <strong>row</strong> by its index. <code>axis=0</code> targets rows. Does <em>not</em> modify the original by default — add <code>inplace=True</code> or reassign to persist the change.</div></td>
+              <td><div class="fn-example"><span class="cm"># remove row at index 0 (view only)</span>
+excel_df.<span class="fn">drop</span>(<span class="num">0</span>, axis=<span class="num">0</span>)
+<span class="out">#     a   b   c   d  calculation</span>
+<span class="out"># 1   4   5   6   7     8.000000</span>
+<span class="out"># 2   8   9  10  11     8.888889</span>
+<span class="out"># 3  12  13  14  15     9.230769</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df.drop('col', axis=1, inplace=True)</span><div class="fn-desc">Remove a <strong>column</strong> by its name. <code>axis=1</code> targets columns. <code>inplace=True</code> modifies the original DataFrame permanently — no need to reassign.</div></td>
+              <td><div class="fn-example"><span class="cm"># permanently remove the 'calculation' column</span>
+excel_df.<span class="fn">drop</span>(<span class="str">'calculation'</span>, axis=<span class="num">1</span>, inplace=<span class="kw">True</span>)
+<span class="fn">print</span>(excel_df.columns)
+<span class="out"># Index(['a', 'b', 'c', 'd'], dtype='object')</span></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Section F · Indexing & Row Access -->
+      <div class="section">
+        <span class="section-tag tag-cyan">Indexing &amp; Row Access</span>
+        <h2>set_index, iloc, loc &amp; concat</h2>
+        <p>Use <code>set_index()</code> to promote a column to the row index. Use <code>iloc[]</code> to select rows by position and <code>loc[]</code> to select by label. Use <code>pd.concat()</code> to stack DataFrames together.</p>
+        <table class="fn-table">
+          <thead><tr><th style="width:40%">Method / Description</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df.set_index('col')</span><div class="fn-desc">Promote a column to the row index. The column disappears from the regular columns and becomes the new row label. Use <code>inplace=True</code> to persist the change on the original DataFrame.</div></td>
+              <td><div class="fn-example">tips_df = pd.<span class="fn">read_csv</span>(<span class="str">'tips.csv'</span>)
+tips_df.<span class="fn">set_index</span>(<span class="str">'Payment ID'</span>, inplace=<span class="kw">True</span>)
+
+<span class="cm"># Payment ID is now the row label, not a column</span>
+<span class="out"># Payment ID  total_bill   tip     sex ...</span>
+<span class="out"># Sun2959          16.99  1.01  Female ...</span>
+<span class="out"># Sun4608          10.34  1.66    Male ...</span>
+<span class="out"># 244 rows × 10 columns</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df.reset_index()</span><div class="fn-desc">Remove the current row index and convert it back to a regular column. Resets the index to the default <code>RangeIndex</code> (0, 1, 2…).</div></td>
+              <td><div class="fn-example"><span class="cm"># Payment ID goes back to being a column</span>
+tips_df.<span class="fn">reset_index</span>(inplace=<span class="kw">True</span>)
+<span class="fn">print</span>(tips_df.index)
+<span class="out"># RangeIndex(start=0, stop=244, step=1)</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df.iloc[n]<br>df.iloc[0:4]</span><div class="fn-desc">Get row(s) by <strong>integer position</strong> (0-based). Always works by offset, regardless of index labels. Pass a slice (<code>[0:4]</code>) to get a range of rows. Returns a Series for a single row, a DataFrame for a slice.</div></td>
+              <td><div class="fn-example"><span class="cm"># single row at position 0</span>
+tips_df.<span class="fn">iloc</span>[<span class="num">0</span>]
+<span class="out"># total_bill     16.99</span>
+<span class="out"># tip             1.01</span>
+<span class="out"># sex           Female</span>
+<span class="out"># Payment ID   Sun2959</span>
+<span class="out"># Name: 0, dtype: object</span>
+
+<span class="cm"># rows at positions 0 through 3</span>
+tips_df.<span class="fn">iloc</span>[<span class="num">0</span>:<span class="num">4</span>]</div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df.loc['label']<br>df.loc[[...]]</span><div class="fn-desc">Get row(s) by <strong>label index</strong>. Requires <code>set_index()</code> to have been called first. Pass a list of labels to retrieve multiple rows at once.</div></td>
+              <td><div class="fn-example"><span class="cm"># requires set_index('Payment ID') first</span>
+tips_df.<span class="fn">loc</span>[<span class="str">'Sun2959'</span>]
+<span class="out"># total_bill    16.99</span>
+<span class="out"># tip            1.01</span>
+<span class="out"># sex          Female</span>
+<span class="out"># Name: Sun2959, dtype: object</span>
+
+<span class="cm"># multiple rows by label list</span>
+tips_df.<span class="fn">loc</span>[[<span class="str">'Sun2959'</span>, <span class="str">'Sun4608'</span>, <span class="str">'Sun4458'</span>]]</div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">pd.concat([df1, df2])</span><div class="fn-desc">Stack two DataFrames vertically. If column names or counts don't match, missing values are filled with <code>NaN</code>. Pass <code>axis=1</code> to concatenate side by side instead.</div></td>
+              <td><div class="fn-example">first_payer = tips_df.<span class="fn">head</span>(<span class="num">1</span>)
+last_payer  = tips_df.<span class="fn">tail</span>(<span class="num">1</span>)
+concat_df   = pd.<span class="fn">concat</span>([first_payer, last_payer])
+
+<span class="out">#             total_bill   tip     sex ...</span>
+<span class="out"># Payment ID</span>
+<span class="out"># Sun2959          16.99  1.01  Female ...</span>
+<span class="out"># Thur672          18.78  3.00  Female ...</span></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div><!-- /topic-3 -->
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         SUB-TOPIC 4 — FILTERING
+    ═══════════════════════════════════════════════════════════════════ -->
+    <div id="topic-4" class="topic-pane" style="display:none">
+
+      <div class="hero">
+        <span class="topic-label"><span class="dot"></span>Sub-topic 4 of 12</span>
+        <h1>Filtering</h1>
+        <p>Filter DataFrame rows using boolean conditions, comparison operators, and compound logic with <code>&amp;</code>, <code>|</code>, and <code>~</code>.</p>
+        <div class="hero-pills">
+          <span class="tag">df[mask]</span>
+          <span class="tag blue">Boolean Mask</span>
+          <span class="tag green">&amp; | ~</span>
+          <span class="tag orange">isin()</span>
+        </div>
+      </div>
+
+      <!-- Section A · Conditional Filtering -->
+      <div class="section">
+        <span class="section-tag tag-green">Conditional Filtering</span>
+        <h2>Filtering DataFrame Rows</h2>
+        <p>Apply a condition to a column to get a boolean Series, then pass it back into the DataFrame to keep only matching rows. Use <code>&amp;</code>, <code>|</code>, and <code>~</code> for compound conditions.</p>
+        <table class="fn-table">
+          <thead><tr><th style="width:40%">Operator / Method / Description</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df['col'] &gt; value</span><div class="fn-desc">Apply a comparison to a column — returns a <strong>boolean Series</strong> with <code>True</code> where the condition is met and <code>False</code> where it is not. Can use <code>&gt;</code>, <code>&lt;</code>, <code>==</code>, <code>!=</code>, <code>&gt;=</code>, <code>&lt;=</code>.</div></td>
+              <td><div class="fn-example">countries_df = pd.<span class="cls">DataFrame</span>({
+    <span class="str">'Country'</span>:    [<span class="str">'USA'</span>, <span class="str">'Canada'</span>, <span class="str">'Mexico'</span>],
+    <span class="str">'Year'</span>:       [<span class="num">1776</span>, <span class="num">1867</span>, <span class="num">1821</span>],
+    <span class="str">'Population'</span>: [<span class="num">328</span>, <span class="num">38</span>, <span class="num">126</span>],
+    <span class="str">'GDP'</span>:        [<span class="num">20.5</span>, <span class="num">1.7</span>, <span class="num">1.22</span>]
+})
+
+countries_df[<span class="str">'Population'</span>] &gt; <span class="num">50</span>
+<span class="out"># 0     True</span>
+<span class="out"># 1    False</span>
+<span class="out"># 2     True</span>
+<span class="out"># Name: Population, dtype: bool</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df[condition]</span><div class="fn-desc">Pass the boolean Series <em>back</em> into the DataFrame to keep only rows where the condition is <code>True</code>. Returns a new filtered DataFrame.</div></td>
+              <td><div class="fn-example">countries_df[countries_df[<span class="str">'Population'</span>] &gt; <span class="num">50</span>]
+<span class="out">#   Country  Year  Population    GDP</span>
+<span class="out"># 0     USA  1776         328  20.50</span>
+<span class="out"># 2  Mexico  1821         126   1.22</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">cond1 &amp; cond2<br>cond1 | cond2<br>~cond</span><div class="fn-desc"><code>&amp;</code> = AND (both must be true).<br><code>|</code> = OR (at least one must be true).<br><code>~</code> = NOT (inverts the mask).<br>Always wrap each condition in parentheses when combining.</div></td>
+              <td><div class="fn-example"><span class="cm"># AND: population &gt; 50 AND country in list</span>
+countries_df[
+    (countries_df[<span class="str">'Population'</span>] &gt; <span class="num">50</span>) &amp;
+    (countries_df[<span class="str">'Country'</span>].<span class="fn">isin</span>([<span class="str">'Canada'</span>, <span class="str">'USA'</span>]))
+]
+<span class="out">#   Country  Year  Population   GDP</span>
+<span class="out"># 0     USA  1776         328  20.5</span>
+
+<span class="cm"># NOT: exclude rows where Year is 1776</span>
+countries_df[~countries_df[<span class="str">'Year'</span>].<span class="fn">isin</span>([<span class="num">1776</span>])]
+<span class="out">#   Country  Year  Population   GDP</span>
+<span class="out"># 1  Canada  1867          38  1.70</span>
+<span class="out"># 2  Mexico  1821         126  1.22</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">.isin([...])</span><div class="fn-desc">Returns a boolean mask that is <code>True</code> wherever the column value is in the provided list. Equivalent to multiple <code>==</code> conditions joined by <code>|</code>.</div></td>
+              <td><div class="fn-example">tips_df = pd.<span class="fn">read_csv</span>(<span class="str">'tips.csv'</span>)
+
+<span class="cm"># keep only Sunday and Saturday rows</span>
+tips_df[tips_df[<span class="str">'day'</span>].<span class="fn">isin</span>([<span class="str">'Sun'</span>, <span class="str">'Sat'</span>])]
+<span class="out"># returns all rows where day is Sun or Sat</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">.between(a, b)</span><div class="fn-desc">Returns a boolean mask that is <code>True</code> wherever the value is between <code>a</code> and <code>b</code>. Pass <code>inclusive='both'</code>, <code>'left'</code>, <code>'right'</code>, or <code>'neither'</code> to control boundary inclusion.</div></td>
+              <td><div class="fn-example"><span class="cm"># rows where total_bill is between 10 and 20 inclusive</span>
+tips_df[tips_df[<span class="str">'total_bill'</span>].<span class="fn">between</span>(<span class="num">10</span>, <span class="num">20</span>, inclusive=<span class="str">'both'</span>)]
+<span class="out"># 130 rows × 11 columns</span>
+<span class="out">#    total_bill   tip     sex smoker  day ...</span>
+<span class="out"># 0       16.99  1.01  Female     No  Sun ...</span>
+<span class="out"># 1       10.34  1.66    Male     No  Sun ...</span>
+<span class="out"># ...</span></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div><!-- /topic-4 -->
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         SUB-TOPIC 5 — CUSTOM FUNCTIONS, SORTING & VALUES
+         ══════════════════════════════════════════════════════════════════ -->
+    <div id="topic-5" class="topic-pane" style="display:none">
+
+      <div class="hero">
+        <span class="topic-label"><span class="dot"></span>Sub-topic 5 of 12</span>
+        <h1>Custom Functions &amp; Sorting</h1>
+        <p>Apply custom Python logic to any column with <code>df.apply()</code> and <code>np.vectorize()</code>, sort rows with <code>sort_values()</code>, and explore value distributions.</p>
+        <div class="hero-pills">
+          <span class="tag">df.apply()</span>
+          <span class="tag blue">np.vectorize()</span>
+          <span class="tag green">sort_values()</span>
+          <span class="tag orange">value_counts()</span>
+        </div>
+      </div>
+
+      <!-- Section A · df.apply() -->
+      <div class="section">
+        <span class="section-tag tag-purple">Custom Functionality</span>
+        <h2>df.apply() — Custom Column Functions</h2>
+        <p>When Pandas built-in functions are not enough, write a regular Python function and pass it to <code>df['col'].apply(func)</code>. Pandas will call the function once for every value in that column and collect the results into a new Series.</p>
+        <table class="fn-table">
+          <thead><tr><th style="width:40%">Method / Description</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="fn-left"><span class="fn-name">def func(val): ...</span><div class="fn-desc">Define a regular Python function that accepts one value and returns one value. This becomes the per-row transformation logic.</div></td>
+              <td><div class="fn-example"><span class="cm"># extracts the last 4 digits of a credit card number</span>
+<span class="kw">def</span> <span class="fn">last_four</span>(num):
+    <span class="kw">return</span> <span class="fn">str</span>(num)[<span class="num">-4</span>:]
+
+<span class="fn">print</span>(<span class="fn">last_four</span>(<span class="num">3560325168603410</span>))
+<span class="out"># 3410</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df['col'].apply(func)</span><div class="fn-desc">Pass the function (no parentheses) to <code>apply()</code>. Pandas calls it on every value in the column and returns a Series of results. Assign to a new column to store the output.</div></td>
+              <td><div class="fn-example">tips_df = pd.<span class="fn">read_csv</span>(<span class="str">'tips.csv'</span>)
+
+<span class="cm"># create 'last_four' column from CC Number</span>
+tips_df[<span class="str">'last_four'</span>] = tips_df[<span class="str">'CC Number'</span>].<span class="fn">apply</span>(last_four)
+
+tips_df[[<span class="str">'Payer Name'</span>, <span class="str">'CC Number'</span>, <span class="str">'last_four'</span>]].<span class="fn">head</span>(<span class="num">3</span>)
+<span class="out">#          Payer Name        CC Number  last_four</span>
+<span class="out"># 0  Christy Cunningham  3560325168603410      3410</span>
+<span class="out"># 1      Douglas Tucker  4478071379779230      9230</span>
+<span class="out"># 2       Travis Walters  6011812112971322      1322</span></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Section B · np.vectorize() -->
+      <div class="section">
+        <span class="section-tag tag-blue">Multi-Column Functions</span>
+        <h2>np.vectorize() — Functions Across Multiple Columns</h2>
+        <p>When a custom function needs to read from <em>more than one column</em> per row, wrap it with <code>np.vectorize()</code>. This makes a regular Python function "NumPy-aware" so you can pass entire DataFrame columns as arguments.</p>
+        <table class="fn-table">
+          <thead><tr><th style="width:40%">Method / Description</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="fn-left"><span class="fn-name">def func(col1, col2): ...</span><div class="fn-desc">Write a function that accepts one value from each required column. Here the function classifies a tipper as Generous or Not Generous based on two columns.</div></td>
+              <td><div class="fn-example"><span class="kw">def</span> <span class="fn">quality</span>(total_bill, tip):
+    <span class="kw">if</span> tip / total_bill &gt; <span class="num">0.25</span>:
+        <span class="kw">return</span> <span class="str">'Generous'</span>
+    <span class="kw">else</span>:
+        <span class="kw">return</span> <span class="str">'Not Generous'</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">np.vectorize(func)(col1, col2)</span><div class="fn-desc">First wrap the function with <code>np.vectorize()</code>, then call the result passing the DataFrame columns as positional arguments. Each pair of row values is processed together.</div></td>
+              <td><div class="fn-example"><span class="kw">import</span> numpy <span class="kw">as</span> np
+
+<span class="cm"># vectorize, then pass both columns as arguments</span>
+tips_df[<span class="str">'quality'</span>] = np.<span class="fn">vectorize</span>(quality)(
+    tips_df[<span class="str">'total_bill'</span>],
+    tips_df[<span class="str">'tip'</span>]
+)
+tips_df[[<span class="str">'total_bill'</span>, <span class="str">'tip'</span>, <span class="str">'quality'</span>]].<span class="fn">head</span>(<span class="num">3</span>)
+<span class="out"># 0  16.99  1.01  Not Generous</span>
+<span class="out"># 1  10.34  1.66  Not Generous</span>
+<span class="out"># 2  21.01  3.50  Not Generous</span></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Section C · sort_values() -->
+      <div class="section">
+        <span class="section-tag tag-cyan">Sorting</span>
+        <h2>df.sort_values() — Sorting DataFrame Rows</h2>
+        <p>Sort all rows by one or more column values. Control direction with <code>ascending</code> and pass a list of column names to sort by multiple columns in priority order.</p>
+        <table class="fn-table">
+          <thead><tr><th style="width:40%">Parameter / Description</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df.sort_values('col')</span><div class="fn-desc">Sort rows by a single column in ascending order (default). Returns a new DataFrame — does not modify the original.</div></td>
+              <td><div class="fn-example">tips_df.<span class="fn">sort_values</span>(<span class="str">'tip'</span>)
+<span class="out"># rows sorted from lowest to highest tip</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">ascending=True / False</span><div class="fn-desc"><code>ascending=True</code> (default) → lowest to highest.<br><code>ascending=False</code> → highest to lowest.</div></td>
+              <td><div class="fn-example">tips_df.<span class="fn">sort_values</span>(<span class="str">'tip'</span>, ascending=<span class="kw">False</span>)
+<span class="out"># rows sorted from highest to lowest tip</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df.sort_values([col1, col2], ascending=False)</span><div class="fn-desc">Pass a list of columns to sort by multiple criteria. Pandas sorts by the first column, then breaks ties using the second column, and so on.</div></td>
+              <td><div class="fn-example"><span class="cm"># sort by tip descending, then by size descending</span>
+tips_df.<span class="fn">sort_values</span>([<span class="str">'tip'</span>, <span class="str">'size'</span>], ascending=<span class="kw">False</span>)
+<span class="out">#      total_bill   tip  size  quality</span>
+<span class="out"># 170       50.81  10.0     3  Not Generous</span>
+<span class="out"># 212       48.33   9.0     4  Not Generous</span>
+<span class="out"># ...                                    ...</span></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Section D · DataFrame Values Functions -->
+      <div class="section">
+        <span class="section-tag tag-orange">Values &amp; Counts</span>
+        <h2>DataFrame Values Functions</h2>
+        <p>Pandas provides a set of utility methods for counting, inspecting, replacing, and sampling values across DataFrame columns.</p>
+        <table class="fn-table">
+          <thead><tr><th style="width:40%">Method / Description</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df['col'].value_counts()</span><div class="fn-desc">Returns a count of each unique value in the column, sorted by frequency descending. Pass a list of columns to count combinations.</div></td>
+              <td><div class="fn-example">tips_df[<span class="str">'sex'</span>].<span class="fn">value_counts</span>()
+<span class="out"># Male      157</span>
+<span class="out"># Female     87</span>
+<span class="out"># Name: sex, dtype: int64</span>
+
+<span class="cm"># count combinations across two columns</span>
+tips_df[[<span class="str">'quality'</span>, <span class="str">'sex'</span>]].<span class="fn">value_counts</span>()
+<span class="out"># Not Generous  Male      153</span>
+<span class="out">#               Female     81</span>
+<span class="out"># Generous      Female      6</span>
+<span class="out">#               Male        4</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df['col'].unique()</span><div class="fn-desc">Returns a NumPy array of all unique values in the column with no duplicates.</div></td>
+              <td><div class="fn-example">tips_df[<span class="str">'day'</span>].<span class="fn">unique</span>()
+<span class="out"># array(['Sun', 'Sat', 'Thur', 'Fri'], dtype=object)</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df['col'].nunique()</span><div class="fn-desc">Returns the <em>count</em> of unique values as an integer.</div></td>
+              <td><div class="fn-example">tips_df[<span class="str">'day'</span>].<span class="fn">nunique</span>()
+<span class="out"># 4</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df['col'].replace([old], [new])</span><div class="fn-desc">Replace all occurrences of each old value with the corresponding new value. The order of the lists determines the mapping.</div></td>
+              <td><div class="fn-example"><span class="cm"># replace 'Female' → 'F', 'Male' → 'M'</span>
+tips_df[<span class="str">'sex'</span>] = tips_df[<span class="str">'sex'</span>].<span class="fn">replace</span>(
+    [<span class="str">'Female'</span>, <span class="str">'Male'</span>],
+    [<span class="str">'F'</span>, <span class="str">'M'</span>]
+)</div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df['col'].map(dict)</span><div class="fn-desc">Same as <code>replace()</code> but uses a dictionary as the mapping — often more readable when there are many replacements.</div></td>
+              <td><div class="fn-example">my_map = {<span class="str">'Female'</span>: <span class="str">'F'</span>, <span class="str">'Male'</span>: <span class="str">'M'</span>}
+tips_df[<span class="str">'sex'</span>] = tips_df[<span class="str">'sex'</span>].<span class="fn">map</span>(my_map)</div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df.duplicated()</span><div class="fn-desc">Returns a boolean Series — <code>False</code> for the first occurrence of a value, <code>True</code> for every subsequent duplicate row.</div></td>
+              <td><div class="fn-example">simple_df = pd.<span class="cls">DataFrame</span>(
+    [<span class="num">1</span>, <span class="num">2</span>, <span class="num">2</span>, <span class="num">2</span>], [<span class="str">'a'</span>, <span class="str">'b'</span>, <span class="str">'c'</span>, <span class="str">'d'</span>]
+)
+simple_df.<span class="fn">duplicated</span>()
+<span class="out"># a    False</span>
+<span class="out"># b    False</span>
+<span class="out"># c     True</span>
+<span class="out"># d     True</span>
+<span class="out"># dtype: bool</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df.drop_duplicates()</span><div class="fn-desc">Removes all duplicate rows, keeping the first occurrence of each. Returns a new DataFrame without the duplicates.</div></td>
+              <td><div class="fn-example">simple_df.<span class="fn">drop_duplicates</span>()
+<span class="out">#    0</span>
+<span class="out"># a  1</span>
+<span class="out"># b  2</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df.nlargest(n, 'col')<br>df.nsmallest(n, 'col')</span><div class="fn-desc"><code>nlargest(n)</code> returns the top <code>n</code> rows with the largest values in the column.<br><code>nsmallest(n)</code> returns the top <code>n</code> rows with the smallest values.</div></td>
+              <td><div class="fn-example"><span class="cm"># top 3 rows with the largest tip</span>
+tips_df.<span class="fn">nlargest</span>(<span class="num">3</span>, <span class="str">'tip'</span>)
+
+<span class="cm"># top 3 rows with the smallest total_bill</span>
+tips_df.<span class="fn">nsmallest</span>(<span class="num">3</span>, <span class="str">'total_bill'</span>)</div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df.sample(n)<br>df.sample(frac=0.1)</span><div class="fn-desc">Returns <code>n</code> randomly selected rows. Use the <code>frac</code> parameter instead to specify a fraction of the total rows (e.g. <code>frac=0.1</code> returns 10%).</div></td>
+              <td><div class="fn-example"><span class="cm"># 5 random rows</span>
+tips_df.<span class="fn">sample</span>(<span class="num">5</span>)
+
+<span class="cm"># random 10% of the DataFrame</span>
+tips_df.<span class="fn">sample</span>(frac=<span class="num">0.1</span>)
+<span class="out"># returns ~24 rows (10% of 244)</span></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div><!-- /topic-5 -->
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         SUB-TOPIC 6 — MISSING DATA
+    ═══════════════════════════════════════════════════════════════════ -->
+    <div id="topic-6" class="topic-pane" style="display:none">
+
+      <div class="hero">
+        <span class="topic-label"><span class="dot"></span>Sub-topic 6 of 12</span>
+        <h1>Missing Data</h1>
+        <p>Detect, remove, and fill missing values with <code>isnull()</code>, <code>notnull()</code>, <code>dropna()</code>, and <code>fillna()</code>.</p>
+        <div class="hero-pills">
+          <span class="tag">isnull()</span>
+          <span class="tag blue">notnull()</span>
+          <span class="tag green">dropna()</span>
+          <span class="tag orange">fillna()</span>
+        </div>
+      </div>
+
+      <!-- Section A · Detecting Missing Data -->
+      <div class="section">
+        <span class="section-tag tag-purple">Missing Data</span>
+        <h2>Detecting Missing Data — isnull() &amp; notnull()</h2>
+        <div class="intro-card">
+          <p>Missing data is one of the most common problems in data science. Sources don't always provide every value expected, leaving gaps that Pandas represents as <strong>np.nan</strong>. Always check for NaN before analysis — use <code>is</code> (not <code>==</code>) to test for it directly.</p>
+          <p>There are 3 strategies: <strong>keep</strong> the NaN as-is (simple but limits some algorithms), <strong>delete</strong> rows/columns (easy but risks data loss), or <strong>fill</strong> with a substitute value (best coverage, hardest to do well).</p>
+        </div>
+        <div class="download-box">
+          <span>Practice dataset used in the examples below:</span>
+          <a href="movie_scores.csv" download="movie_scores.csv" class="download-btn">↓ Download movie_scores.csv</a>
+        </div>
+        <table class="fn-table">
+          <thead><tr><th style="width:40%">Method / Description</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="fn-left"><span class="fn-name">myvar is np.nan</span><div class="fn-desc">Use the <code>is</code> operator (not <code>==</code>) to check if a value is NaN. The <code>==</code> operator returns <code>False</code> for NaN due to IEEE 754 floating-point rules.</div></td>
+              <td><div class="fn-example"><span class="kw">import</span> numpy <span class="kw">as</span> np
+
+myvar = np.<span class="nan">nan</span>
+<span class="fn">print</span>(myvar <span class="kw">is</span> np.<span class="nan">nan</span>)   <span class="out"># True</span>
+<span class="fn">print</span>(myvar == np.<span class="nan">nan</span>)   <span class="out"># False</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df['col'].isnull()</span><div class="fn-desc">Returns a boolean Series — <code>True</code> where the value is <code>NaN</code>, <code>False</code> where it is present.</div></td>
+              <td><div class="fn-example">movie_score_df = pd.<span class="fn">read_csv</span>(<span class="str">'movie_scores.csv'</span>)
+
+movie_score_df[<span class="str">'first_name'</span>].<span class="fn">isnull</span>()
+<span class="out"># 0    False</span>
+<span class="out"># 1     True   ← missing value</span>
+<span class="out"># 2    False</span>
+<span class="out"># 3    False</span>
+<span class="out"># 4    False</span>
+<span class="out"># Name: first_name, dtype: bool</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df['col'].notnull()</span><div class="fn-desc">The opposite of <code>isnull()</code> — returns <code>True</code> where a value is present, <code>False</code> where it is NaN. Use as a filter mask to keep only non-missing rows.</div></td>
+              <td><div class="fn-example"><span class="cm"># keep only rows that have a pre_movie_score</span>
+movie_score_df[
+    movie_score_df[<span class="str">'pre_movie_score'</span>].<span class="fn">notnull</span>()
+]
+<span class="out">#    first_name last_name   age sex  pre  post</span>
+<span class="out"># 0         Tom     Hanks  63.0   m  8.0  10.0</span>
+<span class="out"># 3       Oprah   Winfrey  66.0   f  6.0   8.0</span>
+<span class="out"># 4        Emma     Stone  31.0   f  7.0   9.0</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df[cond1 &amp; cond2]</span><div class="fn-desc">Combine <code>isnull()</code> and <code>notnull()</code> with <code>&amp;</code> to filter on multiple null conditions at once.</div></td>
+              <td><div class="fn-example"><span class="cm"># rows with a first_name but missing pre_movie_score</span>
+movie_score_df[
+    movie_score_df[<span class="str">'pre_movie_score'</span>].<span class="fn">isnull</span>() &amp;
+    movie_score_df[<span class="str">'first_name'</span>].<span class="fn">notnull</span>()
+]
+<span class="out">#    first_name last_name   age sex  pre   post</span>
+<span class="out"># 2        Hugh   Jackman  51.0   m  NaN    NaN</span></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Section F · Dropping Missing Data -->
+      <div class="section">
+        <span class="section-tag tag-orange">Drop Missing</span>
+        <h2>df.dropna() — Removing Rows &amp; Columns with NaN</h2>
+        <p>Remove rows (or columns) that contain NaN values. Use <code>thresh</code>, <code>axis</code>, and <code>subset</code> to control exactly what gets dropped.</p>
+        <table class="fn-table">
+          <thead><tr><th style="width:40%">Parameter / Description</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df.dropna()</span><div class="fn-desc">Remove every row that has at least one NaN value. Returns a DataFrame containing only complete rows.</div></td>
+              <td><div class="fn-example">movie_score_df.<span class="fn">dropna</span>()
+<span class="out">#    first_name last_name   age sex  pre  post</span>
+<span class="out"># 0         Tom     Hanks  63.0   m  8.0  10.0</span>
+<span class="out"># 3       Oprah   Winfrey  66.0   f  6.0   8.0</span>
+<span class="out"># 4        Emma     Stone  31.0   f  7.0   9.0</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df.dropna(thresh=n)</span><div class="fn-desc">Only drop a row if it has <em>fewer than <code>n</code> non-null values</em>. Useful for keeping rows that have most of their data and only drop the nearly-empty ones.</div></td>
+              <td><div class="fn-example"><span class="cm"># keep rows with at least 1 non-null value</span>
+<span class="cm"># (drops only rows that are ALL NaN)</span>
+movie_score_df.<span class="fn">dropna</span>(thresh=<span class="num">1</span>)
+<span class="out">#    first_name last_name   age sex  pre  post</span>
+<span class="out"># 0         Tom     Hanks  63.0   m  8.0  10.0</span>
+<span class="out"># 2        Hugh   Jackman  51.0   m  NaN   NaN</span>
+<span class="out"># 3       Oprah   Winfrey  66.0   f  6.0   8.0</span>
+<span class="out"># 4        Emma     Stone  31.0   f  7.0   9.0</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df.dropna(axis=1)</span><div class="fn-desc"><code>axis=0</code> (default) drops nullable <strong>rows</strong>. <code>axis=1</code> drops nullable <strong>columns</strong> instead — removes any column that contains at least one NaN.</div></td>
+              <td><div class="fn-example"><span class="cm"># remove any column that has even one NaN</span>
+movie_score_df.<span class="fn">dropna</span>(axis=<span class="num">1</span>)</div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df.dropna(subset=['col'])</span><div class="fn-desc">Apply the drop logic only to specific columns. A row is dropped only if it has a NaN in one of those columns — NaN in other columns is ignored.</div></td>
+              <td><div class="fn-example"><span class="cm"># drop rows missing 'first_name' only</span>
+movie_score_df.<span class="fn">dropna</span>(subset=[<span class="str">'first_name'</span>])
+<span class="out">#    first_name last_name   age sex  pre  post</span>
+<span class="out"># 0         Tom     Hanks  63.0   m  8.0  10.0</span>
+<span class="out"># 2        Hugh   Jackman  51.0   m  NaN   NaN</span>
+<span class="out"># 3       Oprah   Winfrey  66.0   f  6.0   8.0</span>
+<span class="out"># 4        Emma     Stone  31.0   f  7.0   9.0</span>
+
+<span class="cm"># combine thresh + subset: always empty here</span>
+<span class="cm"># because subset has only 1 column</span>
+movie_score_df.<span class="fn">dropna</span>(thresh=<span class="num">2</span>, subset=[<span class="str">'first_name'</span>])</div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Section G · Filling Missing Data -->
+      <div class="section">
+        <span class="section-tag tag-green">Fill Missing</span>
+        <h2>df.fillna() — Replacing NaN with Real Values</h2>
+        <p>Instead of dropping missing data, replace it with a meaningful value — a fixed constant, the column mean, median, or any other computed value.</p>
+        <table class="fn-table">
+          <thead><tr><th style="width:40%">Method / Description</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df['col'].fillna(value)</span><div class="fn-desc">Replace every NaN in the column with a fixed value. Reassign back to the column (or use <code>inplace=True</code>) to persist the change.</div></td>
+              <td><div class="fn-example"><span class="cm"># fill missing pre_movie_score with 0</span>
+movie_score_df[<span class="str">'pre_movie_score'</span>] = (
+    movie_score_df[<span class="str">'pre_movie_score'</span>].<span class="fn">fillna</span>(<span class="num">0</span>)
+)
+<span class="out">#    first_name  ...  pre_movie_score  post_movie_score</span>
+<span class="out"># 0         Tom  ...              8.0              10.0</span>
+<span class="out"># 1         NaN  ...              0.0               NaN</span>
+<span class="out"># 2        Hugh  ...              0.0               NaN</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df['col'].fillna(df['col'].mean())</span><div class="fn-desc">Fill NaN values with the column's mean (or any aggregate like <code>median()</code>, <code>max()</code>). A common strategy in machine learning to preserve row count without biasing the distribution heavily.</div></td>
+              <td><div class="fn-example"><span class="cm"># fill missing post_movie_score with column mean</span>
+col = movie_score_df[<span class="str">'post_movie_score'</span>]
+new_score = col.<span class="fn">fillna</span>(col.<span class="fn">mean</span>())
+movie_score_df[<span class="str">'post_movie_score'</span>] = new_score
+
+<span class="out">#    first_name  ...  pre  post_movie_score</span>
+<span class="out"># 0         Tom  ...  8.0              10.0</span>
+<span class="out"># 1         NaN  ...  0.0               9.0  ← was NaN</span>
+<span class="out"># 2        Hugh  ...  0.0               9.0  ← was NaN</span>
+<span class="out"># 3       Oprah  ...  6.0               8.0</span>
+<span class="out"># 4        Emma  ...  7.0               9.0</span></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div><!-- /topic-6 -->
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         SUB-TOPIC 7 — GROUP BY
+    ═══════════════════════════════════════════════════════════════════ -->
+    <div id="topic-7" class="topic-pane" style="display:none">
+
+      <div class="hero">
+        <span class="topic-label"><span class="dot"></span>Sub-topic 7 of 12</span>
+        <h1>Group By</h1>
+        <p>Aggregate rows with <code>groupby()</code>, build multi-level indexes, perform cross-sections with <code>xs()</code>, and aggregate with <code>agg()</code>.</p>
+        <div class="hero-pills">
+          <span class="tag">groupby()</span>
+          <span class="tag blue">MultiIndex</span>
+          <span class="tag green">xs()</span>
+          <span class="tag orange">agg()</span>
+        </div>
+      </div>
+
+      <!-- Section A · Group By -->
+      <div class="section">
+        <span class="section-tag tag-purple">Aggregation</span>
+        <h2>GroupBy — Aggregate Rows by Category</h2>
+        <p>Use <code>groupby('column')</code> to split the DataFrame into groups based on unique values of a column, then apply an aggregation function. The result is a DataFrame indexed by the grouped column.</p>
+        <div class="download-box">
+          <span>Practice dataset used in the examples below:</span>
+          <a href="mpg.csv" download="mpg.csv" class="download-btn">↓ Download mpg.csv</a>
+        </div>
+        <table class="fn-table">
+          <thead><tr><th style="width:40%">Method / Description</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df.groupby('col').mean()</span><div class="fn-desc">Group rows by unique values in <code>col</code> and compute the mean of every numeric column. Returns a DataFrame with the grouping column as the index.</div></td>
+              <td><div class="fn-example">mpg_df = pd.<span class="fn">read_csv</span>(<span class="str">'mpg.csv'</span>)
+
+<span class="cm"># mean of all numeric columns per model year</span>
+mpg_df.<span class="fn">groupby</span>(<span class="str">'model_year'</span>).<span class="fn">mean</span>()
+<span class="out">#            mpg  cylinders  displacement  ...  acceleration</span>
+<span class="out"># model_year</span>
+<span class="out"># 70        17.69       7.0        286.9  ...         14.7</span>
+<span class="out"># 71        21.25       5.9        251.4  ...         15.7</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">groupby().mean()['col']</span><div class="fn-desc">Chain a column selector after the aggregation to get a single Series of results — one value per group.</div></td>
+              <td><div class="fn-example"><span class="cm"># average mpg per model year (Series result)</span>
+mpg_df.<span class="fn">groupby</span>(<span class="str">'model_year'</span>).<span class="fn">mean</span>()[<span class="str">'mpg'</span>]
+<span class="out"># model_year</span>
+<span class="out"># 70    17.69</span>
+<span class="out"># 71    21.25</span>
+<span class="out"># 72    18.71</span>
+<span class="out"># ...</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">.nlargest(n)</span><div class="fn-desc">Return the n values with the largest value from a Series. Handy for finding the top-n groups after a groupby aggregation.</div></td>
+              <td><div class="fn-example"><span class="cm"># top 5 model years by average mpg</span>
+mpg_df.<span class="fn">groupby</span>(<span class="str">'model_year'</span>).<span class="fn">mean</span>()[<span class="str">'mpg'</span>].<span class="fn">nlargest</span>(<span class="num">5</span>)
+<span class="out"># model_year</span>
+<span class="out"># 80    33.70</span>
+<span class="out"># 82    31.71</span>
+<span class="out"># 81    30.33</span>
+<span class="out"># 79    25.09</span>
+<span class="out"># 78    24.06</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">.value_counts().sort_index()</span><div class="fn-desc">Count occurrences of each unique value with <code>value_counts()</code>, then <code>sort_index()</code> reorders the result by the index values (numerically or alphabetically) instead of by frequency.</div></td>
+              <td><div class="fn-example"><span class="cm"># how many cars per cylinder count, sorted by cylinders</span>
+mpg_df[<span class="str">'cylinders'</span>].<span class="fn">value_counts</span>().<span class="fn">sort_index</span>()
+<span class="out"># cylinders</span>
+<span class="out"># 3      4</span>
+<span class="out"># 4    204</span>
+<span class="out"># 5      3</span>
+<span class="out"># 6     84</span>
+<span class="out"># 8    103</span></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Section B · Multiple GroupBy & Multi-Index -->
+      <div class="section">
+        <span class="section-tag tag-blue">Multi-Level Index</span>
+        <h2>Multiple GroupBy &amp; Multi-Index</h2>
+        <p>Passing a list of columns to <code>groupby()</code> creates a <strong>MultiIndex</strong> — a hierarchical row index with one level per column. This lets you slice data at any level of the hierarchy.</p>
+        <table class="fn-table">
+          <thead><tr><th style="width:40%">Method / Description</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df.groupby(['c1','c2']).mean()</span><div class="fn-desc">Group by two columns at once. The returned DataFrame has a two-level (MultiIndex) row index — the first level is the first column, the second level is the second column.</div></td>
+              <td><div class="fn-example"><span class="cm"># mean stats grouped by year AND cylinders</span>
+multi = mpg_df.<span class="fn">groupby</span>([<span class="str">'model_year'</span>, <span class="str">'cylinders'</span>]).<span class="fn">mean</span>()
+multi.<span class="fn">head</span>(<span class="num">3</span>)
+<span class="out">#                        mpg  displacement  weight</span>
+<span class="out"># model_year cylinders</span>
+<span class="out"># 70         4          25.5       113.0    2234.0</span>
+<span class="out"># 70         6          20.0       180.0    2844.0</span>
+<span class="out"># 70         8          15.7       341.1    3893.0</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df.index</span><div class="fn-desc">Inspect the multi-index structure. Each row is represented as a tuple <code>(level-0-value, level-1-value)</code>.</div></td>
+              <td><div class="fn-example">multi.index
+<span class="out"># MultiIndex([(70, 4),</span>
+<span class="out">#             (70, 6),</span>
+<span class="out">#             (70, 8),</span>
+<span class="out">#             (71, 4),</span>
+<span class="out">#             ...</span>
+<span class="out">#            names=['model_year', 'cylinders'])</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df.loc[(v1, v2)]</span><div class="fn-desc">Access a single row of a MultiIndex DataFrame by providing both index values as a tuple inside <code>loc</code>.</div></td>
+              <td><div class="fn-example"><span class="cm"># data for 1973 model year, 6-cylinder cars</span>
+multi.<span class="fn">loc</span>[(<span class="num">73</span>, <span class="num">6</span>)]
+<span class="out"># mpg              18.5</span>
+<span class="out"># cylinders         6.0</span>
+<span class="out"># displacement    250.0</span>
+<span class="out"># weight         3472.5</span>
+<span class="out"># acceleration     17.0</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df.xs(key, level='col')</span><div class="fn-desc">Cross-section: extract all rows where one specific index level equals <code>key</code>, regardless of the other levels. Returns a DataFrame with that level removed from the index.</div></td>
+              <td><div class="fn-example"><span class="cm"># all years for 4-cylinder cars only</span>
+multi.<span class="fn">xs</span>(key=<span class="num">4</span>, level=<span class="str">'cylinders'</span>)
+<span class="out">#              mpg  displacement  weight  acceleration</span>
+<span class="out"># model_year</span>
+<span class="out"># 70          25.5       113.0    2234.0         17.7</span>
+<span class="out"># 71          28.0       112.3    2151.0         17.5</span>
+<span class="out"># 72          24.5       120.3    2417.0         15.2</span></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Section C · Multi-Index Operations -->
+      <div class="section">
+        <span class="section-tag tag-green">Index Manipulation</span>
+        <h2>swaplevel, sort_index &amp; Filtered GroupBy</h2>
+        <p>After creating a multi-index, you can reorder its levels with <code>swaplevel()</code>, sort rows by a specific level with <code>sort_index()</code>, and pre-filter the DataFrame with <code>isin()</code> before grouping to limit which rows are included.</p>
+        <table class="fn-table">
+          <thead><tr><th style="width:40%">Method / Description</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df.swaplevel()</span><div class="fn-desc">Swap the two index levels so the inner level becomes the outer level and vice versa. Useful when you want to slice first by the column that was originally the inner level.</div></td>
+              <td><div class="fn-example"><span class="cm"># cylinders becomes the outer index</span>
+multi.<span class="fn">swaplevel</span>().<span class="fn">head</span>(<span class="num">3</span>)
+<span class="out">#                        mpg  displacement  weight</span>
+<span class="out"># cylinders model_year</span>
+<span class="out"># 4         70          25.5       113.0    2234.0</span>
+<span class="out"># 6         70          20.0       180.0    2844.0</span>
+<span class="out"># 8         70          15.7       341.1    3893.0</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df.sort_index(level=n, ascending=...)</span><div class="fn-desc">Sort the MultiIndex by the specified level number (0 = outer, 1 = inner). Pass <code>ascending=False</code> to reverse the order.</div></td>
+              <td><div class="fn-example"><span class="cm"># swap then sort by cylinders level ascending</span>
+multi.<span class="fn">swaplevel</span>().<span class="fn">sort_index</span>(level=<span class="num">0</span>).<span class="fn">head</span>(<span class="num">3</span>)
+<span class="out">#                        mpg  displacement</span>
+<span class="out"># cylinders model_year</span>
+<span class="out"># 3         73          19.0        70.0</span>
+<span class="out"># 3         75          18.0        70.0</span>
+<span class="out"># 3         80          20.0        70.0</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df[df['col'].isin([v1,v2])].groupby([...])</span><div class="fn-desc">Filter rows with <code>isin()</code> to keep only those matching a list of values, then chain <code>groupby()</code>. Combines filtering and aggregation in one expression.</div></td>
+              <td><div class="fn-example"><span class="cm"># group only 6- and 8-cylinder cars by year</span>
+mpg_df[mpg_df[<span class="str">'cylinders'</span>].<span class="fn">isin</span>([<span class="num">6</span>, <span class="num">8</span>])] \
+  .<span class="fn">groupby</span>([<span class="str">'model_year'</span>, <span class="str">'cylinders'</span>]).<span class="fn">mean</span>().<span class="fn">head</span>(<span class="num">4</span>)
+<span class="out">#                        mpg  displacement  weight</span>
+<span class="out"># model_year cylinders</span>
+<span class="out"># 70         6          20.0       180.0    2844.0</span>
+<span class="out"># 70         8          15.7       341.1    3893.0</span></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Section D · Aggregation Function -->
+      <div class="section">
+        <span class="section-tag tag-orange">Aggregation</span>
+        <h2>df.agg() — Multiple Metrics per Column</h2>
+        <p><code>df.agg()</code> accepts a dictionary mapping column names to a list of aggregation functions. This lets you compute several metrics for different columns in a single call, returning a tidy summary DataFrame.</p>
+        <table class="fn-table">
+          <thead><tr><th style="width:40%">Method / Description</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df.agg({'col': ['fn1','fn2']})</span><div class="fn-desc">Pass a dict where each key is a column name and the value is a list of aggregation function names as strings. The result is a DataFrame with function names as the row index and column names as columns.</div></td>
+              <td><div class="fn-example">mpg_df.<span class="fn">agg</span>({
+    <span class="str">'mpg'</span>:    [<span class="str">'max'</span>, <span class="str">'mean'</span>],
+    <span class="str">'weight'</span>: [<span class="str">'std'</span>, <span class="str">'mean'</span>]
+})
+<span class="out">#          mpg      weight</span>
+<span class="out"># max    46.6         NaN</span>
+<span class="out"># mean   23.5      2970.4</span>
+<span class="out"># std     NaN       846.8</span></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div><!-- /topic-7 -->
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         SUB-TOPIC 8 — MERGE & CONCAT
+    ═══════════════════════════════════════════════════════════════════ -->
+    <div id="topic-8" class="topic-pane" style="display:none">
+
+      <div class="hero">
+        <span class="topic-label"><span class="dot"></span>Sub-topic 8 of 12</span>
+        <h1>Merge &amp; Concat</h1>
+        <p>Combine DataFrames by stacking rows with <code>pd.concat()</code> or joining on a shared key with <code>pd.merge()</code>.</p>
+        <div class="hero-pills">
+          <span class="tag">concat()</span>
+          <span class="tag blue">merge()</span>
+          <span class="tag green">how=</span>
+          <span class="tag orange">suffixes</span>
+        </div>
+      </div>
+
+      <!-- Section A · pd.concat() -->
+      <div class="section">
+        <span class="section-tag tag-cyan">Combining Data</span>
+        <h2>pd.concat() — Stack DataFrames</h2>
+        <p>Use <code>pd.concat()</code> to combine a list of DataFrames either by stacking rows (default, <code>axis=0</code>) or by placing them side by side as additional columns (<code>axis=1</code>).</p>
+        <table class="fn-table">
+          <thead><tr><th style="width:40%">Method / Description</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="fn-left"><span class="fn-name">pd.concat([df1, df2])</span><div class="fn-desc">Stack rows from two (or more) DataFrames vertically. Both DataFrames must share the same column names. Original row indexes are preserved — call <code>.reset_index(drop=True)</code> to renumber them.</div></td>
+              <td><div class="fn-example">df1 = pd.<span class="fn">DataFrame</span>({<span class="str">'A'</span>: [<span class="num">1</span>,<span class="num">2</span>], <span class="str">'B'</span>: [<span class="str">'x'</span>,<span class="str">'y'</span>]})
+df2 = pd.<span class="fn">DataFrame</span>({<span class="str">'A'</span>: [<span class="num">3</span>,<span class="num">4</span>], <span class="str">'B'</span>: [<span class="str">'z'</span>,<span class="str">'w'</span>]})
+
+pd.<span class="fn">concat</span>([df1, df2])
+<span class="out">#    A  B</span>
+<span class="out"># 0  1  x</span>
+<span class="out"># 1  2  y</span>
+<span class="out"># 0  3  z</span>
+<span class="out"># 1  4  w</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">pd.concat([df1, df2], axis=1)</span><div class="fn-desc">Place two DataFrames side by side as additional columns. Rows are aligned by index. Useful when each DataFrame contains different features for the same set of observations.</div></td>
+              <td><div class="fn-example">df_info  = pd.<span class="fn">DataFrame</span>({<span class="str">'name'</span>:  [<span class="str">'Alice'</span>, <span class="str">'Bob'</span>]})
+df_score = pd.<span class="fn">DataFrame</span>({<span class="str">'score'</span>: [<span class="num">90</span>, <span class="num">85</span>]})
+
+pd.<span class="fn">concat</span>([df_info, df_score], axis=<span class="num">1</span>)
+<span class="out">#     name  score</span>
+<span class="out"># 0  Alice     90</span>
+<span class="out"># 1    Bob     85</span></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Section F · pd.merge() -->
+      <div class="section">
+        <span class="section-tag tag-purple">Combining Data</span>
+        <h2>pd.merge() — Join DataFrames on a Key</h2>
+        <p><code>pd.merge()</code> joins two DataFrames like a SQL join. Choose the join type with <code>how</code>, the key column(s) with <code>on</code>, and handle conflicting column names with <code>suffixes</code>.</p>
+        <!-- left join block -->
+        <div class="join-block">
+          <div class="jb-head">
+            <span class="jb-name">pd.merge(orders, prices, how='left', on='id')</span>
+            <span class="jb-desc">Left join — keep every row from left, NaN where no right match</span>
+          </div>
+          <div class="jb-tables">
+            <div class="jb-inputs">
+              <div class="jb-tbl">
+                <div class="jb-tbl-lbl">orders (left)</div>
+                <div class="ser-wrap">
+                  <table class="ser-out">
+                    <thead><tr><th></th><th>id</th><th>item</th></tr></thead>
+                    <tbody>
+                      <tr><td class="idx">0</td><td>1</td><td>a</td></tr>
+                      <tr><td class="idx">1</td><td>2</td><td>b</td></tr>
+                      <tr><td class="idx">2</td><td>3</td><td>c</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="jb-arrow">+</div>
+              <div class="jb-tbl">
+                <div class="jb-tbl-lbl">prices (right)</div>
+                <div class="ser-wrap">
+                  <table class="ser-out">
+                    <thead><tr><th></th><th>id</th><th>price</th></tr></thead>
+                    <tbody>
+                      <tr><td class="idx">0</td><td>1</td><td>10</td></tr>
+                      <tr><td class="idx">1</td><td>2</td><td>20</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            <div class="jb-result-row">
+              <div class="jb-arrow">→</div>
+              <div class="jb-tbl">
+                <div class="jb-tbl-lbl">Result</div>
+                <div class="ser-wrap">
+                  <table class="ser-out">
+                    <thead><tr><th></th><th>id</th><th>item</th><th>price</th></tr></thead>
+                    <tbody>
+                      <tr><td class="idx">0</td><td>1</td><td>a</td><td>10.0</td></tr>
+                      <tr><td class="idx">1</td><td>2</td><td>b</td><td>20.0</td></tr>
+                      <tr><td class="idx">2</td><td>3</td><td>c</td><td><span class="nan">NaN</span></td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- inner join with index block -->
+        <div class="join-block">
+          <div class="jb-head">
+            <span class="jb-name">pd.merge(emp, dept, left_index=True, right_on='emp_id')</span>
+            <span class="jb-desc">Inner join using the left index as the key — only matching rows kept</span>
+          </div>
+          <div class="jb-tables">
+            <div class="jb-inputs">
+              <div class="jb-tbl">
+                <div class="jb-tbl-lbl">emp (left, index is key)</div>
+                <div class="ser-wrap">
+                  <table class="ser-out">
+                    <thead><tr><th></th><th>name</th></tr></thead>
+                    <tbody>
+                      <tr><td class="idx">100</td><td>Ana</td></tr>
+                      <tr><td class="idx">101</td><td>Ben</td></tr>
+                      <tr><td class="idx">102</td><td>Cara</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="jb-arrow">+</div>
+              <div class="jb-tbl">
+                <div class="jb-tbl-lbl">dept (right)</div>
+                <div class="ser-wrap">
+                  <table class="ser-out">
+                    <thead><tr><th></th><th>emp_id</th><th>dept</th></tr></thead>
+                    <tbody>
+                      <tr><td class="idx">0</td><td>101</td><td>HR</td></tr>
+                      <tr><td class="idx">1</td><td>102</td><td>IT</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            <div class="jb-result-row">
+              <div class="jb-arrow">→</div>
+              <div class="jb-tbl">
+                <div class="jb-tbl-lbl">Result</div>
+                <div class="ser-wrap">
+                  <table class="ser-out">
+                    <thead><tr><th></th><th>name</th><th>emp_id</th><th>dept</th></tr></thead>
+                    <tbody>
+                      <tr><td class="idx">0</td><td>Ben</td><td>101</td><td>HR</td></tr>
+                      <tr><td class="idx">1</td><td>Cara</td><td>102</td><td>IT</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- suffixes block -->
+        <div class="join-block">
+          <div class="jb-head">
+            <span class="jb-name">pd.merge(df_a, df_b, on='id', suffixes=('_a','_b'))</span>
+            <span class="jb-desc">Shared column names get a suffix to avoid collision</span>
+          </div>
+          <div class="jb-tables">
+            <div class="jb-inputs">
+              <div class="jb-tbl">
+                <div class="jb-tbl-lbl">df_a</div>
+                <div class="ser-wrap">
+                  <table class="ser-out">
+                    <thead><tr><th></th><th>id</th><th>val</th></tr></thead>
+                    <tbody>
+                      <tr><td class="idx">0</td><td>1</td><td>10</td></tr>
+                      <tr><td class="idx">1</td><td>2</td><td>20</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="jb-arrow">+</div>
+              <div class="jb-tbl">
+                <div class="jb-tbl-lbl">df_b</div>
+                <div class="ser-wrap">
+                  <table class="ser-out">
+                    <thead><tr><th></th><th>id</th><th>val</th></tr></thead>
+                    <tbody>
+                      <tr><td class="idx">0</td><td>1</td><td>30</td></tr>
+                      <tr><td class="idx">1</td><td>2</td><td>40</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            <div class="jb-result-row">
+              <div class="jb-arrow">→</div>
+              <div class="jb-tbl">
+                <div class="jb-tbl-lbl">Result — val split into val_a / val_b</div>
+                <div class="ser-wrap">
+                  <table class="ser-out">
+                    <thead><tr><th></th><th>id</th><th>val_a</th><th>val_b</th></tr></thead>
+                    <tbody>
+                      <tr><td class="idx">0</td><td>1</td><td>10</td><td>30</td></tr>
+                      <tr><td class="idx">1</td><td>2</td><td>20</td><td>40</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /topic-8 -->
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         SUB-TOPIC 9 — STRING METHODS
+    ═══════════════════════════════════════════════════════════════════ -->
+    <div id="topic-9" class="topic-pane" style="display:none">
+
+      <div class="hero">
+        <span class="topic-label"><span class="dot"></span>Sub-topic 9 of 12</span>
+        <h1>String Methods</h1>
+        <p>The <code>.str</code> accessor exposes vectorised string operations directly on a Pandas Series. These run on every element at once, avoiding slow Python loops, and can be chained together.</p>
+        <div class="hero-pills">
+          <span class="tag">str.upper()</span>
+          <span class="tag blue">str.replace()</span>
+          <span class="tag green">str.strip()</span>
+          <span class="tag orange">str.capitalize()</span>
+          <span class="tag cyan">chaining</span>
+        </div>
+      </div>
+
+      <!-- Section A · String Methods -->
+      <div class="section">
+        <span class="section-tag tag-blue">Series.str Accessor</span>
+        <h2>Vectorised String Operations</h2>
+        <p>Access string methods on any text column via the <code>.str</code> accessor. All methods return a new Series — they do not modify the original. Chaining works because each call returns a Series.</p>
+        <div class="download-box">
+          <span>Practice dataset used in the examples below:</span>
+          <a href="mpg.csv" download="mpg.csv" class="download-btn">↓ Download mpg.csv</a>
+        </div>
+        <table class="fn-table">
+          <thead><tr><th style="width:40%">Method / Description</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="fn-left"><span class="fn-name">.str.upper() / .str.lower()</span><div class="fn-desc">Convert every string in the Series to upper or lower case. The original Series is not modified — assign to a new column to keep the result.</div></td>
+              <td><div class="fn-example">mpg_df = pd.<span class="fn">read_csv</span>(<span class="str">'mpg.csv'</span>)
+
+mpg_df[<span class="str">'name'</span>].<span class="fn">str</span>.<span class="fn">upper</span>().<span class="fn">head</span>(<span class="num">3</span>)
+<span class="out"># 0    CHEVROLET CHEVELLE MALIBU</span>
+<span class="out"># 1        BUICK SKYLARK 320</span>
+<span class="out"># 2     PLYMOUTH SATELLITE</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">.str.replace(old, new)</span><div class="fn-desc">Replace every occurrence of a substring (or regex pattern) with a replacement string across all elements of the Series.</div></td>
+              <td><div class="fn-example"><span class="cm"># replace spaces with hyphens in car names</span>
+mpg_df[<span class="str">'name'</span>].<span class="fn">str</span>.<span class="fn">replace</span>(<span class="str">' '</span>, <span class="str">'-'</span>).<span class="fn">head</span>(<span class="num">2</span>)
+<span class="out"># 0    chevrolet-chevelle-malibu</span>
+<span class="out"># 1        buick-skylark-320</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">.str.strip()</span><div class="fn-desc">Remove leading and trailing whitespace from every string. Call this before other string operations when data may have been entered inconsistently.</div></td>
+              <td><div class="fn-example"><span class="cm"># clean up any accidental spaces in 'name'</span>
+mpg_df[<span class="str">'name'</span>] = mpg_df[<span class="str">'name'</span>].<span class="fn">str</span>.<span class="fn">strip</span>()</div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">.str.capitalize()</span><div class="fn-desc">Uppercase the first character of each string and lowercase the rest. Unlike <code>.str.title()</code>, only the very first character is capitalised.</div></td>
+              <td><div class="fn-example">mpg_df[<span class="str">'name'</span>].<span class="fn">str</span>.<span class="fn">capitalize</span>().<span class="fn">head</span>(<span class="num">2</span>)
+<span class="out"># 0    Chevrolet chevelle malibu</span>
+<span class="out"># 1        Buick skylark 320</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">chaining .str methods</span><div class="fn-desc">String accessor calls return a Series so they can be chained directly. Each transformation is applied to the output of the previous one.</div></td>
+              <td><div class="fn-example"><span class="cm"># strip whitespace then capitalise, all in one line</span>
+mpg_df[<span class="str">'name'</span>].<span class="fn">str</span>.<span class="fn">strip</span>().<span class="fn">str</span>.<span class="fn">capitalize</span>().<span class="fn">head</span>(<span class="num">2</span>)
+<span class="out"># 0    Chevrolet chevelle malibu</span>
+<span class="out"># 1        Buick skylark 320</span></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div><!-- /topic-9 -->
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         SUB-TOPIC 10 — TIME METHODS
+    ═══════════════════════════════════════════════════════════════════ -->
+    <div id="topic-10" class="topic-pane" style="display:none">
+
+      <div class="hero">
+        <span class="topic-label"><span class="dot"></span>Sub-topic 10 of 12</span>
+        <h1>Time Methods</h1>
+        <p>Pandas provides <code>pd.to_datetime()</code> to parse strings into datetime objects, the <code>.dt</code> accessor for formatting date parts, and <code>df.resample()</code> to aggregate a time-indexed DataFrame at a chosen frequency.</p>
+        <div class="hero-pills">
+          <span class="tag">to_datetime()</span>
+          <span class="tag blue">dt.strftime()</span>
+          <span class="tag green">format=</span>
+          <span class="tag orange">resample()</span>
+        </div>
+      </div>
+
+      <!-- Section A · Time Methods -->
+      <div class="section">
+        <span class="section-tag tag-green">Date &amp; Time</span>
+        <h2>Parsing, Formatting &amp; Resampling Dates</h2>
+        <p>Convert text to datetime with <code>pd.to_datetime()</code>, format the result with <code>.dt.strftime()</code>, and downsample a time-indexed DataFrame to any frequency with <code>resample()</code>.</p>
+        <div class="download-box">
+          <span>Practice dataset used in the examples below:</span>
+          <a href="RetailSales_BeerWineLiquor.csv" download="RetailSales_BeerWineLiquor.csv" class="download-btn">↓ Download RetailSales_BeerWineLiquor.csv</a>
+        </div>
+        <table class="fn-table">
+          <thead><tr><th style="width:40%">Method / Description</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="fn-left"><span class="fn-name">pd.to_datetime(series)</span><div class="fn-desc">Convert a Series of date strings to <code>datetime64</code> objects. Pandas infers the format automatically when strings are in a common format such as <code>YYYY-MM-DD</code>.</div></td>
+              <td><div class="fn-example"><span class="kw">from</span> datetime <span class="kw">import</span> datetime
+
+dates = pd.<span class="fn">Series</span>([<span class="str">'2020-01-01'</span>, <span class="str">'2020-06-15'</span>, <span class="str">'2021-03-20'</span>])
+dt_series = pd.<span class="fn">to_datetime</span>(dates)
+<span class="out"># 0   2020-01-01</span>
+<span class="out"># 1   2020-06-15</span>
+<span class="out"># 2   2021-03-20</span>
+<span class="out"># dtype: datetime64[ns]</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">series.dt.strftime('format')</span><div class="fn-desc">Format datetime objects as strings using a strftime pattern. Common codes: <code>%d</code> day, <code>%m</code> month number, <code>%b</code> abbreviated month name, <code>%Y</code> 4-digit year.</div></td>
+              <td><div class="fn-example"><span class="cm"># reformat as DD-MM-YYYY strings</span>
+dt_series.<span class="fn">dt</span>.<span class="fn">strftime</span>(<span class="str">'%d-%m-%Y'</span>)
+<span class="out"># 0    01-01-2020</span>
+<span class="out"># 1    15-06-2020</span>
+<span class="out"># 2    20-03-2021</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">pd.to_datetime(series, format='...')</span><div class="fn-desc">Supply an explicit format string when Pandas cannot infer the format — for example, unusual separators or abbreviated month names mixed with other text.</div></td>
+              <td><div class="fn-example">raw = pd.<span class="fn">Series</span>([<span class="str">'01--Jan--2020'</span>, <span class="str">'15--Jun--2020'</span>])
+pd.<span class="fn">to_datetime</span>(raw, format=<span class="str">'%d--%b--%Y'</span>)
+<span class="out"># 0   2020-01-01</span>
+<span class="out"># 1   2020-06-15</span>
+<span class="out"># dtype: datetime64[ns]</span></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df.resample(rule='A').mean()</span><div class="fn-desc">Resample a time-indexed DataFrame to a lower frequency and aggregate. <code>rule='A'</code> means yearly (annual end). The DataFrame's index must be a <code>DatetimeIndex</code> first.</div></td>
+              <td><div class="fn-example"><span class="cm"># build a daily DataFrame and resample to yearly averages</span>
+idx = pd.<span class="fn">date_range</span>(<span class="str">'2020-01-01'</span>, periods=<span class="num">730</span>, freq=<span class="str">'D'</span>)
+df_ts = pd.<span class="fn">DataFrame</span>({<span class="str">'sales'</span>: range(<span class="num">730</span>)}, index=idx)
+
+df_ts.<span class="fn">resample</span>(rule=<span class="str">'A'</span>).<span class="fn">mean</span>()
+<span class="out">#             sales</span>
+<span class="out"># 2020-12-31  182.5</span>
+<span class="out"># 2021-12-31  547.5</span></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div><!-- /topic-10 -->
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         SUB-TOPIC 11 — PIVOT TABLE
+    ═══════════════════════════════════════════════════════════════════ -->
+    <div id="topic-11" class="topic-pane" style="display:none">
+
+      <div class="hero">
+        <span class="topic-label"><span class="dot"></span>Sub-topic 11 of 12</span>
+        <h1>Pivot Table</h1>
+        <p>Reshape a DataFrame into a summary view with <code>pd.pivot_table()</code>. Choose rows, columns, values, and an aggregation function.</p>
+        <div class="hero-pills">
+          <span class="tag">pivot_table()</span>
+          <span class="tag blue">aggfunc</span>
+          <span class="tag green">index=</span>
+          <span class="tag orange">columns=</span>
+        </div>
+      </div>
+
+      <!-- Section A · Pivot Table -->
+      <div class="section">
+        <span class="section-tag tag-purple">Reshape Data</span>
+        <h2>pd.pivot_table() — Reshape a DataFrame</h2>
+        <p>A pivot table reshapes existing data so it is easier to read and compare. No new information is added — rows and columns are reorganised. Before building one, ask: <em>what question am I answering, what should the rows/columns be, and which aggregation function fits?</em></p>
+        <table class="fn-table">
+          <thead><tr><th style="width:40%">Parameter / Description</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="fn-left"><span class="fn-name">pd.pivot_table(df, values, index, columns, aggfunc)</span><div class="fn-desc"><strong>values</strong> — column whose numbers fill the table.<br><strong>index</strong> — column that becomes the row labels.<br><strong>columns</strong> — column whose unique values become column headers.<br><strong>aggfunc</strong> — how to aggregate (e.g. <code>'sum'</code>, <code>'mean'</code>).</div></td>
+              <td><div class="code-result"><div class="fn-example">data = {
+    <span class="str">'Date'</span>:    [<span class="str">'2021-01-01'</span>,<span class="str">'2021-01-01'</span>,
+                 <span class="str">'2021-01-02'</span>,<span class="str">'2021-01-02'</span>,
+                 <span class="str">'2021-01-03'</span>,<span class="str">'2021-01-03'</span>],
+    <span class="str">'Product'</span>: [<span class="str">'Apples'</span>,<span class="str">'Oranges'</span>,
+                 <span class="str">'Apples'</span>,<span class="str">'Oranges'</span>,
+                 <span class="str">'Apples'</span>,<span class="str">'Oranges'</span>],
+    <span class="str">'Sales'</span>:   [<span class="num">100</span>,<span class="num">120</span>,<span class="num">200</span>,<span class="num">220</span>,<span class="num">300</span>,<span class="num">320</span>]
+}
+df = pd.<span class="fn">DataFrame</span>(data)
+df</div><div class="ser-wrap"><table class="ser-out">
+  <thead><tr><th></th><th>Date</th><th>Product</th><th>Sales</th></tr></thead>
+  <tbody>
+    <tr><td class="idx">0</td><td>2021-01-01</td><td>Apples</td><td>100</td></tr>
+    <tr><td class="idx">1</td><td>2021-01-01</td><td>Oranges</td><td>120</td></tr>
+    <tr><td class="idx">2</td><td>2021-01-02</td><td>Apples</td><td>200</td></tr>
+    <tr><td class="idx">3</td><td>2021-01-02</td><td>Oranges</td><td>220</td></tr>
+    <tr><td class="idx">4</td><td>2021-01-03</td><td>Apples</td><td>300</td></tr>
+    <tr><td class="idx">5</td><td>2021-01-03</td><td>Oranges</td><td>320</td></tr>
+  </tbody>
+</table></div></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">aggfunc='sum'</span><div class="fn-desc">Total sales per product per date. The <code>Product</code> values become column names; each cell is the sum of <code>Sales</code> for that date + product combination.</div></td>
+              <td><div class="code-result"><div class="fn-example">pivot = pd.<span class="fn">pivot_table</span>(df,
+    values=<span class="str">'Sales'</span>,
+    index=<span class="str">'Date'</span>,
+    columns=<span class="str">'Product'</span>,
+    aggfunc=<span class="str">'sum'</span>)
+pivot</div><div class="ser-wrap"><table class="ser-out">
+  <thead><tr><th>Date</th><th>Apples</th><th>Oranges</th></tr></thead>
+  <tbody>
+    <tr><td class="idx">2021-01-01</td><td>100</td><td>120</td></tr>
+    <tr><td class="idx">2021-01-02</td><td>200</td><td>220</td></tr>
+    <tr><td class="idx">2021-01-03</td><td>300</td><td>320</td></tr>
+  </tbody>
+</table></div></div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">aggfunc='mean'</span><div class="fn-desc">Average sales per product across all dates. By omitting <code>columns</code> the result collapses to a single <code>Sales</code> column — one row per product.</div></td>
+              <td><div class="code-result"><div class="fn-example">pivot = pd.<span class="fn">pivot_table</span>(df,
+    values=<span class="str">'Sales'</span>,
+    index=<span class="str">'Product'</span>,
+    aggfunc=<span class="str">'mean'</span>)
+pivot</div><div class="ser-wrap"><table class="ser-out">
+  <thead><tr><th>Product</th><th>Sales</th></tr></thead>
+  <tbody>
+    <tr><td class="idx">Apples</td><td>200</td></tr>
+    <tr><td class="idx">Oranges</td><td>220</td></tr>
+  </tbody>
+</table></div></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div><!-- /topic-11 -->
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         SUB-TOPIC 12 — EXPORT
+    ═══════════════════════════════════════════════════════════════════ -->
+    <div id="topic-12" class="topic-pane" style="display:none">
+
+      <div class="hero">
+        <span class="topic-label"><span class="dot"></span>Sub-topic 12 of 12</span>
+        <h1>Export</h1>
+        <p>Write any DataFrame to CSV, Excel, or HTML with <code>to_csv()</code>, <code>to_excel()</code>, and <code>to_html()</code>. Use <code>index=False</code> to omit row numbers.</p>
+        <div class="hero-pills">
+          <span class="tag">to_csv()</span>
+          <span class="tag blue">to_excel()</span>
+          <span class="tag green">to_html()</span>
+          <span class="tag orange">index=False</span>
+        </div>
+      </div>
+
+      <!-- Section A · Export DataFrame -->
+      <div class="section">
+        <span class="section-tag tag-blue">Export</span>
+        <h2>Exporting a DataFrame to File</h2>
+        <p>Pandas can write any DataFrame to an external file. Pass the filename as the first argument and use <code>index=False</code> to omit the row numbers, or <code>index=True</code> to include them.</p>
+        <div class="download-box">
+          <span>Practice dataset used in the examples below:</span>
+          <a href="example.csv" download="example.csv" class="download-btn">↓ Download example.csv</a>
+        </div>
+        <table class="fn-table">
+          <thead><tr><th style="width:40%">Method / Description</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df.to_csv('file.csv', index=False)</span><div class="fn-desc">Write the DataFrame to a CSV file. <code>index=False</code> omits the row numbers from the output so the file only contains the data columns.</div></td>
+              <td><div class="fn-example">df = pd.<span class="fn">read_csv</span>(<span class="str">'example.csv'</span>)
+
+<span class="cm"># save without row index</span>
+df.<span class="fn">to_csv</span>(<span class="str">'example.csv'</span>, index=<span class="cls">False</span>)
+
+<span class="cm"># save with row index included</span>
+df.<span class="fn">to_csv</span>(<span class="str">'example_with_index.csv'</span>, index=<span class="cls">True</span>)</div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df.to_excel('file.xlsx', index=False)</span><div class="fn-desc">Write the DataFrame to an Excel <code>.xlsx</code> file. The <code>openpyxl</code> package must be installed (<code>pip install openpyxl</code>). Each column becomes an Excel column; each row becomes a row in the sheet.</div></td>
+              <td><div class="fn-example"><span class="cm"># requires: pip install openpyxl</span>
+df.<span class="fn">to_excel</span>(<span class="str">'example.xlsx'</span>, index=<span class="cls">False</span>)</div></td>
+            </tr>
+            <tr>
+              <td class="fn-left"><span class="fn-name">df.to_html('file.html', index=True)</span><div class="fn-desc">Write the DataFrame as an HTML <code>&lt;table&gt;</code> element inside a complete <code>.html</code> file. Pass <code>index=True</code> to include row numbers as the first column, or <code>False</code> to hide them.</div></td>
+              <td><div class="fn-example"><span class="cm"># creates df_example.html with an HTML table</span>
+df.<span class="fn">to_html</span>(<span class="str">'df_example.html'</span>, index=<span class="cls">True</span>)
+
+<span class="cm"># open in a browser to see the rendered table</span></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div><!-- /topic-12 -->
+
+  </main>
+  </div><!-- /content-area -->
+</div><!-- /page-wrap -->
+
+
+<script>
+  /* progress bar */
+  const bar = document.getElementById('progress');
+  window.addEventListener('scroll', () => {
+    const total = document.body.scrollHeight - window.innerHeight;
+    bar.style.width = (window.scrollY / total * 100) + '%';
+  });
+
+  /* sub-topic switching */
+  function showTopic(n) {
+    document.querySelectorAll('.topic-pane').forEach(p => { p.style.display = 'none'; });
+    document.querySelectorAll('.st-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('topic-' + n).style.display = 'block';
+    document.getElementById('btn-' + n).classList.add('active');
+    window.scrollTo(0, 0);
+    requestAnimationFrame(() => {
+      document.querySelectorAll('#topic-' + n + ' .section').forEach(s => s.classList.add('visible'));
+    });
+  }
+
+  /* IntersectionObserver for initial topic fade-in */
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+  }, { threshold: 0.08 });
+  document.querySelectorAll('#topic-1 .section').forEach(s => observer.observe(s));
+</script>
+</body>
+</html>

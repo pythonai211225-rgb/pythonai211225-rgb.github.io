@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pandas Merge Lab</title>
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    :root {
+      --accent: #06b6d4;
+      --left: #3b82f6;
+      --right: #ec4899;
+      --match: #10b981;
+      --warn: #f97316;
+      --soft: rgba(6,182,212,.1);
+    }
+
+    body { overflow-x: hidden; }
+    main { max-width: 1180px; }
+
+    .hero {
+      text-align: left;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(280px, 430px);
+      gap: 30px;
+      align-items: center;
+      margin-bottom: 34px;
+      border-radius: 16px;
+    }
+    .hero h1 {
+      background: linear-gradient(135deg, var(--accent), var(--green), var(--pink));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .merge-logo {
+      min-height: 250px;
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 14px;
+      background:
+        linear-gradient(135deg, rgba(59,130,246,.12), transparent 42%),
+        linear-gradient(315deg, rgba(236,72,153,.12), transparent 42%),
+        #0a0f17;
+      position: relative;
+      overflow: hidden;
+      display: grid;
+      place-items: center;
+    }
+    .merge-logo::before,
+    .merge-logo::after {
+      content: "";
+      position: absolute;
+      width: 148px;
+      height: 148px;
+      border-radius: 50%;
+      border: 2px solid;
+      opacity: .82;
+    }
+    .merge-logo::before {
+      left: 58px;
+      border-color: var(--left);
+      box-shadow: 0 0 34px rgba(59,130,246,.22);
+      animation: driftLeft 4s ease-in-out infinite;
+    }
+    .merge-logo::after {
+      right: 58px;
+      border-color: var(--right);
+      box-shadow: 0 0 34px rgba(236,72,153,.22);
+      animation: driftRight 4s ease-in-out infinite;
+    }
+    .merge-core {
+      position: relative;
+      z-index: 2;
+      width: 92px;
+      height: 92px;
+      border-radius: 12px;
+      background: rgba(16,185,129,.14);
+      border: 1px solid rgba(16,185,129,.42);
+      display: grid;
+      place-items: center;
+      font-family: "Courier New", monospace;
+      font-size: .82rem;
+      font-weight: 800;
+      color: var(--match);
+      box-shadow: 0 0 40px rgba(16,185,129,.18);
+    }
+    @keyframes driftLeft {
+      0%,100% { transform: translateX(-10px); }
+      50% { transform: translateX(10px); }
+    }
+    @keyframes driftRight {
+      0%,100% { transform: translateX(10px); }
+      50% { transform: translateX(-10px); }
+    }
+
+    .lab-shell {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 18px;
+      margin: 28px 0 54px;
+      align-items: start;
+    }
+    .control-panel {
+      position: sticky;
+      top: 72px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+    }
+    .control-group { margin-bottom: 18px; }
+    .control-label {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: .67rem;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 9px;
+    }
+    .seg {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7px;
+    }
+    .seg.three { grid-template-columns: repeat(3, 1fr); }
+    .seg button,
+    .tool-btn {
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.03);
+      color: var(--muted);
+      border-radius: 8px;
+      min-height: 38px;
+      padding: 7px 9px;
+      font-size: .78rem;
+      font-weight: 800;
+      cursor: pointer;
+      transition: border-color .18s, color .18s, background .18s, transform .18s;
+    }
+    .seg button:hover,
+    .tool-btn:hover {
+      border-color: rgba(6,182,212,.5);
+      color: var(--text);
+      background: rgba(6,182,212,.07);
+    }
+    .seg button.active {
+      color: var(--accent);
+      border-color: rgba(6,182,212,.55);
+      background: rgba(6,182,212,.12);
+      box-shadow: inset 0 0 0 1px rgba(6,182,212,.08);
+    }
+    .switch-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      border-top: 1px solid rgba(255,255,255,.06);
+      color: var(--muted);
+      font-size: .83rem;
+    }
+    .switch-row:first-child { border-top: 0; padding-top: 0; }
+    .switch-row input {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent);
+    }
+
+    .stage {
+      background: #070b12;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .stage-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,.025);
+    }
+    .stage-title {
+      font-size: .76rem;
+      font-weight: 900;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    .stage-note { font-size: .78rem; color: var(--muted); }
+    .tables-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 1px;
+      background: var(--border);
+    }
+    .frame {
+      background: #080d15;
+      padding: 16px;
+      min-width: 0;
+    }
+    .frame-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+      font-family: "Courier New", monospace;
+      font-size: .8rem;
+      font-weight: 800;
+    }
+    .frame-title.left { color: var(--left); }
+    .frame-title.right { color: var(--right); }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
+    table.merge-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .82rem;
+      min-width: 330px;
+    }
+    .merge-table th {
+      text-align: left;
+      padding: 9px 11px;
+      font-family: "Courier New", monospace;
+      font-size: .76rem;
+      background: rgba(255,255,255,.04);
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+    .merge-table td {
+      padding: 9px 11px;
+      color: var(--text);
+      border-bottom: 1px solid rgba(255,255,255,.055);
+      white-space: nowrap;
+    }
+    .merge-table tr:last-child td { border-bottom: 0; }
+    .merge-table tr.row-on td {
+      background: rgba(16,185,129,.12);
+      color: #d1fae5;
+      animation: rowPulse .75s ease;
+    }
+    .merge-table tr.row-left-only td { background: rgba(59,130,246,.09); }
+    .merge-table tr.row-right-only td { background: rgba(236,72,153,.09); }
+    .key-cell {
+      font-family: "Courier New", monospace;
+      font-weight: 800;
+      color: var(--accent) !important;
+    }
+    @keyframes rowPulse {
+      0% { box-shadow: inset 0 0 0 999px rgba(16,185,129,.2); }
+      100% { box-shadow: inset 0 0 0 999px transparent; }
+    }
+
+    .merge-animation {
+      position: relative;
+      min-height: 150px;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      background:
+        linear-gradient(90deg, rgba(59,130,246,.06), transparent 28%, transparent 72%, rgba(236,72,153,.06)),
+        #050810;
+      overflow: hidden;
+    }
+    .lane-label {
+      position: absolute;
+      top: 12px;
+      font-size: .68rem;
+      font-weight: 900;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .lane-label.left { left: 18px; color: var(--left); }
+    .lane-label.right { right: 18px; color: var(--right); }
+    .join-token {
+      position: absolute;
+      top: 58px;
+      width: 66px;
+      min-height: 46px;
+      border-radius: 9px;
+      display: grid;
+      place-items: center;
+      font-family: "Courier New", monospace;
+      font-size: .78rem;
+      font-weight: 900;
+      border: 1px solid;
+      opacity: 0;
+    }
+    .join-token.left {
+      left: 22px;
+      color: var(--left);
+      background: rgba(59,130,246,.12);
+      border-color: rgba(59,130,246,.42);
+    }
+    .join-token.right {
+      right: 22px;
+      color: var(--right);
+      background: rgba(236,72,153,.12);
+      border-color: rgba(236,72,153,.42);
+    }
+    .join-token.run-left {
+      animation: flyLeft 1.15s ease forwards;
+    }
+    .join-token.run-right {
+      animation: flyRight 1.15s ease forwards;
+    }
+    .join-burst {
+      position: absolute;
+      left: 50%;
+      top: 81px;
+      width: 16px;
+      height: 16px;
+      transform: translate(-50%,-50%);
+      border-radius: 50%;
+      background: var(--match);
+      opacity: 0;
+      box-shadow: 0 0 34px rgba(16,185,129,.55);
+    }
+    .join-burst.run { animation: burst .85s ease .58s forwards; }
+    @keyframes flyLeft {
+      0% { opacity: 0; transform: translateX(0) scale(.92); }
+      18% { opacity: 1; }
+      100% { opacity: 1; transform: translateX(calc(50vw - 190px)) scale(1); }
+    }
+    @keyframes flyRight {
+      0% { opacity: 0; transform: translateX(0) scale(.92); }
+      18% { opacity: 1; }
+      100% { opacity: 1; transform: translateX(calc(-50vw + 190px)) scale(1); }
+    }
+    @keyframes burst {
+      0% { opacity: 0; transform: translate(-50%,-50%) scale(.3); }
+      38% { opacity: 1; transform: translate(-50%,-50%) scale(1.7); }
+      100% { opacity: 0; transform: translate(-50%,-50%) scale(4.5); }
+    }
+
+    .result-area {
+      padding: 16px;
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(280px, .95fr);
+      gap: 16px;
+    }
+    .code-card,
+    .result-card,
+    .mini-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      min-width: 0;
+      overflow: hidden;
+    }
+    .card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 11px 13px;
+      border-bottom: 1px solid var(--border);
+      color: var(--muted);
+      font-size: .68rem;
+      font-weight: 900;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    .code-card pre {
+      margin: 0;
+      padding: 14px;
+      overflow-x: auto;
+      color: var(--text);
+      font-family: "Courier New", monospace;
+      font-size: .82rem;
+      line-height: 1.65;
+    }
+    .result-card .table-wrap { border: 0; border-radius: 0; }
+    .empty-note {
+      padding: 22px;
+      color: var(--muted);
+      font-size: .9rem;
+    }
+    .metric-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin: 14px 0 0;
+    }
+    .metric {
+      background: rgba(255,255,255,.035);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+    }
+    .metric strong {
+      display: block;
+      font-size: 1.15rem;
+      color: var(--text);
+      line-height: 1.15;
+    }
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: .68rem;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      margin-top: 5px;
+    }
+
+    .command-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin: 22px 0;
+    }
+    .command-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      min-width: 0;
+    }
+    .command-card h3 {
+      font-family: "Courier New", monospace;
+      font-size: .92rem;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+    .command-card p {
+      color: var(--muted);
+      font-size: .84rem;
+      line-height: 1.55;
+      margin-bottom: 12px;
+    }
+    .command-card pre,
+    .mini-card pre {
+      margin: 0;
+      padding: 12px;
+      border-radius: 9px;
+      background: #050810;
+      border: 1px solid rgba(255,255,255,.07);
+      overflow-x: auto;
+      color: var(--text);
+      font-family: "Courier New", monospace;
+      font-size: .78rem;
+      line-height: 1.55;
+    }
+
+    .scenario-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 18px;
+    }
+    .scenario-card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface);
+      padding: 16px;
+    }
+    .scenario-card h3 {
+      color: var(--text);
+      font-size: .96rem;
+      margin-bottom: 7px;
+    }
+    .scenario-card p {
+      color: var(--muted);
+      font-size: .86rem;
+      line-height: 1.6;
+      margin-bottom: 12px;
+    }
+    .callout {
+      border: 1px solid rgba(249,115,22,.32);
+      background: rgba(249,115,22,.07);
+      border-radius: 12px;
+      padding: 16px 18px;
+      color: var(--muted);
+      font-size: .9rem;
+      line-height: 1.65;
+      margin-top: 18px;
+    }
+    .callout strong { color: var(--warn); }
+
+    @media (max-width: 980px) {
+      .hero,
+      .lab-shell,
+      .result-area { grid-template-columns: 1fr; }
+      .control-panel { position: static; }
+      .command-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 680px) {
+      main { padding-left: 14px; padding-right: 14px; }
+      .top-nav { padding-left: 14px; padding-right: 14px; }
+      .tables-grid,
+      .command-grid,
+      .scenario-grid,
+      .metric-row { grid-template-columns: 1fr; }
+      .hero { padding: 30px 18px; }
+      .merge-logo { min-height: 210px; }
+      .merge-logo::before { left: 34px; }
+      .merge-logo::after { right: 34px; }
+      .stage-head { align-items: flex-start; flex-direction: column; }
+      .join-token.run-left { animation-name: flyLeftSmall; }
+      .join-token.run-right { animation-name: flyRightSmall; }
+      @keyframes flyLeftSmall {
+        0% { opacity: 0; transform: translateX(0) scale(.92); }
+        18% { opacity: 1; }
+        100% { opacity: 1; transform: translateX(calc(50vw - 86px)) scale(1); }
+      }
+      @keyframes flyRightSmall {
+        0% { opacity: 0; transform: translateX(0) scale(.92); }
+        18% { opacity: 1; }
+        100% { opacity: 1; transform: translateX(calc(-50vw + 86px)) scale(1); }
+      }
+    }
+  </style>
+</head>
+<body>
+<div id="progress"></div>
+
+<nav class="top-nav">
+  <a href="index.html" class="nav-back">Back</a>
+  <span class="nav-title">Pandas Merge Lab</span>
+</nav>
+
+<main>
+  <section class="hero">
+    <div>
+      <span class="topic-label"><span class="dot"></span> Topic 08 - Combining Data</span>
+      <h1>pd.merge commands, examples, and a live join animation</h1>
+      <p>
+        Use this page to see exactly what pandas keeps, drops, and fills with missing values
+        when two DataFrames are merged. Change the join type, key, and options; the command,
+        result table, metrics, and animation update immediately.
+      </p>
+      <div class="hero-pills">
+        <span class="tag cyan">pd.merge</span>
+        <span class="tag blue">left / right</span>
+        <span class="tag green">inner / outer</span>
+        <span class="tag pink">indicator</span>
+        <span class="tag orange">validate</span>
+      </div>
+    </div>
+    <div class="merge-logo" aria-hidden="true">
+      <div class="merge-core">MERGE</div>
+    </div>
+  </section>
+
+  <section class="section visible" id="lab">
+    <p class="section-label">Interactive merge simulator</p>
+    <h2>Choose a command and watch the rows meet on the key</h2>
+    <p>
+      The left table is orders. The right table is customer data. Matching is done by key:
+      pandas compares key values, combines rows that match, and keeps unmatched rows only
+      when the selected join type asks for them.
+    </p>
+
+    <div class="lab-shell">
+      <aside class="control-panel">
+        <div class="control-group">
+          <div class="control-label"><span>Join Type</span><span id="joinHint">keeps matches</span></div>
+          <div class="seg" id="joinTypeControls">
+            <button type="button" class="active" data-join="inner">inner</button>
+            <button type="button" data-join="left">left</button>
+            <button type="button" data-join="right">right</button>
+            <button type="button" data-join="outer">outer</button>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <div class="control-label"><span>Key Style</span><span id="keyHint">same name</span></div>
+          <div class="seg" id="keyControls">
+            <button type="button" class="active" data-key="same">on=</button>
+            <button type="button" data-key="different">left_on/right_on</button>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <div class="control-label"><span>Options</span><span>toggle</span></div>
+          <label class="switch-row">
+            <span>Show source with <code>indicator=True</code></span>
+            <input type="checkbox" id="indicatorToggle" checked>
+          </label>
+          <label class="switch-row">
+            <span>Add shared <code>status</code> column and suffixes</span>
+            <input type="checkbox" id="suffixToggle" checked>
+          </label>
+          <label class="switch-row">
+            <span>Use duplicate customer rows</span>
+            <input type="checkbox" id="duplicateToggle">
+          </label>
+        </div>
+
+        <div class="control-group">
+          <div class="control-label"><span>Animation</span><span>rows</span></div>
+          <button type="button" class="tool-btn" id="replayBtn">Replay matching rows</button>
+        </div>
+
+        <div class="metric-row" aria-live="polite">
+          <div class="metric"><strong id="metricRows">0</strong><span>rows</span></div>
+          <div class="metric"><strong id="metricBoth">0</strong><span>both</span></div>
+          <div class="metric"><strong id="metricLeft">0</strong><span>left only</span></div>
+          <div class="metric"><strong id="metricRight">0</strong><span>right only</span></div>
+        </div>
+      </aside>
+
+      <div class="stage">
+        <div class="stage-head">
+          <div class="stage-title">Live data frames</div>
+          <div class="stage-note" id="stageNote">inner join: only keys in both tables survive</div>
+        </div>
+
+        <div class="tables-grid">
+          <div class="frame">
+            <div class="frame-title left"><span>orders</span><span id="leftKeyName">customer_id</span></div>
+            <div class="table-wrap" id="leftTable"></div>
+          </div>
+          <div class="frame">
+            <div class="frame-title right"><span>customers</span><span id="rightKeyName">customer_id</span></div>
+            <div class="table-wrap" id="rightTable"></div>
+          </div>
+        </div>
+
+        <div class="merge-animation" aria-hidden="true">
+          <span class="lane-label left">left rows</span>
+          <span class="lane-label right">right rows</span>
+          <div class="join-token left" id="animLeft">C01</div>
+          <div class="join-token right" id="animRight">C01</div>
+          <div class="join-burst" id="animBurst"></div>
+        </div>
+
+        <div class="result-area">
+          <div class="code-card">
+            <div class="card-head">
+              <span>Generated command</span>
+              <button type="button" class="tool-btn" id="copyBtn">Copy</button>
+            </div>
+            <pre id="codeBlock"></pre>
+          </div>
+          <div class="result-card">
+            <div class="card-head"><span>Result DataFrame</span><span id="resultShape"></span></div>
+            <div class="table-wrap" id="resultTable"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section visible">
+    <p class="section-label">Merge command patterns</p>
+    <h2>The commands you will use most</h2>
+    <div class="command-grid">
+      <article class="command-card">
+        <h3>Basic merge</h3>
+        <p>Use when both DataFrames share the same key column name.</p>
+        <pre>pd.merge(left, right, on="id", how="inner")</pre>
+      </article>
+      <article class="command-card">
+        <h3>Different key names</h3>
+        <p>Use when the key columns mean the same thing but have different names.</p>
+        <pre>pd.merge(
+    orders,
+    customers,
+    left_on="customer_id",
+    right_on="id",
+    how="left"
+)</pre>
+      </article>
+      <article class="command-card">
+        <h3>Keep source labels</h3>
+        <p><code>indicator=True</code> adds <code>_merge</code>: both, left_only, or right_only.</p>
+        <pre>pd.merge(a, b, on="id", how="outer", indicator=True)</pre>
+      </article>
+      <article class="command-card">
+        <h3>Handle duplicate column names</h3>
+        <p>If both tables have a non-key column with the same name, use suffixes.</p>
+        <pre>pd.merge(
+    orders,
+    customers,
+    on="customer_id",
+    suffixes=("_order", "_customer")
+)</pre>
+      </article>
+      <article class="command-card">
+        <h3>Validate relationships</h3>
+        <p>Catch accidental many-to-many merges before they multiply your rows.</p>
+        <pre>pd.merge(
+    orders,
+    customers,
+    on="customer_id",
+    validate="many_to_one"
+)</pre>
+      </article>
+      <article class="command-card">
+        <h3>Index merge</h3>
+        <p>Join using row indexes instead of ordinary columns.</p>
+        <pre>pd.merge(left, right, left_index=True, right_index=True)</pre>
+      </article>
+    </div>
+  </section>
+
+  <section class="section visible">
+    <p class="section-label">Join type examples</p>
+    <h2>What each <code>how=</code> value means</h2>
+    <div class="scenario-grid">
+      <article class="scenario-card">
+        <h3>inner</h3>
+        <p>Return only keys that appear in both DataFrames. This is the default.</p>
+        <pre>pd.merge(orders, customers, on="customer_id")</pre>
+      </article>
+      <article class="scenario-card">
+        <h3>left</h3>
+        <p>Keep every row from the left DataFrame, and fill missing right-side values with NaN.</p>
+        <pre>pd.merge(orders, customers, on="customer_id", how="left")</pre>
+      </article>
+      <article class="scenario-card">
+        <h3>right</h3>
+        <p>Keep every row from the right DataFrame, and fill missing left-side values with NaN.</p>
+        <pre>pd.merge(orders, customers, on="customer_id", how="right")</pre>
+      </article>
+      <article class="scenario-card">
+        <h3>outer</h3>
+        <p>Keep all keys from both DataFrames. Missing values appear wherever one side has no match.</p>
+        <pre>pd.merge(orders, customers, on="customer_id", how="outer")</pre>
+      </article>
+    </div>
+    <div class="callout">
+      <strong>Important:</strong> duplicates multiply rows. If a key appears 2 times on the left and
+      3 times on the right, the merge creates 6 combined rows for that key. Use
+      <code>validate=</code> when you expect one-to-one or many-to-one behavior.
+    </div>
+  </section>
+
+  <section class="section visible">
+    <p class="section-label">Mini exercises</p>
+    <h2>Practice checks</h2>
+    <div class="scenario-grid">
+      <article class="mini-card">
+        <div class="card-head"><span>Exercise 1</span><span>left join</span></div>
+        <pre># Keep every order, even if customer data is missing.
+pd.merge(orders, customers, on="customer_id", how="left")</pre>
+      </article>
+      <article class="mini-card">
+        <div class="card-head"><span>Exercise 2</span><span>audit missing</span></div>
+        <pre># Find rows that do not match on both sides.
+m = pd.merge(orders, customers, on="customer_id", how="outer", indicator=True)
+m[m["_merge"] != "both"]</pre>
+      </article>
+    </div>
+  </section>
+
+  <nav class="lesson-nav">
+    <a class="btn-prev" href="07-groupby-agg.html">Previous: GroupBy</a>
+    <a class="btn-next" href="index.html">Back to Pandas Deck</a>
+  </nav>
+</main>
+
+<script>
+  const state = {
+    join: "inner",
+    key: "same",
+    indicator: true,
+    suffixes: true,
+    duplicate: false
+  };
+
+  const orders = [
+    { order_id: 1001, customer_id: "C01", product: "Keyboard", total: 85, status: "paid" },
+    { order_id: 1002, customer_id: "C02", product: "Mouse", total: 32, status: "paid" },
+    { order_id: 1003, customer_id: "C05", product: "Monitor", total: 240, status: "open" },
+    { order_id: 1004, customer_id: "C03", product: "USB Hub", total: 48, status: "paid" }
+  ];
+
+  const customersBase = [
+    { customer_id: "C01", name: "Noa", city: "Tel Aviv", status: "gold" },
+    { customer_id: "C02", name: "Maya", city: "Haifa", status: "silver" },
+    { customer_id: "C03", name: "Omer", city: "Jerusalem", status: "gold" },
+    { customer_id: "C04", name: "Lior", city: "Beer Sheva", status: "bronze" }
+  ];
+
+  const customersDuplicate = [
+    ...customersBase,
+    { customer_id: "C02", name: "Maya B.", city: "Haifa", status: "vip" }
+  ];
+
+  const joinHints = {
+    inner: "keeps matches",
+    left: "keeps left",
+    right: "keeps right",
+    outer: "keeps all"
+  };
+
+  const stageNotes = {
+    inner: "inner join: only keys in both tables survive",
+    left: "left join: all orders stay, missing customers become NaN",
+    right: "right join: all customers stay, missing orders become NaN",
+    outer: "outer join: every key from both tables appears"
+  };
+
+  const leftTable = document.getElementById("leftTable");
+  const rightTable = document.getElementById("rightTable");
+  const resultTable = document.getElementById("resultTable");
+  const codeBlock = document.getElementById("codeBlock");
+  const stageNote = document.getElementById("stageNote");
+  const joinHint = document.getElementById("joinHint");
+  const keyHint = document.getElementById("keyHint");
+  const resultShape = document.getElementById("resultShape");
+  const animLeft = document.getElementById("animLeft");
+  const animRight = document.getElementById("animRight");
+  const animBurst = document.getElementById("animBurst");
+
+  function getCustomers() {
+    return state.duplicate ? customersDuplicate : customersBase;
+  }
+
+  function rightRowsForDisplay() {
+    const keyName = state.key === "different" ? "id" : "customer_id";
+    return getCustomers().map(row => {
+      const next = { ...row };
+      if (keyName === "id") {
+        next.id = next.customer_id;
+        delete next.customer_id;
+      }
+      return next;
+    });
+  }
+
+  function renderTable(rows, mount, side, keyName) {
+    if (!rows.length) {
+      mount.innerHTML = '<div class="empty-note">No rows</div>';
+      return;
+    }
+    const columns = Object.keys(rows[0]);
+    const html = [
+      '<table class="merge-table">',
+      '<thead><tr>' + columns.map(col => `<th>${col}</th>`).join("") + '</tr></thead>',
+      '<tbody>',
+      ...rows.map((row, index) => {
+        const key = row[keyName] || "";
+        const cells = columns.map(col => {
+          const cls = col === keyName ? ' class="key-cell"' : "";
+          return `<td${cls}>${formatValue(row[col])}</td>`;
+        }).join("");
+        return `<tr data-side="${side}" data-key="${key}" data-index="${index}">${cells}</tr>`;
+      }),
+      '</tbody></table>'
+    ].join("");
+    mount.innerHTML = html;
+  }
+
+  function formatValue(value) {
+    return value === undefined || value === null || value === "" ? "NaN" : String(value);
+  }
+
+  function mergeRows() {
+    const customers = getCustomers();
+    const rows = [];
+    const rightMatched = new Set();
+
+    orders.forEach(left => {
+      const matches = customers
+        .map((right, index) => ({ right, index }))
+        .filter(item => item.right.customer_id === left.customer_id);
+
+      if (matches.length) {
+        matches.forEach(({ right, index }) => {
+          rightMatched.add(index);
+          rows.push(buildRow(left, right, "both"));
+        });
+      } else if (state.join === "left" || state.join === "outer") {
+        rows.push(buildRow(left, null, "left_only"));
+      }
+    });
+
+    if (state.join === "right" || state.join === "outer") {
+      customers.forEach((right, index) => {
+        if (!rightMatched.has(index)) {
+          rows.push(buildRow(null, right, "right_only"));
+        }
+      });
+    }
+
+    return rows;
+  }
+
+  function buildRow(left, right, source) {
+    const key = left ? left.customer_id : right.customer_id;
+    const row = {};
+
+    if (state.key === "same") {
+      row.customer_id = key;
+    } else {
+      row.customer_id = left ? left.customer_id : "";
+      row.id = right ? right.customer_id : "";
+    }
+
+    row.order_id = left ? left.order_id : "";
+    row.product = left ? left.product : "";
+    row.total = left ? left.total : "";
+
+    if (state.suffixes) {
+      row.status_order = left ? left.status : "";
+      row.name = right ? right.name : "";
+      row.city = right ? right.city : "";
+      row.status_customer = right ? right.status : "";
+    } else {
+      row.status_x = left ? left.status : "";
+      row.name = right ? right.name : "";
+      row.city = right ? right.city : "";
+      row.status_y = right ? right.status : "";
+    }
+
+    if (state.indicator) row._merge = source;
+    row.__source = source;
+    return row;
+  }
+
+  function renderResult(rows) {
+    const displayRows = rows.map(({ __source, ...rest }) => rest);
+    if (!displayRows.length) {
+      resultTable.innerHTML = '<div class="empty-note">No rows returned by this merge.</div>';
+      resultShape.textContent = "(0, 0)";
+      return;
+    }
+    const columns = Object.keys(displayRows[0]);
+    resultShape.textContent = `(${displayRows.length}, ${columns.length})`;
+    const html = [
+      '<table class="merge-table">',
+      '<thead><tr>' + columns.map(col => `<th>${col}</th>`).join("") + '</tr></thead>',
+      '<tbody>',
+      ...displayRows.map((row, index) => {
+        const source = rows[index].__source;
+        const rowClass = source === "left_only" ? "row-left-only" : source === "right_only" ? "row-right-only" : "";
+        const cells = columns.map(col => {
+          const cls = col === "customer_id" || col === "id" ? ' class="key-cell"' : "";
+          return `<td${cls}>${formatValue(row[col])}</td>`;
+        }).join("");
+        return `<tr class="${rowClass}">${cells}</tr>`;
+      }),
+      '</tbody></table>'
+    ].join("");
+    resultTable.innerHTML = html;
+  }
+
+  function commandText() {
+    const leftName = "orders";
+    const rightName = "customers";
+    const args = [leftName, rightName];
+
+    if (state.key === "same") {
+      args.push('on="customer_id"');
+    } else {
+      args.push('left_on="customer_id"');
+      args.push('right_on="id"');
+    }
+
+    if (state.join !== "inner") args.push(`how="${state.join}"`);
+    if (state.indicator) args.push("indicator=True");
+    if (state.suffixes) args.push('suffixes=("_order", "_customer")');
+    if (state.duplicate) args.push('validate="many_to_many"');
+    else args.push('validate="many_to_one"');
+
+    if (args.length <= 4) return `pd.merge(${args.join(", ")})`;
+
+    return "pd.merge(\n" +
+      args.map((arg, index) => index < 2 ? `    ${arg},` : `    ${arg},`).join("\n").replace(/,\s*$/, "") +
+      "\n)";
+  }
+
+  function updateMetrics(rows) {
+    document.getElementById("metricRows").textContent = rows.length;
+    document.getElementById("metricBoth").textContent = rows.filter(row => row.__source === "both").length;
+    document.getElementById("metricLeft").textContent = rows.filter(row => row.__source === "left_only").length;
+    document.getElementById("metricRight").textContent = rows.filter(row => row.__source === "right_only").length;
+  }
+
+  function render() {
+    const rightKey = state.key === "different" ? "id" : "customer_id";
+    document.getElementById("leftKeyName").textContent = "customer_id";
+    document.getElementById("rightKeyName").textContent = rightKey;
+    stageNote.textContent = stageNotes[state.join];
+    joinHint.textContent = joinHints[state.join];
+    keyHint.textContent = state.key === "same" ? "same name" : "different names";
+
+    renderTable(orders, leftTable, "left", "customer_id");
+    renderTable(rightRowsForDisplay(), rightTable, "right", rightKey);
+
+    const rows = mergeRows();
+    renderResult(rows);
+    updateMetrics(rows);
+    codeBlock.textContent = commandText();
+    replayAnimation();
+  }
+
+  function replayAnimation() {
+    const keys = mergeRows().filter(row => row.__source === "both").map(row => row.customer_id || row.id);
+    const key = keys[0] || "none";
+    animLeft.textContent = key;
+    animRight.textContent = key;
+
+    document.querySelectorAll(".merge-table tr").forEach(row => row.classList.remove("row-on"));
+    animLeft.classList.remove("run-left");
+    animRight.classList.remove("run-right");
+    animBurst.classList.remove("run");
+
+    window.requestAnimationFrame(() => {
+      document.querySelectorAll(`[data-key="${key}"]`).forEach(row => row.classList.add("row-on"));
+      animLeft.classList.add("run-left");
+      animRight.classList.add("run-right");
+      animBurst.classList.add("run");
+    });
+  }
+
+  document.getElementById("joinTypeControls").addEventListener("click", event => {
+    const button = event.target.closest("button[data-join]");
+    if (!button) return;
+    state.join = button.dataset.join;
+    document.querySelectorAll("#joinTypeControls button").forEach(btn => btn.classList.toggle("active", btn === button));
+    render();
+  });
+
+  document.getElementById("keyControls").addEventListener("click", event => {
+    const button = event.target.closest("button[data-key]");
+    if (!button) return;
+    state.key = button.dataset.key;
+    document.querySelectorAll("#keyControls button").forEach(btn => btn.classList.toggle("active", btn === button));
+    render();
+  });
+
+  document.getElementById("indicatorToggle").addEventListener("change", event => {
+    state.indicator = event.target.checked;
+    render();
+  });
+
+  document.getElementById("suffixToggle").addEventListener("change", event => {
+    state.suffixes = event.target.checked;
+    render();
+  });
+
+  document.getElementById("duplicateToggle").addEventListener("change", event => {
+    state.duplicate = event.target.checked;
+    render();
+  });
+
+  document.getElementById("replayBtn").addEventListener("click", replayAnimation);
+
+  document.getElementById("copyBtn").addEventListener("click", async event => {
+    try {
+      await navigator.clipboard.writeText(codeBlock.textContent);
+      event.currentTarget.textContent = "Copied";
+      setTimeout(() => event.currentTarget.textContent = "Copy", 1100);
+    } catch {
+      event.currentTarget.textContent = "Select code";
+      setTimeout(() => event.currentTarget.textContent = "Copy", 1400);
+    }
+  });
+
+  const progress = document.getElementById("progress");
+  window.addEventListener("scroll", () => {
+    const total = document.body.scrollHeight - window.innerHeight;
+    progress.style.width = total > 0 ? `${window.scrollY / total * 100}%` : "0";
+  });
+
+  render();
+</script>
+</body>
+</html>

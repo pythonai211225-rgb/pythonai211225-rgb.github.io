@@ -1,0 +1,1821 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Topic 04 — pd.Series</title>
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    /* ── Series output tables ── */
+    .ser-out { border-collapse:collapse; font-family:'Courier New',monospace; font-size:.82rem; }
+    .ser-out th { color:var(--muted); font-size:.64rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; padding:4px 24px 4px 0; border-bottom:1px solid var(--border); text-align:left; }
+    .ser-out td { padding:5px 24px 5px 0; border-bottom:1px solid rgba(255,255,255,.04); vertical-align:top; }
+    .ser-out td:first-child { color:var(--accent); }
+    .ser-out tfoot td { color:var(--muted); font-size:.7rem; border-bottom:none; padding-top:9px; border-top:1px solid var(--border); }
+    .ser-wrap { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px 18px; display:inline-block; }
+    .ser-label { font-size:.62rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:8px; }
+    .ser-row { display:flex; flex-wrap:wrap; gap:14px; margin:16px 0 4px; }
+    .scalar-op-list { display:grid; gap:14px; margin:16px 0 4px; }
+    .scalar-op { display:grid; grid-template-columns:minmax(220px,1fr) auto auto; align-items:start; gap:14px; }
+    .scalar-op .code-wrap { margin:0; }
+    .scalar-op .ser-wrap { display:block; min-width:190px; }
+    .code-result-list { display:grid; gap:14px; margin:16px 0 4px; }
+    .code-result { display:grid; grid-template-columns:minmax(260px,1fr) auto; align-items:start; gap:14px; }
+    .code-result .code-wrap { margin:0; }
+    .code-result .ser-wrap { display:block; justify-self:end; min-width:210px; }
+    .nan-cell { color:#f97316; }
+    /* ── sidebar layout ── */
+    .page-layout{display:flex;height:calc(100vh - 54px);overflow:hidden;}
+    .sidebar{width:210px;min-width:210px;height:100%;overflow-y:auto;background:#0a0e14;border-right:1px solid var(--border);display:flex;flex-direction:column;scrollbar-width:thin;scrollbar-color:var(--border) transparent;flex-shrink:0;}
+    .sidebar-head{padding:18px 14px 12px;font-size:.6rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);}
+    .sidebar-nav{padding:6px 0;flex:1;}
+    .s-item{display:flex;align-items:center;gap:9px;padding:9px 14px;cursor:pointer;border-left:3px solid transparent;background:none;border-top:none;border-right:none;border-bottom:none;width:100%;text-align:left;transition:background .18s,border-color .18s;}
+    .s-item:hover{background:rgba(255,255,255,.04);}
+    .s-item.active{background:rgba(168,85,247,.08);border-left-color:var(--accent);}
+    .s-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;transition:transform .2s;}
+    .s-item.active .s-dot{transform:scale(1.45);box-shadow:0 0 8px currentColor;}
+    .s-num{font-size:.58rem;color:var(--border);font-family:'Courier New',monospace;font-weight:700;min-width:16px;}
+    .s-item.active .s-num{color:var(--accent);}
+    .s-label{font-size:.74rem;color:var(--muted);font-family:'Courier New',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .s-item.active .s-label{color:var(--text);}
+    .s-item.done .s-label::after{content:' ✓';color:var(--green);font-size:.67rem;}
+    .panel-viewport{flex:1;overflow-y:auto;overflow-x:hidden;}
+    .panel{display:none;flex-direction:column;min-height:100%;padding:36px 48px 80px;max-width:800px;margin:0 auto;animation:pdIn .3s ease;}
+    .panel.active{display:flex;}
+    @keyframes pdIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:translateX(0)}}
+    .panel.exit{display:flex;animation:pdOut .22s ease forwards;}
+    @keyframes pdOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(-24px)}}
+    .pnav{display:flex;justify-content:space-between;align-items:center;margin-top:36px;padding-top:20px;border-top:1px solid var(--border);flex-shrink:0;}
+    .pnav-btn{display:flex;align-items:center;gap:7px;padding:9px 20px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:.82rem;font-weight:700;cursor:pointer;transition:color .2s,border-color .2s,background .2s;}
+    .pnav-btn:hover:not(:disabled){color:var(--text);border-color:var(--accent);background:rgba(168,85,247,.06);}
+    .pnav-btn:disabled{opacity:.28;cursor:default;}
+    .pnav-btn.next{background:rgba(168,85,247,.08);border-color:rgba(168,85,247,.35);color:var(--accent);}
+    .pnav-btn.next:hover{background:rgba(168,85,247,.16);border-color:var(--accent);}
+    @media(max-width:700px){.sidebar{display:none;}.panel{padding:20px 16px 60px;}.scalar-op,.code-result{grid-template-columns:1fr;}.scalar-op .ser-wrap,.code-result .ser-wrap{min-width:0;justify-self:stretch;}}
+  </style>
+</head>
+<body>
+<div class="progress-bar" id="progress"></div>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">← Python Libs</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item" href="01-intro.html">01</a>
+    <a class="nav-item" href="02-topic.html">02</a>
+    <a class="nav-item" href="03-cheat-sheet.html">03</a>
+    <a class="nav-item active" href="04-series.html">04</a>
+    <a class="nav-item" href="05-creating-df.html">05</a>
+    <a class="nav-item" href="06-subsetting.html">06</a>
+    <a class="nav-item" href="07-reshaping.html">07</a>
+    <a class="nav-item" href="08-groupby-agg.html">08</a>
+    <a class="nav-item" href="09-combining.html">09</a>
+    <a class="nav-item" href="10-missing-newcol.html">10</a>
+  </div>
+</nav>
+<div class="page-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-head">Topic 04 · Series</div>
+    <nav class="sidebar-nav">
+      <button class="s-item active" data-panel="0" onclick="goTo(0)"><span class="s-num">00</span><span class="s-dot" style="background:#a855f7"></span><span class="s-label">Overview</span></button>
+      <button class="s-item" data-panel="1" onclick="goTo(1)"><span class="s-num">01</span><span class="s-dot" style="background:#facc15"></span><span class="s-label">Creating Series</span></button>
+      <button class="s-item" data-panel="2" onclick="goTo(2)"><span class="s-num">02</span><span class="s-dot" style="background:#3b82f6"></span><span class="s-label">Index &amp; Access</span></button>
+      <button class="s-item" data-panel="3" onclick="goTo(3)"><span class="s-num">03</span><span class="s-dot" style="background:#10b981"></span><span class="s-label">Arithmetic</span></button>
+      <button class="s-item" data-panel="4" onclick="goTo(4)"><span class="s-num">04</span><span class="s-dot" style="background:#f97316"></span><span class="s-label">dtype &amp; astype</span></button>
+      <button class="s-item" data-panel="5" onclick="goTo(5)"><span class="s-num">05</span><span class="s-dot" style="background:#06b6d4"></span><span class="s-label">name attribute</span></button>
+      <button class="s-item" data-panel="6" onclick="goTo(6)"><span class="s-num">06</span><span class="s-dot" style="background:#ec4899"></span><span class="s-label">Boolean Masking</span></button>
+      <button class="s-item" data-panel="7" onclick="goTo(7)"><span class="s-num">07</span><span class="s-dot" style="background:#a855f7"></span><span class="s-label">Useful Methods</span></button>
+      <button class="s-item" data-panel="8" onclick="goTo(8)"><span class="s-num">08</span><span class="s-dot" style="background:#f43f5e"></span><span class="s-label">Missing Data</span></button>
+      <button class="s-item" data-panel="9" onclick="goTo(9)"><span class="s-num">09</span><span class="s-dot" style="background:#facc15"></span><span class="s-label">Exercises</span></button>
+    </nav>
+  </aside>
+
+  <!-- PANEL VIEWPORT -->
+  <div class="panel-viewport" id="viewport">
+
+    <!-- Panel 0: Overview -->
+    <div class="panel active" id="panel-0">
+      <div class="hero">
+        <span class="topic-label"><span class="dot"></span>Topic 04 of 10</span>
+        <h1>pd.Series</h1>
+        <p>A Series is pandas' one-dimensional labelled array — every DataFrame column is a Series. Master creation, indexing, arithmetic, type conversion, and the most useful Series methods.</p>
+        <div class="hero-pills">
+          <span class="tag">pd.Series</span>
+          <span class="tag blue">index</span>
+          <span class="tag green">dtype / astype</span>
+          <span class="tag orange">value_counts</span>
+          <span class="tag cyan">arithmetic</span>
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" disabled>← Prev</button>
+        <button class="pnav-btn next" onclick="goTo(1)">Creating Series →</button>
+      </div>
+    </div>
+
+    <!-- Panel 1: Creating a Series -->
+    <div class="panel" id="panel-1">
+      <div class="section">
+        <div class="section-label">Creating a Series</div>
+        <h2>Three Ways to Create a Series</h2>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line"><span class="kw">import</span> <span class="lib">pandas</span> <span class="kw">as</span> <span class="lib">pd</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm"># ── From a list (default integer index 0, 1, 2…) ──</span></span>
+<span class="line">s1 = <span class="lib">pd</span>.<span class="cls">Series</span>([<span class="num">10</span>, <span class="num">20</span>, <span class="num">30</span>, <span class="num">40</span>])</span></pre>
+        </div>
+        <div class="ser-wrap">
+          <div class="ser-label">s1 — from list</div>
+          <table class="ser-out">
+            <thead><tr><th>index</th><th>value</th></tr></thead>
+            <tbody>
+              <tr><td>0</td><td>10</td></tr>
+              <tr><td>1</td><td>20</td></tr>
+              <tr><td>2</td><td>30</td></tr>
+              <tr><td>3</td><td>40</td></tr>
+            </tbody>
+            <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+          </table>
+        </div>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line"><span class="cm"># ── From a list with a custom index ──</span></span>
+<span class="line">s2 = <span class="lib">pd</span>.<span class="cls">Series</span>([<span class="num">10</span>, <span class="num">20</span>, <span class="num">30</span>], index=[<span class="str">'a'</span>, <span class="str">'b'</span>, <span class="str">'c'</span>])</span></pre>
+        </div>
+        <div class="ser-wrap">
+          <div class="ser-label">s2 — custom index</div>
+          <table class="ser-out">
+            <thead><tr><th>index</th><th>value</th></tr></thead>
+            <tbody>
+              <tr><td>a</td><td>10</td></tr>
+              <tr><td>b</td><td>20</td></tr>
+              <tr><td>c</td><td>30</td></tr>
+            </tbody>
+            <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+          </table>
+        </div>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line"><span class="cm"># ── From a dict (keys become the index) ──</span></span>
+<span class="line">s3 = <span class="lib">pd</span>.<span class="cls">Series</span>({<span class="str">'math'</span>: <span class="num">88</span>, <span class="str">'english'</span>: <span class="num">76</span>, <span class="str">'science'</span>: <span class="num">92</span>})</span></pre>
+        </div>
+        <div class="ser-wrap">
+          <div class="ser-label">s3 — from dict</div>
+          <table class="ser-out">
+            <thead><tr><th>index</th><th>value</th></tr></thead>
+            <tbody>
+              <tr><td>math</td><td>88</td></tr>
+              <tr><td>english</td><td>76</td></tr>
+              <tr><td>science</td><td>92</td></tr>
+            </tbody>
+            <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+          </table>
+        </div>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line"><span class="cm"># ── From a scalar (broadcasts to fill the index) ──</span></span>
+<span class="line">s4 = <span class="lib">pd</span>.<span class="cls">Series</span>(<span class="num">0</span>, index=[<span class="str">'x'</span>, <span class="str">'y'</span>, <span class="str">'z'</span>])</span></pre>
+        </div>
+        <div class="ser-wrap">
+          <div class="ser-label">s4 — from scalar</div>
+          <table class="ser-out">
+            <thead><tr><th>index</th><th>value</th></tr></thead>
+            <tbody>
+              <tr><td>x</td><td>0</td></tr>
+              <tr><td>y</td><td>0</td></tr>
+              <tr><td>z</td><td>0</td></tr>
+            </tbody>
+            <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+          </table>
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(0)">← Overview</button>
+        <button class="pnav-btn next" onclick="goTo(2)">Index &amp; Access →</button>
+      </div>
+    </div>
+
+    <!-- Panel 2: Index & Access -->
+    <div class="panel" id="panel-2">
+      <div class="section">
+        <div class="section-label">Index &amp; Access</div>
+        <h2>The Index — Accessing Values</h2>
+        <p>Every Series has an <code>index</code>. Access values by label with <code>[]</code> or <code>.loc[]</code>, or by integer position with <code>.iloc[]</code>.</p>
+        <div class="code-result-list">
+          <div class="code-wrap">
+            <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+            <pre><span class="line">s = <span class="lib">pd</span>.<span class="cls">Series</span>({<span class="str">'math'</span>:<span class="num">88</span>, <span class="str">'english'</span>:<span class="num">76</span>, <span class="str">'science'</span>:<span class="num">92</span>, <span class="str">'history'</span>:<span class="num">81</span>})</span></pre>
+          </div>
+
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># access by label</span></span>
+<span class="line"><span class="fn">print</span>(s[<span class="str">'math'</span>])          <span class="cm"># → 88</span></span>
+<span class="line"><span class="fn">print</span>(s.<span class="fn">loc</span>[<span class="str">'english'</span>])   <span class="cm"># → 76</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm"># access by integer position</span></span>
+<span class="line"><span class="fn">print</span>(s.<span class="fn">iloc</span>[<span class="num">0</span>])           <span class="cm"># → 88  (first element)</span></span>
+<span class="line"><span class="fn">print</span>(s.<span class="fn">iloc</span>[-<span class="num">1</span>])          <span class="cm"># → 81  (last element)</span></span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">Reference: s</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>value</th></tr></thead>
+                <tbody>
+                  <tr><td>math</td><td>88</td></tr>
+                  <tr><td>english</td><td>76</td></tr>
+                  <tr><td>science</td><td>92</td></tr>
+                  <tr><td>history</td><td>81</td></tr>
+                </tbody>
+                <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+              </table>
+            </div>
+          </div>
+
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># slice by label — inclusive on both ends</span></span>
+<span class="line">s.<span class="fn">loc</span>[<span class="str">'math'</span>:<span class="str">'science'</span>]</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">s.loc['math':'science']</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>value</th></tr></thead>
+                <tbody>
+                  <tr><td>math</td><td>88</td></tr>
+                  <tr><td>english</td><td>76</td></tr>
+                  <tr><td>science</td><td>92</td></tr>
+                </tbody>
+                <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+              </table>
+            </div>
+          </div>
+
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># useful properties</span></span>
+<span class="line"></span>
+<span class="line"><span class="fn">print</span>(s.index)    </span>
+<span class="line"><span class="cm"># Index(['math', 'english', 'science', 'history'], ...)</span></span>
+<span class="line"></span>
+<span class="line"><span class="fn">print</span>(s.values)   <span class="cm"># array([88, 76, 92, 81])</span></span>
+<span class="line"></span>
+<span class="line"><span class="fn">print</span>(s.<span class="fn">to_list</span>()) <span class="cm"># [88, 76, 92, 81]</span></span>
+<span class="line"></span>
+<span class="line"><span class="fn">print</span>(<span class="fn">len</span>(s))      <span class="cm"># 4</span></span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">Reference: s</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>value</th></tr></thead>
+                <tbody>
+                  <tr><td>math</td><td>88</td></tr>
+                  <tr><td>english</td><td>76</td></tr>
+                  <tr><td>science</td><td>92</td></tr>
+                  <tr><td>history</td><td>81</td></tr>
+                </tbody>
+                <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout blue">
+          <strong>Label vs position:</strong> When the index is <em>integers</em> (default), <code>s[0]</code> accesses by label, not position. To be explicit and safe, always use <code>.loc[]</code> for labels and <code>.iloc[]</code> for positions.
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(1)">← Creating Series</button>
+        <button class="pnav-btn next" onclick="goTo(3)">Arithmetic →</button>
+      </div>
+    </div>
+
+    <!-- Panel 3: Arithmetic -->
+    <div class="panel" id="panel-3">
+      <div class="section">
+        <div class="section-label">Arithmetic</div>
+        <h2>Vectorised Operations &amp; Alignment</h2>
+        <p>Arithmetic on a Series is element-wise. When two Series are involved, pandas <strong>aligns by index label</strong> before computing — missing labels produce <code>NaN</code>.</p>
+        <div class="code-result-list">
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line">s = <span class="lib">pd</span>.<span class="cls">Series</span>([<span class="num">10</span>, <span class="num">20</span>, <span class="num">30</span>], index=[<span class="str">'a'</span>, <span class="str">'b'</span>, <span class="str">'c'</span>])</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">s</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>value</th></tr></thead>
+                <tbody>
+                  <tr><td>a</td><td>10</td></tr>
+                  <tr><td>b</td><td>20</td></tr>
+                  <tr><td>c</td><td>30</td></tr>
+                </tbody>
+                <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="scalar-op-list">
+          <div class="scalar-op">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="fn">print</span>(s + <span class="num">5</span>)</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">original s</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>value</th></tr></thead>
+                <tbody>
+                  <tr><td>a</td><td>10</td></tr>
+                  <tr><td>b</td><td>20</td></tr>
+                  <tr><td>c</td><td>30</td></tr>
+                </tbody>
+                <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+              </table>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">s + 5</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>value</th></tr></thead>
+                <tbody>
+                  <tr><td>a</td><td>15</td></tr>
+                  <tr><td>b</td><td>25</td></tr>
+                  <tr><td>c</td><td>35</td></tr>
+                </tbody>
+                <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+              </table>
+            </div>
+          </div>
+          <div class="scalar-op">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="fn">print</span>(s * <span class="num">2</span>)</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">original s</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>value</th></tr></thead>
+                <tbody>
+                  <tr><td>a</td><td>10</td></tr>
+                  <tr><td>b</td><td>20</td></tr>
+                  <tr><td>c</td><td>30</td></tr>
+                </tbody>
+                <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+              </table>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">s * 2</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>value</th></tr></thead>
+                <tbody>
+                  <tr><td>a</td><td>20</td></tr>
+                  <tr><td>b</td><td>40</td></tr>
+                  <tr><td>c</td><td>60</td></tr>
+                </tbody>
+                <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+              </table>
+            </div>
+          </div>
+          <div class="scalar-op">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="fn">print</span>(s ** <span class="num">2</span>)</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">original s</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>value</th></tr></thead>
+                <tbody>
+                  <tr><td>a</td><td>10</td></tr>
+                  <tr><td>b</td><td>20</td></tr>
+                  <tr><td>c</td><td>30</td></tr>
+                </tbody>
+                <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+              </table>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">s ** 2</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>value</th></tr></thead>
+                <tbody>
+                  <tr><td>a</td><td>100</td></tr>
+                  <tr><td>b</td><td>400</td></tr>
+                  <tr><td>c</td><td>900</td></tr>
+                </tbody>
+                <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+              </table>
+            </div>
+          </div>
+          <div class="scalar-op">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="fn">print</span>(s / <span class="num">10</span>)</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">original s</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>value</th></tr></thead>
+                <tbody>
+                  <tr><td>a</td><td>10</td></tr>
+                  <tr><td>b</td><td>20</td></tr>
+                  <tr><td>c</td><td>30</td></tr>
+                </tbody>
+                <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+              </table>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">s / 10</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>value</th></tr></thead>
+                <tbody>
+                  <tr><td>a</td><td>1.0</td></tr>
+                  <tr><td>b</td><td>2.0</td></tr>
+                  <tr><td>c</td><td>3.0</td></tr>
+                </tbody>
+                <tfoot><tr><td colspan="2">dtype: float64</td></tr></tfoot>
+              </table>
+            </div>
+          </div>
+          <div class="scalar-op">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="fn">print</span>(s // <span class="num">3</span>)</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">original s</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>value</th></tr></thead>
+                <tbody>
+                  <tr><td>a</td><td>10</td></tr>
+                  <tr><td>b</td><td>20</td></tr>
+                  <tr><td>c</td><td>30</td></tr>
+                </tbody>
+                <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+              </table>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">s // 3 (floor division)</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>value</th></tr></thead>
+                <tbody>
+                  <tr><td>a</td><td>3</td></tr>
+                  <tr><td>b</td><td>6</td></tr>
+                  <tr><td>c</td><td>10</td></tr>
+                </tbody>
+                <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+              </table>
+            </div>
+          </div>
+          <div class="scalar-op">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="fn">print</span>(s % <span class="num">3</span>)</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">original s</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>value</th></tr></thead>
+                <tbody>
+                  <tr><td>a</td><td>10</td></tr>
+                  <tr><td>b</td><td>20</td></tr>
+                  <tr><td>c</td><td>30</td></tr>
+                </tbody>
+                <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+              </table>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">s % 3 (modulo)</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>value</th></tr></thead>
+                <tbody>
+                  <tr><td>a</td><td>1</td></tr>
+                  <tr><td>b</td><td>2</td></tr>
+                  <tr><td>c</td><td>0</td></tr>
+                </tbody>
+                <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="code-result-list">
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># two Series — aligned by index label</span></span>
+<span class="line">a = <span class="lib">pd</span>.<span class="cls">Series</span>([<span class="num">10</span>, <span class="num">20</span>, <span class="num">30</span>], index=[<span class="str">'x'</span>, <span class="str">'y'</span>, <span class="str">'z'</span>])</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">a</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>value</th></tr></thead>
+                <tbody>
+                  <tr><td>x</td><td>10</td></tr>
+                  <tr><td>y</td><td>20</td></tr>
+                  <tr><td>z</td><td>30</td></tr>
+                </tbody>
+                <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+              </table>
+            </div>
+          </div>
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line">b = <span class="lib">pd</span>.<span class="cls">Series</span>([<span class="num">1</span>,  <span class="num">2</span>,  <span class="num">3</span> ], index=[<span class="str">'x'</span>, <span class="str">'y'</span>, <span class="str">'z'</span>])</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">b</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>value</th></tr></thead>
+                <tbody>
+                  <tr><td>x</td><td>1</td></tr>
+                  <tr><td>y</td><td>2</td></tr>
+                  <tr><td>z</td><td>3</td></tr>
+                </tbody>
+                <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+              </table>
+            </div>
+          </div>
+          <div class="code-wrap">
+            <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+            <pre><span class="line">a + b</span></pre>
+          </div>
+          <div class="ser-row" style="margin-bottom: 24px;">
+            <div class="ser-wrap">
+              <div class="ser-label">a</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>value</th></tr></thead>
+                <tbody>
+                  <tr><td>x</td><td>10</td></tr>
+                  <tr><td>y</td><td>20</td></tr>
+                  <tr><td>z</td><td>30</td></tr>
+                </tbody>
+                <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+              </table>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">b</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>value</th></tr></thead>
+                <tbody>
+                  <tr><td>x</td><td>1</td></tr>
+                  <tr><td>y</td><td>2</td></tr>
+                  <tr><td>z</td><td>3</td></tr>
+                </tbody>
+                <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+              </table>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">Result: a + b</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>value</th></tr></thead>
+                <tbody>
+                  <tr><td>x</td><td>11</td></tr>
+                  <tr><td>y</td><td>22</td></tr>
+                  <tr><td>z</td><td>33</td></tr>
+                </tbody>
+                <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+              </table>
+            </div>
+          </div>
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># misaligned index → NaN where labels don't match</span></span>
+<span class="line">c = <span class="lib">pd</span>.<span class="cls">Series</span>([<span class="num">1</span>, <span class="num">2</span>], index=[<span class="str">'x'</span>, <span class="str">'w'</span>])</span>
+<span class="line"><span class="cm"># 'w' not in a, 'y'/'z' not in c</span></span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">c</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>value</th></tr></thead>
+                <tbody>
+                  <tr><td>x</td><td>1</td></tr>
+                  <tr><td>w</td><td>2</td></tr>
+                </tbody>
+                <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+              </table>
+            </div>
+          </div>
+          <div class="code-wrap">
+            <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+            <pre><span class="line">a + c</span></pre>
+          </div>
+          <div class="ser-row" style="margin-bottom: 24px;">
+            <div class="ser-wrap">
+              <div class="ser-label">a</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>value</th></tr></thead>
+                <tbody>
+                  <tr><td>x</td><td>10</td></tr>
+                  <tr><td>y</td><td>20</td></tr>
+                  <tr><td>z</td><td>30</td></tr>
+                </tbody>
+                <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+              </table>
+            </div>
+
+            <div class="ser-wrap">
+              <div class="ser-label">c</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>value</th></tr></thead>
+                <tbody>
+                  <tr><td>x</td><td>1</td></tr>
+                  <tr><td>w</td><td>2</td></tr>
+                </tbody>
+                <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+              </table>
+            </div>
+
+            <div class="ser-wrap">
+              <div class="ser-label">Result: a + c</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>value</th></tr></thead>
+                <tbody>
+                  <tr><td>w</td><td><span class="nan-cell">NaN</span></td></tr>
+                  <tr><td>x</td><td>11.0</td></tr>
+                  <tr><td>y</td><td><span class="nan-cell">NaN</span></td></tr>
+                  <tr><td>z</td><td><span class="nan-cell">NaN</span></td></tr>
+                </tbody>
+                <tfoot><tr><td colspan="2">dtype: float64</td></tr></tfoot>
+              </table>
+            </div>
+          </div>
+          <div class="code-wrap">
+            <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+            <pre><span class="line"><span class="cm"># .add(fill_value=0) treats missing labels as 0</span></span>
+<span class="line"><span class="cm"># instead of NaN</span></span>
+<span class="line">a.<span class="fn">add</span>(c, fill_value=<span class="num">0</span>)</span></pre>
+          </div>
+          <div class="ser-row">
+            <div class="ser-wrap">
+              <div class="ser-label">a</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>value</th></tr></thead>
+                <tbody>
+                  <tr><td>x</td><td>10</td></tr>
+                  <tr><td>y</td><td>20</td></tr>
+                  <tr><td>z</td><td>30</td></tr>
+                </tbody>
+                <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+              </table>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">c</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>value</th></tr></thead>
+                <tbody>
+                  <tr><td>x</td><td>1</td></tr>
+                  <tr><td>w</td><td>2</td></tr>
+                </tbody>
+                <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+              </table>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">Result: a.add(c, fill_value=0)</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>value</th></tr></thead>
+                <tbody>
+                  <tr><td>w</td><td>2.0</td></tr>
+                  <tr><td>x</td><td>11.0</td></tr>
+                  <tr><td>y</td><td>20.0</td></tr>
+                  <tr><td>z</td><td>30.0</td></tr>
+                </tbody>
+                <tfoot><tr><td colspan="2">dtype: float64</td></tr></tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(2)">← Index &amp; Access</button>
+        <button class="pnav-btn next" onclick="goTo(4)">dtype &amp; astype →</button>
+      </div>
+    </div>
+
+    <!-- Panel 4: dtype & astype -->
+    <div class="panel" id="panel-4">
+      <div class="section">
+        <div class="section-label">dtype &amp; astype</div>
+        <h2>Data Types — Checking and Converting</h2>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line">s = <span class="lib">pd</span>.<span class="cls">Series</span>([<span class="str">'1'</span>, <span class="str">'2'</span>, <span class="str">'3'</span>, <span class="str">'4'</span>])   <span class="cm"># strings, not numbers!</span></span></pre>
+        </div>
+        <div class="ser-wrap">
+          <div class="ser-label">s — dtype: object (strings)</div>
+          <table class="ser-out">
+            <thead><tr><th>index</th><th>value</th></tr></thead>
+            <tbody>
+              <tr><td>0</td><td>'1'</td></tr>
+              <tr><td>1</td><td>'2'</td></tr>
+              <tr><td>2</td><td>'3'</td></tr>
+              <tr><td>3</td><td>'4'</td></tr>
+            </tbody>
+            <tfoot><tr><td colspan="2">dtype: object</td></tr></tfoot>
+          </table>
+        </div>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line"><span class="fn">print</span>(s.dtype)          <span class="cm"># object  (= Python str)</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm"># convert to int</span></span>
+<span class="line">s_int = s.<span class="fn">astype</span>(<span class="fn">int</span>)</span></pre>
+        </div>
+        <div class="ser-row">
+          <div class="ser-wrap">
+            <div class="ser-label">original s</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>value</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>'1'</td></tr>
+                <tr><td>1</td><td>'2'</td></tr>
+                <tr><td>2</td><td>'3'</td></tr>
+                <tr><td>3</td><td>'4'</td></tr>
+              </tbody>
+              <tfoot><tr><td colspan="2">dtype: object</td></tr></tfoot>
+            </table>
+          </div>
+          <div class="ser-wrap">
+            <div class="ser-label">s_int = s.astype(int)</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>value</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>1</td></tr>
+                <tr><td>1</td><td>2</td></tr>
+                <tr><td>2</td><td>3</td></tr>
+                <tr><td>3</td><td>4</td></tr>
+              </tbody>
+              <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+            </table>
+          </div>
+        </div>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line"><span class="fn">print</span>(s_int.dtype)      <span class="cm"># int64</span></span>
+<span class="line"><span class="fn">print</span>(s_int + <span class="num">10</span>)       <span class="cm"># 11 / 12 / 13 / 14</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm"># common dtype conversions</span></span>
+<span class="line">s.<span class="fn">astype</span>(<span class="fn">float</span>)         <span class="cm"># → float64</span></span>
+<span class="line">s.<span class="fn">astype</span>(<span class="str">'int32'</span>)       <span class="cm"># → int32 (smaller memory)</span></span>
+<span class="line">s.<span class="fn">astype</span>(<span class="str">'category'</span>)    <span class="cm"># → category (fast for repeated string values)</span></span></pre>
+        </div>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line">messy = <span class="lib">pd</span>.<span class="cls">Series</span>([<span class="str">'5'</span>, <span class="str">'ten'</span>, <span class="str">'7'</span>])</span></pre>
+        </div>
+        <div class="ser-wrap">
+          <div class="ser-label">messy</div>
+          <table class="ser-out">
+            <thead><tr><th>index</th><th>value</th></tr></thead>
+            <tbody>
+              <tr><td>0</td><td>'5'</td></tr>
+              <tr><td>1</td><td>'ten'</td></tr>
+              <tr><td>2</td><td>'7'</td></tr>
+            </tbody>
+            <tfoot><tr><td colspan="2">dtype: object</td></tr></tfoot>
+          </table>
+        </div>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line"><span class="cm"># pd.to_numeric — safer, errors='coerce' turns bad values to NaN</span></span>
+<span class="line"><span class="lib">pd</span>.<span class="fn">to_numeric</span>(messy, errors=<span class="str">'coerce'</span>)</span></pre>
+        </div>
+        <div class="ser-row">
+          <div class="ser-wrap">
+            <div class="ser-label">original messy</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>value</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>'5'</td></tr>
+                <tr><td>1</td><td>'ten'</td></tr>
+                <tr><td>2</td><td>'7'</td></tr>
+              </tbody>
+              <tfoot><tr><td colspan="2">dtype: object</td></tr></tfoot>
+            </table>
+          </div>
+          <div class="ser-wrap">
+            <div class="ser-label">pd.to_numeric(messy, errors='coerce')</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>value</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>5.0</td></tr>
+                <tr><td>1</td><td><span class="nan-cell">NaN</span> &nbsp;<span style="color:var(--muted);font-size:.72rem">← 'ten'</span></td></tr>
+                <tr><td>2</td><td>7.0</td></tr>
+              </tbody>
+              <tfoot><tr><td colspan="2">dtype: float64</td></tr></tfoot>
+            </table>
+          </div>
+        </div>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line"><span class="cm"># common dtypes at a glance</span></span>
+<span class="line">nums   = <span class="lib">pd</span>.<span class="cls">Series</span>([<span class="num">1</span>, <span class="num">2</span>])           <span class="cm"># int64</span></span>
+<span class="line">floats = <span class="lib">pd</span>.<span class="cls">Series</span>([<span class="num">1.0</span>, <span class="num">2.5</span>])      <span class="cm"># float64</span></span>
+<span class="line">bools  = <span class="lib">pd</span>.<span class="cls">Series</span>([<span class="kw">True</span>, <span class="kw">False</span>])    <span class="cm"># bool</span></span>
+<span class="line">strs   = <span class="lib">pd</span>.<span class="cls">Series</span>([<span class="str">'a'</span>, <span class="str">'b'</span>])       <span class="cm"># object</span></span></pre>
+        </div>
+        <table class="dt">
+          <thead>
+            <tr><th>dtype</th><th>pandas name</th><th>Typical source</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>int64</code></td><td>int64</td><td>Whole numbers</td></tr>
+            <tr><td><code>float64</code></td><td>float64</td><td>Decimal numbers, or int column with NaN</td></tr>
+            <tr><td><code>bool</code></td><td>bool</td><td>True / False values</td></tr>
+            <tr><td><code>object</code></td><td>object</td><td>Strings, mixed types</td></tr>
+            <tr><td><code>category</code></td><td>category</td><td>Low-cardinality strings (e.g. 'M'/'F')</td></tr>
+            <tr><td><code>datetime64[ns]</code></td><td>datetime64</td><td>Dates and timestamps</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(3)">← Arithmetic</button>
+        <button class="pnav-btn next" onclick="goTo(5)">name attribute →</button>
+      </div>
+    </div>
+
+    <!-- Panel 5: name attribute -->
+    <div class="panel" id="panel-5">
+      <div class="section">
+        <div class="section-label">name attribute</div>
+        <h2>Series Name</h2>
+        <p>A Series can carry a <code>name</code> — this becomes the column header when you put it into a DataFrame.</p>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line">s = <span class="lib">pd</span>.<span class="cls">Series</span>([<span class="num">88</span>, <span class="num">92</span>, <span class="num">75</span>], index=[<span class="str">'Alice'</span>, <span class="str">'Bob'</span>, <span class="str">'Carol'</span>], name=<span class="str">'score'</span>)</span>
+<span class="line"><span class="fn">print</span>(s.name)       <span class="cm"># 'score'</span></span>
+<span class="line">s</span></pre>
+        </div>
+        <div class="ser-wrap">
+          <div class="ser-label">s</div>
+          <table class="ser-out">
+            <thead><tr><th>index</th><th>score</th></tr></thead>
+            <tbody>
+              <tr><td>Alice</td><td>88</td></tr>
+              <tr><td>Bob</td><td>92</td></tr>
+              <tr><td>Carol</td><td>75</td></tr>
+            </tbody>
+            <tfoot><tr><td colspan="2">Name: score, dtype: int64</td></tr></tfoot>
+          </table>
+        </div>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line"><span class="cm"># rename (returns a new Series)</span></span>
+<span class="line">s2 = s.<span class="fn">rename</span>(<span class="str">'grade_points'</span>)</span></pre>
+        </div>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line"><span class="cm"># a Series becomes a named column when added to a DataFrame</span></span>
+<span class="line">df = s.<span class="fn">to_frame</span>()        <span class="cm"># converts Series to one-column DataFrame</span></span>
+<span class="line"><span class="fn">print</span>(df.columns)       <span class="cm"># Index(['score'], dtype='object')</span></span></pre>
+        </div>
+        <div class="ser-row">
+          <div class="ser-wrap">
+            <div class="ser-label">original s</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>score</th></tr></thead>
+              <tbody>
+                <tr><td>Alice</td><td>88</td></tr>
+                <tr><td>Bob</td><td>92</td></tr>
+                <tr><td>Carol</td><td>75</td></tr>
+              </tbody>
+              <tfoot><tr><td colspan="2">Name: score, dtype: int64</td></tr></tfoot>
+            </table>
+          </div>
+          <div class="ser-wrap">
+            <div class="ser-label">df = s.to_frame()</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>score</th></tr></thead>
+              <tbody>
+                <tr><td>Alice</td><td>88</td></tr>
+                <tr><td>Bob</td><td>92</td></tr>
+                <tr><td>Carol</td><td>75</td></tr>
+              </tbody>
+              <tfoot><tr><td colspan="2">columns: ['score']</td></tr></tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(4)">← dtype &amp; astype</button>
+        <button class="pnav-btn next" onclick="goTo(6)">Boolean Masking →</button>
+      </div>
+    </div>
+
+    <!-- Panel 6: Boolean Masking -->
+    <div class="panel" id="panel-6">
+      <div class="section">
+        <div class="section-label">Boolean Masking</div>
+        <h2>Filtering a Series</h2>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line">scores = <span class="lib">pd</span>.<span class="cls">Series</span>([<span class="num">88</span>, <span class="num">92</span>, <span class="num">75</span>, <span class="num">61</span>, <span class="num">95</span>],</span>
+<span class="line">                  index=[<span class="str">'Alice'</span>, <span class="str">'Bob'</span>, <span class="str">'Carol'</span>, <span class="str">'David'</span>, <span class="str">'Eve'</span>])</span></pre>
+        </div>
+        <div class="ser-wrap">
+          <div class="ser-label">scores</div>
+          <table class="ser-out">
+            <thead><tr><th>index</th><th>value</th></tr></thead>
+            <tbody>
+              <tr><td>Alice</td><td>88</td></tr>
+              <tr><td>Bob</td><td>92</td></tr>
+              <tr><td>Carol</td><td>75</td></tr>
+              <tr><td>David</td><td>61</td></tr>
+              <tr><td>Eve</td><td>95</td></tr>
+            </tbody>
+            <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+          </table>
+        </div>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line"><span class="cm"># boolean mask → Series of True/False</span></span>
+<span class="line">mask = scores &gt; <span class="num">80</span></span></pre>
+        </div>
+        <div class="ser-row">
+          <div class="ser-wrap">
+            <div class="ser-label">original scores</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>value</th></tr></thead>
+              <tbody>
+                <tr><td>Alice</td><td>88</td></tr>
+                <tr><td>Bob</td><td>92</td></tr>
+                <tr><td>Carol</td><td>75</td></tr>
+                <tr><td>David</td><td>61</td></tr>
+                <tr><td>Eve</td><td>95</td></tr>
+              </tbody>
+              <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+            </table>
+          </div>
+          <div class="ser-wrap">
+            <div class="ser-label">mask = scores &gt; 80</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>value</th></tr></thead>
+              <tbody>
+                <tr><td>Alice</td><td style="color:var(--green)">True</td></tr>
+                <tr><td>Bob</td><td style="color:var(--green)">True</td></tr>
+                <tr><td>Carol</td><td style="color:var(--muted)">False</td></tr>
+                <tr><td>David</td><td style="color:var(--muted)">False</td></tr>
+                <tr><td>Eve</td><td style="color:var(--green)">True</td></tr>
+              </tbody>
+              <tfoot><tr><td colspan="2">dtype: bool</td></tr></tfoot>
+            </table>
+          </div>
+        </div>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line"><span class="cm"># apply the mask to filter</span></span>
+<span class="line">scores[scores &gt; <span class="num">80</span>]</span></pre>
+        </div>
+        <div class="ser-row">
+          <div class="ser-wrap">
+            <div class="ser-label">original scores</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>value</th></tr></thead>
+              <tbody>
+                <tr><td>Alice</td><td>88</td></tr>
+                <tr><td>Bob</td><td>92</td></tr>
+                <tr><td>Carol</td><td>75</td></tr>
+                <tr><td>David</td><td>61</td></tr>
+                <tr><td>Eve</td><td>95</td></tr>
+              </tbody>
+              <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+            </table>
+          </div>
+          <div class="ser-wrap">
+            <div class="ser-label">scores[scores &gt; 80]</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>value</th></tr></thead>
+              <tbody>
+                <tr><td>Alice</td><td>88</td></tr>
+                <tr><td>Bob</td><td>92</td></tr>
+                <tr><td>Eve</td><td>95</td></tr>
+              </tbody>
+              <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+            </table>
+          </div>
+        </div>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line"><span class="cm"># combine conditions with & | ~</span></span>
+<span class="line">scores[(scores &gt;= <span class="num">80</span>) &amp; (scores &lt; <span class="num">95</span>)]</span></pre>
+        </div>
+        <div class="ser-row">
+          <div class="ser-wrap">
+            <div class="ser-label">original scores</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>value</th></tr></thead>
+              <tbody>
+                <tr><td>Alice</td><td>88</td></tr>
+                <tr><td>Bob</td><td>92</td></tr>
+                <tr><td>Carol</td><td>75</td></tr>
+                <tr><td>David</td><td>61</td></tr>
+                <tr><td>Eve</td><td>95</td></tr>
+              </tbody>
+              <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+            </table>
+          </div>
+          <div class="ser-wrap">
+            <div class="ser-label">scores[(scores &gt;= 80) &amp; (scores &lt; 95)]</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>value</th></tr></thead>
+              <tbody>
+                <tr><td>Alice</td><td>88</td></tr>
+                <tr><td>Bob</td><td>92</td></tr>
+              </tbody>
+              <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+            </table>
+          </div>
+        </div>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line">scores[~(scores &gt; <span class="num">80</span>)]   <span class="cm"># NOT &gt; 80 → ≤ 80</span></span></pre>
+        </div>
+        <div class="ser-row">
+          <div class="ser-wrap">
+            <div class="ser-label">original scores</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>value</th></tr></thead>
+              <tbody>
+                <tr><td>Alice</td><td>88</td></tr>
+                <tr><td>Bob</td><td>92</td></tr>
+                <tr><td>Carol</td><td>75</td></tr>
+                <tr><td>David</td><td>61</td></tr>
+                <tr><td>Eve</td><td>95</td></tr>
+              </tbody>
+              <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+            </table>
+          </div>
+          <div class="ser-wrap">
+            <div class="ser-label">scores[~(scores &gt; 80)]</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>value</th></tr></thead>
+              <tbody>
+                <tr><td>Carol</td><td>75</td></tr>
+                <tr><td>David</td><td>61</td></tr>
+              </tbody>
+              <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+            </table>
+          </div>
+        </div>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line">scores.<span class="fn">between</span>(<span class="num">80</span>, <span class="num">95</span>)    <span class="cm"># inclusive on both ends — returns bool mask</span></span></pre>
+        </div>
+        <div class="ser-row">
+          <div class="ser-wrap">
+            <div class="ser-label">original scores</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>value</th></tr></thead>
+              <tbody>
+                <tr><td>Alice</td><td>88</td></tr>
+                <tr><td>Bob</td><td>92</td></tr>
+                <tr><td>Carol</td><td>75</td></tr>
+                <tr><td>David</td><td>61</td></tr>
+                <tr><td>Eve</td><td>95</td></tr>
+              </tbody>
+              <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+            </table>
+          </div>
+          <div class="ser-wrap">
+            <div class="ser-label">scores.between(80, 95)</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>value</th></tr></thead>
+              <tbody>
+                <tr><td>Alice</td><td style="color:var(--green)">True</td></tr>
+                <tr><td>Bob</td><td style="color:var(--green)">True</td></tr>
+                <tr><td>Carol</td><td style="color:var(--muted)">False</td></tr>
+                <tr><td>David</td><td style="color:var(--muted)">False</td></tr>
+                <tr><td>Eve</td><td style="color:var(--green)">True</td></tr>
+              </tbody>
+              <tfoot><tr><td colspan="2">dtype: bool</td></tr></tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(5)">← name attribute</button>
+        <button class="pnav-btn next" onclick="goTo(7)">Useful Methods →</button>
+      </div>
+    </div>
+
+    <!-- Panel 7: Useful Methods -->
+    <div class="panel" id="panel-7">
+      <div class="section">
+        <div class="section-label">Useful Methods</div>
+        <h2>value_counts, sort_values &amp; More</h2>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line">grades = <span class="lib">pd</span>.<span class="cls">Series</span>([<span class="str">'B'</span>, <span class="str">'A'</span>, <span class="str">'C'</span>, <span class="str">'A'</span>, <span class="str">'A'</span>, <span class="str">'B'</span>, <span class="str">'D'</span>, <span class="str">'A'</span>])</span></pre>
+        </div>
+        <div class="ser-wrap">
+          <div class="ser-label">grades</div>
+          <table class="ser-out">
+            <thead><tr><th>index</th><th>value</th></tr></thead>
+            <tbody>
+              <tr><td>0</td><td>B</td></tr>
+              <tr><td>1</td><td>A</td></tr>
+              <tr><td>2</td><td>C</td></tr>
+              <tr><td>3</td><td>A</td></tr>
+              <tr><td>4</td><td>A</td></tr>
+              <tr><td>5</td><td>B</td></tr>
+              <tr><td>6</td><td>D</td></tr>
+              <tr><td>7</td><td>A</td></tr>
+            </tbody>
+            <tfoot><tr><td colspan="2">dtype: object</td></tr></tfoot>
+          </table>
+        </div>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line"><span class="cm"># frequency count</span></span>
+<span class="line">grades.<span class="fn">value_counts</span>()</span></pre>
+        </div>
+        <div class="ser-row">
+          <div class="ser-wrap">
+            <div class="ser-label">original grades</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>value</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>B</td></tr>
+                <tr><td>1</td><td>A</td></tr>
+                <tr><td>2</td><td>C</td></tr>
+                <tr><td>3</td><td>A</td></tr>
+                <tr><td>4</td><td>A</td></tr>
+                <tr><td>5</td><td>B</td></tr>
+                <tr><td>6</td><td>D</td></tr>
+                <tr><td>7</td><td>A</td></tr>
+              </tbody>
+              <tfoot><tr><td colspan="2">dtype: object</td></tr></tfoot>
+            </table>
+          </div>
+          <div class="ser-wrap">
+            <div class="ser-label">grades.value_counts()</div>
+            <table class="ser-out">
+              <thead><tr><th>grade</th><th>count</th></tr></thead>
+              <tbody>
+                <tr><td>A</td><td>4</td></tr>
+                <tr><td>B</td><td>2</td></tr>
+                <tr><td>C</td><td>1</td></tr>
+                <tr><td>D</td><td>1</td></tr>
+              </tbody>
+              <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+            </table>
+          </div>
+        </div>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line">grades.<span class="fn">value_counts</span>(normalize=<span class="kw">True</span>) <span class="cm"># proportions instead of counts</span></span></pre>
+        </div>
+        <div class="ser-row">
+          <div class="ser-wrap">
+            <div class="ser-label">original grades</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>value</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>B</td></tr>
+                <tr><td>1</td><td>A</td></tr>
+                <tr><td>2</td><td>C</td></tr>
+                <tr><td>3</td><td>A</td></tr>
+                <tr><td>4</td><td>A</td></tr>
+                <tr><td>5</td><td>B</td></tr>
+                <tr><td>6</td><td>D</td></tr>
+                <tr><td>7</td><td>A</td></tr>
+              </tbody>
+              <tfoot><tr><td colspan="2">dtype: object</td></tr></tfoot>
+            </table>
+          </div>
+          <div class="ser-wrap">
+            <div class="ser-label">grades.value_counts(normalize=True)</div>
+            <table class="ser-out">
+              <thead><tr><th>grade</th><th>proportion</th></tr></thead>
+              <tbody>
+                <tr><td>A</td><td>0.500</td></tr>
+                <tr><td>B</td><td>0.250</td></tr>
+                <tr><td>C</td><td>0.125</td></tr>
+                <tr><td>D</td><td>0.125</td></tr>
+              </tbody>
+              <tfoot><tr><td colspan="2">dtype: float64</td></tr></tfoot>
+            </table>
+          </div>
+        </div>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line">nums = <span class="lib">pd</span>.<span class="cls">Series</span>([<span class="num">30</span>, <span class="num">10</span>, <span class="num">20</span>, <span class="num">50</span>, <span class="num">40</span>])</span></pre>
+        </div>
+        <div class="ser-wrap">
+          <div class="ser-label">nums</div>
+          <table class="ser-out">
+            <thead><tr><th>index</th><th>value</th></tr></thead>
+            <tbody>
+              <tr><td>0</td><td>30</td></tr>
+              <tr><td>1</td><td>10</td></tr>
+              <tr><td>2</td><td>20</td></tr>
+              <tr><td>3</td><td>50</td></tr>
+              <tr><td>4</td><td>40</td></tr>
+            </tbody>
+            <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+          </table>
+        </div>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+03_pandas/06-subsetting.html          <pre><span class="line"><span class="cm"># sort by value - ascending</span></span>
+<span class="line">nums.<span class="fn">sort_values</span>()</span></pre>
+        </div>
+        <div class="ser-row">
+          <div class="ser-wrap">
+            <div class="ser-label">nums (original)</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>value</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>30</td></tr>
+                <tr><td>1</td><td>10</td></tr>
+                <tr><td>2</td><td>20</td></tr>
+                <tr><td>3</td><td>50</td></tr>
+                <tr><td>4</td><td>40</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="ser-wrap">
+            <div class="ser-label">Result: nums.sort_values()</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>value</th></tr></thead>
+              <tbody>
+                <tr><td>1</td><td>10</td></tr>
+                <tr><td>2</td><td>20</td></tr>
+                <tr><td>0</td><td>30</td></tr>
+                <tr><td>4</td><td>40</td></tr>
+                <tr><td>3</td><td>50</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line"><span class="cm"># sort by value - descending</span></span>
+<span class="line">nums = <span class="lib">pd</span>.<span class="cls">Series</span>([<span class="num">30</span>, <span class="num">10</span>, <span class="num">20</span>, <span class="num">50</span>, <span class="num">40</span>])</span>
+<span class="line">nums.<span class="fn">sort_values</span>(ascending=<span class="kw">False</span>)</span></pre>
+        </div>
+        <div class="ser-row">
+          <div class="ser-wrap">
+            <div class="ser-label">nums (original)</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>value</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>30</td></tr>
+                <tr><td>1</td><td>10</td></tr>
+                <tr><td>2</td><td>20</td></tr>
+                <tr><td>3</td><td>50</td></tr>
+                <tr><td>4</td><td>40</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="ser-wrap">
+            <div class="ser-label">Result: nums.sort_values(ascending=False)</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>value</th></tr></thead>
+              <tbody>
+                <tr><td>3</td><td>50</td></tr>
+                <tr><td>4</td><td>40</td></tr>
+                <tr><td>0</td><td>30</td></tr>
+                <tr><td>2</td><td>20</td></tr>
+                <tr><td>1</td><td>10</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line"><span class="cm"># sort by index label</span></span>
+<span class="line">nums_custom_index = <span class="lib">pd</span>.<span class="cls">Series</span>([<span class="num">30</span>, <span class="num">10</span>, <span class="num">20</span>, <span class="num">50</span>, <span class="num">40</span>], index=[<span class="str">'c'</span>, <span class="str">'a'</span>, <span class="str">'b'</span>, <span class="str">'e'</span>, <span class="str">'d'</span>])</span>
+<span class="line">nums_custom_index.<span class="fn">sort_index</span>()</span></pre>
+        </div>
+        <div class="ser-row">
+          <div class="ser-wrap">
+            <div class="ser-label">nums_custom_index (original)</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>value</th></tr></thead>
+              <tbody>
+                <tr><td>c</td><td>30</td></tr>
+                <tr><td>a</td><td>10</td></tr>
+                <tr><td>b</td><td>20</td></tr>
+                <tr><td>e</td><td>50</td></tr>
+                <tr><td>d</td><td>40</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="ser-wrap">
+            <div class="ser-label">Result: nums_custom_index.sort_index()</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>value</th></tr></thead>
+              <tbody>
+                <tr><td>a</td><td>10</td></tr>
+                <tr><td>b</td><td>20</td></tr>
+                <tr><td>c</td><td>30</td></tr>
+                <tr><td>d</td><td>40</td></tr>
+                <tr><td>e</td><td>50</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="code-result">
+          <div class="code-wrap">
+            <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+            <pre><span class="line"><span class="cm"># statistics</span></span>
+<span class="line">nums = <span class="lib">pd</span>.<span class="cls">Series</span>([<span class="num">30</span>, <span class="num">10</span>, <span class="num">20</span>, <span class="num">50</span>, <span class="num">40</span>])</span>
+<span class="line"><span class="fn">print</span>(nums.<span class="fn">sum</span>(), nums.<span class="fn">mean</span>(), nums.<span class="fn">median</span>())</span>
+<span class="line"><span class="cm"># 150  30.0  30.0</span></span>
+<span class="line"></span>
+<span class="line"><span class="fn">print</span>(nums.<span class="fn">min</span>(), nums.<span class="fn">max</span>(), nums.<span class="fn">std</span>())</span>
+<span class="line"><span class="cm"># 10  50  15.81</span></span></pre>
+          </div>
+          <div class="ser-wrap">
+            <div class="ser-label">nums</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>value</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>30</td></tr>
+                <tr><td>1</td><td>10</td></tr>
+                <tr><td>2</td><td>20</td></tr>
+                <tr><td>3</td><td>50</td></tr>
+                <tr><td>4</td><td>40</td></tr>
+              </tbody>
+              <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+            </table>
+          </div>
+        </div>
+
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line"><span class="cm"># full summary stats</span></span>
+<span class="line">nums.<span class="fn">describe</span>()</span></pre>
+        </div>
+        <div class="ser-row">
+          <div class="ser-wrap">
+            <div class="ser-label">original nums</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>value</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>30</td></tr>
+                <tr><td>1</td><td>10</td></tr>
+                <tr><td>2</td><td>20</td></tr>
+                <tr><td>3</td><td>50</td></tr>
+                <tr><td>4</td><td>40</td></tr>
+              </tbody>
+              <tfoot><tr><td colspan="2">dtype: int64</td></tr></tfoot>
+            </table>
+          </div>
+          <div class="ser-wrap">
+            <div class="ser-label">Result: nums.describe()</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>value</th></tr></thead>
+              <tbody>
+                <tr><td>count</td><td>5.0</td></tr>
+                <tr><td>mean</td><td>30.0</td></tr>
+                <tr><td>std</td><td>15.811</td></tr>
+                <tr><td>min</td><td>10.0</td></tr>
+                <tr><td>25%</td><td>20.0</td></tr>
+                <tr><td>50%</td><td>30.0</td></tr>
+                <tr><td>75%</td><td>40.0</td></tr>
+                <tr><td>max</td><td>50.0</td></tr>
+              </tbody>
+              <tfoot><tr><td colspan="2">dtype: float64</td></tr></tfoot>
+            </table>
+          </div>
+        </div>
+
+        <div class="code-result">
+          <div class="code-wrap">
+            <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+            <pre><span class="line"><span class="cm"># unique values</span></span>
+<span class="line">grades = <span class="lib">pd</span>.<span class="cls">Series</span>([<span class="str">'B'</span>, <span class="str">'A'</span>, <span class="str">'C'</span>, <span class="str">'A'</span>, <span class="str">'A'</span>, <span class="str">'B'</span>, <span class="str">'D'</span>, <span class="str">'A'</span>])</span>
+<span class="line">grades.<span class="fn">unique</span>()     <span class="cm"># array(['B','A','C','D'])</span></span>
+<span class="line">grades.<span class="fn">nunique</span>()    <span class="cm"># 4</span></span></pre>
+          </div>
+          <div class="ser-wrap">
+            <div class="ser-label">grades</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>value</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>B</td></tr>
+                <tr><td>1</td><td>A</td></tr>
+                <tr><td>2</td><td>C</td></tr>
+                <tr><td>3</td><td>A</td></tr>
+                <tr><td>4</td><td>A</td></tr>
+                <tr><td>5</td><td>B</td></tr>
+                <tr><td>6</td><td>D</td></tr>
+                <tr><td>7</td><td>A</td></tr>
+              </tbody>
+              <tfoot><tr><td colspan="2">dtype: object</td></tr></tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(6)">← Boolean Masking</button>
+        <button class="pnav-btn next" onclick="goTo(8)">Missing Data →</button>
+      </div>
+    </div>
+
+    <!-- Panel 8: Missing Data -->
+    <div class="panel" id="panel-8">
+      <div class="section">
+        <div class="section-label">Missing Data</div>
+        <h2>NaN in a Series</h2>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line"><span class="kw">import</span> <span class="lib">numpy</span> <span class="kw">as</span> <span class="lib">np</span></span>
+<span class="line"></span>
+<span class="line">s = <span class="lib">pd</span>.<span class="cls">Series</span>([<span class="num">1.0</span>, <span class="lib">np</span>.nan, <span class="num">3.0</span>, <span class="lib">np</span>.nan, <span class="num">5.0</span>])</span></pre>
+        </div>
+        <div class="ser-wrap">
+          <div class="ser-label">s</div>
+          <table class="ser-out">
+            <thead><tr><th>index</th><th>value</th></tr></thead>
+            <tbody>
+              <tr><td>0</td><td>1.0</td></tr>
+              <tr><td>1</td><td><span class="nan-cell">NaN</span></td></tr>
+              <tr><td>2</td><td>3.0</td></tr>
+              <tr><td>3</td><td><span class="nan-cell">NaN</span></td></tr>
+              <tr><td>4</td><td>5.0</td></tr>
+            </tbody>
+            <tfoot><tr><td colspan="2">dtype: float64</td></tr></tfoot>
+          </table>
+        </div>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line"><span class="cm"># detect NaN</span></span>
+<span class="line">s.<span class="fn">isnull</span>()</span></pre>
+        </div>
+        <div class="ser-row">
+          <div class="ser-wrap">
+            <div class="ser-label">original s</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>value</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>1.0</td></tr>
+                <tr><td>1</td><td><span class="nan-cell">NaN</span></td></tr>
+                <tr><td>2</td><td>3.0</td></tr>
+                <tr><td>3</td><td><span class="nan-cell">NaN</span></td></tr>
+                <tr><td>4</td><td>5.0</td></tr>
+              </tbody>
+              <tfoot><tr><td colspan="2">dtype: float64</td></tr></tfoot>
+            </table>
+          </div>
+          <div class="ser-wrap">
+            <div class="ser-label">s.isnull()</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>value</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td style="color:var(--muted)">False</td></tr>
+                <tr><td>1</td><td style="color:var(--green)">True</td></tr>
+                <tr><td>2</td><td style="color:var(--muted)">False</td></tr>
+                <tr><td>3</td><td style="color:var(--green)">True</td></tr>
+                <tr><td>4</td><td style="color:var(--muted)">False</td></tr>
+              </tbody>
+              <tfoot><tr><td colspan="2">dtype: bool</td></tr></tfoot>
+            </table>
+          </div>
+        </div>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line">s.<span class="fn">notnull</span>()         <span class="cm"># True where not NaN</span></span>
+<span class="line">s.<span class="fn">isnull</span>().<span class="fn">sum</span>()    <span class="cm"># count of NaN → 2</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm"># remove NaN</span></span>
+<span class="line">s.<span class="fn">dropna</span>()</span></pre>
+        </div>
+        <div class="ser-row">
+          <div class="ser-wrap">
+            <div class="ser-label">original s</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>value</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>1.0</td></tr>
+                <tr><td>1</td><td><span class="nan-cell">NaN</span></td></tr>
+                <tr><td>2</td><td>3.0</td></tr>
+                <tr><td>3</td><td><span class="nan-cell">NaN</span></td></tr>
+                <tr><td>4</td><td>5.0</td></tr>
+              </tbody>
+              <tfoot><tr><td colspan="2">dtype: float64</td></tr></tfoot>
+            </table>
+          </div>
+          <div class="ser-wrap">
+            <div class="ser-label">s.dropna()</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>value</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>1.0</td></tr>
+                <tr><td>2</td><td>3.0</td></tr>
+                <tr><td>4</td><td>5.0</td></tr>
+              </tbody>
+              <tfoot><tr><td colspan="2">dtype: float64</td></tr></tfoot>
+            </table>
+          </div>
+        </div>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line"><span class="cm"># fill NaN with a value</span></span>
+<span class="line">s.<span class="fn">fillna</span>(<span class="num">0</span>)</span></pre>
+        </div>
+        <div class="ser-row">
+          <div class="ser-wrap">
+            <div class="ser-label">original s</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>value</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>1.0</td></tr>
+                <tr><td>1</td><td><span class="nan-cell">NaN</span></td></tr>
+                <tr><td>2</td><td>3.0</td></tr>
+                <tr><td>3</td><td><span class="nan-cell">NaN</span></td></tr>
+                <tr><td>4</td><td>5.0</td></tr>
+              </tbody>
+              <tfoot><tr><td colspan="2">dtype: float64</td></tr></tfoot>
+            </table>
+          </div>
+          <div class="ser-wrap">
+            <div class="ser-label">s.fillna(0)</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>value</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>1.0</td></tr>
+                <tr><td>1</td><td>0.0</td></tr>
+                <tr><td>2</td><td>3.0</td></tr>
+                <tr><td>3</td><td>0.0</td></tr>
+                <tr><td>4</td><td>5.0</td></tr>
+              </tbody>
+              <tfoot><tr><td colspan="2">dtype: float64</td></tr></tfoot>
+            </table>
+          </div>
+        </div>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line">s.<span class="fn">fillna</span>(s.<span class="fn">mean</span>())  <span class="cm"># replace with mean (= 3.0)</span></span></pre>
+        </div>
+        <div class="ser-row">
+          <div class="ser-wrap">
+            <div class="ser-label">original s</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>value</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>1.0</td></tr>
+                <tr><td>1</td><td><span class="nan-cell">NaN</span></td></tr>
+                <tr><td>2</td><td>3.0</td></tr>
+                <tr><td>3</td><td><span class="nan-cell">NaN</span></td></tr>
+                <tr><td>4</td><td>5.0</td></tr>
+              </tbody>
+              <tfoot><tr><td colspan="2">dtype: float64</td></tr></tfoot>
+            </table>
+          </div>
+          <div class="ser-wrap">
+            <div class="ser-label">s.fillna(s.mean())</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>value</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>1.0</td></tr>
+                <tr><td>1</td><td>3.0</td></tr>
+                <tr><td>2</td><td>3.0</td></tr>
+                <tr><td>3</td><td>3.0</td></tr>
+                <tr><td>4</td><td>5.0</td></tr>
+              </tbody>
+              <tfoot><tr><td colspan="2">dtype: float64</td></tr></tfoot>
+            </table>
+          </div>
+        </div>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line">s.<span class="fn">ffill</span>()  <span class="cm"># forward-fill from previous value</span></span></pre>
+        </div>
+        <div class="ser-row">
+          <div class="ser-wrap">
+            <div class="ser-label">original s</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>value</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>1.0</td></tr>
+                <tr><td>1</td><td><span class="nan-cell">NaN</span></td></tr>
+                <tr><td>2</td><td>3.0</td></tr>
+                <tr><td>3</td><td><span class="nan-cell">NaN</span></td></tr>
+                <tr><td>4</td><td>5.0</td></tr>
+              </tbody>
+              <tfoot><tr><td colspan="2">dtype: float64</td></tr></tfoot>
+            </table>
+          </div>
+          <div class="ser-wrap">
+            <div class="ser-label">s.ffill()</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>value</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>1.0</td></tr>
+                <tr><td>1</td><td>1.0</td></tr>
+                <tr><td>2</td><td>3.0</td></tr>
+                <tr><td>3</td><td>3.0</td></tr>
+                <tr><td>4</td><td>5.0</td></tr>
+              </tbody>
+              <tfoot><tr><td colspan="2">dtype: float64</td></tr></tfoot>
+            </table>
+          </div>
+        </div>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line">s.<span class="fn">bfill</span>()  <span class="cm"># backward-fill from next value</span></span></pre>
+        </div>
+        <div class="ser-row">
+          <div class="ser-wrap">
+            <div class="ser-label">original s</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>value</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>1.0</td></tr>
+                <tr><td>1</td><td><span class="nan-cell">NaN</span></td></tr>
+                <tr><td>2</td><td>3.0</td></tr>
+                <tr><td>3</td><td><span class="nan-cell">NaN</span></td></tr>
+                <tr><td>4</td><td>5.0</td></tr>
+              </tbody>
+              <tfoot><tr><td colspan="2">dtype: float64</td></tr></tfoot>
+            </table>
+          </div>
+          <div class="ser-wrap">
+            <div class="ser-label">s.bfill()</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>value</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>1.0</td></tr>
+                <tr><td>1</td><td>3.0</td></tr>
+                <tr><td>2</td><td>3.0</td></tr>
+                <tr><td>3</td><td>5.0</td></tr>
+                <tr><td>4</td><td>5.0</td></tr>
+              </tbody>
+              <tfoot><tr><td colspan="2">dtype: float64</td></tr></tfoot>
+            </table>
+          </div>
+        </div>
+        <div class="code-result">
+          <div class="code-wrap">
+            <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+            <pre><span class="line"><span class="cm"># aggregation methods skip NaN by default</span></span>
+<span class="line"><span class="fn">print</span>(s.<span class="fn">sum</span>())    <span class="cm"># 9.0  (1+3+5, NaN skipped)</span></span>
+<span class="line"><span class="fn">print</span>(s.<span class="fn">mean</span>())   <span class="cm"># 3.0  (mean of 1, 3, 5)</span></span></pre>
+          </div>
+          <div class="ser-wrap">
+            <div class="ser-label">original s</div>
+            <table class="ser-out">
+              <thead><tr><th>index</th><th>value</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>1.0</td></tr>
+                <tr><td>1</td><td><span class="nan-cell">NaN</span></td></tr>
+                <tr><td>2</td><td>3.0</td></tr>
+                <tr><td>3</td><td><span class="nan-cell">NaN</span></td></tr>
+                <tr><td>4</td><td>5.0</td></tr>
+              </tbody>
+              <tfoot><tr><td colspan="2">dtype: float64</td></tr></tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(7)">← Useful Methods</button>
+        <button class="pnav-btn next" onclick="goTo(9)">Exercises →</button>
+      </div>
+    </div>
+
+    <!-- Panel 9: Exercises -->
+    <div class="panel" id="panel-9">
+      <div class="section">
+        <div class="section-label">Exercises</div>
+        <h2>Practice — Series</h2>
+
+        <div class="ex-block">
+          <span class="ex-num">Q1</span>
+          <p>Create a Series of monthly temperatures (use any 6 values you like) with a custom string index <code>['Jan','Feb','Mar','Apr','May','Jun']</code>. Print the dtype, the max temperature, and the name of the month with the highest temperature.</p>
+          <details class="answer">
+            <summary>Show answer</summary>
+            <div class="answer-body">
+              <div class="code-wrap" style="margin:0">
+                <pre><span class="line">temps = <span class="lib">pd</span>.<span class="cls">Series</span>(</span>
+<span class="line">    [<span class="num">7</span>, <span class="num">9</span>, <span class="num">14</span>, <span class="num">18</span>, <span class="num">23</span>, <span class="num">28</span>],</span>
+<span class="line">    index=[<span class="str">'Jan'</span>,<span class="str">'Feb'</span>,<span class="str">'Mar'</span>,<span class="str">'Apr'</span>,<span class="str">'May'</span>,<span class="str">'Jun'</span>],</span>
+<span class="line">    name=<span class="str">'temp_c'</span></span>
+<span class="line">)</span>
+<span class="line"><span class="fn">print</span>(temps.dtype)         <span class="out"># int64</span></span>
+<span class="line"><span class="fn">print</span>(temps.<span class="fn">max</span>())         <span class="out"># 28</span></span>
+<span class="line"><span class="fn">print</span>(temps.<span class="fn">idxmax</span>())      <span class="out"># Jun  ← label of max value</span></span></pre>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="ex-block">
+          <span class="ex-num">Q2</span>
+          <p>Given the two Series below, compute their element-wise sum. Then use <code>.add(fill_value=0)</code> to handle the fact that their indices only partially overlap.</p>
+          <div class="code-wrap"><pre><span class="line">a = <span class="lib">pd</span>.<span class="cls">Series</span>({<span class="str">'x'</span>:<span class="num">10</span>, <span class="str">'y'</span>:<span class="num">20</span>, <span class="str">'z'</span>:<span class="num">30</span>})</span>
+<span class="line">b = <span class="lib">pd</span>.<span class="cls">Series</span>({<span class="str">'y'</span>:<span class="num">5</span>,  <span class="str">'z'</span>:<span class="num">10</span>, <span class="str">'w'</span>:<span class="num">15</span>})</span></pre></div>
+          <details class="answer">
+            <summary>Show answer</summary>
+            <div class="answer-body">
+              <div class="code-wrap" style="margin:0">
+                <pre><span class="line"><span class="fn">print</span>(a + b)    <span class="cm"># w NaN / x NaN / y 25 / z 40  â† NaN for unmatched</span></span>
+<span class="line"><span class="fn">print</span>(a + b)    <span class="cm"># w NaN / x NaN / y 25 / z 40  ← NaN for unmatched</span></span>
+<span class="line"><span class="fn">print</span>(a.<span class="fn">add</span>(b, fill_value=<span class="num">0</span>))</span>
+<span class="line"><span class="out"># w    15.0   ← b['w'] + 0</span></span>
+<span class="line"><span class="out"># x    10.0   ← a['x'] + 0</span></span>
+<span class="line"><span class="out"># y    25.0</span></span>
+<span class="line"><span class="out"># z    40.0</span></span></pre>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="ex-block">
+          <span class="ex-num">Q3</span>
+          <p>The Series below contains product prices as strings. Convert it to <code>float</code> using <code>astype</code>. Then apply a 10% discount and round to 2 decimal places.</p>
+          <div class="code-wrap"><pre><span class="line">prices = <span class="lib">pd</span>.<span class="cls">Series</span>([<span class="str">'12.50'</span>, <span class="str">'8.99'</span>, <span class="str">'25.00'</span>, <span class="str">'4.75'</span>])</span></pre></div>
+          <details class="answer">
+            <summary>Show answer</summary>
+            <div class="answer-body">
+              <div class="code-wrap" style="margin:0">
+                <pre><span class="line">prices_f = prices.<span class="fn">astype</span>(<span class="fn">float</span>)</span>
+<span class="line">discounted = (prices_f * <span class="num">0.9</span>).<span class="fn">round</span>(<span class="num">2</span>)</span>
+<span class="line"><span class="fn">print</span>(discounted)</span>
+<span class="line"><span class="out"># 0    11.25</span></span>
+<span class="line"><span class="out"># 1     8.09</span></span>
+<span class="line"><span class="out"># 2    22.50</span></span>
+<span class="line"><span class="out"># 3     4.27</span></span>
+<span class="line"><span class="out"># dtype: float64</span></span></pre>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="ex-block">
+          <span class="ex-num">Q4</span>
+          <p>Given the Series of grades below, use <code>value_counts()</code> to see the frequency. Then filter the original Series to keep only the <code>'A'</code> grades and print their labels (index values).</p>
+          <div class="code-wrap"><pre><span class="line">grades = <span class="lib">pd</span>.<span class="cls">Series</span>([<span class="str">'B'</span>,<span class="str">'A'</span>,<span class="str">'C'</span>,<span class="str">'A'</span>,<span class="str">'D'</span>,<span class="str">'A'</span>,<span class="str">'B'</span>],</span>
+<span class="line">                  index=[<span class="str">'Alice'</span>,<span class="str">'Bob'</span>,<span class="str">'Carol'</span>,<span class="str">'David'</span>,<span class="str">'Eve'</span>,<span class="str">'Frank'</span>,<span class="str">'Grace'</span>])</span></pre></div>
+          <details class="answer">
+            <summary>Show answer</summary>
+            <div class="answer-body">
+              <div class="code-wrap" style="margin:0">
+                <pre><span class="line"><span class="fn">print</span>(grades.<span class="fn">value_counts</span>())</span>
+<span class="line"><span class="out"># A    3</span></span>
+<span class="line"><span class="out"># B    2</span></span>
+<span class="line"><span class="out"># C    1</span></span>
+<span class="line"><span class="out"># D    1</span></span>
+<span class="line"></span>
+<span class="line">a_students = grades[grades == <span class="str">'A'</span>]</span>
+<span class="line"><span class="fn">print</span>(a_students.index.<span class="fn">tolist</span>())</span>
+<span class="line"><span class="out"># ['Bob', 'David', 'Frank']</span></span></pre>
+              </div>
+            </div>
+          </details>
+        </div>
+
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(8)">← Missing Data</button>
+        <button class="pnav-btn next" onclick="goTo(0)">⟳ Overview</button>
+      </div>
+    </div>
+
+  </div><!-- /panel-viewport -->
+</div><!-- /page-layout -->
+<script src="app.js"></script>
+<script>
+let _cur = 0;
+function goTo(idx) {
+  if (idx === _cur) return;
+  const oldP = document.getElementById('panel-' + _cur);
+  const newP = document.getElementById('panel-' + idx);
+  if (!oldP || !newP) return;
+  if (_cur > 0) { const sb = document.querySelector('[data-panel="' + _cur + '"]'); if (sb) sb.classList.add('done'); }
+  oldP.classList.remove('active'); oldP.classList.add('exit');
+  setTimeout(() => oldP.classList.remove('exit'), 240);
+  _cur = idx;
+  newP.classList.add('active');
+  document.getElementById('viewport').scrollTop = 0;
+  document.querySelectorAll('.s-item').forEach(b => b.classList.toggle('active', +b.dataset.panel === idx));
+  newP.querySelectorAll('.section:not(.visible)').forEach((s, i) => {
+    setTimeout(() => {
+      s.classList.add('visible');
+      if (typeof animatePre === 'function') animatePre(s);
+      if (typeof animateRows === 'function') animateRows(s);
+    }, i * 80 + 60);
+  });
+}
+(function() {
+  const vp = document.getElementById('viewport');
+  const pb = document.getElementById('progress');
+  if (vp && pb) vp.addEventListener('scroll', () => {
+    pb.style.width = (vp.scrollTop / (vp.scrollHeight - vp.clientHeight) * 100) + '%';
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Topic 09 — Combining Data Sets</title>
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    .join-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:16px; margin:20px 0; }
+    .join-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px 18px; }
+    .join-card h4 { font-size:.9rem; font-weight:700; margin-bottom:6px; }
+    .join-card p  { font-size:.8rem; color:var(--muted); margin:0; }
+    .join-card code { font-size:.78em; }
+    /* ── sidebar layout ── */
+    .page-layout{display:flex;height:calc(100vh - 54px);overflow:hidden;}
+    .sidebar{width:210px;min-width:210px;height:100%;overflow-y:auto;background:#0a0e14;border-right:1px solid var(--border);display:flex;flex-direction:column;scrollbar-width:thin;scrollbar-color:var(--border) transparent;flex-shrink:0;}
+    .sidebar-head{padding:18px 14px 12px;font-size:.6rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);}
+    .sidebar-nav{padding:6px 0;flex:1;}
+    .s-item{display:flex;align-items:center;gap:9px;padding:9px 14px;cursor:pointer;border-left:3px solid transparent;background:none;border-top:none;border-right:none;border-bottom:none;width:100%;text-align:left;transition:background .18s,border-color .18s;}
+    .s-item:hover{background:rgba(255,255,255,.04);}
+    .s-item.active{background:rgba(168,85,247,.08);border-left-color:var(--accent);}
+    .s-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;transition:transform .2s;}
+    .s-item.active .s-dot{transform:scale(1.45);box-shadow:0 0 8px currentColor;}
+    .s-num{font-size:.58rem;color:var(--border);font-family:'Courier New',monospace;font-weight:700;min-width:16px;}
+    .s-item.active .s-num{color:var(--accent);}
+    .s-label{font-size:.74rem;color:var(--muted);font-family:'Courier New',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .s-item.active .s-label{color:var(--text);}
+    .s-item.done .s-label::after{content:' ✓';color:var(--green);font-size:.67rem;}
+    .panel-viewport{flex:1;overflow-y:auto;overflow-x:hidden;}
+    .panel{display:none;flex-direction:column;min-height:100%;padding:36px 48px 80px;max-width:800px;margin:0 auto;animation:pdIn .3s ease;}
+    .panel.active{display:flex;}
+    @keyframes pdIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:translateX(0)}}
+    .panel.exit{display:flex;animation:pdOut .22s ease forwards;}
+    @keyframes pdOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(-24px)}}
+    .pnav{display:flex;justify-content:space-between;align-items:center;margin-top:36px;padding-top:20px;border-top:1px solid var(--border);flex-shrink:0;}
+    .pnav-btn{display:flex;align-items:center;gap:7px;padding:9px 20px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:.82rem;font-weight:700;cursor:pointer;transition:color .2s,border-color .2s,background .2s;}
+    .pnav-btn:hover:not(:disabled){color:var(--text);border-color:var(--accent);background:rgba(168,85,247,.06);}
+    .pnav-btn:disabled{opacity:.28;cursor:default;}
+    .pnav-btn.next{background:rgba(168,85,247,.08);border-color:rgba(168,85,247,.35);color:var(--accent);}
+    .pnav-btn.next:hover{background:rgba(168,85,247,.16);border-color:var(--accent);}
+    @media(max-width:700px){.sidebar{display:none;}.panel{padding:20px 16px 60px;}}
+  </style>
+</head>
+<body>
+<div class="progress-bar" id="progress"></div>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">← Python Libs</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item" href="01-intro.html">01</a>
+    <a class="nav-item" href="02-topic.html">02</a>
+    <a class="nav-item" href="03-cheat-sheet.html">03</a>
+    <a class="nav-item" href="04-series.html">04</a>
+    <a class="nav-item" href="05-creating-df.html">05</a>
+    <a class="nav-item" href="06-subsetting.html">06</a>
+    <a class="nav-item" href="07-reshaping.html">07</a>
+    <a class="nav-item" href="08-groupby-agg.html">08</a>
+    <a class="nav-item active" href="09-combining.html">09</a>
+    <a class="nav-item" href="10-missing-newcol.html">10</a>
+  </div>
+</nav>
+
+<div class="page-layout">
+
+  <aside class="sidebar">
+    <div class="sidebar-head">Topic 09 · 5 Sections</div>
+    <nav class="sidebar-nav">
+      <button class="s-item active" data-panel="0" onclick="goTo(0)"><span class="s-num">00</span><span class="s-dot" style="background:#a855f7"></span><span class="s-label">Overview</span></button>
+      <button class="s-item" data-panel="1" onclick="goTo(1)"><span class="s-num">01</span><span class="s-dot" style="background:#facc15"></span><span class="s-label">Sample Data</span></button>
+      <button class="s-item" data-panel="2" onclick="goTo(2)"><span class="s-num">02</span><span class="s-dot" style="background:#3b82f6"></span><span class="s-label">Standard Joins</span></button>
+      <button class="s-item" data-panel="3" onclick="goTo(3)"><span class="s-num">03</span><span class="s-dot" style="background:#10b981"></span><span class="s-label">Filtering Joins</span></button>
+      <button class="s-item" data-panel="4" onclick="goTo(4)"><span class="s-num">04</span><span class="s-dot" style="background:#f97316"></span><span class="s-label">Set-like Ops</span></button>
+      <button class="s-item" data-panel="5" onclick="goTo(5)"><span class="s-num">05</span><span class="s-dot" style="background:#facc15"></span><span class="s-label">Exercises</span></button>
+    </nav>
+  </aside>
+
+  <div class="panel-viewport" id="viewport">
+
+    <div class="panel active" id="panel-0">
+      <div class="hero">
+        <span class="topic-label"><span class="dot"></span>Topic 09 of 10</span>
+        <h1>Combining Data Sets</h1>
+        <p>Join two DataFrames on a shared key with <code>pd.merge()</code>. Choose left, right, inner or outer join depending on which rows you want to keep. Also: filtering joins with <code>isin</code> and set-like operations.</p>
+        <div class="hero-pills">
+          <span class="tag">pd.merge()</span>
+          <span class="tag blue">inner / outer</span>
+          <span class="tag green">left / right</span>
+          <span class="tag orange">isin</span>
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" disabled>← Prev</button>
+        <button class="pnav-btn next" onclick="goTo(1)">Sample Data →</button>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-1">
+      <!-- Sample data -->
+      <div class="section">
+        <div class="section-label">Sample Data</div>
+        <h2>Two DataFrames Used in All Examples</h2>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line"><span class="kw">import</span> <span class="lib">pandas</span> <span class="kw">as</span> <span class="lib">pd</span></span>
+<span class="line"></span>
+<span class="line">employees = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({</span>
+<span class="line">    <span class="str">'id'</span>:   [<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>, <span class="num">4</span>],</span>
+<span class="line">    <span class="str">'name'</span>: [<span class="str">'Alice'</span>, <span class="str">'Bob'</span>, <span class="str">'Carol'</span>, <span class="str">'David'</span>],</span>
+<span class="line">    <span class="str">'dept_id'</span>: [<span class="num">10</span>, <span class="num">10</span>, <span class="num">20</span>, <span class="num">30</span>]  <span class="cm"># David's dept 30 has no match</span></span>
+<span class="line">})</span>
+<span class="line"></span>
+<span class="line">departments = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({</span>
+<span class="line">    <span class="str">'dept_id'</span>: [<span class="num">10</span>, <span class="num">20</span>, <span class="num">40</span>],  <span class="cm"># dept 40 has no employees</span></span>
+<span class="line">    <span class="str">'dept_name'</span>: [<span class="str">'Engineering'</span>, <span class="str">'HR'</span>, <span class="str">'Marketing'</span>]</span>
+<span class="line">})</span></pre>
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(0)">← Overview</button>
+        <button class="pnav-btn next" onclick="goTo(2)">Standard Joins →</button>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-2">
+      <!-- Standard joins -->
+      <div class="section">
+        <div class="section-label">Standard Joins</div>
+        <h2>The Four Types of Merge</h2>
+        <div class="join-grid">
+          <div class="join-card">
+            <h4 style="color:var(--green)">Inner Join (default)</h4>
+            <p>Keep only rows with a match in <strong>both</strong> DataFrames. David (dept 30) and Marketing (dept 40) are dropped.</p>
+          </div>
+          <div class="join-card">
+            <h4 style="color:var(--accent)">Left Join</h4>
+            <p>Keep all rows from the <strong>left</strong> DataFrame. David gets NaN for dept_name. Marketing is dropped.</p>
+          </div>
+          <div class="join-card">
+            <h4 style="color:var(--blue)">Right Join</h4>
+            <p>Keep all rows from the <strong>right</strong> DataFrame. Marketing gets NaN for employee columns. David is dropped.</p>
+          </div>
+          <div class="join-card">
+            <h4 style="color:var(--orange)">Outer Join</h4>
+            <p>Keep <strong>all rows</strong> from both DataFrames. Unmatched rows get NaN on the missing side.</p>
+          </div>
+        </div>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line"><span class="cm"># inner join — only matching rows</span></span>
+<span class="line">inner = <span class="lib">pd</span>.<span class="fn">merge</span>(employees, departments, how=<span class="str">'inner'</span>, on=<span class="str">'dept_id'</span>)</span>
+<span class="line"><span class="fn">print</span>(inner)</span>
+<span class="line"><span class="out">#    id   name  dept_id    dept_name</span></span>
+<span class="line"><span class="out"># 0   1  Alice       10  Engineering</span></span>
+<span class="line"><span class="out"># 1   2    Bob       10  Engineering</span></span>
+<span class="line"><span class="out"># 2   3  Carol       20           HR</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm"># left join — all employees, NaN if no dept match</span></span>
+<span class="line">left = <span class="lib">pd</span>.<span class="fn">merge</span>(employees, departments, how=<span class="str">'left'</span>, on=<span class="str">'dept_id'</span>)</span>
+<span class="line"><span class="fn">print</span>(left)</span>
+<span class="line"><span class="out">#    id   name  dept_id    dept_name</span></span>
+<span class="line"><span class="out"># 0   1  Alice       10  Engineering</span></span>
+<span class="line"><span class="out"># 1   2    Bob       10  Engineering</span></span>
+<span class="line"><span class="out"># 2   3  Carol       20           HR</span></span>
+<span class="line"><span class="out"># 3   4  David       30          NaN  ← no dept match</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm"># right join — all departments, NaN if no employee match</span></span>
+<span class="line">right = <span class="lib">pd</span>.<span class="fn">merge</span>(employees, departments, how=<span class="str">'right'</span>, on=<span class="str">'dept_id'</span>)</span>
+<span class="line"></span>
+<span class="line"><span class="cm"># outer join — everything, NaN where no match</span></span>
+<span class="line">outer = <span class="lib">pd</span>.<span class="fn">merge</span>(employees, departments, how=<span class="str">'outer'</span>, on=<span class="str">'dept_id'</span>)</span>
+<span class="line"><span class="fn">print</span>(outer)</span>
+<span class="line"><span class="out">#     id   name  dept_id    dept_name</span></span>
+<span class="line"><span class="out"># 0  1.0  Alice       10  Engineering</span></span>
+<span class="line"><span class="out"># 1  2.0    Bob       10  Engineering</span></span>
+<span class="line"><span class="out"># 2  3.0  Carol       20           HR</span></span>
+<span class="line"><span class="out"># 3  4.0  David       30          NaN</span></span>
+<span class="line"><span class="out"># 4  NaN    NaN       40    Marketing</span></span></pre>
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(1)">← Sample Data</button>
+        <button class="pnav-btn next" onclick="goTo(3)">Filtering Joins →</button>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-3">
+      <!-- Filtering joins -->
+      <div class="section">
+        <div class="section-label">Filtering Joins</div>
+        <h2>isin() — Keep or Exclude Based on Another DataFrame</h2>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line">valid_depts = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({<span class="str">'dept_id'</span>: [<span class="num">10</span>, <span class="num">20</span>]})</span>
+<span class="line"></span>
+<span class="line"><span class="cm"># keep only employees whose dept_id is in valid_depts</span></span>
+<span class="line">matched = employees[employees.dept_id.<span class="fn">isin</span>(valid_depts.dept_id)]</span>
+<span class="line"><span class="fn">print</span>(matched)</span>
+<span class="line"><span class="out">#    id   name  dept_id</span></span>
+<span class="line"><span class="out"># 0   1  Alice       10</span></span>
+<span class="line"><span class="out"># 1   2    Bob       10</span></span>
+<span class="line"><span class="out"># 2   3  Carol       20</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm"># keep only employees whose dept_id is NOT in valid_depts (~ = NOT)</span></span>
+<span class="line">unmatched = employees[~employees.dept_id.<span class="fn">isin</span>(valid_depts.dept_id)]</span>
+<span class="line"><span class="fn">print</span>(unmatched)</span>
+<span class="line"><span class="out">#    id   name  dept_id</span></span>
+<span class="line"><span class="out"># 3   4  David       30</span></span></pre>
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(2)">← Standard Joins</button>
+        <button class="pnav-btn next" onclick="goTo(4)">Set-like Ops →</button>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-4">
+      <!-- Set-like operations -->
+      <div class="section">
+        <div class="section-label">Set-like Operations</div>
+        <h2>Intersection, Union, Set Difference</h2>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+          <pre><span class="line">ydf = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({<span class="str">'x1'</span>:[<span class="str">'A'</span>,<span class="str">'B'</span>,<span class="str">'C'</span>], <span class="str">'x2'</span>:[<span class="num">1</span>,<span class="num">2</span>,<span class="num">3</span>]})</span>
+<span class="line">zdf = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({<span class="str">'x1'</span>:[<span class="str">'B'</span>,<span class="str">'C'</span>,<span class="str">'D'</span>], <span class="str">'x2'</span>:[<span class="num">2</span>,<span class="num">3</span>,<span class="num">4</span>]})</span>
+<span class="line"></span>
+<span class="line"><span class="cm"># intersection — rows in BOTH</span></span>
+<span class="line"><span class="fn">print</span>(<span class="lib">pd</span>.<span class="fn">merge</span>(ydf, zdf))</span>
+<span class="line"><span class="out">#   x1  x2</span></span>
+<span name="line"><span class="out"># 0  B   2</span></span>
+<span class="line"><span class="out"># 1  C   3</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm"># union — rows in EITHER or both</span></span>
+<span class="line"><span class="fn">print</span>(<span class="lib">pd</span>.<span class="fn">merge</span>(ydf, zdf, how=<span class="str">'outer'</span>))</span>
+<span class="line"></span>
+<span class="line"><span class="cm"># set difference — rows in ydf but NOT in zdf</span></span>
+<span class="line">diff = (<span class="lib">pd</span>.<span class="fn">merge</span>(ydf, zdf, how=<span class="str">'outer'</span>, indicator=<span class="kw">True</span>)</span>
+<span class="line">          .<span class="fn">query</span>(<span class="str">'_merge == "left_only"'</span>)</span>
+<span class="line">          .<span class="fn">drop</span>(columns=[<span class="str">'_merge'</span>]))</span>
+<span class="line"><span class="fn">print</span>(diff)</span>
+<span class="line"><span class="out">#   x1  x2</span></span>
+<span class="line"><span class="out"># 0  A   1</span></span></pre>
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(3)">← Filtering Joins</button>
+        <button class="pnav-btn next" onclick="goTo(5)">Exercises →</button>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-5">
+      <!-- Exercises -->
+      <div class="section">
+        <div class="section-label">Exercises</div>
+        <h2>Practice — Combining Data Sets</h2>
+
+        <div class="ex-block">
+          <span class="ex-num">Q1</span>
+          <p>Perform an <strong>inner join</strong> on the two DataFrames below on the <code>product_id</code> key. How many rows does the result have?</p>
+          <div class="code-wrap"><pre><span class="line">orders   = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({<span class="str">'order_id'</span>:[<span class="num">1</span>,<span class="num">2</span>,<span class="num">3</span>], <span class="str">'product_id'</span>:[<span class="num">101</span>,<span class="num">102</span>,<span class="num">105</span>], <span class="str">'qty'</span>:[<span class="num">2</span>,<span class="num">1</span>,<span class="num">3</span>]})</span>
+<span class="line">products = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({<span class="str">'product_id'</span>:[<span class="num">101</span>,<span class="num">102</span>,<span class="num">103</span>], <span class="str">'name'</span>:[<span class="str">'Apple'</span>,<span class="str">'Banana'</span>,<span class="str">'Cherry'</span>]})</span></pre></div>
+          <details class="answer">
+            <summary>Show answer</summary>
+            <div class="answer-body">
+              <div class="code-wrap" style="margin:0">
+                <pre><span class="line">result = <span class="lib">pd</span>.<span class="fn">merge</span>(orders, products, how=<span class="str">'inner'</span>, on=<span class="str">'product_id'</span>)</span>
+<span class="line"><span class="fn">print</span>(result)</span>
+<span class="line"><span class="out">#    order_id  product_id  qty    name</span></span>
+<span class="line"><span class="out"># 0         1         101    2   Apple</span></span>
+<span class="line"><span class="out"># 1         2         102    1  Banana</span></span>
+<span class="line"><span class="cm"># 2 rows — order 3 (product 105) has no match</span></span></pre>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="ex-block">
+          <span class="ex-num">Q2</span>
+          <p>Do a <strong>left join</strong> of the same DataFrames. What happens to order 3?</p>
+          <details class="answer">
+            <summary>Show answer</summary>
+            <div class="answer-body">
+              <div class="code-wrap" style="margin:0">
+                <pre><span class="line">result = <span class="lib">pd</span>.<span class="fn">merge</span>(orders, products, how=<span class="str">'left'</span>, on=<span class="str">'product_id'</span>)</span>
+<span class="line"><span class="fn">print</span>(result)</span>
+<span class="line"><span class="out">#    order_id  product_id  qty    name</span></span>
+<span class="line"><span class="out"># 0         1         101    2   Apple</span></span>
+<span class="line"><span class="out"># 1         2         102    1  Banana</span></span>
+<span class="line"><span class="out"># 2         3         105    3     NaN  ← kept but name is NaN</span></span></pre>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="ex-block">
+          <span class="ex-num">Q3</span>
+          <p>Use <code>isin()</code> to find all orders whose <code>product_id</code> is NOT in the products table.</p>
+          <details class="answer">
+            <summary>Show answer</summary>
+            <div class="answer-body">
+              <div class="code-wrap" style="margin:0">
+                <pre><span class="line">unmatched = orders[~orders.product_id.<span class="fn">isin</span>(products.product_id)]</span>
+<span class="line"><span class="fn">print</span>(unmatched)</span>
+<span class="line"><span class="out">#    order_id  product_id  qty</span></span>
+<span class="line"><span class="out"># 2         3         105    3</span></span></pre>
+              </div>
+            </div>
+          </details>
+        </div>
+
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(4)">← Set-like Ops</button>
+        <button class="pnav-btn next" onclick="goTo(0)">⟳ Overview</button>
+      </div>
+    </div>
+
+  </div><!-- /panel-viewport -->
+</div><!-- /page-layout -->
+
+<script src="app.js"></script>
+<script>
+let _cur = 0;
+function goTo(idx) {
+  if (idx === _cur) return;
+  const oldP = document.getElementById('panel-' + _cur);
+  const newP = document.getElementById('panel-' + idx);
+  if (!oldP || !newP) return;
+  if (_cur > 0) { const sb = document.querySelector('[data-panel="' + _cur + '"]'); if (sb) sb.classList.add('done'); }
+  oldP.classList.remove('active'); oldP.classList.add('exit');
+  setTimeout(() => oldP.classList.remove('exit'), 240);
+  _cur = idx;
+  newP.classList.add('active');
+  document.getElementById('viewport').scrollTop = 0;
+  document.querySelectorAll('.s-item').forEach(b => b.classList.toggle('active', +b.dataset.panel === idx));
+  newP.querySelectorAll('.section:not(.visible)').forEach((s, i) => {
+    setTimeout(() => {
+      s.classList.add('visible');
+      if (typeof animatePre === 'function') animatePre(s);
+      if (typeof animateRows === 'function') animateRows(s);
+    }, i * 80 + 60);
+  });
+}
+(function() {
+  const vp = document.getElementById('viewport');
+  const pb = document.getElementById('progress');
+  if (vp && pb) vp.addEventListener('scroll', () => {
+    pb.style.width = (vp.scrollTop / (vp.scrollHeight - vp.clientHeight) * 100) + '%';
+  });
+})();
+</script>
+</body>
+</html>

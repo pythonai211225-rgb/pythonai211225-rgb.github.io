@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Topic 07 — Reshaping Data</title>
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    .ser-out { border-collapse:collapse; font-family:'Courier New',monospace; font-size:.82rem; width:100%; }
+    .ser-out th { color:var(--muted); font-size:.64rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; padding:4px 14px 4px 0; border-bottom:1px solid var(--border); text-align:left; white-space:nowrap; }
+    .ser-out td { padding:5px 14px 5px 0; border-bottom:1px solid rgba(255,255,255,.04); vertical-align:top; white-space:nowrap; }
+    .ser-out td:first-child { color:var(--accent); }
+    .ser-wrap { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px 18px; display:inline-block; overflow-x:auto; }
+    .ser-label { font-size:.62rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:8px; }
+    .code-result-list { display:grid; gap:14px; margin:16px 0 4px; }
+    .code-result { display:grid; grid-template-columns:minmax(260px,1fr) auto; align-items:start; gap:14px; }
+    .code-result .code-wrap { margin:0; }
+    .code-result .ser-wrap { display:block; justify-self:end; min-width:270px; max-width:100%; }
+    /* ── sidebar layout ── */
+    .page-layout{display:flex;height:calc(100vh - 54px);overflow:hidden;}
+    .sidebar{width:210px;min-width:210px;height:100%;overflow-y:auto;background:#0a0e14;border-right:1px solid var(--border);display:flex;flex-direction:column;scrollbar-width:thin;scrollbar-color:var(--border) transparent;flex-shrink:0;}
+    .sidebar-head{padding:18px 14px 12px;font-size:.6rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);}
+    .sidebar-nav{padding:6px 0;flex:1;}
+    .s-item{display:flex;align-items:center;gap:9px;padding:9px 14px;cursor:pointer;border-left:3px solid transparent;background:none;border-top:none;border-right:none;border-bottom:none;width:100%;text-align:left;transition:background .18s,border-color .18s;}
+    .s-item:hover{background:rgba(255,255,255,.04);}
+    .s-item.active{background:rgba(168,85,247,.08);border-left-color:var(--accent);}
+    .s-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;transition:transform .2s;}
+    .s-item.active .s-dot{transform:scale(1.45);box-shadow:0 0 8px currentColor;}
+    .s-num{font-size:.58rem;color:var(--border);font-family:'Courier New',monospace;font-weight:700;min-width:16px;}
+    .s-item.active .s-num{color:var(--accent);}
+    .s-label{font-size:.74rem;color:var(--muted);font-family:'Courier New',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .s-item.active .s-label{color:var(--text);}
+    .s-item.done .s-label::after{content:' ✓';color:var(--green);font-size:.67rem;}
+    .panel-viewport{flex:1;overflow-y:auto;overflow-x:hidden;}
+    .panel{display:none;flex-direction:column;min-height:100%;padding:36px 48px 80px;max-width:800px;margin:0 auto;animation:pdIn .3s ease;}
+    .panel.active{display:flex;}
+    @keyframes pdIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:translateX(0)}}
+    .panel.exit{display:flex;animation:pdOut .22s ease forwards;}
+    @keyframes pdOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(-24px)}}
+    .pnav{display:flex;justify-content:space-between;align-items:center;margin-top:36px;padding-top:20px;border-top:1px solid var(--border);flex-shrink:0;}
+    .pnav-btn{display:flex;align-items:center;gap:7px;padding:9px 20px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:.82rem;font-weight:700;cursor:pointer;transition:color .2s,border-color .2s,background .2s;}
+    .pnav-btn:hover:not(:disabled){color:var(--text);border-color:var(--accent);background:rgba(168,85,247,.06);}
+    .pnav-btn:disabled{opacity:.28;cursor:default;}
+    .pnav-btn.next{background:rgba(168,85,247,.08);border-color:rgba(168,85,247,.35);color:var(--accent);}
+    .pnav-btn.next:hover{background:rgba(168,85,247,.16);border-color:var(--accent);}
+    @media(max-width:700px){.sidebar{display:none;}.panel{padding:20px 16px 60px;}.code-result{grid-template-columns:1fr;}.code-result .ser-wrap{min-width:0;justify-self:stretch;}}
+  </style>
+</head>
+<body>
+<div class="progress-bar" id="progress"></div>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">← Python Libs</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item" href="01-intro.html">01</a>
+    <a class="nav-item" href="02-topic.html">02</a>
+    <a class="nav-item" href="03-cheat-sheet.html">03</a>
+    <a class="nav-item" href="04-series.html">04</a>
+    <a class="nav-item" href="05-creating-df.html">05</a>
+    <a class="nav-item" href="06-subsetting.html">06</a>
+    <a class="nav-item active" href="07-reshaping.html">07</a>
+    <a class="nav-item" href="08-groupby-agg.html">08</a>
+    <a class="nav-item" href="09-combining.html">09</a>
+    <a class="nav-item" href="10-missing-newcol.html">10</a>
+  </div>
+</nav>
+
+<div class="page-layout">
+
+  <aside class="sidebar">
+    <div class="sidebar-head">Topic 07 · Reshaping</div>
+    <nav class="sidebar-nav">
+      <button class="s-item active" data-panel="0" onclick="goTo(0)"><span class="s-num">00</span><span class="s-dot" style="background:#a855f7"></span><span class="s-label">Overview</span></button>
+      <button class="s-item" data-panel="1" onclick="goTo(1)"><span class="s-num">01</span><span class="s-dot" style="background:#facc15"></span><span class="s-label">Wide→Long</span></button>
+      <button class="s-item" data-panel="2" onclick="goTo(2)"><span class="s-num">02</span><span class="s-dot" style="background:#3b82f6"></span><span class="s-label">Long→Wide</span></button>
+      <button class="s-item" data-panel="3" onclick="goTo(3)"><span class="s-num">03</span><span class="s-dot" style="background:#10b981"></span><span class="s-label">Stacking</span></button>
+      <button class="s-item" data-panel="4" onclick="goTo(4)"><span class="s-num">04</span><span class="s-dot" style="background:#f97316"></span><span class="s-label">Sort/Rename</span></button>
+      <button class="s-item" data-panel="5" onclick="goTo(5)"><span class="s-num">05</span><span class="s-dot" style="background:#facc15"></span><span class="s-label">Exercises</span></button>
+    </nav>
+  </aside>
+
+  <!-- PANEL VIEWPORT -->
+  <div class="panel-viewport" id="viewport">
+
+    <!-- Panel 0: Overview -->
+    <div class="panel active" id="panel-0">
+      <div class="hero">
+        <span class="topic-label"><span class="dot"></span>Topic 07 of 10</span>
+        <h1>Reshaping Data</h1>
+        <p>Transform the layout of a DataFrame: melt wide tables into long form, pivot long tables into wide form, stack DataFrames with concat, and clean up with sort, rename, and drop.</p>
+        <div class="hero-pills">
+          <span class="tag">pd.melt</span>
+          <span class="tag blue">df.pivot</span>
+          <span class="tag green">pd.concat</span>
+          <span class="tag orange">sort / rename / drop</span>
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" disabled>← Prev</button>
+        <button class="pnav-btn next" onclick="goTo(1)">Wide→Long →</button>
+      </div>
+    </div>
+
+    <!-- Panel 1 -->
+    <div class="panel" id="panel-1">
+      <div class="section">
+        <div class="section-label">Wide → Long</div>
+        <h2>pd.melt() — Gather Columns into Rows</h2>
+        <p>Useful when you have one column per measurement but need a single <em>variable</em> column and a single <em>value</em> column (tidy data format).</p>
+        <div class="code-result-list">
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="kw">import</span> <span class="lib">pandas</span> <span class="kw">as</span> <span class="lib">pd</span></span>
+<span class="line"></span>
+<span class="line">wide = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({</span>
+<span class="line">    <span class="str">'name'</span>:  [<span class="str">'Alice'</span>, <span class="str">'Bob'</span>],</span>
+<span class="line">    <span class="str">'math'</span>:  [<span class="num">88</span>, <span class="num">92</span>],</span>
+<span class="line">    <span class="str">'english'</span>: [<span class="num">76</span>, <span class="num">84</span>]</span>
+<span class="line">})</span>
+<span class="line">wide</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">wide</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>name</th><th>math</th><th>english</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>Alice</td><td>88</td><td>76</td></tr>
+                  <tr><td>1</td><td>Bob</td><td>92</td><td>84</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line">long = <span class="lib">pd</span>.<span class="fn">melt</span>(wide,</span>
+<span class="line">              id_vars=<span class="str">'name'</span>,          <span class="cm"># column(s) to keep as-is</span></span>
+<span class="line">              var_name=<span class="str">'subject'</span>,      <span class="cm"># name for the new variable col</span></span>
+<span class="line">              value_name=<span class="str">'score'</span>)      <span class="cm"># name for the new value col</span></span>
+<span class="line">long</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">long</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>name</th><th>subject</th><th>score</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>Alice</td><td>math</td><td>88</td></tr>
+                  <tr><td>1</td><td>Bob</td><td>math</td><td>92</td></tr>
+                  <tr><td>2</td><td>Alice</td><td>english</td><td>76</td></tr>
+                  <tr><td>3</td><td>Bob</td><td>english</td><td>84</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(0)">← Overview</button>
+        <button class="pnav-btn next" onclick="goTo(2)">Long→Wide →</button>
+      </div>
+    </div>
+
+    <!-- Panel 2 -->
+    <div class="panel" id="panel-2">
+      <div class="section">
+        <div class="section-label">Long → Wide</div>
+        <h2>df.pivot() — Spread Rows into Columns</h2>
+        <p>The opposite of melt — takes a "long" table and spreads one column's unique values into separate columns.</p>
+        <div class="code-result-list">
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># using the 'long' DataFrame from above</span></span>
+<span class="line">wide2 = long.<span class="fn">pivot</span>(index=<span class="str">'name'</span>,</span>
+<span class="line">                   columns=<span class="str">'subject'</span>,</span>
+<span class="line">                   values=<span class="str">'score'</span>)</span>
+<span class="line">wide2</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">wide2</div>
+              <table class="ser-out">
+                <thead><tr><th>name</th><th>english</th><th>math</th></tr></thead>
+                <tbody>
+                  <tr><td>Alice</td><td>76</td><td>88</td></tr>
+                  <tr><td>Bob</td><td>84</td><td>92</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># clean up the column axis name</span></span>
+<span class="line">wide2.columns.name = <span class="kw">None</span></span>
+<span class="line">wide2 = wide2.<span class="fn">reset_index</span>()   <span class="cm"># move 'name' back to a regular column</span></span>
+<span class="line">wide2</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">reset_index()</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>name</th><th>english</th><th>math</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>Alice</td><td>76</td><td>88</td></tr>
+                  <tr><td>1</td><td>Bob</td><td>84</td><td>92</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="callout blue">
+          <strong>pivot vs pivot_table:</strong> <code>df.pivot()</code> requires unique row/column combinations. If you have duplicates (e.g. multiple rows for the same person+subject), use <code>df.pivot_table(aggfunc='mean')</code> to aggregate them.
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(1)">← Wide→Long</button>
+        <button class="pnav-btn next" onclick="goTo(3)">Stacking →</button>
+      </div>
+    </div>
+
+    <!-- Panel 3 -->
+    <div class="panel" id="panel-3">
+      <div class="section">
+        <div class="section-label">Stacking DataFrames</div>
+        <h2>pd.concat() — Append Rows or Columns</h2>
+        <div class="code-result-list">
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line">df1 = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({<span class="str">'name'</span>:[<span class="str">'Alice'</span>,<span class="str">'Bob'</span>],   <span class="str">'score'</span>:[<span class="num">88</span>,<span class="num">92</span>]})</span>
+<span class="line">df2 = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({<span class="str">'name'</span>:[<span class="str">'Carol'</span>,<span class="str">'David'</span>], <span class="str">'score'</span>:[<span class="num">75</span>,<span class="num">61</span>]})</span>
+<span class="line"></span>
+<span class="line"><span class="cm"># axis=0: stack rows (default)</span></span>
+<span class="line">combined = <span class="lib">pd</span>.<span class="fn">concat</span>([df1, df2], ignore_index=<span class="kw">True</span>)</span>
+<span class="line">combined</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">combined</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>name</th><th>score</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>Alice</td><td>88</td></tr>
+                  <tr><td>1</td><td>Bob</td><td>92</td></tr>
+                  <tr><td>2</td><td>Carol</td><td>75</td></tr>
+                  <tr><td>3</td><td>David</td><td>61</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># axis=1: add columns side-by-side</span></span>
+<span class="line">extra = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({<span class="str">'grade'</span>:[<span class="str">'B'</span>,<span class="str">'A'</span>], <span class="str">'age'</span>:[<span class="num">22</span>,<span class="num">25</span>]})</span>
+<span class="line">df_wide = <span class="lib">pd</span>.<span class="fn">concat</span>([df1, extra], axis=<span class="num">1</span>)</span>
+<span class="line">df_wide</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">df_wide</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>name</th><th>score</th><th>grade</th><th>age</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>Alice</td><td>88</td><td>B</td><td>22</td></tr>
+                  <tr><td>1</td><td>Bob</td><td>92</td><td>A</td><td>25</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(2)">← Long→Wide</button>
+        <button class="pnav-btn next" onclick="goTo(4)">Sort/Rename →</button>
+      </div>
+    </div>
+
+    <!-- Panel 4 -->
+    <div class="panel" id="panel-4">
+      <div class="section">
+        <div class="section-label">Sort, Rename &amp; Drop</div>
+        <h2>Cleaning Up the Layout</h2>
+        <div class="code-result-list">
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line">df = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({</span>
+<span class="line">    <span class="str">'name'</span>:[<span class="str">'Carol'</span>,<span class="str">'Alice'</span>,<span class="str">'Bob'</span>],</span>
+<span class="line">    <span class="str">'score'</span>:[<span class="num">75</span>,<span class="num">88</span>,<span class="num">92</span>],</span>
+<span class="line">    <span class="str">'dept'</span>:[<span class="str">'HR'</span>,<span class="str">'Eng'</span>,<span class="str">'Eng'</span>]</span>
+<span class="line">})</span>
+<span class="line">df</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">df</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>name</th><th>score</th><th>dept</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>Carol</td><td>75</td><td>HR</td></tr>
+                  <tr><td>1</td><td>Alice</td><td>88</td><td>Eng</td></tr>
+                  <tr><td>2</td><td>Bob</td><td>92</td><td>Eng</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># sort ascending (default)</span></span>
+<span class="line">df.<span class="fn">sort_values</span>(<span class="str">'score'</span>)</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">sort_values('score')</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>name</th><th>score</th><th>dept</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>Carol</td><td>75</td><td>HR</td></tr>
+                  <tr><td>1</td><td>Alice</td><td>88</td><td>Eng</td></tr>
+                  <tr><td>2</td><td>Bob</td><td>92</td><td>Eng</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># sort descending</span></span>
+<span class="line">df.<span class="fn">sort_values</span>(<span class="str">'score'</span>, ascending=<span class="kw">False</span>)</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">descending score</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>name</th><th>score</th><th>dept</th></tr></thead>
+                <tbody>
+                  <tr><td>2</td><td>Bob</td><td>92</td><td>Eng</td></tr>
+                  <tr><td>1</td><td>Alice</td><td>88</td><td>Eng</td></tr>
+                  <tr><td>0</td><td>Carol</td><td>75</td><td>HR</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># sort by multiple columns</span></span>
+<span class="line">df.<span class="fn">sort_values</span>([<span class="str">'dept'</span>, <span class="str">'score'</span>], ascending=[<span class="kw">True</span>, <span class="kw">False</span>])</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">dept asc, score desc</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>name</th><th>score</th><th>dept</th></tr></thead>
+                <tbody>
+                  <tr><td>2</td><td>Bob</td><td>92</td><td>Eng</td></tr>
+                  <tr><td>1</td><td>Alice</td><td>88</td><td>Eng</td></tr>
+                  <tr><td>0</td><td>Carol</td><td>75</td><td>HR</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># rename columns</span></span>
+<span class="line">df2 = df.<span class="fn">rename</span>(columns={<span class="str">'score'</span>: <span class="str">'points'</span>, <span class="str">'dept'</span>: <span class="str">'department'</span>})</span>
+<span class="line">df2</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">df2</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>name</th><th>points</th><th>department</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>Carol</td><td>75</td><td>HR</td></tr>
+                  <tr><td>1</td><td>Alice</td><td>88</td><td>Eng</td></tr>
+                  <tr><td>2</td><td>Bob</td><td>92</td><td>Eng</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># drop columns</span></span>
+<span class="line">df3 = df.<span class="fn">drop</span>(columns=[<span class="str">'dept'</span>])</span>
+<span class="line">df3</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">df3</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>name</th><th>score</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>Carol</td><td>75</td></tr>
+                  <tr><td>1</td><td>Alice</td><td>88</td></tr>
+                  <tr><td>2</td><td>Bob</td><td>92</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># reset_index - clean 0-based index after sorting</span></span>
+<span class="line">df_sorted = df.<span class="fn">sort_values</span>(<span class="str">'score'</span>).<span class="fn">reset_index</span>(drop=<span class="kw">True</span>)</span>
+<span class="line">df_sorted</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">df_sorted</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>name</th><th>score</th><th>dept</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>Carol</td><td>75</td><td>HR</td></tr>
+                  <tr><td>1</td><td>Alice</td><td>88</td><td>Eng</td></tr>
+                  <tr><td>2</td><td>Bob</td><td>92</td><td>Eng</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(3)">← Stacking</button>
+        <button class="pnav-btn next" onclick="goTo(5)">Exercises →</button>
+      </div>
+    </div>
+
+    <!-- Panel 5 -->
+    <div class="panel" id="panel-5">
+      <div class="section">
+        <div class="section-label">Exercises</div>
+        <h2>Practice — Reshaping</h2>
+
+        <div class="ex-block">
+          <span class="ex-num">Q1</span>
+          <p>Create this wide DataFrame and melt it so each row represents one student + one subject + one score:</p>
+          <div class="code-wrap"><pre><span class="line">df = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({<span class="str">'student'</span>:[<span class="str">'Ana'</span>,<span class="str">'Leo'</span>], <span class="str">'physics'</span>:[<span class="num">80</span>,<span class="num">70</span>], <span class="str">'chemistry'</span>:[<span class="num">90</span>,<span class="num">85</span>]})</span></pre></div>
+          <details class="answer">
+            <summary>Show answer</summary>
+            <div class="answer-body">
+              <div class="code-wrap" style="margin:0">
+                <pre><span class="line">long = <span class="lib">pd</span>.<span class="fn">melt</span>(df, id_vars=<span class="str">'student'</span>, var_name=<span class="str">'subject'</span>, value_name=<span class="str">'score'</span>)</span>
+<span class="line"><span class="fn">print</span>(long)</span>
+<span class="line"><span class="out">#   student    subject  score</span></span>
+<span class="line"><span class="out"># 0     Ana    physics     80</span></span>
+<span class="line"><span class="out"># 1     Leo    physics     70</span></span>
+<span class="line"><span class="out"># 2     Ana  chemistry     90</span></span>
+<span class="line"><span class="out"># 3     Leo  chemistry     85</span></span></pre>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="ex-block">
+          <span class="ex-num">Q2</span>
+          <p>Concatenate the two DataFrames below into one (stacking rows), and reset the index.</p>
+          <div class="code-wrap"><pre><span class="line">a = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({<span class="str">'x'</span>:[<span class="num">1</span>,<span class="num">2</span>], <span class="str">'y'</span>:[<span class="str">'a'</span>,<span class="str">'b'</span>]})</span>
+<span class="line">b = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({<span class="str">'x'</span>:[<span class="num">3</span>,<span class="num">4</span>], <span class="str">'y'</span>:[<span class="str">'c'</span>,<span class="str">'d'</span>]})</span></pre></div>
+          <details class="answer">
+            <summary>Show answer</summary>
+            <div class="answer-body">
+              <div class="code-wrap" style="margin:0">
+                <pre><span class="line">result = <span class="lib">pd</span>.<span class="fn">concat</span>([a, b], ignore_index=<span class="kw">True</span>)</span>
+<span class="line"><span class="fn">print</span>(result)</span>
+<span class="line"><span class="out">#    x  y</span></span>
+<span class="line"><span class="out"># 0  1  a</span></span>
+<span class="line"><span class="out"># 1  2  b</span></span>
+<span class="line"><span class="out"># 2  3  c</span></span>
+<span class="line"><span class="out"># 3  4  d</span></span></pre>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="ex-block">
+          <span class="ex-num">Q3</span>
+          <p>Sort the DataFrame below by <code>dept</code> ascending then <code>salary</code> descending. Rename <code>salary</code> to <code>pay</code>. Drop the <code>id</code> column.</p>
+          <div class="code-wrap"><pre><span class="line">df = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({<span class="str">'id'</span>:[<span class="num">1</span>,<span class="num">2</span>,<span class="num">3</span>,<span class="num">4</span>], <span class="str">'dept'</span>:[<span class="str">'Eng'</span>,<span class="str">'HR'</span>,<span class="str">'Eng'</span>,<span class="str">'HR'</span>], <span class="str">'salary'</span>:[<span class="num">90000</span>,<span class="num">60000</span>,<span class="num">85000</span>,<span class="num">65000</span>]})</span></pre></div>
+          <details class="answer">
+            <summary>Show answer</summary>
+            <div class="answer-body">
+              <div class="code-wrap" style="margin:0">
+                <pre><span class="line">result = (df</span>
+<span class="line">    .<span class="fn">sort_values</span>([<span class="str">'dept'</span>,<span class="str">'salary'</span>], ascending=[<span class="kw">True</span>,<span class="kw">False</span>])</span>
+<span class="line">    .<span class="fn">rename</span>(columns={<span class="str">'salary'</span>:<span class="str">'pay'</span>})</span>
+<span class="line">    .<span class="fn">drop</span>(columns=[<span class="str">'id'</span>])</span>
+<span class="line">    .<span class="fn">reset_index</span>(drop=<span class="kw">True</span>)</span>
+<span class="line">)</span>
+<span class="line"><span class="fn">print</span>(result)</span></pre>
+              </div>
+            </div>
+          </details>
+        </div>
+
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(4)">← Sort/Rename</button>
+        <button class="pnav-btn next" onclick="goTo(0)">⟳ Overview</button>
+      </div>
+    </div>
+
+  </div><!-- /panel-viewport -->
+</div><!-- /page-layout -->
+
+<script src="app.js"></script>
+<script>
+let _cur = 0;
+function goTo(idx) {
+  if (idx === _cur) return;
+  const oldP = document.getElementById('panel-' + _cur);
+  const newP = document.getElementById('panel-' + idx);
+  if (!oldP || !newP) return;
+  if (_cur > 0) { const sb = document.querySelector('[data-panel="' + _cur + '"]'); if (sb) sb.classList.add('done'); }
+  oldP.classList.remove('active'); oldP.classList.add('exit');
+  setTimeout(() => oldP.classList.remove('exit'), 240);
+  _cur = idx;
+  newP.classList.add('active');
+  document.getElementById('viewport').scrollTop = 0;
+  document.querySelectorAll('.s-item').forEach(b => b.classList.toggle('active', +b.dataset.panel === idx));
+  newP.querySelectorAll('.section:not(.visible)').forEach((s, i) => {
+    setTimeout(() => {
+      s.classList.add('visible');
+      if (typeof animatePre === 'function') animatePre(s);
+      if (typeof animateRows === 'function') animateRows(s);
+    }, i * 80 + 60);
+  });
+}
+(function() {
+  const vp = document.getElementById('viewport');
+  const pb = document.getElementById('progress');
+  if (vp && pb) vp.addEventListener('scroll', () => {
+    pb.style.width = (vp.scrollTop / (vp.scrollHeight - vp.clientHeight) * 100) + '%';
+  });
+})();
+</script>
+</body>
+</html>
