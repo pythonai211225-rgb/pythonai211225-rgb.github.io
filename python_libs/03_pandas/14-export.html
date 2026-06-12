@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Topic 14 — Export / I/O</title>
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    .ser-out{border-collapse:collapse;font-family:'Courier New',monospace;font-size:.82rem;width:100%;}
+    .ser-out th{color:var(--muted);font-size:.64rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:4px 14px 4px 0;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap;}
+    .ser-out td{padding:5px 14px 5px 0;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:top;white-space:nowrap;}
+    .ser-out td:first-child{color:var(--accent);}
+    .ser-wrap{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 18px;display:inline-block;overflow-x:auto;}
+    .ser-label{font-size:.62rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+    .code-result-list{display:grid;gap:14px;margin:16px 0 4px;}
+    .code-result{display:grid;grid-template-columns:minmax(260px,1fr) auto;align-items:start;gap:14px;}
+    .code-result .code-wrap{margin:0;}
+    .code-result .ser-wrap{display:block;justify-self:end;min-width:270px;max-width:100%;}
+    .code-result.stacked{grid-template-columns:1fr;}
+    .code-result.stacked .ser-wrap{justify-self:stretch;min-width:0;}
+    .table-pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;}
+    .table-pair.one-column{grid-template-columns:1fr;}
+    .page-layout{display:flex;height:calc(100vh - 54px);overflow:hidden;}
+    .sidebar{width:210px;min-width:210px;height:100%;overflow-y:auto;background:#0a0e14;border-right:1px solid var(--border);display:flex;flex-direction:column;scrollbar-width:thin;scrollbar-color:var(--border) transparent;flex-shrink:0;}
+    .sidebar-head{padding:18px 14px 12px;font-size:.6rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);}
+    .sidebar-nav{padding:6px 0;flex:1;}
+    .s-item{display:flex;align-items:center;gap:9px;padding:9px 14px;cursor:pointer;border-left:3px solid transparent;background:none;border-top:none;border-right:none;border-bottom:none;width:100%;text-align:left;transition:background .18s,border-color .18s;}
+    .s-item:hover{background:rgba(255,255,255,.04);}
+    .s-item.active{background:rgba(168,85,247,.08);border-left-color:var(--accent);}
+    .s-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;transition:transform .2s;}
+    .s-item.active .s-dot{transform:scale(1.45);box-shadow:0 0 8px currentColor;}
+    .s-num{font-size:.58rem;color:var(--border);font-family:'Courier New',monospace;font-weight:700;min-width:16px;}
+    .s-item.active .s-num{color:var(--accent);}
+    .s-label{font-size:.74rem;color:var(--muted);font-family:'Courier New',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .s-item.active .s-label{color:var(--text);}
+    .s-item.done .s-label::after{content:' ✓';color:var(--green);font-size:.67rem;}
+    .panel-viewport{flex:1;overflow-y:auto;overflow-x:hidden;}
+    .panel{display:none;flex-direction:column;min-height:100%;padding:36px 48px 80px;max-width:800px;margin:0 auto;animation:pdIn .3s ease;}
+    .panel.active{display:flex;}
+    @keyframes pdIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:translateX(0)}}
+    .panel.exit{display:flex;animation:pdOut .22s ease forwards;}
+    @keyframes pdOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(-24px)}}
+    .pnav{display:flex;justify-content:space-between;align-items:center;margin-top:36px;padding-top:20px;border-top:1px solid var(--border);flex-shrink:0;}
+    .pnav-btn{display:flex;align-items:center;gap:7px;padding:9px 20px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:.82rem;font-weight:700;cursor:pointer;transition:color .2s,border-color .2s,background .2s;}
+    .pnav-btn:hover:not(:disabled){color:var(--text);border-color:var(--accent);background:rgba(168,85,247,.06);}
+    .pnav-btn:disabled{opacity:.28;cursor:default;}
+    .pnav-btn.next{background:rgba(168,85,247,.08);border-color:rgba(168,85,247,.35);color:var(--accent);}
+    .pnav-btn.next:hover{background:rgba(168,85,247,.16);border-color:var(--accent);}
+    @media(max-width:700px){.sidebar{display:none;}.panel{padding:20px 16px 60px;}.code-result{grid-template-columns:1fr;}.code-result .ser-wrap{min-width:0;justify-self:stretch;}}
+  </style>
+</head>
+<body>
+<div class="progress-bar" id="progress"></div>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">← Python Libs</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item" href="01-intro.html">01</a>
+    <a class="nav-item" href="02-topic.html">02</a>
+    <a class="nav-item" href="03-cheat-sheet.html">03</a>
+    <a class="nav-item" href="04-series.html">04</a>
+    <a class="nav-item" href="05-creating-df.html">05</a>
+    <a class="nav-item" href="06-subsetting.html">06</a>
+    <a class="nav-item" href="07-reshaping.html">07</a>
+    <a class="nav-item" href="08-groupby-agg.html">08</a>
+    <a class="nav-item" href="09-combining.html">09</a>
+    <a class="nav-item" href="10-missing-newcol.html">10</a>
+    <a class="nav-item" href="11-string-methods.html">11</a>
+    <a class="nav-item" href="12-time-methods.html">12</a>
+    <a class="nav-item" href="13-pivot-table.html">13</a>
+    <a class="nav-item active" href="14-export.html">14</a>
+  </div>
+</nav>
+
+<div class="page-layout">
+
+  <aside class="sidebar">
+    <div class="sidebar-head">Topic 14 · Export / I/O</div>
+    <nav class="sidebar-nav">
+      <button class="s-item active" data-panel="0" onclick="goTo(0)"><span class="s-num">00</span><span class="s-dot" style="background:#a855f7"></span><span class="s-label">Overview</span></button>
+      <button class="s-item" data-panel="1" onclick="goTo(1)"><span class="s-num">01</span><span class="s-dot" style="background:#facc15"></span><span class="s-label">CSV</span></button>
+      <button class="s-item" data-panel="2" onclick="goTo(2)"><span class="s-num">02</span><span class="s-dot" style="background:#3b82f6"></span><span class="s-label">Excel &amp; JSON</span></button>
+      <button class="s-item" data-panel="3" onclick="goTo(3)"><span class="s-num">03</span><span class="s-dot" style="background:#10b981"></span><span class="s-label">Parquet &amp; Options</span></button>
+      <button class="s-item" data-panel="4" onclick="goTo(4)"><span class="s-num">04</span><span class="s-dot" style="background:#f97316"></span><span class="s-label">Exercises</span></button>
+    </nav>
+  </aside>
+
+  <div class="panel-viewport" id="viewport">
+
+    <!-- 0: Overview -->
+    <div class="panel active" id="panel-0">
+      <div class="hero">
+        <span class="topic-label"><span class="dot"></span>Topic 14 of 14</span>
+        <h1>Export / I/O</h1>
+        <p>Pandas can read and write many file formats. Each format has trade-offs between human readability, file size, and speed.</p>
+        <div class="hero-pills">
+          <span class="tag">to_csv / read_csv</span>
+          <span class="tag blue">to_excel</span>
+          <span class="tag green">to_json</span>
+          <span class="tag orange">to_parquet</span>
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" disabled>← Prev</button>
+        <button class="pnav-btn next" onclick="goTo(1)">CSV →</button>
+      </div>
+    </div>
+
+    <!-- 1: CSV -->
+    <div class="panel" id="panel-1">
+      <div class="section">
+        <div class="section-label">CSV</div>
+        <h2>to_csv() and read_csv()</h2>
+        <div class="code-result-list">
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="kw">import</span> <span class="lib">pandas</span> <span class="kw">as</span> <span class="lib">pd</span></span>
+<span class="line"></span>
+<span class="line">df = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({</span>
+<span class="line">    <span class="str">'name'</span>:   [<span class="str">'Alice'</span>, <span class="str">'Bob'</span>, <span class="str">'Carol'</span>],</span>
+<span class="line">    <span class="str">'dept'</span>:   [<span class="str">'Eng'</span>, <span class="str">'HR'</span>, <span class="str">'Eng'</span>],</span>
+<span class="line">    <span class="str">'salary'</span>: [<span class="num">75000</span>, <span class="num">52000</span>, <span class="num">81000</span>]</span>
+<span class="line">})</span>
+<span class="line"></span>
+<span class="line"><span class="cm"># write — index=False omits the row numbers</span></span>
+<span class="line">df.<span class="fn">to_csv</span>(<span class="str">'employees.csv'</span>, index=<span class="kw">False</span>)</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">employees.csv</div>
+              <table class="ser-out">
+                <thead><tr><th>name</th><th>dept</th><th>salary</th></tr></thead>
+                <tbody>
+                  <tr><td>Alice</td><td>Eng</td><td>75000</td></tr>
+                  <tr><td>Bob</td><td>HR</td><td>52000</td></tr>
+                  <tr><td>Carol</td><td>Eng</td><td>81000</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># read back</span></span>
+<span class="line">df2 = <span class="lib">pd</span>.<span class="fn">read_csv</span>(<span class="str">'employees.csv'</span>)</span>
+<span class="line">df2</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">read_csv()</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>name</th><th>dept</th><th>salary</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>Alice</td><td>Eng</td><td>75000</td></tr>
+                  <tr><td>1</td><td>Bob</td><td>HR</td><td>52000</td></tr>
+                  <tr><td>2</td><td>Carol</td><td>Eng</td><td>81000</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># useful read_csv options</span></span>
+<span class="line"><span class="lib">pd</span>.<span class="fn">read_csv</span>(<span class="str">'data.csv'</span>,</span>
+<span class="line">    sep=<span class="str">';'</span>,                   <span class="cm"># different delimiter</span></span>
+<span class="line">    usecols=[<span class="str">'name'</span>, <span class="str">'salary'</span>], <span class="cm"># load only these columns</span></span>
+<span class="line">    nrows=<span class="num">100</span>,                 <span class="cm"># read first 100 rows only</span></span>
+<span class="line">    dtype={<span class="str">'salary'</span>: <span class="str">'int32'</span>}, <span class="cm"># specify column dtypes</span></span>
+<span class="line">    parse_dates=[<span class="str">'date'</span>],      <span class="cm"># parse these cols as datetime</span></span>
+<span class="line">    skiprows=<span class="num">1</span>                 <span class="cm"># skip first N rows</span></span>
+<span class="line">)</span></pre>
+            </div>
+          </div>
+        </div>
+        <div class="callout blue">
+          <strong>index=False matters:</strong> without it, <code>to_csv</code> writes the integer index as an extra column. When you read it back, you'll get an unnamed column <code>Unnamed: 0</code>. Always pass <code>index=False</code> unless the index carries meaning.
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(0)">← Overview</button>
+        <button class="pnav-btn next" onclick="goTo(2)">Excel &amp; JSON →</button>
+      </div>
+    </div>
+
+    <!-- 2: Excel & JSON -->
+    <div class="panel" id="panel-2">
+      <div class="section">
+        <div class="section-label">Excel &amp; JSON</div>
+        <h2>to_excel() and to_json()</h2>
+        <div class="code-result-list">
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># requires openpyxl: pip install openpyxl</span></span>
+<span class="line">df.<span class="fn">to_excel</span>(<span class="str">'employees.xlsx'</span>, index=<span class="kw">False</span>, sheet_name=<span class="str">'Staff'</span>)</span>
+<span class="line"></span>
+<span class="line"><span class="cm"># read back</span></span>
+<span class="line">df2 = <span class="lib">pd</span>.<span class="fn">read_excel</span>(<span class="str">'employees.xlsx'</span>, sheet_name=<span class="str">'Staff'</span>)</span>
+<span class="line"></span>
+<span class="line"><span class="cm"># write multiple sheets</span></span>
+<span class="line"><span class="kw">with</span> <span class="lib">pd</span>.<span class="cls">ExcelWriter</span>(<span class="str">'report.xlsx'</span>) <span class="kw">as</span> writer:</span>
+<span class="line">    df.<span class="fn">to_excel</span>(writer, sheet_name=<span class="str">'Employees'</span>, index=<span class="kw">False</span>)</span></pre>
+            </div>
+          </div>
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># orient='records' → list of dicts (most common for APIs)</span></span>
+<span class="line">df.<span class="fn">to_json</span>(<span class="str">'employees.json'</span>, orient=<span class="str">'records'</span>, indent=<span class="num">2</span>)</span></pre>
+            </div>
+            <div class="ser-wrap" style="width:100%">
+              <div class="ser-label">employees.json</div>
+              <pre style="margin:0;font-size:.8rem;color:var(--text)">[
+  {"name": "Alice", "dept": "Eng", "salary": 75000},
+  {"name": "Bob",   "dept": "HR",  "salary": 52000},
+  {"name": "Carol", "dept": "Eng", "salary": 81000}
+]</pre>
+            </div>
+          </div>
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># read JSON back</span></span>
+<span class="line">df3 = <span class="lib">pd</span>.<span class="fn">read_json</span>(<span class="str">'employees.json'</span>)</span>
+<span class="line"></span>
+<span class="line"><span class="cm"># common orient values:</span></span>
+<span class="line"><span class="cm"># 'records'  — list of {col: val} dicts</span></span>
+<span class="line"><span class="cm"># 'split'    — {index, columns, data}</span></span>
+<span class="line"><span class="cm"># 'columns'  — {col: {index: val}} (default)</span></span>
+<span class="line"><span class="cm"># 'index'    — {index: {col: val}}</span></span></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(1)">← CSV</button>
+        <button class="pnav-btn next" onclick="goTo(3)">Parquet &amp; Options →</button>
+      </div>
+    </div>
+
+    <!-- 3: Parquet & Options -->
+    <div class="panel" id="panel-3">
+      <div class="section">
+        <div class="section-label">Parquet &amp; Options</div>
+        <h2>Parquet — Fast Columnar Storage</h2>
+        <div class="code-result-list">
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># requires pyarrow: pip install pyarrow</span></span>
+<span class="line">df.<span class="fn">to_parquet</span>(<span class="str">'employees.parquet'</span>, index=<span class="kw">False</span>)</span>
+<span class="line"></span>
+<span class="line">df2 = <span class="lib">pd</span>.<span class="fn">read_parquet</span>(<span class="str">'employees.parquet'</span>)</span>
+<span class="line">df2.dtypes</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">dtypes preserved</div>
+              <table class="ser-out">
+                <thead><tr><th>column</th><th>dtype</th></tr></thead>
+                <tbody>
+                  <tr><td>name</td><td>object</td></tr>
+                  <tr><td>dept</td><td>object</td></tr>
+                  <tr><td>salary</td><td>int64</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># load only specific columns — efficient for large files</span></span>
+<span class="line"><span class="lib">pd</span>.<span class="fn">read_parquet</span>(<span class="str">'employees.parquet'</span>, columns=[<span class="str">'name'</span>, <span class="str">'salary'</span>])</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">columns subset</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>name</th><th>salary</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>Alice</td><td>75000</td></tr>
+                  <tr><td>1</td><td>Bob</td><td>52000</td></tr>
+                  <tr><td>2</td><td>Carol</td><td>81000</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="callout green">
+          <strong>Format comparison:</strong>
+          <ul style="margin:.5rem 0 0 1rem;line-height:1.8">
+            <li><strong>CSV</strong> — human-readable, slow, loses dtypes</li>
+            <li><strong>Excel</strong> — good for sharing with non-coders</li>
+            <li><strong>JSON</strong> — great for APIs, can store nested data</li>
+            <li><strong>Parquet</strong> — fast, compressed, preserves dtypes — best for large data pipelines</li>
+          </ul>
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(2)">← Excel &amp; JSON</button>
+        <button class="pnav-btn next" onclick="goTo(4)">Exercises →</button>
+      </div>
+    </div>
+
+    <!-- 4: Exercises -->
+    <div class="panel" id="panel-4">
+      <div class="section">
+        <div class="section-label">Exercises</div>
+        <h2>Practice — Export / I/O</h2>
+
+        <div class="ex-block">
+          <span class="ex-num">Q1</span>
+          <p>Write the DataFrame to a CSV file without the index, then read it back and verify the shape is <code>(3, 3)</code>.</p>
+          <div class="code-wrap"><pre><span class="line">df = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({</span>
+<span class="line">    <span class="str">'city'</span>:  [<span class="str">'Paris'</span>, <span class="str">'London'</span>, <span class="str">'Berlin'</span>],</span>
+<span class="line">    <span class="str">'pop'</span>:   [<span class="num">2_161_000</span>, <span class="num">8_982_000</span>, <span class="num">3_669_000</span>],</span>
+<span class="line">    <span class="str">'country'</span>: [<span class="str">'FR'</span>, <span class="str">'UK'</span>, <span class="str">'DE'</span>]</span>
+<span class="line">})</span></pre></div>
+          <details class="answer">
+            <summary>Show answer</summary>
+            <div class="answer-body">
+              <div class="code-wrap" style="margin:0">
+                <pre><span class="line">df.<span class="fn">to_csv</span>(<span class="str">'cities.csv'</span>, index=<span class="kw">False</span>)</span>
+<span class="line">df2 = <span class="lib">pd</span>.<span class="fn">read_csv</span>(<span class="str">'cities.csv'</span>)</span>
+<span class="line"><span class="fn">print</span>(df2.shape)    <span class="cm"># (3, 3)</span></span>
+<span class="line"><span class="fn">print</span>(df2.columns.tolist())  <span class="cm"># ['city', 'pop', 'country']</span></span></pre>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="ex-block">
+          <span class="ex-num">Q2</span>
+          <p>Read <code>data.csv</code> but load only the <code>name</code> and <code>salary</code> columns, and only the first 10 rows.</p>
+          <details class="answer">
+            <summary>Show answer</summary>
+            <div class="answer-body">
+              <div class="code-wrap" style="margin:0">
+                <pre><span class="line">df = <span class="lib">pd</span>.<span class="fn">read_csv</span>(</span>
+<span class="line">    <span class="str">'data.csv'</span>,</span>
+<span class="line">    usecols=[<span class="str">'name'</span>, <span class="str">'salary'</span>],</span>
+<span class="line">    nrows=<span class="num">10</span></span>
+<span class="line">)</span></pre>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="ex-block">
+          <span class="ex-num">Q3</span>
+          <p>Export the DataFrame as JSON using <code>orient='records'</code> so the output is a list of dictionaries.</p>
+          <div class="code-wrap"><pre><span class="line">df = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({<span class="str">'product'</span>:[<span class="str">'A'</span>,<span class="str">'B'</span>], <span class="str">'price'</span>:[<span class="num">10</span>,<span class="num">25</span>]})</span></pre></div>
+          <details class="answer">
+            <summary>Show answer</summary>
+            <div class="answer-body">
+              <div class="code-wrap" style="margin:0">
+                <pre><span class="line">json_str = df.<span class="fn">to_json</span>(orient=<span class="str">'records'</span>)</span>
+<span class="line"><span class="fn">print</span>(json_str)</span>
+<span class="line"><span class="out"># [{"product":"A","price":10},{"product":"B","price":25}]</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm"># or write directly to a file with indentation</span></span>
+<span class="line">df.<span class="fn">to_json</span>(<span class="str">'products.json'</span>, orient=<span class="str">'records'</span>, indent=<span class="num">2</span>)</span></pre>
+              </div>
+            </div>
+          </details>
+        </div>
+
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(3)">← Parquet &amp; Options</button>
+        <button class="pnav-btn next" onclick="goTo(0)">⟳ Overview</button>
+      </div>
+    </div>
+
+  </div><!-- /panel-viewport -->
+</div><!-- /page-layout -->
+
+<script src="app.js"></script>
+<script>
+let _cur = 0;
+function goTo(idx) {
+  if (idx === _cur) return;
+  const oldP = document.getElementById('panel-' + _cur);
+  const newP = document.getElementById('panel-' + idx);
+  if (!oldP || !newP) return;
+  if (_cur > 0) { const sb = document.querySelector('[data-panel="' + _cur + '"]'); if (sb) sb.classList.add('done'); }
+  oldP.classList.remove('active'); oldP.classList.add('exit');
+  setTimeout(() => oldP.classList.remove('exit'), 240);
+  _cur = idx;
+  newP.classList.add('active');
+  document.getElementById('viewport').scrollTop = 0;
+  document.querySelectorAll('.s-item').forEach(b => b.classList.toggle('active', +b.dataset.panel === idx));
+  newP.querySelectorAll('.section:not(.visible)').forEach((s, i) => {
+    setTimeout(() => {
+      s.classList.add('visible');
+      if (typeof animatePre === 'function') animatePre(s);
+      if (typeof animateRows === 'function') animateRows(s);
+    }, i * 80 + 60);
+  });
+}
+(function() {
+  const vp = document.getElementById('viewport');
+  const pb = document.getElementById('progress');
+  if (vp && pb) vp.addEventListener('scroll', () => {
+    pb.style.width = (vp.scrollTop / (vp.scrollHeight - vp.clientHeight) * 100) + '%';
+  });
+})();
+</script>
+</body>
+</html>
