@@ -6,11 +6,46 @@
   <title>Topic 09 — Combining Data Sets</title>
   <link rel="stylesheet" href="style.css"/>
   <style>
+    .ser-out { border-collapse:collapse; font-family:'Courier New',monospace; font-size:.82rem; }
+    .ser-out th { color:var(--muted); font-size:.64rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; padding:4px 14px 4px 0; border-bottom:1px solid var(--border); text-align:left; white-space:nowrap; }
+    .ser-out td { padding:5px 14px 5px 0; border-bottom:1px solid rgba(255,255,255,.04); vertical-align:top; white-space:nowrap; }
+    .ser-out td:first-child { color:var(--accent); }
+    .ser-wrap { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px 18px; display:inline-block; overflow-x:auto; }
+    .ser-label { font-size:.62rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:8px; }
+    .ser-row { display:flex; flex-wrap:wrap; gap:14px; margin:16px 0 24px; }
+    .code-result-list { display:grid; gap:14px; margin:16px 0 4px; }
+    .code-result { display:grid; grid-template-columns:minmax(260px,1fr) auto; align-items:start; gap:14px; }
+    .code-result .code-wrap { margin:0; }
+    .code-result .ser-wrap { display:block; justify-self:end; min-width:270px; max-width:100%; }
+    .code-result.stacked { grid-template-columns:1fr; }
+    .code-result.stacked .ser-wrap { justify-self:stretch; min-width:0; }
+    .table-pair { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; }
     .join-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:16px; margin:20px 0; }
     .join-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px 18px; }
     .join-card h4 { font-size:.9rem; font-weight:700; margin-bottom:6px; }
     .join-card p  { font-size:.8rem; color:var(--muted); margin:0; }
     .join-card code { font-size:.78em; }
+    .join-block { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px 18px; margin-bottom:20px; }
+    .jb-head { display:flex; align-items:baseline; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
+    .jb-name { font-size:.88rem; font-weight:800; }
+    .jb-desc { font-size:.78rem; color:var(--muted); }
+    .jb-tables { display:flex; flex-direction:column; gap:12px; margin-top:14px; }
+    .jb-inputs { display:flex; gap:12px; align-items:flex-start; overflow-x:auto; padding-bottom:2px; }
+    .jb-result-row { display:flex; gap:12px; align-items:flex-start; overflow-x:auto; }
+    .jb-tbl { flex-shrink:0; }
+    .jb-tbl-lbl { font-size:.6rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:7px; }
+    .jb-arrow { align-self:center; font-size:1.3rem; color:var(--border); flex-shrink:0; padding:0 2px; }
+    .join-title-row { display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; }
+    .join-title-row h2 { margin:0; }
+    .join-step-nav { display:flex; gap:6px; padding:5px; border:1px solid var(--border); border-radius:10px; background:rgba(255,255,255,.03); }
+    .join-step-btn { width:30px; height:30px; border-radius:8px; border:1px solid transparent; background:transparent; color:var(--muted); font-weight:800; cursor:pointer; transition:background .18s,color .18s,border-color .18s; }
+    .join-step-btn:hover, .join-step-btn.active { color:var(--text); border-color:rgba(168,85,247,.45); background:rgba(168,85,247,.14); }
+    #panel-2 .join-block { display:none; }
+    #panel-2 .join-block.active { display:block; }
+    .set-title-row { display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; }
+    .set-title-row h2 { margin:0; }
+    .set-example { display:none; gap:14px; }
+    .set-example.active { display:grid; }
     /* ── sidebar layout ── */
     .page-layout{display:flex;height:calc(100vh - 54px);overflow:hidden;}
     .sidebar{width:210px;min-width:210px;height:100%;overflow-y:auto;background:#0a0e14;border-right:1px solid var(--border);display:flex;flex-direction:column;scrollbar-width:thin;scrollbar-color:var(--border) transparent;flex-shrink:0;}
@@ -38,7 +73,7 @@
     .pnav-btn:disabled{opacity:.28;cursor:default;}
     .pnav-btn.next{background:rgba(168,85,247,.08);border-color:rgba(168,85,247,.35);color:var(--accent);}
     .pnav-btn.next:hover{background:rgba(168,85,247,.16);border-color:var(--accent);}
-    @media(max-width:700px){.sidebar{display:none;}.panel{padding:20px 16px 60px;}}
+    @media(max-width:700px){.sidebar{display:none;}.panel{padding:20px 16px 60px;}.code-result{grid-template-columns:1fr;}.code-result .ser-wrap{min-width:0;justify-self:stretch;}}
   </style>
 </head>
 <body>
@@ -63,7 +98,7 @@
 <div class="page-layout">
 
   <aside class="sidebar">
-    <div class="sidebar-head">Topic 09 · 5 Sections</div>
+    <div class="sidebar-head">Topic 09 · Combining</div>
     <nav class="sidebar-nav">
       <button class="s-item active" data-panel="0" onclick="goTo(0)"><span class="s-num">00</span><span class="s-dot" style="background:#a855f7"></span><span class="s-label">Overview</span></button>
       <button class="s-item" data-panel="1" onclick="goTo(1)"><span class="s-num">01</span><span class="s-dot" style="background:#facc15"></span><span class="s-label">Sample Data</span></button>
@@ -99,20 +134,54 @@
       <div class="section">
         <div class="section-label">Sample Data</div>
         <h2>Two DataFrames Used in All Examples</h2>
-        <div class="code-wrap">
-          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
-          <pre><span class="line"><span class="kw">import</span> <span class="lib">pandas</span> <span class="kw">as</span> <span class="lib">pd</span></span>
+        <div class="code-result-list">
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="kw">import</span> <span class="lib">pandas</span> <span class="kw">as</span> <span class="lib">pd</span></span>
 <span class="line"></span>
 <span class="line">employees = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({</span>
 <span class="line">    <span class="str">'id'</span>:   [<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>, <span class="num">4</span>],</span>
 <span class="line">    <span class="str">'name'</span>: [<span class="str">'Alice'</span>, <span class="str">'Bob'</span>, <span class="str">'Carol'</span>, <span class="str">'David'</span>],</span>
 <span class="line">    <span class="str">'dept_id'</span>: [<span class="num">10</span>, <span class="num">10</span>, <span class="num">20</span>, <span class="num">30</span>]  <span class="cm"># David's dept 30 has no match</span></span>
 <span class="line">})</span>
-<span class="line"></span>
-<span class="line">departments = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({</span>
+<span class="line">employees</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">employees</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>id</th><th>name</th><th>dept_id</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>1</td><td>Alice</td><td>10</td></tr>
+                  <tr><td>1</td><td>2</td><td>Bob</td><td>10</td></tr>
+                  <tr><td>2</td><td>3</td><td>Carol</td><td>20</td></tr>
+                  <tr><td>3</td><td>4</td><td>David</td><td>30</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line">departments = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({</span>
 <span class="line">    <span class="str">'dept_id'</span>: [<span class="num">10</span>, <span class="num">20</span>, <span class="num">40</span>],  <span class="cm"># dept 40 has no employees</span></span>
 <span class="line">    <span class="str">'dept_name'</span>: [<span class="str">'Engineering'</span>, <span class="str">'HR'</span>, <span class="str">'Marketing'</span>]</span>
-<span class="line">})</span></pre>
+<span class="line">})</span>
+<span class="line">departments</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">departments</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>dept_id</th><th>dept_name</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>10</td><td>Engineering</td></tr>
+                  <tr><td>1</td><td>20</td><td>HR</td></tr>
+                  <tr><td>2</td><td>40</td><td>Marketing</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
       <div class="pnav">
@@ -125,56 +194,252 @@
       <!-- Standard joins -->
       <div class="section">
         <div class="section-label">Standard Joins</div>
-        <h2>The Four Types of Merge</h2>
-        <div class="join-grid">
-          <div class="join-card">
-            <h4 style="color:var(--green)">Inner Join (default)</h4>
-            <p>Keep only rows with a match in <strong>both</strong> DataFrames. David (dept 30) and Marketing (dept 40) are dropped.</p>
+        <div class="join-title-row">
+          <h2>The Four Types of Merge</h2>
+          <div class="join-step-nav" id="join-step-nav" aria-label="Merge type selector"></div>
+        </div>
+        <!-- inner join block -->
+        <div class="join-block">
+          <div class="jb-head">
+            <span class="jb-name" style="color:var(--green)">Inner Join (default)</span>
+            <span class="jb-desc">Keep only rows with a match in <strong>both</strong> DataFrames — David (dept 30) and Marketing (dept 40) are dropped</span>
           </div>
-          <div class="join-card">
-            <h4 style="color:var(--accent)">Left Join</h4>
-            <p>Keep all rows from the <strong>left</strong> DataFrame. David gets NaN for dept_name. Marketing is dropped.</p>
+          <div class="code-wrap" style="margin-bottom:0">
+            <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+            <pre><span class="line">inner = <span class="lib">pd</span>.<span class="fn">merge</span>(employees, departments, how=<span class="str">'inner'</span>, on=<span class="str">'dept_id'</span>)</span></pre>
           </div>
-          <div class="join-card">
-            <h4 style="color:var(--blue)">Right Join</h4>
-            <p>Keep all rows from the <strong>right</strong> DataFrame. Marketing gets NaN for employee columns. David is dropped.</p>
-          </div>
-          <div class="join-card">
-            <h4 style="color:var(--orange)">Outer Join</h4>
-            <p>Keep <strong>all rows</strong> from both DataFrames. Unmatched rows get NaN on the missing side.</p>
+          <div class="jb-tables">
+            <div class="jb-inputs">
+              <div class="jb-tbl">
+                <div class="jb-tbl-lbl">Table A — employees</div>
+                <div class="ser-wrap">
+                  <table class="ser-out">
+                    <thead><tr><th></th><th>id</th><th>name</th><th>dept_id</th></tr></thead>
+                    <tbody>
+                      <tr><td>0</td><td>1</td><td>Alice</td><td>10</td></tr>
+                      <tr><td>1</td><td>2</td><td>Bob</td><td>10</td></tr>
+                      <tr><td>2</td><td>3</td><td>Carol</td><td>20</td></tr>
+                      <tr><td>3</td><td>4</td><td>David</td><td>30</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="jb-arrow">+</div>
+              <div class="jb-tbl">
+                <div class="jb-tbl-lbl">Table B — departments</div>
+                <div class="ser-wrap">
+                  <table class="ser-out">
+                    <thead><tr><th></th><th>dept_id</th><th>dept_name</th></tr></thead>
+                    <tbody>
+                      <tr><td>0</td><td>10</td><td>Engineering</td></tr>
+                      <tr><td>1</td><td>20</td><td>HR</td></tr>
+                      <tr><td>2</td><td>40</td><td>Marketing</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            <div class="jb-result-row">
+              <div class="jb-arrow">→</div>
+              <div class="jb-tbl">
+                <div class="jb-tbl-lbl">Result</div>
+                <div class="ser-wrap">
+                  <table class="ser-out">
+                    <thead><tr><th></th><th>id</th><th>name</th><th>dept_id</th><th>dept_name</th></tr></thead>
+                    <tbody>
+                      <tr><td>0</td><td>1</td><td>Alice</td><td>10</td><td>Engineering</td></tr>
+                      <tr><td>1</td><td>2</td><td>Bob</td><td>10</td><td>Engineering</td></tr>
+                      <tr><td>2</td><td>3</td><td>Carol</td><td>20</td><td>HR</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="code-wrap">
-          <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
-          <pre><span class="line"><span class="cm"># inner join — only matching rows</span></span>
-<span class="line">inner = <span class="lib">pd</span>.<span class="fn">merge</span>(employees, departments, how=<span class="str">'inner'</span>, on=<span class="str">'dept_id'</span>)</span>
-<span class="line"><span class="fn">print</span>(inner)</span>
-<span class="line"><span class="out">#    id   name  dept_id    dept_name</span></span>
-<span class="line"><span class="out"># 0   1  Alice       10  Engineering</span></span>
-<span class="line"><span class="out"># 1   2    Bob       10  Engineering</span></span>
-<span class="line"><span class="out"># 2   3  Carol       20           HR</span></span>
-<span class="line"></span>
-<span class="line"><span class="cm"># left join — all employees, NaN if no dept match</span></span>
-<span class="line">left = <span class="lib">pd</span>.<span class="fn">merge</span>(employees, departments, how=<span class="str">'left'</span>, on=<span class="str">'dept_id'</span>)</span>
-<span class="line"><span class="fn">print</span>(left)</span>
-<span class="line"><span class="out">#    id   name  dept_id    dept_name</span></span>
-<span class="line"><span class="out"># 0   1  Alice       10  Engineering</span></span>
-<span class="line"><span class="out"># 1   2    Bob       10  Engineering</span></span>
-<span class="line"><span class="out"># 2   3  Carol       20           HR</span></span>
-<span class="line"><span class="out"># 3   4  David       30          NaN  ← no dept match</span></span>
-<span class="line"></span>
-<span class="line"><span class="cm"># right join — all departments, NaN if no employee match</span></span>
-<span class="line">right = <span class="lib">pd</span>.<span class="fn">merge</span>(employees, departments, how=<span class="str">'right'</span>, on=<span class="str">'dept_id'</span>)</span>
-<span class="line"></span>
-<span class="line"><span class="cm"># outer join — everything, NaN where no match</span></span>
-<span class="line">outer = <span class="lib">pd</span>.<span class="fn">merge</span>(employees, departments, how=<span class="str">'outer'</span>, on=<span class="str">'dept_id'</span>)</span>
-<span class="line"><span class="fn">print</span>(outer)</span>
-<span class="line"><span class="out">#     id   name  dept_id    dept_name</span></span>
-<span class="line"><span class="out"># 0  1.0  Alice       10  Engineering</span></span>
-<span class="line"><span class="out"># 1  2.0    Bob       10  Engineering</span></span>
-<span class="line"><span class="out"># 2  3.0  Carol       20           HR</span></span>
-<span class="line"><span class="out"># 3  4.0  David       30          NaN</span></span>
-<span class="line"><span class="out"># 4  NaN    NaN       40    Marketing</span></span></pre>
+
+        <!-- left join block -->
+        <div class="join-block">
+          <div class="jb-head">
+            <span class="jb-name" style="color:var(--accent)">Left Join</span>
+            <span class="jb-desc">Keep all rows from the <strong>left</strong> DataFrame — David gets NaN for dept_name, Marketing is dropped</span>
+          </div>
+          <div class="code-wrap" style="margin-bottom:0">
+            <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+            <pre><span class="line">left = <span class="lib">pd</span>.<span class="fn">merge</span>(employees, departments, how=<span class="str">'left'</span>, on=<span class="str">'dept_id'</span>)</span></pre>
+          </div>
+          <div class="jb-tables">
+            <div class="jb-inputs">
+              <div class="jb-tbl">
+                <div class="jb-tbl-lbl">Table A — employees</div>
+                <div class="ser-wrap">
+                  <table class="ser-out">
+                    <thead><tr><th></th><th>id</th><th>name</th><th>dept_id</th></tr></thead>
+                    <tbody>
+                      <tr><td>0</td><td>1</td><td>Alice</td><td>10</td></tr>
+                      <tr><td>1</td><td>2</td><td>Bob</td><td>10</td></tr>
+                      <tr><td>2</td><td>3</td><td>Carol</td><td>20</td></tr>
+                      <tr><td>3</td><td>4</td><td>David</td><td>30</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="jb-arrow">+</div>
+              <div class="jb-tbl">
+                <div class="jb-tbl-lbl">Table B — departments</div>
+                <div class="ser-wrap">
+                  <table class="ser-out">
+                    <thead><tr><th></th><th>dept_id</th><th>dept_name</th></tr></thead>
+                    <tbody>
+                      <tr><td>0</td><td>10</td><td>Engineering</td></tr>
+                      <tr><td>1</td><td>20</td><td>HR</td></tr>
+                      <tr><td>2</td><td>40</td><td>Marketing</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            <div class="jb-result-row">
+              <div class="jb-arrow">→</div>
+              <div class="jb-tbl">
+                <div class="jb-tbl-lbl">Result</div>
+                <div class="ser-wrap">
+                  <table class="ser-out">
+                    <thead><tr><th></th><th>id</th><th>name</th><th>dept_id</th><th>dept_name</th></tr></thead>
+                    <tbody>
+                      <tr><td>0</td><td>1</td><td>Alice</td><td>10</td><td>Engineering</td></tr>
+                      <tr><td>1</td><td>2</td><td>Bob</td><td>10</td><td>Engineering</td></tr>
+                      <tr><td>2</td><td>3</td><td>Carol</td><td>20</td><td>HR</td></tr>
+                      <tr><td>3</td><td>4</td><td>David</td><td>30</td><td><span class="nan">NaN</span></td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- right join block -->
+        <div class="join-block">
+          <div class="jb-head">
+            <span class="jb-name" style="color:var(--blue)">Right Join</span>
+            <span class="jb-desc">Keep all rows from the <strong>right</strong> DataFrame — Marketing gets NaN for employee columns, David is dropped</span>
+          </div>
+          <div class="code-wrap" style="margin-bottom:0">
+            <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+            <pre><span class="line">right = <span class="lib">pd</span>.<span class="fn">merge</span>(employees, departments, how=<span class="str">'right'</span>, on=<span class="str">'dept_id'</span>)</span></pre>
+          </div>
+          <div class="jb-tables">
+            <div class="jb-inputs">
+              <div class="jb-tbl">
+                <div class="jb-tbl-lbl">Table A — employees</div>
+                <div class="ser-wrap">
+                  <table class="ser-out">
+                    <thead><tr><th></th><th>id</th><th>name</th><th>dept_id</th></tr></thead>
+                    <tbody>
+                      <tr><td>0</td><td>1</td><td>Alice</td><td>10</td></tr>
+                      <tr><td>1</td><td>2</td><td>Bob</td><td>10</td></tr>
+                      <tr><td>2</td><td>3</td><td>Carol</td><td>20</td></tr>
+                      <tr><td>3</td><td>4</td><td>David</td><td>30</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="jb-arrow">+</div>
+              <div class="jb-tbl">
+                <div class="jb-tbl-lbl">Table B — departments</div>
+                <div class="ser-wrap">
+                  <table class="ser-out">
+                    <thead><tr><th></th><th>dept_id</th><th>dept_name</th></tr></thead>
+                    <tbody>
+                      <tr><td>0</td><td>10</td><td>Engineering</td></tr>
+                      <tr><td>1</td><td>20</td><td>HR</td></tr>
+                      <tr><td>2</td><td>40</td><td>Marketing</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            <div class="jb-result-row">
+              <div class="jb-arrow">→</div>
+              <div class="jb-tbl">
+                <div class="jb-tbl-lbl">Result</div>
+                <div class="ser-wrap">
+                  <table class="ser-out">
+                    <thead><tr><th></th><th>id</th><th>name</th><th>dept_id</th><th>dept_name</th></tr></thead>
+                    <tbody>
+                      <tr><td>0</td><td>1.0</td><td>Alice</td><td>10</td><td>Engineering</td></tr>
+                      <tr><td>1</td><td>2.0</td><td>Bob</td><td>10</td><td>Engineering</td></tr>
+                      <tr><td>2</td><td>3.0</td><td>Carol</td><td>20</td><td>HR</td></tr>
+                      <tr><td>3</td><td><span class="nan">NaN</span></td><td><span class="nan">NaN</span></td><td>40</td><td>Marketing</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- outer join block -->
+        <div class="join-block">
+          <div class="jb-head">
+            <span class="jb-name" style="color:var(--orange)">Outer Join</span>
+            <span class="jb-desc">Keep <strong>all rows</strong> from both DataFrames — unmatched rows get NaN on the missing side</span>
+          </div>
+          <div class="code-wrap" style="margin-bottom:0">
+            <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+            <pre><span class="line">outer = <span class="lib">pd</span>.<span class="fn">merge</span>(employees, departments, how=<span class="str">'outer'</span>, on=<span class="str">'dept_id'</span>)</span></pre>
+          </div>
+          <div class="jb-tables">
+            <div class="jb-inputs">
+              <div class="jb-tbl">
+                <div class="jb-tbl-lbl">Table A — employees</div>
+                <div class="ser-wrap">
+                  <table class="ser-out">
+                    <thead><tr><th></th><th>id</th><th>name</th><th>dept_id</th></tr></thead>
+                    <tbody>
+                      <tr><td>0</td><td>1</td><td>Alice</td><td>10</td></tr>
+                      <tr><td>1</td><td>2</td><td>Bob</td><td>10</td></tr>
+                      <tr><td>2</td><td>3</td><td>Carol</td><td>20</td></tr>
+                      <tr><td>3</td><td>4</td><td>David</td><td>30</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="jb-arrow">+</div>
+              <div class="jb-tbl">
+                <div class="jb-tbl-lbl">Table B — departments</div>
+                <div class="ser-wrap">
+                  <table class="ser-out">
+                    <thead><tr><th></th><th>dept_id</th><th>dept_name</th></tr></thead>
+                    <tbody>
+                      <tr><td>0</td><td>10</td><td>Engineering</td></tr>
+                      <tr><td>1</td><td>20</td><td>HR</td></tr>
+                      <tr><td>2</td><td>40</td><td>Marketing</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            <div class="jb-result-row">
+              <div class="jb-arrow">→</div>
+              <div class="jb-tbl">
+                <div class="jb-tbl-lbl">Result</div>
+                <div class="ser-wrap">
+                  <table class="ser-out">
+                    <thead><tr><th></th><th>id</th><th>name</th><th>dept_id</th><th>dept_name</th></tr></thead>
+                    <tbody>
+                      <tr><td>0</td><td>1.0</td><td>Alice</td><td>10</td><td>Engineering</td></tr>
+                      <tr><td>1</td><td>2.0</td><td>Bob</td><td>10</td><td>Engineering</td></tr>
+                      <tr><td>2</td><td>3.0</td><td>Carol</td><td>20</td><td>HR</td></tr>
+                      <tr><td>3</td><td>4.0</td><td>David</td><td>30</td><td><span class="nan">NaN</span></td></tr>
+                      <tr><td>4</td><td><span class="nan">NaN</span></td><td><span class="nan">NaN</span></td><td>40</td><td>Marketing</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       <div class="pnav">
@@ -188,7 +453,92 @@
       <div class="section">
         <div class="section-label">Filtering Joins</div>
         <h2>isin() — Keep or Exclude Based on Another DataFrame</h2>
-        <div class="code-wrap">
+        <div class="code-result-list">
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line">valid_depts = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({<span class="str">'dept_id'</span>: [<span class="num">10</span>, <span class="num">20</span>]})</span>
+<span class="line">valid_depts</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">valid_depts</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>dept_id</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>10</td></tr>
+                  <tr><td>1</td><td>20</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># keep only employees whose dept_id is in valid_depts</span></span>
+<span class="line">matched = employees[employees.dept_id.<span class="fn">isin</span>(valid_depts.dept_id)]</span>
+<span class="line">matched</span></pre>
+            </div>
+            <div class="table-pair">
+              <div class="ser-wrap">
+                <div class="ser-label">employees</div>
+                <table class="ser-out">
+                  <thead><tr><th>index</th><th>id</th><th>name</th><th>dept_id</th></tr></thead>
+                  <tbody>
+                    <tr><td>0</td><td>1</td><td>Alice</td><td>10</td></tr>
+                    <tr><td>1</td><td>2</td><td>Bob</td><td>10</td></tr>
+                    <tr><td>2</td><td>3</td><td>Carol</td><td>20</td></tr>
+                    <tr><td>3</td><td>4</td><td>David</td><td>30</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="ser-wrap">
+                <div class="ser-label">matched</div>
+                <table class="ser-out">
+                  <thead><tr><th>index</th><th>id</th><th>name</th><th>dept_id</th></tr></thead>
+                  <tbody>
+                    <tr><td>0</td><td>1</td><td>Alice</td><td>10</td></tr>
+                    <tr><td>1</td><td>2</td><td>Bob</td><td>10</td></tr>
+                    <tr><td>2</td><td>3</td><td>Carol</td><td>20</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># keep employees whose dept_id is NOT in valid_depts</span></span>
+<span class="line">unmatched = employees[~employees.dept_id.<span class="fn">isin</span>(valid_depts.dept_id)]</span>
+<span class="line">unmatched</span></pre>
+            </div>
+            <div class="table-pair">
+              <div class="ser-wrap">
+                <div class="ser-label">employees</div>
+                <table class="ser-out">
+                  <thead><tr><th>index</th><th>id</th><th>name</th><th>dept_id</th></tr></thead>
+                  <tbody>
+                    <tr><td>0</td><td>1</td><td>Alice</td><td>10</td></tr>
+                    <tr><td>1</td><td>2</td><td>Bob</td><td>10</td></tr>
+                    <tr><td>2</td><td>3</td><td>Carol</td><td>20</td></tr>
+                    <tr><td>3</td><td>4</td><td>David</td><td>30</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="ser-wrap">
+                <div class="ser-label">unmatched</div>
+                <table class="ser-out">
+                  <thead><tr><th>index</th><th>id</th><th>name</th><th>dept_id</th></tr></thead>
+                  <tbody>
+                    <tr><td>3</td><td>4</td><td>David</td><td>30</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="code-wrap" style="display:none">
           <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
           <pre><span class="line">valid_depts = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({<span class="str">'dept_id'</span>: [<span class="num">10</span>, <span class="num">20</span>]})</span>
 <span class="line"></span>
@@ -217,8 +567,108 @@
       <!-- Set-like operations -->
       <div class="section">
         <div class="section-label">Set-like Operations</div>
-        <h2>Intersection, Union, Set Difference</h2>
-        <div class="code-wrap">
+        <div class="set-title-row">
+          <h2>Intersection, Union, Set Difference</h2>
+          <div class="join-step-nav" id="set-step-nav" aria-label="Set-like operation selector"></div>
+        </div>
+        <div class="code-result-list">
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line">ydf = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({<span class="str">'x1'</span>:[<span class="str">'A'</span>,<span class="str">'B'</span>,<span class="str">'C'</span>], <span class="str">'x2'</span>:[<span class="num">1</span>,<span class="num">2</span>,<span class="num">3</span>]})</span>
+<span class="line">ydf</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">ydf</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>x1</th><th>x2</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>A</td><td>1</td></tr>
+                  <tr><td>1</td><td>B</td><td>2</td></tr>
+                  <tr><td>2</td><td>C</td><td>3</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line">zdf = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({<span class="str">'x1'</span>:[<span class="str">'B'</span>,<span class="str">'C'</span>,<span class="str">'D'</span>], <span class="str">'x2'</span>:[<span class="num">2</span>,<span class="num">3</span>,<span class="num">4</span>]})</span>
+<span class="line">zdf</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">zdf</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>x1</th><th>x2</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>B</td><td>2</td></tr>
+                  <tr><td>1</td><td>C</td><td>3</td></tr>
+                  <tr><td>2</td><td>D</td><td>4</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># intersection - rows in BOTH</span></span>
+<span class="line"><span class="lib">pd</span>.<span class="fn">merge</span>(ydf, zdf)</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">intersection</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>x1</th><th>x2</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>B</td><td>2</td></tr>
+                  <tr><td>1</td><td>C</td><td>3</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># union - rows in EITHER or both</span></span>
+<span class="line"><span class="lib">pd</span>.<span class="fn">merge</span>(ydf, zdf, how=<span class="str">'outer'</span>)</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">union</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>x1</th><th>x2</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>A</td><td>1</td></tr>
+                  <tr><td>1</td><td>B</td><td>2</td></tr>
+                  <tr><td>2</td><td>C</td><td>3</td></tr>
+                  <tr><td>3</td><td>D</td><td>4</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="code-result">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># rows in ydf but NOT in zdf</span></span>
+<span class="line">diff = (<span class="lib">pd</span>.<span class="fn">merge</span>(ydf, zdf, how=<span class="str">'outer'</span>, indicator=<span class="kw">True</span>)</span>
+<span class="line">          .<span class="fn">query</span>(<span class="str">'_merge == "left_only"'</span>)</span>
+<span class="line">          .<span class="fn">drop</span>(columns=[<span class="str">'_merge'</span>]))</span>
+<span class="line">diff</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">difference</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>x1</th><th>x2</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>A</td><td>1</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="code-wrap" style="display:none">
           <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
           <pre><span class="line">ydf = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({<span class="str">'x1'</span>:[<span class="str">'A'</span>,<span class="str">'B'</span>,<span class="str">'C'</span>], <span class="str">'x2'</span>:[<span class="num">1</span>,<span class="num">2</span>,<span class="num">3</span>]})</span>
 <span class="line">zdf = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({<span class="str">'x1'</span>:[<span class="str">'B'</span>,<span class="str">'C'</span>,<span class="str">'D'</span>], <span class="str">'x2'</span>:[<span class="num">2</span>,<span class="num">3</span>,<span class="num">4</span>]})</span>
@@ -347,6 +797,84 @@ function goTo(idx) {
     pb.style.width = (vp.scrollTop / (vp.scrollHeight - vp.clientHeight) * 100) + '%';
   });
 })();
+function setupJoinExamples() {
+  const panel = document.getElementById('panel-2');
+  const nav = document.getElementById('join-step-nav');
+  if (!panel || !nav) return;
+  const blocks = Array.from(panel.querySelectorAll('.join-block'));
+  blocks.forEach((block, idx) => block.classList.toggle('active', idx === 0));
+  nav.innerHTML = '';
+  blocks.forEach((_, idx) => {
+    const button = document.createElement('button');
+    button.className = 'join-step-btn' + (idx === 0 ? ' active' : '');
+    button.type = 'button';
+    button.textContent = String(idx + 1);
+    button.setAttribute('aria-label', 'Show merge type ' + (idx + 1));
+    button.addEventListener('click', () => showJoinExample(idx));
+    nav.appendChild(button);
+  });
+}
+function showJoinExample(idx) {
+  document.querySelectorAll('#panel-2 .join-block')
+    .forEach((block, i) => block.classList.toggle('active', i === idx));
+  document.querySelectorAll('#join-step-nav .join-step-btn')
+    .forEach((button, i) => button.classList.toggle('active', i === idx));
+  const viewport = document.getElementById('viewport');
+  const panel = document.getElementById('panel-2');
+  if (viewport && panel) viewport.scrollTop = panel.offsetTop;
+}
+setupJoinExamples();
+function setupSetExamples() {
+  const panel = document.getElementById('panel-4');
+  const nav = document.getElementById('set-step-nav');
+  const list = panel ? panel.querySelector('.code-result-list') : null;
+  if (!panel || !nav || !list || panel.dataset.setReady === '1') return;
+  panel.dataset.setReady = '1';
+
+  const items = Array.from(list.children);
+  const sourceTables = items.slice(0, 2).map(item => item.querySelector('.ser-wrap'));
+  const ops = items.slice(2).filter(item => item.classList.contains('code-result'));
+  if (!sourceTables.length || !ops.length) return;
+
+  const host = document.createElement('div');
+  host.className = 'set-example-list';
+  list.parentNode.insertBefore(host, list);
+
+  ops.forEach((op, idx) => {
+    op.classList.add('stacked');
+    const slide = document.createElement('div');
+    slide.className = 'set-example' + (idx === 0 ? ' active' : '');
+    const sourceRow = document.createElement('div');
+    sourceRow.className = 'table-pair';
+    sourceTables.forEach(table => sourceRow.appendChild(table.cloneNode(true)));
+    slide.appendChild(sourceRow);
+    slide.appendChild(op);
+    host.appendChild(slide);
+  });
+
+  nav.innerHTML = '';
+  ops.forEach((_, idx) => {
+    const button = document.createElement('button');
+    button.className = 'join-step-btn' + (idx === 0 ? ' active' : '');
+    button.type = 'button';
+    button.textContent = String(idx + 1);
+    button.setAttribute('aria-label', 'Show set-like operation ' + (idx + 1));
+    button.addEventListener('click', () => showSetExample(idx));
+    nav.appendChild(button);
+  });
+
+  list.remove();
+}
+function showSetExample(idx) {
+  document.querySelectorAll('#panel-4 .set-example')
+    .forEach((slide, i) => slide.classList.toggle('active', i === idx));
+  document.querySelectorAll('#set-step-nav .join-step-btn')
+    .forEach((button, i) => button.classList.toggle('active', i === idx));
+  const viewport = document.getElementById('viewport');
+  const panel = document.getElementById('panel-4');
+  if (viewport && panel) viewport.scrollTop = panel.offsetTop;
+}
+setupSetExamples();
 </script>
 </body>
 </html>
