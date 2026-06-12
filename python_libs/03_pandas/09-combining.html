@@ -35,6 +35,17 @@
     .jb-tbl { flex-shrink:0; }
     .jb-tbl-lbl { font-size:.6rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:7px; }
     .jb-arrow { align-self:center; font-size:1.3rem; color:var(--border); flex-shrink:0; padding:0 2px; }
+    .join-title-row { display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; }
+    .join-title-row h2 { margin:0; }
+    .join-step-nav { display:flex; gap:6px; padding:5px; border:1px solid var(--border); border-radius:10px; background:rgba(255,255,255,.03); }
+    .join-step-btn { width:30px; height:30px; border-radius:8px; border:1px solid transparent; background:transparent; color:var(--muted); font-weight:800; cursor:pointer; transition:background .18s,color .18s,border-color .18s; }
+    .join-step-btn:hover, .join-step-btn.active { color:var(--text); border-color:rgba(168,85,247,.45); background:rgba(168,85,247,.14); }
+    #panel-2 .join-block { display:none; }
+    #panel-2 .join-block.active { display:block; }
+    .set-title-row { display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; }
+    .set-title-row h2 { margin:0; }
+    .set-example { display:none; gap:14px; }
+    .set-example.active { display:grid; }
     /* ── sidebar layout ── */
     .page-layout{display:flex;height:calc(100vh - 54px);overflow:hidden;}
     .sidebar{width:210px;min-width:210px;height:100%;overflow-y:auto;background:#0a0e14;border-right:1px solid var(--border);display:flex;flex-direction:column;scrollbar-width:thin;scrollbar-color:var(--border) transparent;flex-shrink:0;}
@@ -124,7 +135,7 @@
         <div class="section-label">Sample Data</div>
         <h2>Two DataFrames Used in All Examples</h2>
         <div class="code-result-list">
-          <div class="code-result">
+          <div class="code-result stacked">
             <div class="code-wrap">
               <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
               <pre><span class="line"><span class="kw">import</span> <span class="lib">pandas</span> <span class="kw">as</span> <span class="lib">pd</span></span>
@@ -150,7 +161,7 @@
             </div>
           </div>
 
-          <div class="code-result">
+          <div class="code-result stacked">
             <div class="code-wrap">
               <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
               <pre><span class="line">departments = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({</span>
@@ -183,7 +194,10 @@
       <!-- Standard joins -->
       <div class="section">
         <div class="section-label">Standard Joins</div>
-        <h2>The Four Types of Merge</h2>
+        <div class="join-title-row">
+          <h2>The Four Types of Merge</h2>
+          <div class="join-step-nav" id="join-step-nav" aria-label="Merge type selector"></div>
+        </div>
         <!-- inner join block -->
         <div class="join-block">
           <div class="jb-head">
@@ -553,7 +567,10 @@
       <!-- Set-like operations -->
       <div class="section">
         <div class="section-label">Set-like Operations</div>
-        <h2>Intersection, Union, Set Difference</h2>
+        <div class="set-title-row">
+          <h2>Intersection, Union, Set Difference</h2>
+          <div class="join-step-nav" id="set-step-nav" aria-label="Set-like operation selector"></div>
+        </div>
         <div class="code-result-list">
           <div class="code-result">
             <div class="code-wrap">
@@ -780,6 +797,84 @@ function goTo(idx) {
     pb.style.width = (vp.scrollTop / (vp.scrollHeight - vp.clientHeight) * 100) + '%';
   });
 })();
+function setupJoinExamples() {
+  const panel = document.getElementById('panel-2');
+  const nav = document.getElementById('join-step-nav');
+  if (!panel || !nav) return;
+  const blocks = Array.from(panel.querySelectorAll('.join-block'));
+  blocks.forEach((block, idx) => block.classList.toggle('active', idx === 0));
+  nav.innerHTML = '';
+  blocks.forEach((_, idx) => {
+    const button = document.createElement('button');
+    button.className = 'join-step-btn' + (idx === 0 ? ' active' : '');
+    button.type = 'button';
+    button.textContent = String(idx + 1);
+    button.setAttribute('aria-label', 'Show merge type ' + (idx + 1));
+    button.addEventListener('click', () => showJoinExample(idx));
+    nav.appendChild(button);
+  });
+}
+function showJoinExample(idx) {
+  document.querySelectorAll('#panel-2 .join-block')
+    .forEach((block, i) => block.classList.toggle('active', i === idx));
+  document.querySelectorAll('#join-step-nav .join-step-btn')
+    .forEach((button, i) => button.classList.toggle('active', i === idx));
+  const viewport = document.getElementById('viewport');
+  const panel = document.getElementById('panel-2');
+  if (viewport && panel) viewport.scrollTop = panel.offsetTop;
+}
+setupJoinExamples();
+function setupSetExamples() {
+  const panel = document.getElementById('panel-4');
+  const nav = document.getElementById('set-step-nav');
+  const list = panel ? panel.querySelector('.code-result-list') : null;
+  if (!panel || !nav || !list || panel.dataset.setReady === '1') return;
+  panel.dataset.setReady = '1';
+
+  const items = Array.from(list.children);
+  const sourceTables = items.slice(0, 2).map(item => item.querySelector('.ser-wrap'));
+  const ops = items.slice(2).filter(item => item.classList.contains('code-result'));
+  if (!sourceTables.length || !ops.length) return;
+
+  const host = document.createElement('div');
+  host.className = 'set-example-list';
+  list.parentNode.insertBefore(host, list);
+
+  ops.forEach((op, idx) => {
+    op.classList.add('stacked');
+    const slide = document.createElement('div');
+    slide.className = 'set-example' + (idx === 0 ? ' active' : '');
+    const sourceRow = document.createElement('div');
+    sourceRow.className = 'table-pair';
+    sourceTables.forEach(table => sourceRow.appendChild(table.cloneNode(true)));
+    slide.appendChild(sourceRow);
+    slide.appendChild(op);
+    host.appendChild(slide);
+  });
+
+  nav.innerHTML = '';
+  ops.forEach((_, idx) => {
+    const button = document.createElement('button');
+    button.className = 'join-step-btn' + (idx === 0 ? ' active' : '');
+    button.type = 'button';
+    button.textContent = String(idx + 1);
+    button.setAttribute('aria-label', 'Show set-like operation ' + (idx + 1));
+    button.addEventListener('click', () => showSetExample(idx));
+    nav.appendChild(button);
+  });
+
+  list.remove();
+}
+function showSetExample(idx) {
+  document.querySelectorAll('#panel-4 .set-example')
+    .forEach((slide, i) => slide.classList.toggle('active', i === idx));
+  document.querySelectorAll('#set-step-nav .join-step-btn')
+    .forEach((button, i) => button.classList.toggle('active', i === idx));
+  const viewport = document.getElementById('viewport');
+  const panel = document.getElementById('panel-4');
+  if (viewport && panel) viewport.scrollTop = panel.offsetTop;
+}
+setupSetExamples();
 </script>
 </body>
 </html>
