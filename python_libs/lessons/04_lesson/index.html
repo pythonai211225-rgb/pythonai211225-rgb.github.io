@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 4 — Pandas Series &amp; DataFrames</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='white'/><text x='32' y='46' text-anchor='middle' font-family='Arial, sans-serif' font-size='38'>🐼</text></svg>">
+  <style>
+    :root {
+      --bg-soft:  #ffffff;
+      --green-1:  #0f5a2e;
+      --green-2:  #1f8f4e;
+      --green-3:  #dbf6e5;
+      --mint:     #e6fff2;
+      --text:     #14281d;
+      --muted:    #426654;
+      --border:   #aadfbd;
+      --code-bg:  #0b2517;
+      --code-text:#d2ffe3;
+      --accent-a: #ddfbe7;
+      --accent-b: #f2ffe6;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Trebuchet MS", "Lucida Sans", "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 15% 10%, #e7fff0 0%, transparent 35%),
+        radial-gradient(circle at 85% 18%, #f0fffe 0%, transparent 36%),
+        linear-gradient(180deg, #f4fff6 0%, #ffffff 45%, #edfff4 100%);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    body::before, body::after {
+      content: "";
+      position: fixed;
+      width: 240px; height: 240px;
+      z-index: -1;
+      border-radius: 999px;
+      filter: blur(2px);
+      opacity: 0.3;
+      animation: blobMove 8s ease-in-out infinite alternate;
+    }
+    body::before { background: #a7f3d0; top: -60px; left: -60px; }
+    body::after  { background: #a5f3fc; bottom: -60px; right: -60px; animation-delay: -4s; }
+
+    @keyframes blobMove {
+      from { transform: translate(0, 0) scale(1); }
+      to   { transform: translate(30px, 20px) scale(1.07); }
+    }
+
+    @keyframes riseIn {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 28px 20px 60px;
+    }
+
+    /* ── LAYOUT ── */
+    .layout {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      gap: 22px;
+      align-items: start;
+    }
+
+    /* ── SIDEBAR ── */
+    .side-nav {
+      position: sticky;
+      top: 20px;
+      background: var(--bg-soft);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px 14px;
+      box-shadow: 0 4px 16px rgba(18,102,55,.07);
+    }
+
+    .side-title {
+      font-size: 0.8rem;
+      font-weight: 800;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--green-2);
+      margin: 0 0 10px;
+    }
+
+    .part-label {
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      padding: 6px 4px 3px;
+      display: block;
+    }
+    .part-label.p1 { color: var(--green-2); }
+    .part-label.p2 { color: #0e7490; }
+
+    .topic-link {
+      display: block;
+      width: 100%;
+      border: 1px solid transparent;
+      border-radius: 9px;
+      padding: 7px 10px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.87rem;
+      text-transform: lowercase;
+      margin-bottom: 4px;
+      transition: all 0.2s ease;
+      text-align: left;
+    }
+    .topic-link:hover  { background: #f0fff4; color: var(--green-1); border-color: var(--border); }
+    .topic-link.active { background: #e8faee; color: var(--green-1); border-color: var(--green-2); font-weight: 700; }
+
+    .side-divider { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+
+    .side-section-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--green-2);
+      padding: 4px 4px 6px;
+    }
+
+    .nav-back {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--green-2);
+      background: #e9fbe8;
+      color: var(--green-1);
+      text-decoration: none;
+      font-weight: 700;
+      transition: all 0.2s ease;
+      width: 100%;
+      text-align: center;
+    }
+    .nav-back:hover { background: #d8f7df; transform: translateY(-1px); }
+
+    /* ── HERO ── */
+    .hero {
+      background: linear-gradient(135deg, var(--bg-soft) 0%, var(--accent-a) 55%, var(--accent-b) 100%);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow: 0 12px 30px rgba(24,110,58,.12);
+      margin-bottom: 22px;
+      animation: riseIn 0.75s ease both;
+    }
+
+    h1 { font-size: 1.9rem; color: var(--green-1); margin: 0 0 8px; }
+    h2, h3 { margin-top: 0; color: var(--green-1); }
+
+    .tag {
+      display: inline-block;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      background: var(--green-3);
+      color: var(--green-1);
+      border: 1px solid var(--border);
+      margin-bottom: 10px;
+    }
+
+    .hero-chips { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .hero-chip {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      background: rgba(6, 182, 212, 0.1);
+      color: #0e7490;
+      border: 1px solid rgba(6, 182, 212, 0.3);
+    }
+
+    /* ── CARDS ── */
+    .card {
+      background: var(--bg-soft);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 22px;
+      margin-bottom: 16px;
+      box-shadow: 0 7px 22px rgba(18,102,55,.08);
+      animation: riseIn 0.65s ease both;
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+    .card:hover { transform: translateY(-2px); box-shadow: 0 13px 28px rgba(18,102,55,.15); }
+
+    .topic-panel       { display: none; }
+    .topic-panel.active { display: block; }
+
+    .step-title { margin: 0 0 12px; color: var(--green-1); font-size: 1.25rem; }
+
+    /* ── CODE BLOCKS ── */
+    .code {
+      background: var(--code-bg);
+      color: var(--code-text);
+      border-radius: 10px;
+      border: 1px solid #2f5a3d;
+      padding: 16px 18px;
+      overflow-x: auto;
+      margin: 10px 0 14px;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.93rem;
+      white-space: pre;
+      line-height: 1.7;
+    }
+    .code .cm  { color: #6dbf8a; }
+    .code .str { color: #ffd580; }
+    .code .kw  { color: #79c0ff; }
+    .code .num { color: #d2a8ff; }
+    .code .fn  { color: #ffa657; }
+    .code .out { color: #a5d6ff; }
+
+    /* ── NOTES ── */
+    .note {
+      background: var(--mint);
+      border-left: 4px solid var(--green-2);
+      padding: 10px 14px;
+      color: var(--muted);
+      margin: 10px 0;
+      border-radius: 6px;
+      font-size: 0.93rem;
+    }
+    .note.warn {
+      background: #fff8e1;
+      border-left-color: #f59e0b;
+      color: #7c5c0a;
+    }
+    .note.info {
+      background: rgba(6, 182, 212, 0.07);
+      border-left-color: #06b6d4;
+      color: #0e7490;
+    }
+
+    .big-result {
+      font-size: 1.05rem;
+      margin: 18px 0 8px;
+      color: var(--green-1);
+      font-weight: 700;
+    }
+
+    /* ── COMPARE GRID (topic 2) ── */
+    .compare-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin: 12px 0;
+    }
+    .compare-item h4 {
+      font-size: .88rem;
+      margin: 0 0 6px;
+      color: var(--green-2);
+    }
+
+    .footer { text-align: center; color: var(--muted); font-size: 0.86rem; padding: 10px 0 16px; }
+
+    /* ── EXERCISE ── */
+    .shifts-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin: 16px 0 20px;
+    }
+    .day-block { }
+    .day-label {
+      font-size: .72rem;
+      font-weight: 800;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--green-2);
+      margin-bottom: 7px;
+      padding-bottom: 5px;
+      border-bottom: 2px solid var(--green-3);
+    }
+    .shift-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .88rem;
+      font-family: Consolas, "Courier New", monospace;
+    }
+    .shift-table th {
+      background: var(--green-3);
+      color: var(--green-1);
+      padding: 6px 10px;
+      text-align: left;
+      font-size: .72rem;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      border-bottom: 2px solid var(--border);
+    }
+    .shift-table td {
+      padding: 6px 10px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+    .shift-table tr:last-child td { border-bottom: none; }
+    .shift-table td:last-child { font-weight: 700; color: var(--green-1); text-align: right; }
+
+    .task-box {
+      background: #f0fff4;
+      border: 1.5px solid var(--green-2);
+      border-radius: 10px;
+      padding: 13px 16px;
+      margin: 16px 0 8px;
+    }
+    .task-num {
+      font-size: .68rem;
+      font-weight: 800;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--green-2);
+      margin-bottom: 4px;
+    }
+    .task-box p { margin: 0; color: var(--text); font-size: .94rem; }
+
+    .hw-badge {
+      display: inline-block;
+      padding: 3px 12px;
+      border-radius: 999px;
+      font-size: .75rem;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      background: var(--green-3);
+      color: var(--green-1);
+      border: 1px solid var(--border);
+      margin-bottom: 12px;
+    }
+    .task-list { padding-left: 22px; margin: 10px 0 0; }
+    .task-list li { margin-bottom: 10px; color: #1a3a2a; }
+    .task-list li strong { color: var(--green-1); }
+
+    @media (max-width: 700px) {
+      .layout { grid-template-columns: 1fr; }
+      .side-nav { position: static; }
+      .compare-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <section class="hero">
+    <span class="tag">Lesson 4 · Summary · Jun 14, 2026</span>
+    <h1>🐼 Pandas Series &amp; DataFrames</h1>
+    <p>Creating Series from lists and dicts, accessing values with <code>.iloc</code> / <code>.loc</code>, combining data with <code>.add(fill_value)</code>, and loading real CSV data into a DataFrame.</p>
+    <div class="hero-chips">
+      <span class="hero-chip">pandas</span>
+      <span class="hero-chip">pd.Series</span>
+      <span class="hero-chip">pd.DataFrame</span>
+      <span class="hero-chip">pd.read_csv</span>
+      <span class="hero-chip">.iloc / .loc</span>
+    </div>
+  </section>
+
+  <div class="layout">
+
+    <aside class="side-nav" aria-label="Topic navigation">
+      <h2 class="side-title">Topics</h2>
+
+      <span class="part-label p1">Part 1 — Series</span>
+      <button class="topic-link active" data-target="topic-1">imports</button>
+      <button class="topic-link" data-target="topic-2">Series vs Array</button>
+      <button class="topic-link" data-target="topic-3">creating a Series</button>
+      <button class="topic-link" data-target="topic-4">accessing values</button>
+      <button class="topic-link" data-target="topic-5">arithmetic</button>
+      <button class="topic-link" data-target="topic-6">dtype &amp; astype</button>
+      <button class="topic-link" data-target="topic-7">inventory example</button>
+
+      <hr class="side-divider">
+      <span class="part-label p2">Part 2 — DataFrames</span>
+      <button class="topic-link" data-target="topic-8">read csv</button>
+      <button class="topic-link" data-target="topic-9">explore DataFrame</button>
+      <button class="topic-link" data-target="topic-10">select columns</button>
+      <button class="topic-link" data-target="topic-11">add &amp; drop</button>
+
+      <hr class="side-divider">
+      <span class="part-label p1">Exercise</span>
+      <button class="topic-link" data-target="topic-12">exercise</button>
+
+      <hr class="side-divider">
+      <div class="side-section-label">Navigation</div>
+      <a class="nav-back" href="../../index.html">← back to python libs</a>
+    </aside>
+
+    <main>
+
+      <!-- ── TOPIC 1: IMPORTS ── -->
+      <section class="card topic-panel active" id="topic-1">
+        <h2 class="step-title">Imports</h2>
+        <p>Every data-science script starts by importing NumPy and Pandas:</p>
+        <div class="code"><span class="kw">import</span> numpy <span class="kw">as</span> np
+<span class="kw">import</span> pandas <span class="kw">as</span> pd</div>
+        <div class="note">💡 The aliases <code>np</code> and <code>pd</code> are universal conventions — you'll see them in every tutorial, documentation page, and Stack Overflow answer.</div>
+      </section>
+
+      <!-- ── TOPIC 2: SERIES VS ARRAY ── -->
+      <section class="card topic-panel" id="topic-2">
+        <h2 class="step-title">pd.Series vs np.array</h2>
+        <p>Both hold the same numbers — the difference is that a <strong>Series always carries an index</strong> alongside its values.</p>
+
+        <div class="compare-grid">
+          <div class="compare-item">
+            <h4>pd.Series</h4>
+            <div class="code"><span class="fn">pd.Series</span>([<span class="num">10</span>, <span class="num">100</span>, <span class="num">15</span>, <span class="num">35</span>])
+<span class="out"># 0     10
+# 1    100
+# 2     15
+# 3     35
+# dtype: int64</span></div>
+          </div>
+          <div class="compare-item">
+            <h4>np.array</h4>
+            <div class="code">np.<span class="fn">array</span>([<span class="num">10</span>, <span class="num">100</span>, <span class="num">15</span>, <span class="num">35</span>])
+<span class="out"># array([ 10, 100,  15,  35])</span>
+</div>
+          </div>
+        </div>
+
+        <div class="code"><span class="fn">print</span>(<span class="fn">type</span>(<span class="fn">pd.Series</span>([<span class="num">10</span>])))
+<span class="out"># &lt;class 'pandas.core.series.Series'&gt;</span>
+
+<span class="fn">print</span>(<span class="fn">type</span>(np.<span class="fn">array</span>([<span class="num">10</span>])))
+<span class="out"># &lt;class 'numpy.ndarray'&gt;</span></div>
+
+        <div class="note">💡 The left column (0, 1, 2, 3) is the <strong>index</strong>. By default it starts at 0 — but you can replace it with custom labels (see next topic).</div>
+      </section>
+
+      <!-- ── TOPIC 3: CREATING A SERIES ── -->
+      <section class="card topic-panel" id="topic-3">
+        <h2 class="step-title">Creating a Series — 3 ways</h2>
+
+        <div class="big-result">1. From a list — integer index (auto-assigned)</div>
+        <div class="code">s1 = <span class="fn">pd.Series</span>([<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>])
+<span class="fn">print</span>(s1)
+<span class="out"># 0    1
+# 1    2
+# 2    3
+# dtype: int64</span>
+
+s1[<span class="num">0</span>]   <span class="cm"># → 1  (key is the integer 0)</span></div>
+
+        <div class="big-result">2. From a dict — keys become the index</div>
+        <div class="code">countries = {<span class="str">'USA'</span>: <span class="num">1776</span>, <span class="str">'CANADA'</span>: <span class="num">1867</span>, <span class="str">'MEXICO'</span>: <span class="num">1821</span>}
+s = <span class="fn">pd.Series</span>(countries)
+<span class="fn">print</span>(s)
+<span class="out"># USA       1776
+# CANADA    1867
+# MEXICO    1821
+# dtype: int64</span></div>
+
+        <div class="big-result">3. From a list + explicit index</div>
+        <div class="code">years       = [<span class="num">1776</span>, <span class="num">1867</span>, <span class="num">1821</span>]
+label_index = [<span class="str">'USA'</span>, <span class="str">'CANADA'</span>, <span class="str">'MEXICO'</span>]
+
+countries = <span class="fn">pd.Series</span>(data=years, index=label_index)</div>
+
+        <div class="note">💡 Methods 2 and 3 produce the same result — pick whichever is more readable for your data source.</div>
+      </section>
+
+      <!-- ── TOPIC 4: ACCESSING VALUES ── -->
+      <section class="card topic-panel" id="topic-4">
+        <h2 class="step-title">Accessing Values</h2>
+
+        <div class="code"><span class="cm"># Using: countries = pd.Series({'USA': 1776, 'CANADA': 1867, 'MEXICO': 1821})</span>
+
+<span class="fn">print</span>(countries.<span class="fn">keys</span>())
+<span class="out"># Index(['USA', 'CANADA', 'MEXICO'], dtype='object')</span>
+
+<span class="fn">print</span>(<span class="fn">list</span>(countries.<span class="fn">keys</span>()))
+<span class="out"># ['USA', 'CANADA', 'MEXICO']</span>
+
+countries.<span class="fn">iloc</span>[<span class="num">0</span>]          <span class="cm"># → 1776  (position 0)</span>
+countries.<span class="fn">loc</span>[<span class="str">'CANADA'</span>]   <span class="cm"># → 1867  (by label)</span></div>
+
+        <div class="note warn">⚠️ <strong>With a label index, avoid <code>s[0]</code>.</strong><br>
+          When the index contains strings, <code>countries[0]</code> raises <code>KeyError</code> — there is no key <code>0</code> in the index.<br><br>
+          Use <code>.iloc[n]</code> for <strong>position-based</strong> access and <code>.loc['LABEL']</code> for <strong>label-based</strong> access.</div>
+      </section>
+
+      <!-- ── TOPIC 5: ARITHMETIC ── -->
+      <section class="card topic-panel" id="topic-5">
+        <h2 class="step-title">Series Arithmetic</h2>
+
+        <p>Pandas aligns Series by <strong>index label</strong> before operating. Keys that appear in only one Series produce <code>NaN</code>.</p>
+
+        <div class="big-result"><code>+</code> operator — unmatched keys become NaN</div>
+        <div class="code">first  = <span class="fn">pd.Series</span>({<span class="str">'Japan'</span>: <span class="num">100</span>, <span class="str">'China'</span>: <span class="num">450</span>, <span class="str">'USA'</span>: <span class="num">250</span>})
+second = <span class="fn">pd.Series</span>({<span class="str">'Brazil'</span>: <span class="num">70</span>, <span class="str">'China'</span>: <span class="num">350</span>, <span class="str">'USA'</span>: <span class="num">200</span>})
+
+result = first + second
+<span class="fn">print</span>(result)
+<span class="out"># Brazil      NaN
+# China     800.0
+# Japan       NaN
+# USA       450.0
+# dtype: float64</span></div>
+
+        <div class="big-result"><code>.add(fill_value=0)</code> — treats missing keys as 0</div>
+        <div class="code">result = first.<span class="fn">add</span>(second, fill_value=<span class="num">0</span>)
+<span class="fn">print</span>(result)
+<span class="out"># Brazil     70.0
+# China     800.0
+# Japan     100.0
+# USA       450.0
+# dtype: float64</span></div>
+
+        <div class="note">💡 <code>fill_value=0</code> tells Pandas: "treat any missing entry as 0 before adding." Use this when combining data from different sources that don't share all the same keys.</div>
+      </section>
+
+      <!-- ── TOPIC 6: DTYPE & ASTYPE ── -->
+      <section class="card topic-panel" id="topic-6">
+        <h2 class="step-title">dtype &amp; astype</h2>
+
+        <p>Every Series stores one <code>dtype</code> for all its values. A single float forces the whole Series to <code>float64</code>.</p>
+
+        <div class="code">s_float = <span class="fn">pd.Series</span>({<span class="str">'Japan'</span>: <span class="num">100.99</span>, <span class="str">'China'</span>: <span class="num">450</span>, <span class="str">'USA'</span>: <span class="num">250</span>})
+<span class="fn">print</span>(s_float.dtype)
+<span class="out"># float64</span>
+
+s_int = <span class="fn">pd.Series</span>([<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>])
+<span class="fn">print</span>(s_int.dtype)
+<span class="out"># int64</span></div>
+
+        <div class="big-result">Converting with <code>.astype()</code></div>
+        <div class="code"><span class="fn">print</span>(s_float.<span class="fn">astype</span>(<span class="fn">int</span>))
+<span class="out"># Japan    100   ← truncated, NOT rounded
+# China    450
+# USA      250
+# dtype: int64</span></div>
+
+        <div class="note warn">⚠️ <code>.astype(int)</code> <strong>truncates</strong> the decimal — it does not round. <code>100.99 → 100</code>, not <code>101</code>.</div>
+      </section>
+
+      <!-- ── TOPIC 7: INVENTORY EXAMPLE ── -->
+      <section class="card topic-panel" id="topic-7">
+        <h2 class="step-title">Real-world: Branch Inventory</h2>
+
+        <p>Three store branches each stock different products. Create each as a <code>pd.Series</code>, combine with <code>.add(fill_value=0)</code>, then let the user input a product name and print its total stock.</p>
+
+        <div class="big-result">Step 1 — define the 3 stores as Series</div>
+        <div class="code">tel_aviv = <span class="fn">pd.Series</span>({<span class="str">'milk'</span>: <span class="num">10</span>, <span class="str">'bread'</span>: <span class="num">5</span>,  <span class="str">'eggs'</span>: <span class="num">12</span>, <span class="str">'butter'</span>: <span class="num">3</span>})
+haifa    = <span class="fn">pd.Series</span>({<span class="str">'milk'</span>: <span class="num">8</span>,  <span class="str">'eggs'</span>: <span class="num">6</span>,  <span class="str">'water'</span>: <span class="num">20</span>})
+modiin   = <span class="fn">pd.Series</span>({<span class="str">'bread'</span>: <span class="num">15</span>, <span class="str">'butter'</span>: <span class="num">7</span>, <span class="str">'water'</span>: <span class="num">10</span>, <span class="str">'juice'</span>: <span class="num">5</span>})</div>
+
+        <div class="big-result">Step 2 — combine with .add(fill_value=0)</div>
+        <div class="code">total_stock = (
+    tel_aviv
+      .<span class="fn">add</span>(haifa,  fill_value=<span class="num">0</span>)
+      .<span class="fn">add</span>(modiin, fill_value=<span class="num">0</span>)
+)
+
+<span class="fn">print</span>(total_stock)
+<span class="out"># bread     20.0
+# butter    10.0
+# eggs      18.0
+# juice      5.0
+# milk      18.0
+# water     30.0
+# dtype: float64</span></div>
+
+        <div class="big-result">Step 3 — input a product name and print its stock</div>
+        <div class="code">product = <span class="fn">input</span>(<span class="str">"Enter product name: "</span>)
+
+<span class="kw">if</span> product <span class="kw">in</span> total_stock.index:
+    <span class="fn">print</span>(<span class="fn">f</span><span class="str">"{product}: {int(total_stock[product])} units across all stores"</span>)
+<span class="kw">else</span>:
+    <span class="fn">print</span>(<span class="fn">f</span><span class="str">"{product} is not stocked in any store"</span>)
+
+<span class="out"># Enter product name: milk
+# milk: 18 units across all stores</span>
+
+<span class="out"># Enter product name: cheese
+# cheese is not stocked in any store</span></div>
+
+        <div class="note">💡 <code>total_stock[product]</code> returns a float (e.g. <code>18.0</code>) because <code>.add(fill_value=0)</code> promotes the dtype to <code>float64</code>. Wrapping it with <code>int()</code> prints a cleaner number.</div>
+      </section>
+
+      <!-- ── TOPIC 8: READ CSV ── -->
+      <section class="card topic-panel" id="topic-8">
+        <h2 class="step-title">Reading a CSV — pd.read_csv</h2>
+
+        <p>The most common way to load real data. <code>pd.read_csv()</code> returns a <strong>DataFrame</strong> — a 2D table with named columns and a row index.</p>
+
+        <div class="code">tips_df = <span class="fn">pd.read_csv</span>(<span class="str">'tips.csv'</span>)
+tips_df</div>
+
+        <div class="note info">📄 <strong>tips.csv</strong> contains 244 restaurant bills (from the seaborn sample datasets). Columns: <code>total_bill</code>, <code>tip</code>, <code>sex</code>, <code>smoker</code>, <code>day</code>, <code>time</code>, <code>size</code>.</div>
+
+        <div class="big-result">First rows of tips_df</div>
+        <div class="code"><span class="out">   total_bill   tip     sex smoker  day    time  size
+0       16.99  1.01  Female     No  Sun  Dinner     2
+1       10.34  1.66    Male     No  Sun  Dinner     3
+2       21.01  3.50    Male     No  Sun  Dinner     3
+3       23.68  3.31    Male     No  Sun  Dinner     2
+4       24.59  3.61  Female     No  Sun  Dinner     4</span></div>
+      </section>
+
+      <!-- ── TOPIC 9: EXPLORE DATAFRAME ── -->
+      <section class="card topic-panel" id="topic-9">
+        <h2 class="step-title">Exploring a DataFrame</h2>
+
+        <div class="big-result"><code>.info()</code> — shape, dtypes, null counts</div>
+        <div class="code">tips_df.<span class="fn">info</span>()
+<span class="out"># &lt;class 'pandas.core.frame.DataFrame'&gt;
+# RangeIndex: 244 entries, 0 to 243
+# Data columns (total 7 columns):
+#  #   Column      Non-Null Count  Dtype
+# ---  ------      --------------  -----
+#  0   total_bill  244 non-null    float64
+#  1   tip         244 non-null    float64
+#  2   sex         244 non-null    object
+#  3   smoker      244 non-null    object
+#  4   day         244 non-null    object
+#  5   time        244 non-null    object
+#  6   size        244 non-null    int64
+# dtypes: float64(2), int64(1), object(4)
+# memory usage: 13.5+ KB</span></div>
+
+        <div class="big-result">Columns, index, and length</div>
+        <div class="code"><span class="fn">print</span>(tips_df.columns)
+<span class="out"># Index(['total_bill', 'tip', 'sex', 'smoker', 'day', 'time', 'size'], dtype='object')</span>
+
+<span class="fn">print</span>(tips_df.index)
+<span class="out"># RangeIndex(start=0, stop=244, step=1)</span>
+
+<span class="fn">print</span>(<span class="fn">len</span>(tips_df))
+<span class="out"># 244</span></div>
+
+        <div class="big-result"><code>.head()</code> / <code>.tail()</code></div>
+        <div class="code">tips_df.<span class="fn">head</span>()     <span class="cm"># first 5 rows (default)</span>
+tips_df.<span class="fn">tail</span>(<span class="num">5</span>)    <span class="cm"># last 5 rows</span></div>
+
+        <div class="big-result"><code>.describe()</code> — statistical summary of numeric columns</div>
+        <div class="code">tips_df.<span class="fn">describe</span>()
+<span class="out">#        total_bill         tip        size
+# count  244.000000  244.000000  244.000000
+# mean    19.785943    2.998279    2.569672
+# std      8.902412    1.383638    0.951100
+# min      3.070000    1.000000    1.000000
+# 25%     13.347500    2.000000    2.000000
+# 50%     17.795000    2.900000    2.000000
+# 75%     24.127500    3.562500    3.000000
+# max     50.810000   10.000000    6.000000</span></div>
+
+        <div class="note">💡 <code>.describe()</code> only includes <strong>numeric</strong> columns by default. To include string columns too: <code>df.describe(include='all')</code>.</div>
+      </section>
+
+      <!-- ── TOPIC 10: SELECT COLUMNS ── -->
+      <section class="card topic-panel" id="topic-10">
+        <h2 class="step-title">Selecting Columns</h2>
+
+        <div class="big-result">Single column → returns a <strong>Series</strong></div>
+        <div class="code">tips_df[<span class="str">'tip'</span>]
+<span class="out"># 0      1.01
+# 1      1.66
+# 2      3.50
+# ...
+# 243    5.92
+# Name: tip, Length: 244, dtype: float64</span></div>
+
+        <div class="big-result">Multiple columns → returns a <strong>DataFrame</strong></div>
+        <div class="code">tips_df[[<span class="str">'tip'</span>, <span class="str">'day'</span>]]
+<span class="out">#      tip   day
+# 0   1.01   Sun
+# 1   1.66   Sun
+# 2   3.50   Sun
+# ...</span></div>
+
+        <div class="note">💡 One bracket <code>df['col']</code> → Series. Double brackets <code>df[['col']]</code> → DataFrame (even for one column). The type matters when you pass the result to other functions.</div>
+      </section>
+
+      <!-- ── TOPIC 11: ADD & DROP ── -->
+      <section class="card topic-panel" id="topic-11">
+        <h2 class="step-title">Adding &amp; Dropping</h2>
+
+        <div class="big-result">Add a new column</div>
+        <div class="code"><span class="cm"># Assign a computed value directly — no method needed</span>
+tips_df[<span class="str">'new_column'</span>] = tips_df[<span class="str">'tip'</span>] + tips_df[<span class="str">'total_bill'</span>]
+<span class="cm"># tips_df now has 8 columns instead of 7</span></div>
+
+        <div class="big-result">Drop a row (by index label)</div>
+        <div class="code"><span class="cm"># Removes the row whose index label is 1</span>
+tips_df.<span class="fn">drop</span>(<span class="num">1</span>, inplace=<span class="kw">True</span>)</div>
+
+        <div class="big-result">Drop a column</div>
+        <div class="code"><span class="cm"># axis=1 tells pandas to look along the column axis</span>
+tips_df.<span class="fn">drop</span>(<span class="str">'tip'</span>, axis=<span class="num">1</span>, inplace=<span class="kw">True</span>)</div>
+
+        <div class="note warn">⚠️ <code>inplace=True</code> modifies the <strong>original</strong> DataFrame and returns <code>None</code>. Without it, <code>.drop()</code> returns a new DataFrame and leaves the original unchanged.</div>
+      </section>
+
+      <!-- ── TOPIC 12: EXERCISE ── -->
+      <section class="card topic-panel" id="topic-12">
+        <h2 class="step-title">Exercise</h2>
+
+        <p>The tables below show how many hours each worker worked each day. Not every worker appears every day — this is intentional, so you must use <code>.add(fill_value=0)</code>.</p>
+
+        <div class="shifts-grid">
+          <div class="day-block">
+            <div class="day-label">Monday</div>
+            <table class="shift-table">
+              <thead><tr><th>Worker</th><th>Hours</th></tr></thead>
+              <tbody>
+                <tr><td>Alice</td><td>8</td></tr>
+                <tr><td>Bob</td><td>6</td></tr>
+                <tr><td>David</td><td>7</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="day-block">
+            <div class="day-label">Tuesday</div>
+            <table class="shift-table">
+              <thead><tr><th>Worker</th><th>Hours</th></tr></thead>
+              <tbody>
+                <tr><td>Bob</td><td>8</td></tr>
+                <tr><td>Carol</td><td>5</td></tr>
+                <tr><td>David</td><td>6</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="day-block">
+            <div class="day-label">Wednesday</div>
+            <table class="shift-table">
+              <thead><tr><th>Worker</th><th>Hours</th></tr></thead>
+              <tbody>
+                <tr><td>Alice</td><td>7</td></tr>
+                <tr><td>Carol</td><td>8</td></tr>
+                <tr><td>David</td><td>5</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TASK 1 -->
+        <div class="task-box">
+          <div class="task-num">Task 1</div>
+          <p>Create a <code>pd.Series</code> for each day using the tables above as your data.</p>
+        </div>
+
+        <!-- TASK 2 -->
+        <div class="task-box">
+          <div class="task-num">Task 2</div>
+          <p>Combine all three Series into one <code>total_hours</code> Series showing each worker's total hours across the week. Use <code>.add(fill_value=0)</code> so missing days count as 0.</p>
+        </div>
+        <div style="max-width:220px;margin:4px 0 16px">
+          <div class="day-label">Expected result — total_hours</div>
+          <table class="shift-table">
+            <thead><tr><th>Worker</th><th>Total Hours</th></tr></thead>
+            <tbody>
+              <tr><td>Alice</td><td>15</td></tr>
+              <tr><td>Bob</td><td>14</td></tr>
+              <tr><td>Carol</td><td>13</td></tr>
+              <tr><td>David</td><td>18</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- TASK 3 -->
+        <div class="task-box">
+          <div class="task-num">Task 3 — Bonus ★</div>
+          <p>Using <code>total_hours</code>, find which employee worked the most hours this week.</p>
+          <div style="margin-top:8px;font-size:.82rem">💡 Hint: <a href="https://pandas.pydata.org/docs/reference/api/pandas.Series.idxmax.html" target="_blank" rel="noopener" style="color:var(--green-2)">pandas.Series.idxmax</a></div>
+        </div>
+
+        <!-- TASK 4 -->
+        <div class="task-box">
+          <div class="task-num">Task 4 — Bonus ★</div>
+          <p>Build a <strong>DataFrame</strong> from the three shift tables — one row per worker, one column per day. Use <code>0</code> for days the worker did not work.</p>
+          <div style="margin-top:8px;font-size:.82rem">💡 Hint: <a href="https://www.geeksforgeeks.org/python/different-ways-to-create-pandas-dataframe/" target="_blank" rel="noopener" style="color:var(--green-2)">Different ways to create a Pandas DataFrame</a></div>
+        </div>
+        <div style="max-width:280px;margin:4px 0 8px">
+          <div class="day-label">Expected result — shifts_df</div>
+          <table class="shift-table">
+            <thead><tr><th>Worker</th><th>Mon</th><th>Tue</th><th>Wed</th></tr></thead>
+            <tbody>
+              <tr><td>Alice</td><td>8</td><td>0</td><td>7</td></tr>
+              <tr><td>Bob</td><td>6</td><td>8</td><td>0</td></tr>
+              <tr><td>Carol</td><td>0</td><td>5</td><td>8</td></tr>
+              <tr><td>David</td><td>7</td><td>6</td><td>5</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="big-result" style="margin-top:20px">📤 Submission</div>
+        <div class="card" style="background:var(--mint);border-color:var(--green-2);margin-top:0">
+          <ol class="task-list" style="margin:0">
+            <li>
+              <strong>Upload to GitHub:</strong> Add your <code style="background:#e8faee;padding:2px 6px;border-radius:4px">.ipynb</code> file to a repository and push it.
+            </li>
+            <li>
+              <strong>Send the link</strong> to your repository or notebook to:<br>
+              <a href="mailto:pythonai211225+libs4@gmail.com"
+                 style="color:var(--green-1);font-weight:800;font-size:1.05rem;word-break:break-all">
+                pythonai211225+libs4@gmail.com
+              </a>
+            </li>
+          </ol>
+        </div>
+
+      </section>
+
+    </main>
+  </div>
+
+  <div class="footer">Lesson 4 · Jun 14, 2026 · Pandas Series &amp; DataFrames</div>
+
+</div>
+
+<script>
+  const links  = document.querySelectorAll('.topic-link');
+  const panels = document.querySelectorAll('.topic-panel');
+
+  function showTopic(id) {
+    panels.forEach(p => p.classList.toggle('active', p.id === id));
+    links.forEach(l  => l.classList.toggle('active', l.dataset.target === id));
+  }
+
+  links.forEach(l => {
+    if (l.dataset.target) {
+      l.addEventListener('click', () => {
+        showTopic(l.dataset.target);
+        location.hash = l.dataset.target;
+      });
+    }
+  });
+
+  const hash = location.hash.replace('#', '');
+  if (hash && document.getElementById(hash)) showTopic(hash);
+</script>
+</body>
+</html>
