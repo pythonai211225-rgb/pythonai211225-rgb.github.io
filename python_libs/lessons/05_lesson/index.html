@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 5 — Pandas DataFrame Operations</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='white'/><text x='32' y='46' text-anchor='middle' font-family='Arial, sans-serif' font-size='38'>🐼</text></svg>">
+  <style>
+    :root {
+      --bg-soft:  #ffffff;
+      --green-1:  #0f5a2e;
+      --green-2:  #1f8f4e;
+      --green-3:  #dbf6e5;
+      --mint:     #e6fff2;
+      --text:     #14281d;
+      --muted:    #426654;
+      --border:   #aadfbd;
+      --code-bg:  #0b2517;
+      --code-text:#d2ffe3;
+      --accent-a: #ddfbe7;
+      --accent-b: #f2ffe6;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Trebuchet MS", "Lucida Sans", "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 15% 10%, #e7fff0 0%, transparent 35%),
+        radial-gradient(circle at 85% 18%, #f0fffe 0%, transparent 36%),
+        linear-gradient(180deg, #f4fff6 0%, #ffffff 45%, #edfff4 100%);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    body::before, body::after {
+      content: "";
+      position: fixed;
+      width: 240px; height: 240px;
+      z-index: -1;
+      border-radius: 999px;
+      filter: blur(2px);
+      opacity: 0.3;
+      animation: blobMove 8s ease-in-out infinite alternate;
+    }
+    body::before { background: #a7f3d0; top: -60px; left: -60px; }
+    body::after  { background: #a5f3fc; bottom: -60px; right: -60px; animation-delay: -4s; }
+
+    @keyframes blobMove {
+      from { transform: translate(0, 0) scale(1); }
+      to   { transform: translate(30px, 20px) scale(1.07); }
+    }
+
+    @keyframes riseIn {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 28px 20px 60px;
+    }
+
+    /* ── LAYOUT ── */
+    .layout {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      gap: 22px;
+      align-items: start;
+    }
+
+    /* ── SIDEBAR ── */
+    .side-nav {
+      position: sticky;
+      top: 20px;
+      background: var(--bg-soft);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px 14px;
+      box-shadow: 0 4px 16px rgba(18,102,55,.07);
+    }
+
+    .side-title {
+      font-size: 0.8rem;
+      font-weight: 800;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--green-2);
+      margin: 0 0 10px;
+    }
+
+    .part-label {
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      padding: 6px 4px 3px;
+      display: block;
+    }
+    .part-label.p1 { color: var(--green-2); }
+    .part-label.p2 { color: #0e7490; }
+    .part-label.p3 { color: #7c3aed; }
+
+    .topic-link {
+      display: block;
+      width: 100%;
+      border: 1px solid transparent;
+      border-radius: 9px;
+      padding: 7px 10px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.87rem;
+      text-transform: lowercase;
+      margin-bottom: 4px;
+      transition: all 0.2s ease;
+      text-align: left;
+    }
+    .topic-link:hover  { background: #f0fff4; color: var(--green-1); border-color: var(--border); }
+    .topic-link.active { background: #e8faee; color: var(--green-1); border-color: var(--green-2); font-weight: 700; }
+
+    .side-divider { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+
+    .side-section-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--green-2);
+      padding: 4px 4px 6px;
+    }
+
+    .nav-back {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--green-2);
+      background: #e9fbe8;
+      color: var(--green-1);
+      text-decoration: none;
+      font-weight: 700;
+      transition: all 0.2s ease;
+      width: 100%;
+      text-align: center;
+    }
+    .nav-back:hover { background: #d8f7df; transform: translateY(-1px); }
+
+    /* ── HERO ── */
+    .hero {
+      background: linear-gradient(135deg, var(--bg-soft) 0%, var(--accent-a) 55%, var(--accent-b) 100%);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow: 0 12px 30px rgba(24,110,58,.12);
+      margin-bottom: 22px;
+      animation: riseIn 0.75s ease both;
+    }
+
+    h1 { font-size: 1.9rem; color: var(--green-1); margin: 0 0 8px; }
+    h2, h3 { margin-top: 0; color: var(--green-1); }
+
+    .tag {
+      display: inline-block;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      background: var(--green-3);
+      color: var(--green-1);
+      border: 1px solid var(--border);
+      margin-bottom: 10px;
+    }
+
+    .hero-chips { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .hero-chip {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      background: rgba(6, 182, 212, 0.1);
+      color: #0e7490;
+      border: 1px solid rgba(6, 182, 212, 0.3);
+    }
+
+    /* ── CARDS ── */
+    .card {
+      background: var(--bg-soft);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 22px;
+      margin-bottom: 16px;
+      box-shadow: 0 7px 22px rgba(18,102,55,.08);
+      animation: riseIn 0.65s ease both;
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+    .card:hover { transform: translateY(-2px); box-shadow: 0 13px 28px rgba(18,102,55,.15); }
+
+    .topic-panel       { display: none; }
+    .topic-panel.active { display: block; }
+
+    .step-title { margin: 0 0 12px; color: var(--green-1); font-size: 1.25rem; }
+
+    /* ── CODE BLOCKS ── */
+    .code {
+      background: var(--code-bg);
+      color: var(--code-text);
+      border-radius: 10px;
+      border: 1px solid #2f5a3d;
+      padding: 16px 18px;
+      overflow-x: auto;
+      margin: 10px 0 14px;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.93rem;
+      white-space: pre;
+      line-height: 1.7;
+    }
+    .code .cm  { color: #6dbf8a; }
+    .code .str { color: #ffd580; }
+    .code .kw  { color: #79c0ff; }
+    .code .num { color: #d2a8ff; }
+    .code .fn  { color: #ffa657; }
+    .code .out { color: #a5d6ff; }
+
+    /* ── NOTES ── */
+    .note {
+      background: var(--mint);
+      border-left: 4px solid var(--green-2);
+      padding: 10px 14px;
+      color: var(--muted);
+      margin: 10px 0;
+      border-radius: 6px;
+      font-size: 0.93rem;
+    }
+    .note.warn {
+      background: #fff8e1;
+      border-left-color: #f59e0b;
+      color: #7c5c0a;
+    }
+    .note.info {
+      background: rgba(6, 182, 212, 0.07);
+      border-left-color: #06b6d4;
+      color: #0e7490;
+    }
+
+    .big-result {
+      font-size: 1.05rem;
+      margin: 18px 0 8px;
+      color: var(--green-1);
+      font-weight: 700;
+    }
+
+    /* ── COMPARE GRID ── */
+    .compare-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin: 12px 0;
+    }
+    .compare-item h4 {
+      font-size: .88rem;
+      margin: 0 0 6px;
+      color: var(--green-2);
+    }
+
+    .footer { text-align: center; color: var(--muted); font-size: 0.86rem; padding: 10px 0 16px; }
+
+    /* ── EXERCISE ── */
+    .task-box {
+      background: #f0fff4;
+      border: 1.5px solid var(--green-2);
+      border-radius: 10px;
+      padding: 13px 16px;
+      margin: 16px 0 8px;
+    }
+    .task-num {
+      font-size: .68rem;
+      font-weight: 800;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--green-2);
+      margin-bottom: 4px;
+    }
+    .task-box p { margin: 0; color: var(--text); font-size: .94rem; }
+
+    .hw-badge {
+      display: inline-block;
+      padding: 3px 12px;
+      border-radius: 999px;
+      font-size: .75rem;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      background: var(--green-3);
+      color: var(--green-1);
+      border: 1px solid var(--border);
+      margin-bottom: 12px;
+    }
+    .task-list { padding-left: 22px; margin: 10px 0 0; }
+    .task-list li { margin-bottom: 10px; color: #1a3a2a; }
+    .task-list li strong { color: var(--green-1); }
+
+    .ex-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .88rem;
+      font-family: Consolas, "Courier New", monospace;
+      margin: 12px 0;
+    }
+    .ex-table th {
+      background: var(--green-3);
+      color: var(--green-1);
+      padding: 6px 10px;
+      text-align: left;
+      font-size: .72rem;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      border-bottom: 2px solid var(--border);
+    }
+    .ex-table td {
+      padding: 6px 10px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+    .ex-table tr:last-child td { border-bottom: none; }
+
+    @media (max-width: 700px) {
+      .layout { grid-template-columns: 1fr; }
+      .side-nav { position: static; }
+      .compare-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <section class="hero">
+    <span class="tag">Lesson 5 · Summary · Jun 17, 2026</span>
+    <h1>🐼 Pandas DataFrame Operations</h1>
+    <p>Indexing with <code>.loc</code> / <code>.iloc</code>, combining DataFrames with <code>pd.concat</code>, boolean filtering, and applying custom functions with <code>.apply()</code> and <code>np.vectorize</code>.</p>
+    <div class="hero-chips">
+      <span class="hero-chip">pandas</span>
+      <span class="hero-chip">select columns</span>
+      <span class="hero-chip">loc / iloc</span>
+      <span class="hero-chip">pd.concat</span>
+      <span class="hero-chip">boolean filter</span>
+      <span class="hero-chip">apply</span>
+      <span class="hero-chip">np.vectorize</span>
+    </div>
+  </section>
+
+  <div class="layout">
+
+    <aside class="side-nav" aria-label="Topic navigation">
+      <h2 class="side-title">Topics</h2>
+
+      <span class="part-label p1">Part 1 — Select &amp; Modify</span>
+      <button class="topic-link active" data-target="topic-1">select columns</button>
+      <button class="topic-link" data-target="topic-2">add &amp; modify columns</button>
+      <button class="topic-link" data-target="topic-3">drop columns &amp; rows</button>
+      <button class="topic-link" data-target="topic-4">set_index &amp; reset_index</button>
+
+      <hr class="side-divider">
+      <span class="part-label p2">Part 2 — Index &amp; Combine</span>
+      <button class="topic-link" data-target="topic-5">loc vs iloc</button>
+      <button class="topic-link" data-target="topic-6">pd.concat</button>
+
+      <hr class="side-divider">
+      <span class="part-label p3">Part 3 — Filter &amp; Functions</span>
+      <button class="topic-link" data-target="topic-7">boolean filtering</button>
+      <button class="topic-link" data-target="topic-8">apply &amp; np.vectorize</button>
+      <button class="topic-link" data-target="topic-9">string operations</button>
+
+      <hr class="side-divider">
+      <span class="part-label p1">Exercise</span>
+      <button class="topic-link" data-target="topic-10">exercise</button>
+
+      <hr class="side-divider">
+      <div class="side-section-label">Navigation</div>
+      <a class="nav-back" href="../../index.html">← back to python libs</a>
+    </aside>
+
+    <main>
+
+      <!-- ── TOPIC 1: SELECT COLUMNS ── -->
+      <section class="card topic-panel active" id="topic-1">
+        <h2 class="step-title">Selecting Columns</h2>
+
+        <div class="big-result">Single column → returns a <strong>Series</strong></div>
+        <div class="code">tips_df[<span class="str">'tip'</span>]
+<span class="out"># 0      1.01
+# 1      1.66
+# 2      3.50
+# ...
+# 243    5.92
+# Name: tip, Length: 244, dtype: float64</span></div>
+
+        <div class="big-result">Multiple columns → returns a <strong>DataFrame</strong></div>
+        <div class="code">tips_df[[<span class="str">'tip'</span>, <span class="str">'day'</span>]]
+<span class="out">#      tip   day
+# 0   1.01   Sun
+# 1   1.66   Sun
+# 2   3.50   Sun
+# ...</span></div>
+
+        <div class="note">💡 One bracket <code>df['col']</code> → Series. Double brackets <code>df[['col']]</code> → DataFrame. The return type matters — many functions only accept one or the other.</div>
+      </section>
+
+      <!-- ── TOPIC 2: ADD & MODIFY COLUMNS ── -->
+      <section class="card topic-panel" id="topic-2">
+        <h2 class="step-title">Adding &amp; Modifying Columns</h2>
+
+        <div class="big-result">Add a new computed column</div>
+        <div class="code"><span class="cm"># New column = sum of two existing columns</span>
+tips_df[<span class="str">'Sum With Tip'</span>] = tips_df[<span class="str">'tip'</span>] + tips_df[<span class="str">'total_bill'</span>]
+<span class="cm"># tips_df now has 8 columns</span></div>
+
+        <div class="big-result">Modify an existing column in-place</div>
+        <div class="code"><span class="cm"># Double every tip value</span>
+tips_df[<span class="str">'tip'</span>] = tips_df[<span class="str">'tip'</span>] * <span class="num">2</span></div>
+
+        <div class="note warn">⚠️ Assigning to an existing column name <strong>overwrites</strong> it permanently. Make a copy (<code>df.copy()</code>) first if you need to keep the original values.</div>
+      </section>
+
+      <!-- ── TOPIC 3: DROP COLUMNS & ROWS ── -->
+      <section class="card topic-panel" id="topic-3">
+        <h2 class="step-title">Dropping Columns &amp; Rows</h2>
+
+        <div class="big-result">Drop a column — <code>axis=1</code></div>
+        <div class="code"><span class="cm"># axis=1 → operate along the column axis</span>
+tips_df.<span class="fn">drop</span>(<span class="str">'tip'</span>, axis=<span class="num">1</span>, inplace=<span class="kw">True</span>)</div>
+
+        <div class="big-result">Drop a row — <code>axis=0</code> (default)</div>
+        <div class="code"><span class="cm"># Removes the row whose index label is 1</span>
+tips_df.<span class="fn">drop</span>(<span class="num">1</span>, axis=<span class="num">0</span>, inplace=<span class="kw">True</span>)</div>
+
+        <div class="compare-grid">
+          <div class="compare-item">
+            <h4>with inplace=True</h4>
+            <div class="code">df.<span class="fn">drop</span>(<span class="str">'col'</span>, axis=<span class="num">1</span>,
+       inplace=<span class="kw">True</span>)
+<span class="cm"># modifies df directly
+# returns None</span></div>
+          </div>
+          <div class="compare-item">
+            <h4>without inplace</h4>
+            <div class="code">new_df = df.<span class="fn">drop</span>(<span class="str">'col'</span>,
+                  axis=<span class="num">1</span>)
+<span class="cm"># df unchanged
+# new_df has column removed</span></div>
+          </div>
+        </div>
+
+        <div class="note">💡 Prefer the <strong>without-inplace</strong> style when experimenting — it leaves the original DataFrame intact so you can re-run cells in any order.</div>
+      </section>
+
+      <!-- ── TOPIC 4: SET_INDEX & RESET_INDEX ── -->
+      <section class="card topic-panel" id="topic-4">
+        <h2 class="step-title">set_index &amp; reset_index</h2>
+
+        <div class="big-result">Replace the default integer index with a column</div>
+        <div class="code"><span class="cm"># 'Payer Name' becomes the row label</span>
+df = df.<span class="fn">set_index</span>(<span class="str">'Payer Name'</span>)
+<span class="out">#                    total_bill    tip  smoker  day    time  size
+# Payer Name
+# Michael Avila           32.83   1.17      No  Sat  Dinner     2
+# Douglas Tucker          27.20   4.00      No  Sun  Dinner     2
+# ...</span></div>
+
+        <div class="big-result">Restore the integer index</div>
+        <div class="code">df = df.<span class="fn">reset_index</span>()
+<span class="cm"># 'Payer Name' goes back to a regular column
+# a fresh 0-based integer index is created</span></div>
+
+        <div class="note">💡 Use <code>set_index()</code> when you want to use <code>.loc[]</code> with meaningful labels (names, dates, IDs) instead of row numbers.</div>
+      </section>
+
+      <!-- ── TOPIC 5: LOC VS ILOC ── -->
+      <section class="card topic-panel" id="topic-5">
+        <h2 class="step-title">loc vs iloc</h2>
+
+        <p>Both select rows (and optionally columns) — the difference is <strong>how</strong> you address them.</p>
+
+        <div class="compare-grid">
+          <div class="compare-item">
+            <h4>.loc[ ] — label-based</h4>
+            <div class="code">df.<span class="fn">loc</span>[<span class="str">'Michael Avila'</span>]
+<span class="cm"># row whose index label
+# equals 'Michael Avila'</span>
+
+df.<span class="fn">loc</span>[<span class="str">'Alice'</span>:<span class="str">'Bob'</span>]
+<span class="cm"># slice: Alice to Bob
+# (both ends inclusive)</span></div>
+          </div>
+          <div class="compare-item">
+            <h4>.iloc[ ] — position-based</h4>
+            <div class="code">df.<span class="fn">iloc</span>[<span class="num">0</span>]
+<span class="cm"># first row (position 0)</span>
+
+df.<span class="fn">iloc</span>[<span class="num">0</span>:<span class="num">5</span>]
+<span class="cm"># rows 0-4
+# (end is exclusive)</span></div>
+          </div>
+        </div>
+
+        <div class="big-result">Reverse slice with iloc</div>
+        <div class="code">df.<span class="fn">iloc</span>[<span class="num">4</span>::-<span class="num">1</span>]    <span class="cm"># from position 4 backwards to 0</span></div>
+
+        <div class="big-result">loc with a label range (after set_index)</div>
+        <div class="code">df.<span class="fn">loc</span>[<span class="str">'Douglas Tucker'</span>:<span class="str">'Tonya Carter'</span>]
+<span class="cm"># all rows between these two labels (inclusive on both ends)</span></div>
+
+        <div class="note warn">⚠️ <code>.loc[]</code> slices are <strong>inclusive</strong> on both ends. <code>.iloc[]</code> slices are <strong>exclusive</strong> on the end — same as Python list slicing.</div>
+      </section>
+
+      <!-- ── TOPIC 6: PD.CONCAT ── -->
+      <section class="card topic-panel" id="topic-6">
+        <h2 class="step-title">pd.concat</h2>
+
+        <p>Stacks DataFrames together — either vertically (more rows) or horizontally (more columns).</p>
+
+        <div class="big-result"><code>axis=0</code> — stack rows (union)</div>
+        <div class="code"><span class="cm"># Combine first 3 rows and last 2 rows into one DataFrame</span>
+combined = <span class="fn">pd.concat</span>(
+    [df.<span class="fn">head</span>(<span class="num">3</span>), df.<span class="fn">tail</span>(<span class="num">2</span>)],
+    axis=<span class="num">0</span>,
+    ignore_index=<span class="kw">True</span>   <span class="cm"># resets the index to 0,1,2,3,4</span>
+)
+<span class="out">#    total_bill   tip  ...
+# 0       16.99  1.01
+# 1       10.34  1.66
+# 2       21.01  3.50
+# 3       10.07  1.83
+# 4       12.60  1.00</span></div>
+
+        <div class="big-result"><code>axis=1</code> — stack columns (join side by side)</div>
+        <div class="code"><span class="cm"># Join two DataFrames with matching row indexes</span>
+df_left  = tips_df[[<span class="str">'total_bill'</span>, <span class="str">'tip'</span>]]
+df_right = tips_df[[<span class="str">'day'</span>, <span class="str">'time'</span>]]
+
+merged = <span class="fn">pd.concat</span>([df_left, df_right], axis=<span class="num">1</span>)
+<span class="out">#    total_bill   tip  day    time
+# 0       16.99  1.01  Sun  Dinner
+# 1       10.34  1.66  Sun  Dinner</span></div>
+
+        <div class="note">💡 Use <code>ignore_index=True</code> with <code>axis=0</code> whenever the original indexes contain duplicates — otherwise the concatenated DataFrame carries duplicated index values, which can cause subtle bugs with <code>.loc[]</code>.</div>
+      </section>
+
+      <!-- ── TOPIC 7: BOOLEAN FILTERING ── -->
+      <section class="card topic-panel" id="topic-7">
+        <h2 class="step-title">Boolean Filtering</h2>
+
+        <p>Pass a boolean Series inside <code>df[...]</code> to keep only the rows where the condition is <code>True</code>.</p>
+
+        <div class="big-result">Single condition</div>
+        <div class="code">df[df[<span class="str">'smoker'</span>] == <span class="str">'Yes'</span>]            <span class="cm"># smokers only</span>
+
+df[<span class="num">100</span> * df[<span class="str">'tip'</span>] / df[<span class="str">'total_bill'</span>] > <span class="num">10</span>]  <span class="cm"># tip % > 10</span></div>
+
+        <div class="big-result"><code>.between()</code> — range check</div>
+        <div class="code">df[df[<span class="str">'total_bill'</span>].<span class="fn">between</span>(<span class="num">10</span>, <span class="num">20</span>)]    <span class="cm"># bill between 10 and 20 (inclusive)</span>
+df[~df[<span class="str">'total_bill'</span>].<span class="fn">between</span>(<span class="num">10</span>, <span class="num">20</span>)]   <span class="cm"># NOT between 10 and 20 (~ = NOT)</span></div>
+
+        <div class="big-result">Combining conditions</div>
+        <div class="code"><span class="cm"># AND: both conditions must be True</span>
+df[(df[<span class="str">'smoker'</span>] == <span class="str">'Yes'</span>) &amp; (df[<span class="str">'total_bill'</span>] > <span class="num">20</span>)]
+
+<span class="cm"># OR: at least one condition must be True</span>
+df[(df[<span class="str">'day'</span>] == <span class="str">'Sat'</span>) | (df[<span class="str">'day'</span>] == <span class="str">'Sun'</span>)]</div>
+
+        <div class="note warn">⚠️ Always wrap each condition in parentheses when combining with <code>&amp;</code> or <code>|</code>. Without parentheses Python's operator precedence causes a <code>ValueError</code>.</div>
+      </section>
+
+      <!-- ── TOPIC 8: APPLY & NP.VECTORIZE ── -->
+      <section class="card topic-panel" id="topic-8">
+        <h2 class="step-title">apply &amp; np.vectorize</h2>
+
+        <div class="big-result"><code>.apply(func)</code> — custom function on a <strong>single column</strong></div>
+        <div class="code"><span class="kw">def</span> <span class="fn">last_four</span>(num):
+    <span class="kw">return</span> <span class="fn">str</span>(num)[-<span class="num">4</span>:]   <span class="cm"># last 4 characters of the string</span>
+
+tips_df[<span class="str">'4 last digit'</span>] = df[<span class="str">'CC Number'</span>].<span class="fn">apply</span>(last_four)
+<span class="out"># 0    1117
+# 1    9303
+# 2    1126
+# dtype: object</span></div>
+
+        <div class="big-result"><code>np.vectorize(func)</code> — custom function on <strong>multiple columns</strong></div>
+        <div class="code"><span class="kw">def</span> <span class="fn">is_generous</span>(total_bill, tip):
+    <span class="kw">return</span> <span class="str">'Generous'</span> <span class="kw">if</span> (tip / total_bill) * <span class="num">100</span> > <span class="num">10</span> <span class="kw">else</span> <span class="str">'Not Generous'</span>
+
+tips_df[<span class="str">'category'</span>] = np.<span class="fn">vectorize</span>(is_generous)(
+    df[<span class="str">'total_bill'</span>],
+    tips_df[<span class="str">'tip'</span>]
+)</div>
+
+        <div class="compare-grid">
+          <div class="compare-item">
+            <h4>.apply() — use when</h4>
+            <div class="code"><span class="cm"># function takes 1 argument
+# (one value from one column)</span>
+df[<span class="str">'col'</span>].<span class="fn">apply</span>(my_func)</div>
+          </div>
+          <div class="compare-item">
+            <h4>np.vectorize() — use when</h4>
+            <div class="code"><span class="cm"># function takes 2+ arguments
+# (values from multiple columns)</span>
+np.<span class="fn">vectorize</span>(my_func)(
+    df[<span class="str">'col1'</span>], df[<span class="str">'col2'</span>]
+)</div>
+          </div>
+        </div>
+
+        <div class="note">💡 <code>np.vectorize</code> is essentially a loop under the hood — it's not faster than a plain loop, but it's cleaner to read. For performance-critical code, prefer vectorized pandas operations instead.</div>
+      </section>
+
+      <!-- ── TOPIC 9: STRING OPERATIONS ── -->
+      <section class="card topic-panel" id="topic-9">
+        <h2 class="step-title">String Operations — <code>.str</code> accessor</h2>
+
+        <p>Pandas exposes string methods on a Series via the <code>.str</code> accessor, letting you apply Python string operations to an entire column at once.</p>
+
+        <div class="big-result">Split a full name and extract the first name</div>
+        <div class="code"><span class="cm"># 'Payer Name' contains values like 'Michael Avila'</span>
+tips_df[<span class="str">'first_name'</span>] = tips_df[<span class="str">'Payer Name'</span>].<span class="fn">str</span>.<span class="fn">split</span>(<span class="str">' '</span>).<span class="fn">str</span>[<span class="num">0</span>]
+
+<span class="out"># 0    Michael
+# 1    Douglas
+# 2    Travis
+# dtype: object</span></div>
+
+        <div class="big-result">Other common <code>.str</code> methods</div>
+        <div class="code">df[<span class="str">'sex'</span>].<span class="fn">str</span>.<span class="fn">lower</span>()         <span class="cm"># 'Female' → 'female'</span>
+df[<span class="str">'day'</span>].<span class="fn">str</span>.<span class="fn">upper</span>()          <span class="cm"># 'Sun' → 'SUN'</span>
+df[<span class="str">'day'</span>].<span class="fn">str</span>.<span class="fn">startswith</span>(<span class="str">'S'</span>)  <span class="cm"># True/False per row</span>
+df[<span class="str">'day'</span>].<span class="fn">str</span>.<span class="fn">contains</span>(<span class="str">'S'</span>)    <span class="cm"># True if 'S' appears anywhere</span>
+df[<span class="str">'time'</span>].<span class="fn">str</span>.<span class="fn">replace</span>(<span class="str">'Dinner'</span>, <span class="str">'Evening'</span>)</div>
+
+        <div class="note">💡 <code>.str.split()</code> returns a Series of <em>lists</em>. Chaining <code>.str[0]</code> after it picks the first element from each list — no loop needed.</div>
+      </section>
+
+      <!-- ── TOPIC 10: EXERCISE ── -->
+      <section class="card topic-panel" id="topic-10">
+        <h2 class="step-title">Exercise</h2>
+
+        <span class="hw-badge">Homework</span>
+        <p>Use the dataset below — a small orders table for a restaurant chain. The data is provided as a CSV string so you don't need any files.</p>
+
+        <div class="code"><span class="cm"># Dataset — paste this into your notebook</span>
+csv_data = <span class="str">"""order_id,customer,city,total_bill,tip,table_size
+1,Alice,Tel Aviv,45.50,8.00,4
+2,Bob,Haifa,22.30,3.50,2
+3,Carol,Tel Aviv,67.80,12.00,6
+4,David,Jerusalem,15.20,2.00,2
+5,Eve,Haifa,89.90,15.00,8
+6,Frank,Tel Aviv,33.40,5.50,3
+7,Grace,Jerusalem,51.00,9.00,4
+8,Henry,Haifa,28.60,4.00,2
+9,Iris,Tel Aviv,74.20,13.50,5
+10,Jake,Jerusalem,19.80,2.50,2"""</span></div>
+
+        <p style="margin-top:14px">First 2 rows of the table:</p>
+        <table class="ex-table" style="max-width:600px">
+          <thead>
+            <tr><th>order_id</th><th>customer</th><th>city</th><th>total_bill</th><th>tip</th><th>table_size</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>1</td><td>Alice</td><td>Tel Aviv</td><td>45.50</td><td>8.00</td><td>4</td></tr>
+            <tr><td>2</td><td>Bob</td><td>Haifa</td><td>22.30</td><td>3.50</td><td>2</td></tr>
+          </tbody>
+        </table>
+
+        <!-- TASK 1 -->
+        <div class="task-box">
+          <div class="task-num">Task 1</div>
+          <p>Load <code>csv_data</code> into a DataFrame using <code>io.StringIO</code> and <code>pd.read_csv</code>. Print <code>.info()</code> and <code>.describe().transpose()</code></p>
+        </div>
+
+        <!-- TASK 2 -->
+        <div class="task-box">
+          <div class="task-num">Task 2</div>
+          <p>Add a column <code>price_per_person</code> that holds the bill divided by the table size, rounded to 2 decimal places.<br>
+          <span style="font-size:.85rem;color:var(--muted)">Formula: <code>total_bill / table_size</code></span></p>
+        </div>
+
+        <!-- TASK 3 -->
+        <div class="task-box">
+          <div class="task-num">Task 3</div>
+          <p>Filter the DataFrame to show only orders where <code>price_per_person</code> is greater than <strong>12</strong></p>
+        </div>
+
+        <!-- TASK 4 -->
+        <div class="task-box">
+          <div class="task-num">Task 4</div>
+          <p>Use <code>.apply()</code> to create a column <code>table_type</code>:
+            <code>'Large'</code> if <code>table_size &gt;= 4</code>, otherwise <code>'Small'</code></p>
+        </div>
+
+        <!-- TASK 5 -->
+        <div class="task-box">
+          <div class="task-num">Task 5</div>
+          <p>Set <code>customer</code> as the index. Then use <code>.loc[]</code> to select the rows from <strong>Alice</strong> to <strong>Carol</strong></p>
+        </div>
+
+        <!-- TASK 6 -->
+        <div class="task-box">
+          <div class="task-num">Task 6</div>
+          <p>Use <code>pd.concat</code> with <code>axis=0</code> to create a new DataFrame containing the <strong>first 3 rows</strong> and the <strong>last 3 rows</strong> of the original DataFrame. Reset the index</p>
+        </div>
+
+        <!-- TASK 7 -->
+        <div class="task-box">
+          <div class="task-num">Task 7</div>
+          <p>Use <code>np.vectorize</code> to create a column <code>value_label</code>:<br>
+          <code>'High Value'</code> if <code>total_bill &gt; 50</code> <strong>and</strong> <code>tip &gt; 10%</code>, otherwise <code>'Standard'</code></p>
+        </div>
+
+        <!-- TASK 8 -->
+        <div class="task-box">
+          <div class="task-num">Task 8</div>
+          <p>Use <code>.iloc[]</code> to select the <strong>last 3 rows</strong> of the DataFrame, then use <code>.iloc[]</code> again to select rows at positions <strong>2, 4, and 6</strong></p>
+        </div>
+
+        <div class="big-result" style="margin-top:20px">📤 Submission</div>
+        <div class="card" style="background:var(--mint);border-color:var(--green-2);margin-top:0">
+          <ol class="task-list" style="margin:0">
+            <li>
+              <strong>Upload to GitHub:</strong> Add your <code style="background:#e8faee;padding:2px 6px;border-radius:4px">.ipynb</code> file to a repository and push it.
+            </li>
+            <li>
+              <strong>Send the link</strong> to your repository or notebook to:<br>
+              <a href="mailto:pythonai211225+libs5@gmail.com"
+                 style="color:var(--green-1);font-weight:800;font-size:1.05rem;word-break:break-all">
+                pythonai211225+libs5@gmail.com
+              </a>
+            </li>
+          </ol>
+        </div>
+
+      </section>
+
+    </main>
+  </div>
+
+  <div class="footer">Lesson 5 · Jun 17, 2026 · Pandas DataFrame Operations</div>
+
+</div>
+
+<script>
+  const links  = document.querySelectorAll('.topic-link');
+  const panels = document.querySelectorAll('.topic-panel');
+
+  function showTopic(id) {
+    panels.forEach(p => p.classList.toggle('active', p.id === id));
+    links.forEach(l  => l.classList.toggle('active', l.dataset.target === id));
+  }
+
+  links.forEach(l => {
+    if (l.dataset.target) {
+      l.addEventListener('click', () => {
+        showTopic(l.dataset.target);
+        location.hash = l.dataset.target;
+      });
+    }
+  });
+
+  const hash = location.hash.replace('#', '');
+  if (hash && document.getElementById(hash)) showTopic(hash);
+</script>
+</body>
+</html>
