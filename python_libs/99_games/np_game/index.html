@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MATRIX PROTOCOL — NumPy Missions</title>
+  <style>
+    :root {
+      --bg:        #020c06;
+      --green:     #00ff41;
+      --green-dim: #1a4a2a;
+      --green-mid: #00aa30;
+      --cyan:      #00e5ff;
+      --gold:      #ffd700;
+      --purple:    #bf00ff;
+      --red:       #ff073a;
+      --orange:    #ff6b00;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--green);
+      font-family: 'Courier New', Courier, monospace;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── scanlines overlay ── */
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(
+        0deg, transparent, transparent 2px,
+        rgba(0,0,0,0.06) 2px, rgba(0,0,0,0.06) 4px
+      );
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    #rain-canvas {
+      position: fixed; inset: 0;
+      width: 100%; height: 100%;
+      z-index: 0; opacity: 0.12;
+    }
+    #particle-canvas {
+      position: fixed; inset: 0;
+      width: 100%; height: 100%;
+      z-index: 9998; pointer-events: none;
+    }
+
+    /* ── layout ── */
+    #game {
+      position: relative; z-index: 1;
+      max-width: 960px; margin: 0 auto;
+      padding: 20px 24px;
+      min-height: 100vh;
+    }
+
+    /* ── header ── */
+    .hdr {
+      display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 1px solid var(--green-dim);
+      padding-bottom: 14px; margin-bottom: 20px;
+    }
+    .hdr-title {
+      font-size: 1.3rem; font-weight: 900; letter-spacing: .25em;
+      text-shadow: 0 0 14px var(--green);
+    }
+    .hdr-title em { color: var(--cyan); font-style: normal; }
+    .hdr-stats { display: flex; gap: 28px; font-size: .8rem; }
+    .stat-lbl { color: #3a5a3a; letter-spacing: .1em; }
+    .stat-val { color: var(--gold); font-weight: 700; text-shadow: 0 0 8px var(--gold); }
+
+    /* ── progress dots ── */
+    .progress {
+      display: flex; gap: 10px; justify-content: center; margin-bottom: 28px;
+    }
+    .pdot {
+      height: 5px; width: 48px; border-radius: 3px;
+      background: var(--green-dim); transition: all .5s;
+    }
+    .pdot.active { background: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
+    .pdot.done   { background: var(--green); box-shadow: 0 0 8px var(--green); }
+
+    /* ── level wrapper ── */
+    .lvl { animation: fadeUp .5s ease both; }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(22px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── level header ── */
+    .lvl-badge {
+      display: inline-block; border: 1px solid var(--cyan);
+      color: var(--cyan); padding: 3px 14px; border-radius: 2px;
+      font-size: .75rem; letter-spacing: .2em;
+      text-shadow: 0 0 8px var(--cyan); box-shadow: 0 0 8px rgba(0,229,255,.15);
+      margin-bottom: 10px;
+    }
+    .lvl-title {
+      font-size: 2rem; font-weight: 900; letter-spacing: .1em;
+      text-shadow: 0 0 24px var(--green); margin-bottom: 8px;
+    }
+    .lvl-desc {
+      color: #7a9a7a; font-size: .9rem; line-height: 1.7; margin-bottom: 24px;
+    }
+    .lvl-desc strong { color: var(--cyan); }
+    .lvl-desc code   { color: var(--cyan); background: rgba(0,229,255,.08);
+                       padding: 1px 5px; border-radius: 2px; }
+
+    /* ── matrix display ── */
+    .mat-wrap { display: flex; justify-content: center; margin: 24px 0 12px; }
+    .mat-inner { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .mat-lbl {
+      font-size: .78rem; letter-spacing: .12em; color: var(--cyan);
+      text-shadow: 0 0 8px var(--cyan);
+    }
+    .matrix {
+      display: grid; gap: 8px; padding: 18px;
+      border: 1px solid rgba(0,255,65,.25);
+      background: rgba(0,255,65,.018);
+      box-shadow: 0 0 40px rgba(0,255,65,.08), inset 0 0 40px rgba(0,0,0,.5);
+      border-radius: 5px;
+    }
+    .cell {
+      width: 68px; height: 52px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.35rem; font-weight: 700;
+      border: 1px solid rgba(0,255,65,.22);
+      background: rgba(0,255,65,.025);
+      color: var(--green); text-shadow: 0 0 10px var(--green);
+      border-radius: 3px; position: relative; overflow: hidden;
+      animation: cellBeat 3.5s ease-in-out infinite;
+    }
+    .cell::before {
+      content: ''; position: absolute; top: -100%; left: 0;
+      width: 100%; height: 100%;
+      background: linear-gradient(transparent, rgba(0,255,65,.08), transparent);
+      animation: scanCell 4s linear infinite;
+    }
+    @keyframes scanCell { from { top: -100%; } to { top: 200%; } }
+    @keyframes cellBeat {
+      0%,100% { box-shadow: 0 0 4px rgba(0,255,65,.15); }
+      50%      { box-shadow: 0 0 14px rgba(0,255,65,.4); }
+    }
+    .cell.lit {
+      border-color: var(--green);
+      background: rgba(0,255,65,.12);
+      box-shadow: 0 0 22px var(--green);
+      animation: litBeat .5s ease-in-out infinite alternate;
+    }
+    @keyframes litBeat {
+      from { box-shadow: 0 0 14px var(--green); }
+      to   { box-shadow: 0 0 38px var(--green), 0 0 60px rgba(0,255,65,.4); }
+    }
+    .cell.gold-cell {
+      color: var(--gold); text-shadow: 0 0 16px var(--gold);
+      border-color: var(--gold); background: rgba(255,215,0,.1);
+      animation: goldBeat .45s ease-in-out infinite alternate;
+    }
+    @keyframes goldBeat {
+      from { box-shadow: 0 0 14px var(--gold); }
+      to   { box-shadow: 0 0 40px var(--gold), 0 0 70px rgba(255,215,0,.5); }
+    }
+    .cell.purp-cell {
+      color: var(--purple); text-shadow: 0 0 16px var(--purple);
+      border-color: var(--purple); background: rgba(191,0,255,.1);
+      box-shadow: 0 0 20px var(--purple);
+    }
+
+    /* ── transform view ── */
+    .transform {
+      display: flex; align-items: center; justify-content: center;
+      gap: 36px; margin: 20px 0;
+      flex-wrap: wrap;
+    }
+    .t-arrow {
+      font-size: 2.4rem; color: var(--cyan);
+      text-shadow: 0 0 18px var(--cyan);
+      animation: arrowPulse .9s ease-in-out infinite alternate;
+    }
+    @keyframes arrowPulse {
+      from { transform: scale(1); text-shadow: 0 0 10px var(--cyan); }
+      to   { transform: scale(1.25); text-shadow: 0 0 28px var(--cyan); }
+    }
+
+
+    /* ── terminal ── */
+    .terminal {
+      background: rgba(0,0,0,.65); border: 1px solid var(--green-dim);
+      border-radius: 5px; padding: 18px 20px; margin-top: 8px;
+    }
+    .term-bar {
+      display: flex; align-items: center; gap: 7px;
+      margin-bottom: 14px; font-size: .76rem; color: #3a5a3a; letter-spacing: .1em;
+    }
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .dr { background: #ff5f56; } .dy { background: #ffbd2e; } .dg { background: #27c93f; }
+    .prev-line {
+      font-size: .83rem; color: var(--green); margin-bottom: 10px;
+      border-left: 2px solid var(--green-mid); padding-left: 10px;
+      text-shadow: 0 0 6px rgba(0,255,65,.35);
+    }
+    .prev-line .cm { color: #6a9955; }
+    .prompt-row { display: flex; align-items: flex-start; gap: 10px; }
+    .prompt-sym {
+      color: var(--cyan); white-space: nowrap; margin-top: 3px;
+      text-shadow: 0 0 8px var(--cyan); font-size: .95rem;
+    }
+    .code-in {
+      flex: 1; background: transparent; border: none; outline: none;
+      color: var(--green); font-family: 'Courier New', monospace;
+      font-size: .97rem; caret-color: var(--green);
+      text-shadow: 0 0 8px rgba(0,255,65,.45);
+      resize: none; line-height: 1.65; min-height: 56px;
+    }
+    .code-in::placeholder { color: rgba(0,255,65,.2); }
+
+    /* dual input for level 4 */
+    .dual { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 10px; }
+    .inp-grp label {
+      display: block; font-size: .75rem; color: #4a7a4a;
+      letter-spacing: .12em; margin-bottom: 6px;
+    }
+    .inp-grp input {
+      width: 100%; background: transparent;
+      border: 1px solid var(--green-dim); border-radius: 3px;
+      outline: none; color: var(--green);
+      font-family: 'Courier New', monospace; font-size: 1rem;
+      padding: 9px 13px; caret-color: var(--green);
+    }
+    .inp-grp input:focus {
+      border-color: var(--green-mid);
+      box-shadow: 0 0 10px rgba(0,255,65,.18);
+    }
+
+    /* hint */
+    .hint-tog {
+      display: inline-block; font-size: .73rem; color: #3a5a3a;
+      cursor: pointer; border-bottom: 1px dashed #3a5a3a;
+      margin-top: 10px; letter-spacing: .08em;
+    }
+    .hint-tog:hover { color: var(--green-mid); }
+    .hint-box {
+      display: none; margin-top: 9px; padding: 10px 14px;
+      background: rgba(0,0,0,.4); border-left: 2px solid #3a5a3a;
+      font-size: .83rem; color: #7a9a7a; line-height: 1.7;
+    }
+    .hint-box.on { display: block; }
+    .hint-box span { color: var(--cyan); }
+
+    /* attempts */
+    .att { text-align: right; font-size: .75rem; color: #3a5a3a; margin-top: 7px; }
+
+    /* submit */
+    .btn-exec {
+      display: block; width: 100%; margin-top: 13px;
+      padding: 12px; background: transparent;
+      border: 1px solid var(--green); border-radius: 3px;
+      color: var(--green); font-family: 'Courier New', monospace;
+      font-size: .95rem; cursor: pointer; letter-spacing: .18em;
+      text-shadow: 0 0 8px var(--green);
+      box-shadow: 0 0 10px rgba(0,255,65,.08);
+      transition: all .2s;
+    }
+    .btn-exec:hover {
+      background: rgba(0,255,65,.08);
+      box-shadow: 0 0 22px rgba(0,255,65,.3);
+    }
+
+    /* feedback */
+    .fb {
+      min-height: 52px; margin-top: 14px; padding: 13px 16px;
+      border-radius: 4px; font-size: .9rem; letter-spacing: .04em;
+      line-height: 1.5; transition: all .25s;
+    }
+    .fb.ok {
+      border: 1px solid var(--green); color: var(--green);
+      background: rgba(0,255,65,.04); text-shadow: 0 0 8px var(--green);
+      animation: popIn .3s ease both;
+    }
+    .fb.fail {
+      border: 1px solid var(--red); color: var(--red);
+      background: rgba(255,7,58,.04); text-shadow: 0 0 8px var(--red);
+      animation: shake .3s ease both;
+    }
+    @keyframes popIn {
+      0%   { transform: scale(.97); }
+      60%  { transform: scale(1.02); }
+      100% { transform: scale(1); }
+    }
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      25%     { transform: translateX(-7px); }
+      75%     { transform: translateX(7px); }
+    }
+
+    /* ── WIN SCREEN ── */
+    .win { text-align: center; padding: 50px 20px; animation: fadeUp .6s ease both; }
+    .win-title {
+      font-size: 2.8rem; font-weight: 900; color: var(--gold);
+      letter-spacing: .12em;
+      text-shadow: 0 0 30px var(--gold), 0 0 60px rgba(255,215,0,.5);
+      animation: winGlow 1s ease-in-out infinite alternate;
+      margin-bottom: 12px;
+    }
+    @keyframes winGlow {
+      from { text-shadow: 0 0 25px var(--gold); }
+      to   { text-shadow: 0 0 55px var(--gold), 0 0 90px rgba(255,215,0,.7); }
+    }
+    .win-score { font-size: 1.4rem; color: var(--cyan); margin: 12px 0 6px; }
+    .win-sub { color: #4a6a4a; font-size: .88rem; margin-bottom: 30px; }
+    .fn-list {
+      max-width: 580px; margin: 0 auto 30px;
+      background: rgba(0,0,0,.5); border: 1px solid var(--green-dim);
+      border-radius: 5px; padding: 18px 22px; text-align: left;
+    }
+    .fn-list-hdr {
+      font-size: .75rem; color: var(--cyan); letter-spacing: .15em; margin-bottom: 12px;
+    }
+    .fn-row {
+      padding: 7px 0; border-bottom: 1px solid rgba(0,255,65,.08);
+      font-size: .88rem; display: flex; gap: 12px; align-items: baseline;
+    }
+    .fn-row:last-child { border: none; }
+    .fn-name { color: var(--cyan); white-space: nowrap; }
+    .fn-d { color: #5a7a5a; }
+    .btn-restart {
+      display: inline-block; padding: 13px 44px;
+      border: 1px solid var(--green); color: var(--green);
+      cursor: pointer; font-family: 'Courier New', monospace;
+      font-size: 1rem; letter-spacing: .2em;
+      text-shadow: 0 0 10px var(--green); background: transparent;
+      transition: all .2s; border-radius: 3px;
+    }
+    .btn-restart:hover {
+      background: rgba(0,255,65,.1);
+      box-shadow: 0 0 28px rgba(0,255,65,.4);
+    }
+
+    /* ── level 4 question cards ── */
+    .q-list { display: flex; flex-direction: column; gap: 10px; }
+    .q-card {
+      border: 1px solid var(--green-dim); border-radius: 4px;
+      padding: 12px 14px; background: rgba(0,0,0,.45);
+      transition: border-color .2s;
+    }
+    .q-card:focus-within { border-color: var(--green-mid); }
+    .q-card-lbl {
+      font-size: .82rem; color: var(--cyan); letter-spacing: .06em;
+      margin-bottom: 8px; text-shadow: 0 0 8px var(--cyan);
+    }
+    .q-card input {
+      width: 100%; background: transparent;
+      border: none; border-bottom: 1px solid #2a4a2a;
+      outline: none; color: var(--green);
+      font-family: 'Courier New', monospace; font-size: .95rem;
+      padding: 5px 0; caret-color: var(--green);
+    }
+    .q-card input::placeholder { color: rgba(0,255,65,.2); font-size: .82rem; }
+    .q-card input:focus { border-bottom-color: var(--green-mid); }
+    .q-card.correct { border-color: var(--green); background: rgba(0,255,65,.06); }
+    .q-card.wrong   { border-color: var(--red); }
+
+    /* ── session nav ── */
+    .session-nav { display: flex; gap: 10px; justify-content: center; margin-bottom: 12px; }
+    .sess-btn { background: transparent; border: 1px solid var(--green-dim); color: #3a5a3a; font-family: 'Courier New', monospace; font-size: .75rem; letter-spacing: .12em; padding: 4px 16px; cursor: pointer; border-radius: 2px; transition: all .2s; }
+    .sess-btn:hover { border-color: var(--green-mid); color: var(--green-mid); }
+    .sess-btn.active { border-color: var(--cyan); color: var(--cyan); text-shadow: 0 0 8px var(--cyan); box-shadow: 0 0 10px rgba(0,229,255,.15); }
+
+    /* ── nav buttons ── */
+    .nav-btn {
+      background: transparent; border: 1px solid var(--green-dim);
+      color: var(--green-mid); font-family: 'Courier New', monospace;
+      font-size: .75rem; letter-spacing: .12em; padding: 4px 14px;
+      cursor: pointer; border-radius: 2px; transition: all .2s;
+    }
+    .nav-btn:hover:not(:disabled) {
+      border-color: var(--green); color: var(--green);
+      box-shadow: 0 0 10px rgba(0,255,65,.2);
+    }
+    .nav-btn:disabled { opacity: .22; cursor: default; }
+
+    /* ── two-column split layout ── */
+    .split {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 32px;
+      align-items: start;
+      margin-top: 18px;
+    }
+    .split-right {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 8px;
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="rain-canvas"></canvas>
+<canvas id="particle-canvas"></canvas>
+
+<div id="game">
+  <div class="hdr">
+    <div class="hdr-title">MATRIX<em>PROTOCOL</em>.numpy</div>
+    <div class="hdr-stats">
+      <div><span class="stat-lbl">SCORE </span><span class="stat-val" id="s-score">0</span></div>
+      <div><span class="stat-lbl">STREAK </span><span class="stat-val" id="s-streak">0</span></div>
+    </div>
+  </div>
+
+  <div class="session-nav">
+    <button class="sess-btn active">SESSION 1</button>
+    <a href="../np_game_2/index.html"><button class="sess-btn">SESSION 2</button></a>
+  </div>
+
+  <div class="progress">
+    <button class="nav-btn" id="btn-prev" onclick="navLevel(-1)" disabled>← PREV</button>
+    <div class="pdot active" id="pd1"></div>
+    <div class="pdot" id="pd2"></div>
+    <div class="pdot" id="pd3"></div>
+    <div class="pdot" id="pd4"></div>
+    <button class="nav-btn" id="btn-next" onclick="navLevel(1)">NEXT →</button>
+  </div>
+
+  <div id="lvl-area"></div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+//  MATRIX RAIN
+// ══════════════════════════════════════════════════════════════
+const rc = document.getElementById('rain-canvas');
+const rx = rc.getContext('2d');
+
+function sizeRain() {
+  rc.width  = window.innerWidth;
+  rc.height = window.innerHeight;
+}
+sizeRain();
+window.addEventListener('resize', sizeRain);
+
+const CHARS = 'np.zeros reshape randint seed max min argmax argmin array arange 01'.split('');
+const FS = 13;
+let cols = Math.floor(rc.width / FS);
+let drops = Array.from({length: cols}, () => Math.random() * -120);
+
+(function rain() {
+  rx.fillStyle = 'rgba(2,12,6,.05)';
+  rx.fillRect(0, 0, rc.width, rc.height);
+  rx.fillStyle = '#00ff41';
+  rx.font = `${FS}px Courier New`;
+  for (let i = 0; i < drops.length; i++) {
+    rx.fillText(CHARS[Math.random() * CHARS.length | 0], i * FS, drops[i] * FS);
+    if (drops[i] * FS > rc.height && Math.random() > .975) drops[i] = 0;
+    drops[i]++;
+  }
+  setTimeout(rain, 45);
+})();
+
+// ══════════════════════════════════════════════════════════════
+//  PARTICLES
+// ══════════════════════════════════════════════════════════════
+const pc = document.getElementById('particle-canvas');
+const px = pc.getContext('2d');
+
+function sizePart() { pc.width = window.innerWidth; pc.height = window.innerHeight; }
+sizePart();
+window.addEventListener('resize', sizePart);
+
+let parts = [];
+
+function burst(x, y, color = '#00ff41', n = 36) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const s = Math.random() * 7 + 2;
+    parts.push({ x, y, vx: Math.cos(a)*s, vy: Math.sin(a)*s,
+                 life: 1, decay: Math.random()*.03+.012,
+                 sz: Math.random()*4+1, color });
+  }
+}
+
+function burstEl(el, color) {
+  const r = el.getBoundingClientRect();
+  burst(r.left + r.width/2, r.top + r.height/2, color, 44);
+}
+
+(function animParts() {
+  px.clearRect(0, 0, pc.width, pc.height);
+  parts = parts.filter(p => p.life > 0);
+  for (const p of parts) {
+    px.save();
+    px.globalAlpha = p.life;
+    px.fillStyle = p.color;
+    px.shadowBlur = 10; px.shadowColor = p.color;
+    px.fillRect(p.x - p.sz/2, p.y - p.sz/2, p.sz, p.sz);
+    px.restore();
+    p.x += p.vx; p.y += p.vy; p.vy += .18; p.life -= p.decay;
+  }
+  requestAnimationFrame(animParts);
+})();
+
+// ══════════════════════════════════════════════════════════════
+//  GAME STATE
+// ══════════════════════════════════════════════════════════════
+const G = { level: 1, score: 0, streak: 0, att: 0 };
+
+function addScore(pts) {
+  G.score  += pts; G.streak++;
+  document.getElementById('s-score').textContent  = G.score;
+  document.getElementById('s-streak').textContent = G.streak;
+}
+function failStreak() {
+  G.streak = 0;
+  document.getElementById('s-streak').textContent = '0';
+}
+
+// ══════════════════════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════════════════════
+function makeCells(rows, cols, vals) {
+  const g = document.createElement('div');
+  g.className = 'matrix';
+  g.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  for (let r = 0; r < rows; r++)
+    for (let c = 0; c < cols; c++) {
+      const d = document.createElement('div');
+      d.className = 'cell';
+      d.style.animationDelay = `${(r * cols + c) * .09}s`;
+      d.textContent = vals[r][c];
+      g.appendChild(d);
+    }
+  return g;
+}
+
+function matWrap(mat, lbl, lblColor) {
+  const w = document.createElement('div');
+  w.className = 'mat-inner';
+  w.appendChild(mat);
+  const l = document.createElement('div');
+  l.className = 'mat-lbl';
+  if (lblColor) l.style.color = lblColor;
+  l.textContent = lbl;
+  w.appendChild(l);
+  return w;
+}
+
+function cellsHTML(rows, cols, vals) {
+  let h = `<div class="matrix" style="grid-template-columns:repeat(${cols},1fr)">`;
+  for (let r = 0; r < rows; r++)
+    for (let c = 0; c < cols; c++)
+      h += `<div class="cell" style="animation-delay:${(r*cols+c)*.09}s">${vals[r][c]}</div>`;
+  return h + '</div>';
+}
+
+function setFB(msg, type) {
+  const el = document.getElementById('fb');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'fb ' + type;
+}
+
+function updateAtt() {
+  const el = document.getElementById('att');
+  if (el) el.textContent = `ATTEMPTS: ${G.att}`;
+}
+
+function nextLevel(ms = 2400) {
+  setTimeout(() => {
+    G.att = 0; G.level++;
+    renderLevel(G.level);
+  }, ms);
+}
+
+function renderLevel(n) {
+  for (let i = 1; i <= 4; i++) {
+    const d = document.getElementById('pd'+i);
+    d.className = 'pdot' + (i < n ? ' done' : i === n ? ' active' : '');
+  }
+  const prev = document.getElementById('btn-prev');
+  const next = document.getElementById('btn-next');
+  if (prev) prev.disabled = n <= 1;
+  if (next) next.disabled = n >= 5;
+  const area = document.getElementById('lvl-area');
+  area.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.className = 'lvl';
+  area.appendChild(wrap);
+  [, l1, l2, l3, l4, lWin][n]?.(wrap);
+}
+
+function navLevel(dir) {
+  const n = Math.max(1, Math.min(5, G.level + dir));
+  if (n === G.level) return;
+  G.att = 0; G.level = n;
+  renderLevel(G.level);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  LEVEL 1 — np.zeros((4, 2))
+// ══════════════════════════════════════════════════════════════
+function l1(area) {
+  const zeros = [[0,0],[0,0],[0,0],[0,0]];
+  area.innerHTML = `
+    <div class="lvl-badge">▶ MISSION 01 / 04</div>
+    <div class="lvl-title">THE VOID</div>
+
+    <div class="split">
+      <div class="split-left">
+        <div class="terminal">
+          <div class="term-bar">
+            <div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div>
+            <span>numpy_terminal.py</span>
+          </div>
+          <div class="prompt-row">
+            <span class="prompt-sym">&gt;&gt;&gt;&nbsp;</span>
+            <textarea class="code-in" id="ci" rows="2"
+              placeholder="import numpy as np&#10;np.___((_, _))"></textarea>
+          </div>
+          <span class="hint-tog" onclick="document.getElementById('ht').classList.toggle('on')">[ ? ] HINT</span>
+          <div class="hint-box" id="ht">
+            Use <span>np.zeros()</span> — pass a <span>tuple (rows, cols)</span> as the shape argument.<br>
+            Example shape for 2 rows and 3 cols: <span>(2, 3)</span>
+          </div>
+          <div class="att" id="att">ATTEMPTS: 0</div>
+          <button class="btn-exec" onclick="chk1()">[ EXECUTE COMMAND ]</button>
+        </div>
+        <div class="fb" id="fb"></div>
+      </div>
+
+      <div class="split-right">
+        ${cellsHTML(4, 2, zeros)}
+        <div class="mat-lbl">shape: (4, 2)</div>
+      </div>
+    </div>
+  `;
+}
+
+function chk1() {
+  const raw = (document.getElementById('ci')?.value || '').toLowerCase().replace(/\s/g,'');
+  G.att++;
+  updateAtt();
+  const ok = (raw.includes('zeros') && (raw.includes('(4,2)') || raw.includes('4,2,')));
+  if (ok) {
+    const pts = Math.max(100 - (G.att - 1) * 20, 20);
+    addScore(pts);
+    setFB(`✓ ACCESS GRANTED — np.zeros((4, 2)) creates 4 rows × 2 cols of zeros.  +${pts} pts`, 'ok');
+    document.querySelectorAll('.cell').forEach((c, i) =>
+      setTimeout(() => { c.classList.add('lit'); burstEl(c, '#00ff41'); }, i * 90));
+    nextLevel();
+  } else {
+    failStreak();
+    const hint = raw.includes('zeros') ? 'Check the shape tuple — need (4, 2).' : 'Use np.zeros() with a shape tuple.';
+    setFB(`✗ COMMAND REJECTED — ${hint}`, 'fail');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  LEVEL 2 — .reshape(8, 1)
+// ══════════════════════════════════════════════════════════════
+function l2(area) {
+  const z18 = [[0,0,0,0,0,0,0,0]];
+  area.innerHTML = `
+    <div class="lvl-badge">▶ MISSION 02 / 04</div>
+    <div class="lvl-title">MORPHOGENESIS</div>
+
+    <div class="terminal">
+      <div class="term-bar">
+        <div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div>
+        <span>numpy_terminal.py</span>
+      </div>
+      <div class="prev-line">arr = np.zeros((4, 2)) <span class="cm"># mission 1</span></div>
+      <div class="prompt-row">
+        <span class="prompt-sym">&gt;&gt;&gt;&nbsp;</span>
+        <textarea class="code-in" id="ci" rows="2"
+          placeholder="arr.___(_,_)"></textarea>
+      </div>
+      <span class="hint-tog" onclick="document.getElementById('ht').classList.toggle('on')">[ ? ] HINT</span>
+      <div class="hint-box" id="ht">
+        Use <span>.reshape(rows, cols)</span> on the array.<br>
+        Total elements must stay the same: <span>4 × 2 = 1 × 8 = 8</span>
+      </div>
+      <div class="att" id="att">ATTEMPTS: 0</div>
+      <button class="btn-exec" onclick="chk2()">[ EXECUTE COMMAND ]</button>
+    </div>
+    <div class="fb" id="fb"></div>
+
+    <div class="mat-wrap" style="margin-top:28px;flex-direction:column;gap:8px">
+      <div class="mat-lbl" style="color:#5a7a5a">Reshape to this</div>
+      ${cellsHTML(1, 8, z18)}
+      <div class="mat-lbl" style="color:#ffd700">shape: (1, 8)</div>
+    </div>
+  `;
+
+  // animate the 8 cells in one by one
+  area.querySelectorAll('.mat-wrap .cell').forEach((c, i) => {
+    c.style.opacity = '0';
+    c.style.transform = 'scale(.4)';
+    c.style.transition = `all .32s cubic-bezier(.175,.885,.32,1.275) ${i*.07}s`;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      c.style.opacity = '1';
+      c.style.transform = 'scale(1)';
+    }));
+  });
+}
+
+function chk2() {
+  const raw = (document.getElementById('ci')?.value || '').toLowerCase().replace(/\s/g,'');
+  G.att++; updateAtt();
+  const ok = raw.includes('reshape') && (raw.includes('1,8') || raw.includes('(1,8)'));
+  if (ok) {
+    const pts = Math.max(100 - (G.att - 1) * 20, 20);
+    addScore(pts);
+    setFB(`✓ TRANSFORMATION COMPLETE — .reshape(1, 8) collapses 4×2 into 1×8.  +${pts} pts`, 'ok');
+    document.querySelectorAll('.mat-wrap .cell').forEach((c, i) =>
+      setTimeout(() => { c.classList.add('lit'); burstEl(c, '#00e5ff'); }, i * 55));
+    nextLevel();
+  } else {
+    failStreak();
+    const hint = raw.includes('reshape') ? 'Target shape is (1, 8).' : 'Use .reshape() on the array.';
+    setFB(`✗ TRANSFORMATION FAILED — ${hint}`, 'fail');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  LEVEL 3 — seed(42) + randint(1, 101, 8)
+// ══════════════════════════════════════════════════════════════
+const ORACLE = [52, 93, 15, 72, 61, 21, 83, 87];
+
+function l3(area) {
+  // build the oracle as a 2×4 grid so cells stay a readable size
+  const grid = [[52, 93], [15, 72], [61, 21], [83, 87]];
+  area.innerHTML = `
+    <div class="lvl-badge">▶ MISSION 03 / 04</div>
+    <div class="lvl-title">THE ORACLE'S PROPHECY</div>
+
+    <div class="split">
+      <div class="split-left">
+        <div class="terminal">
+          <div class="term-bar">
+            <div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div>
+            <span>numpy_terminal.py</span>
+          </div>
+          <div class="prompt-row">
+            <span class="prompt-sym">&gt;&gt;&gt;&nbsp;</span>
+            <textarea class="code-in" id="ci" rows="3"
+              placeholder="np.random.___(__)&#10;np.random.___(_, _, _)"></textarea>
+          </div>
+          <span class="hint-tog" onclick="document.getElementById('ht').classList.toggle('on')">[ ? ] HINT</span>
+          <div class="hint-box" id="ht">
+            Line 1: <span>np.random.seed(42)</span> — locks the generator<br>
+            Line 2: <span>np.random.randint(low, high, size)</span><br>
+            &nbsp;&nbsp;• <span>low=1</span>, <span>high=101</span> (exclusive → gives 1–100)<br>
+            &nbsp;&nbsp;• <span>size=8</span> for 8 numbers
+          </div>
+          <div class="att" id="att">ATTEMPTS: 0</div>
+          <button class="btn-exec" onclick="chk3()">[ INVOKE THE ORACLE ]</button>
+        </div>
+        <div class="fb" id="fb"></div>
+      </div>
+
+      <div class="split-right">
+        <div class="mat-lbl" style="color:#5a7a5a;margin-bottom:10px">
+          seed 42 · randint 1–100 · 8 numbers
+        </div>
+        ${cellsHTML(4, 2, grid)}
+        <div class="mat-lbl" style="color:#ffd700">shape: (4, 2)</div>
+      </div>
+    </div>
+  `;
+
+  // bounce cells in
+  area.querySelectorAll('.split-right .cell').forEach((c, i) => {
+    c.style.opacity = '0';
+    c.style.transform = 'scale(.4) rotate(8deg)';
+    c.style.transition = `all .38s cubic-bezier(.175,.885,.32,1.275) ${i*.09}s`;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      c.style.opacity = '1';
+      c.style.transform = 'scale(1) rotate(0deg)';
+    }));
+  });
+}
+
+function chk3() {
+  const raw = (document.getElementById('ci')?.value || '').toLowerCase().replace(/\s/g,'');
+  G.att++; updateAtt();
+  const hasSeed    = raw.includes('seed(42)');
+  const hasRandint = raw.includes('randint');
+  const hasRange   = raw.includes('1,101') || raw.includes('1,100');
+  const has8       = /,\s*8/.test(raw.replace(/\s/g,'')) || raw.includes(',8)') || raw.includes(',8,') || raw.endsWith(',8');
+
+  if (hasSeed && hasRandint && hasRange) {
+    const pts = Math.max(150 - (G.att - 1) * 25, 30);
+    addScore(pts);
+    setFB(`✓ PROPHECY FULFILLED — seed(42) + randint(1, 101, 8) → [52 93 15 72 61 21 83 87].  +${pts} pts`, 'ok');
+    document.querySelectorAll('.split-right .cell').forEach((c, i) =>
+      setTimeout(() => { c.classList.add('lit'); burstEl(c, '#ffd700'); }, i * 80));
+    nextLevel(2600);
+  } else {
+    failStreak();
+    let msg = '✗ ORACLE SILENT — ';
+    if (!hasSeed)    msg += 'Call np.random.seed(42) first.';
+    else if (!hasRandint) msg += 'Use np.random.randint().';
+    else             msg += 'Range should be (1, 101) to include 1–100.';
+    setFB(msg, 'fail');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  LEVEL 4 — max / min / argmax / argmin
+// ══════════════════════════════════════════════════════════════
+const M4 = [
+  [17, 82,  3, 56],
+  [91, 45, 28, 73],
+  [64,  9, 37, 88],
+  [11, 54, 76, 23]
+];
+// flat: [17,82,3,56, 91,45,28,73, 64,9,37,88, 11,54,76,23]
+const M4MAX = 91, M4MIN = 3, M4ARGMAX = 4, M4ARGMIN = 2;
+
+const Q4 = [
+  { id: 'q-max',    label: 'arr.max()',    ans: M4MAX,    color: '#ffd700' },
+  { id: 'q-min',    label: 'arr.min()',    ans: M4MIN,    color: '#bf00ff' },
+  { id: 'q-argmax', label: 'arr.argmax()', ans: M4ARGMAX, color: '#00e5ff' },
+  { id: 'q-argmin', label: 'arr.argmin()', ans: M4ARGMIN, color: '#ff6b00' },
+];
+
+function l4(area) {
+  // build coloured matrix as a string for the split-right
+  let matHTML = `<div class="matrix" style="grid-template-columns:repeat(4,1fr)">`;
+  M4.forEach((row, r) => row.forEach((v, c) => {
+    const t = v / 100;
+    const hue = Math.round(t * 130);
+    const sz  = (.9 + t * .65).toFixed(2);
+    matHTML += `<div class="cell" style="animation-delay:${(r*4+c)*.06}s;`
+      + `font-size:${sz}rem;color:hsl(${hue},100%,60%);`
+      + `text-shadow:0 0 ${Math.round(8+t*18)}px hsl(${hue},100%,60%);`
+      + `border-color:hsla(${hue},100%,60%,.25)">${v}</div>`;
+  }));
+  matHTML += '</div>';
+
+  const cardsHTML = Q4.map(q => `
+    <div class="q-card" id="card-${q.id}">
+      <div class="q-card-lbl">${q.label}</div>
+      <input type="number" id="${q.id}" placeholder="write the answer here" />
+    </div>
+  `).join('');
+
+  area.innerHTML = `
+    <div class="lvl-badge">▶ MISSION 04 / 04 — FINAL</div>
+    <div class="lvl-title">THE ENCHANTED SQUARE</div>
+
+    <div class="split">
+      <div class="split-left">
+        <div class="q-list">${cardsHTML}</div>
+        <span class="hint-tog" onclick="document.getElementById('ht').classList.toggle('on')"
+              style="margin-top:10px;display:inline-block">[ ? ] HINT</span>
+        <div class="hint-box" id="ht">
+          <span>.max()</span> / <span>.min()</span> → the value itself<br>
+          <span>.argmax()</span> / <span>.argmin()</span> → the flat index (0-based, row by row)
+        </div>
+        <div class="att" id="att" style="margin-top:8px">ATTEMPTS: 0</div>
+        <button class="btn-exec" style="margin-top:10px" onclick="chk4()">[ REVEAL THE TRUTH ]</button>
+        <div class="fb" id="fb"></div>
+      </div>
+
+      <div class="split-right">
+        ${matHTML}
+        <div class="mat-lbl">shape: (4, 4)</div>
+      </div>
+    </div>
+  `;
+}
+
+function chk4() {
+  G.att++; updateAtt();
+  const vals = Q4.map(q => parseInt(document.getElementById(q.id)?.value || 'x'));
+  const results = Q4.map((q, i) => vals[i] === q.ans);
+  const allOk = results.every(Boolean);
+
+  // highlight each card
+  Q4.forEach((q, i) => {
+    const card = document.getElementById('card-' + q.id);
+    if (card) card.className = 'q-card ' + (results[i] ? 'correct' : 'wrong');
+  });
+
+  if (allOk) {
+    const pts = Math.max(200 - (G.att - 1) * 30, 40);
+    addScore(pts);
+    setFB(`✓ TRUTH REVEALED — max:${M4MAX}  min:${M4MIN}  argmax:${M4ARGMAX}  argmin:${M4ARGMIN}.  +${pts} pts`, 'ok');
+    // highlight matrix cells
+    const cells = [...document.querySelectorAll('.split-right .cell')];
+    cells.forEach((c, i) => {
+      const v = parseInt(c.textContent);
+      if (v === M4MAX)       { c.className = 'cell gold-cell'; burstEl(c, '#ffd700'); }
+      else if (v === M4MIN)  { c.className = 'cell purp-cell'; burstEl(c, '#bf00ff'); }
+      if (i === M4ARGMAX)    burstEl(c, '#00e5ff');
+      if (i === M4ARGMIN)    burstEl(c, '#ff6b00');
+    });
+    nextLevel(3200);
+  } else {
+    failStreak();
+    const wrong = Q4.filter((q, i) => !results[i]).map(q => q.label).join(', ');
+    setFB(`✗ INCORRECT — check: ${wrong}`, 'fail');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  WIN SCREEN
+// ══════════════════════════════════════════════════════════════
+function lWin(area) {
+  for (let i = 1; i <= 4; i++)
+    document.getElementById('pd'+i).className = 'pdot done';
+
+  // celebrate
+  for (let i = 0; i < 10; i++) setTimeout(() => burst(
+    Math.random() * window.innerWidth,
+    Math.random() * window.innerHeight * .55,
+    ['#00ff41','#ffd700','#00e5ff','#bf00ff','#ff6b00'][Math.random()*5|0], 55
+  ), i * 180);
+
+  area.innerHTML = `
+    <div class="win">
+      <div class="win-title">MISSION COMPLETE</div>
+      <div class="win-score">FINAL SCORE: <span style="color:#ffd700">${G.score}</span></div>
+      <div class="win-sub">All 4 NumPy protocols executed. The matrix bows to you.</div>
+
+      <div class="fn-list">
+        <div class="fn-list-hdr">◆ FUNCTIONS UNLOCKED</div>
+        <div class="fn-row"><span class="fn-name">np.zeros((r, c))</span><span class="fn-d">→ r×c matrix filled with zeros</span></div>
+        <div class="fn-row"><span class="fn-name">.reshape(r, c)</span><span class="fn-d">→ change shape, same data</span></div>
+        <div class="fn-row"><span class="fn-name">np.random.seed(n)</span><span class="fn-d">→ reproducible random numbers</span></div>
+        <div class="fn-row"><span class="fn-name">np.random.randint(lo, hi, size)</span><span class="fn-d">→ random integers in range</span></div>
+        <div class="fn-row"><span class="fn-name">.max() &nbsp;/&nbsp; .min()</span><span class="fn-d">→ the largest / smallest value</span></div>
+        <div class="fn-row"><span class="fn-name">.argmax() / .argmin()</span><span class="fn-d">→ flat index of max / min</span></div>
+      </div>
+
+      <button class="btn-restart" onclick="restartGame()">[ REPLAY MISSION ]</button>
+    </div>
+  `;
+}
+
+function restartGame() {
+  Object.assign(G, { level: 1, score: 0, streak: 0, att: 0 });
+  document.getElementById('s-score').textContent  = '0';
+  document.getElementById('s-streak').textContent = '0';
+  renderLevel(1);
+}
+
+// ── boot ──
+renderLevel(1);
+</script>
+</body>
+</html>

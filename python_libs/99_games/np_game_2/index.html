@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MATRIX PROTOCOL — NumPy Session 2</title>
+  <style>
+    :root {
+      --bg:        #020c06;
+      --green:     #00ff41;
+      --green-dim: #1a4a2a;
+      --green-mid: #00aa30;
+      --cyan:      #00e5ff;
+      --gold:      #ffd700;
+      --purple:    #bf00ff;
+      --red:       #ff073a;
+      --orange:    #ff6b00;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg); color: var(--green);
+      font-family: 'Courier New', Courier, monospace;
+      min-height: 100vh; overflow-x: hidden;
+    }
+    body::after {
+      content: ''; position: fixed; inset: 0;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px,
+        rgba(0,0,0,.06) 2px, rgba(0,0,0,.06) 4px);
+      pointer-events: none; z-index: 9999;
+    }
+    #rain-canvas     { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; opacity: .12; }
+    #particle-canvas { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 9998; pointer-events: none; }
+
+    #game {
+      position: relative; z-index: 1;
+      max-width: 960px; margin: 0 auto;
+      padding: 20px 24px; min-height: 100vh;
+    }
+
+    /* ── header ── */
+    .hdr {
+      display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 1px solid var(--green-dim);
+      padding-bottom: 14px; margin-bottom: 14px;
+    }
+    .hdr-title { font-size: 1.3rem; font-weight: 900; letter-spacing: .25em; text-shadow: 0 0 14px var(--green); }
+    .hdr-title em { color: var(--cyan); font-style: normal; }
+    .hdr-stats { display: flex; gap: 28px; font-size: .8rem; }
+    .stat-lbl { color: #3a5a3a; letter-spacing: .1em; }
+    .stat-val  { color: var(--gold); font-weight: 700; text-shadow: 0 0 8px var(--gold); }
+
+    /* ── session nav ── */
+    .session-nav {
+      display: flex; gap: 10px; justify-content: center;
+      margin-bottom: 12px;
+    }
+    .sess-btn {
+      background: transparent; border: 1px solid var(--green-dim);
+      color: #3a5a3a; font-family: 'Courier New', monospace;
+      font-size: .75rem; letter-spacing: .12em; padding: 4px 16px;
+      cursor: pointer; border-radius: 2px; transition: all .2s;
+    }
+    .sess-btn:hover { border-color: var(--green-mid); color: var(--green-mid); }
+    .sess-btn.active {
+      border-color: var(--cyan); color: var(--cyan);
+      text-shadow: 0 0 8px var(--cyan); box-shadow: 0 0 10px rgba(0,229,255,.15);
+    }
+
+    /* ── progress ── */
+    .progress { display: flex; gap: 10px; justify-content: center; margin-bottom: 28px; align-items: center; }
+    .pdot { height: 5px; width: 48px; border-radius: 3px; background: var(--green-dim); transition: all .5s; }
+    .pdot.active { background: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
+    .pdot.done   { background: var(--green); box-shadow: 0 0 8px var(--green); }
+    .nav-btn {
+      background: transparent; border: 1px solid var(--green-dim);
+      color: var(--green-mid); font-family: 'Courier New', monospace;
+      font-size: .75rem; letter-spacing: .12em; padding: 4px 14px;
+      cursor: pointer; border-radius: 2px; transition: all .2s;
+    }
+    .nav-btn:hover:not(:disabled) { border-color: var(--green); color: var(--green); box-shadow: 0 0 10px rgba(0,255,65,.2); }
+    .nav-btn:disabled { opacity: .22; cursor: default; }
+
+    /* ── level ── */
+    .lvl { animation: fadeUp .5s ease both; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: translateY(0); } }
+    .lvl-badge {
+      display: inline-block; border: 1px solid var(--cyan); color: var(--cyan);
+      padding: 3px 14px; border-radius: 2px; font-size: .75rem; letter-spacing: .2em;
+      text-shadow: 0 0 8px var(--cyan); box-shadow: 0 0 8px rgba(0,229,255,.15);
+      margin-bottom: 10px;
+    }
+    .lvl-title { font-size: 2rem; font-weight: 900; letter-spacing: .1em; text-shadow: 0 0 24px var(--green); margin-bottom: 18px; }
+
+    /* ── matrix cells ── */
+    .matrix { display: grid; gap: 8px; padding: 18px; border: 1px solid rgba(0,255,65,.25); background: rgba(0,255,65,.018); box-shadow: 0 0 40px rgba(0,255,65,.08), inset 0 0 40px rgba(0,0,0,.5); border-radius: 5px; }
+    .cell {
+      width: 68px; height: 52px; display: flex; align-items: center; justify-content: center;
+      font-size: 1.35rem; font-weight: 700; border: 1px solid rgba(0,255,65,.22);
+      background: rgba(0,255,65,.025); color: var(--green); text-shadow: 0 0 10px var(--green);
+      border-radius: 3px; position: relative; overflow: hidden;
+      animation: cellBeat 3.5s ease-in-out infinite;
+    }
+    .cell::before { content: ''; position: absolute; top: -100%; left: 0; width: 100%; height: 100%; background: linear-gradient(transparent, rgba(0,255,65,.08), transparent); animation: scanCell 4s linear infinite; }
+    @keyframes scanCell { from { top: -100%; } to { top: 200%; } }
+    @keyframes cellBeat { 0%,100% { box-shadow: 0 0 4px rgba(0,255,65,.15); } 50% { box-shadow: 0 0 14px rgba(0,255,65,.4); } }
+    .cell.lit { border-color: var(--green); background: rgba(0,255,65,.12); box-shadow: 0 0 22px var(--green); animation: litBeat .5s ease-in-out infinite alternate; }
+    @keyframes litBeat { from { box-shadow: 0 0 14px var(--green); } to { box-shadow: 0 0 38px var(--green), 0 0 60px rgba(0,255,65,.4); } }
+    .cell.gold-cell { color: var(--gold); text-shadow: 0 0 16px var(--gold); border-color: var(--gold); background: rgba(255,215,0,.1); }
+    .cell.red-cell  { color: var(--red);  text-shadow: 0 0 12px var(--red);  border-color: var(--red);  background: rgba(255,7,58,.08); }
+    .mat-lbl  { font-size: .78rem; letter-spacing: .12em; color: var(--cyan); text-shadow: 0 0 8px var(--cyan); }
+    .mat-wrap { display: flex; justify-content: center; flex-direction: column; align-items: center; gap: 8px; }
+
+    /* ── split layout ── */
+    .split { display: grid; grid-template-columns: 1fr auto; gap: 32px; align-items: start; margin-top: 18px; }
+    .split-right { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+
+    /* ── terminal ── */
+    .terminal { background: rgba(0,0,0,.65); border: 1px solid var(--green-dim); border-radius: 5px; padding: 18px 20px; }
+    .term-bar { display: flex; align-items: center; gap: 7px; margin-bottom: 14px; font-size: .76rem; color: #3a5a3a; letter-spacing: .1em; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .dr { background: #ff5f56; } .dy { background: #ffbd2e; } .dg { background: #27c93f; }
+    .prev-line { font-size: .83rem; color: var(--green); margin-bottom: 10px; border-left: 2px solid var(--green-mid); padding-left: 10px; text-shadow: 0 0 6px rgba(0,255,65,.35); }
+    .prev-line .cm { color: #6a9955; }
+    .prompt-row { display: flex; align-items: flex-start; gap: 10px; }
+    .prompt-sym { color: var(--cyan); white-space: nowrap; margin-top: 3px; text-shadow: 0 0 8px var(--cyan); font-size: .95rem; }
+    .code-in { flex: 1; background: transparent; border: none; outline: none; color: var(--green); font-family: 'Courier New', monospace; font-size: .97rem; caret-color: var(--green); text-shadow: 0 0 8px rgba(0,255,65,.45); resize: none; line-height: 1.65; min-height: 56px; }
+    .code-in::placeholder { color: rgba(0,255,65,.2); }
+    .hint-tog { display: inline-block; font-size: .73rem; color: #3a5a3a; cursor: pointer; border-bottom: 1px dashed #3a5a3a; margin-top: 10px; letter-spacing: .08em; }
+    .hint-tog:hover { color: var(--green-mid); }
+    .hint-box { display: none; margin-top: 9px; padding: 10px 14px; background: rgba(0,0,0,.4); border-left: 2px solid #3a5a3a; font-size: .83rem; color: #7a9a7a; line-height: 1.7; }
+    .hint-box.on { display: block; }
+    .hint-box span { color: var(--cyan); }
+    .att { text-align: right; font-size: .75rem; color: #3a5a3a; margin-top: 7px; }
+    .btn-exec { display: block; width: 100%; margin-top: 13px; padding: 12px; background: transparent; border: 1px solid var(--green); border-radius: 3px; color: var(--green); font-family: 'Courier New', monospace; font-size: .95rem; cursor: pointer; letter-spacing: .18em; text-shadow: 0 0 8px var(--green); box-shadow: 0 0 10px rgba(0,255,65,.08); transition: all .2s; }
+    .btn-exec:hover { background: rgba(0,255,65,.08); box-shadow: 0 0 22px rgba(0,255,65,.3); }
+    .fb { min-height: 52px; margin-top: 14px; padding: 13px 16px; border-radius: 4px; font-size: .9rem; letter-spacing: .04em; line-height: 1.5; }
+    .fb.ok   { border: 1px solid var(--green); color: var(--green); background: rgba(0,255,65,.04); text-shadow: 0 0 8px var(--green); animation: popIn .3s ease both; }
+    .fb.fail { border: 1px solid var(--red);   color: var(--red);   background: rgba(255,7,58,.04); text-shadow: 0 0 8px var(--red);   animation: shake .3s ease both; }
+    @keyframes popIn { 0% { transform: scale(.97); } 60% { transform: scale(1.02); } 100% { transform: scale(1); } }
+    @keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-7px); } 75% { transform: translateX(7px); } }
+
+    /* ── question cards (shape / copy missions) ── */
+    .q-list { display: flex; flex-direction: column; gap: 10px; }
+    .q-card { border: 1px solid var(--green-dim); border-radius: 4px; padding: 12px 14px; background: rgba(0,0,0,.45); transition: border-color .2s; }
+    .q-card:focus-within { border-color: var(--green-mid); }
+    .q-card-lbl { font-size: .82rem; color: var(--cyan); letter-spacing: .06em; margin-bottom: 8px; text-shadow: 0 0 8px var(--cyan); }
+    .q-card input { width: 100%; background: transparent; border: none; border-bottom: 1px solid #2a4a2a; outline: none; color: var(--green); font-family: 'Courier New', monospace; font-size: .95rem; padding: 5px 0; caret-color: var(--green); }
+    .q-card input::placeholder { color: rgba(0,255,65,.2); font-size: .82rem; }
+    .q-card input:focus { border-bottom-color: var(--green-mid); }
+    .q-card.correct { border-color: var(--green); background: rgba(0,255,65,.06); }
+    .q-card.wrong   { border-color: var(--red); }
+
+    /* ── copy mission — dual array display ── */
+    .clone-arrays { display: flex; flex-direction: column; gap: 16px; margin-top: 24px; }
+    .arr-row { display: flex; align-items: center; gap: 14px; }
+    .arr-label { font-size: .78rem; color: #5a7a5a; letter-spacing: .1em; white-space: nowrap; min-width: 90px; text-align: right; }
+
+    /* ── win screen ── */
+    .win { text-align: center; padding: 50px 20px; animation: fadeUp .6s ease both; }
+    .win-title { font-size: 2.8rem; font-weight: 900; color: var(--gold); letter-spacing: .12em; text-shadow: 0 0 30px var(--gold), 0 0 60px rgba(255,215,0,.5); animation: winGlow 1s ease-in-out infinite alternate; margin-bottom: 12px; }
+    @keyframes winGlow { from { text-shadow: 0 0 25px var(--gold); } to { text-shadow: 0 0 55px var(--gold), 0 0 90px rgba(255,215,0,.7); } }
+    .win-score { font-size: 1.4rem; color: var(--cyan); margin: 12px 0 6px; }
+    .win-sub   { color: #4a6a4a; font-size: .88rem; margin-bottom: 30px; }
+    .fn-list   { max-width: 600px; margin: 0 auto 30px; background: rgba(0,0,0,.5); border: 1px solid var(--green-dim); border-radius: 5px; padding: 18px 22px; text-align: left; }
+    .fn-list-hdr { font-size: .75rem; color: var(--cyan); letter-spacing: .15em; margin-bottom: 12px; }
+    .fn-row  { padding: 7px 0; border-bottom: 1px solid rgba(0,255,65,.08); font-size: .88rem; display: flex; gap: 12px; align-items: baseline; }
+    .fn-row:last-child { border: none; }
+    .fn-name { color: var(--cyan); white-space: nowrap; }
+    .fn-d    { color: #5a7a5a; }
+    .btn-restart { display: inline-block; padding: 13px 44px; border: 1px solid var(--green); color: var(--green); cursor: pointer; font-family: 'Courier New', monospace; font-size: 1rem; letter-spacing: .2em; text-shadow: 0 0 10px var(--green); background: transparent; transition: all .2s; border-radius: 3px; margin-top: 6px; }
+    .btn-restart:hover { background: rgba(0,255,65,.1); box-shadow: 0 0 28px rgba(0,255,65,.4); }
+    .sess-nav-win { display: flex; gap: 14px; justify-content: center; margin-top: 24px; }
+    .sess-nav-win a { display: inline-block; padding: 10px 30px; border: 1px solid var(--cyan); color: var(--cyan); text-decoration: none; font-size: .85rem; letter-spacing: .15em; border-radius: 3px; text-shadow: 0 0 8px var(--cyan); transition: all .2s; }
+    .sess-nav-win a:hover { background: rgba(0,229,255,.08); box-shadow: 0 0 20px rgba(0,229,255,.25); }
+  </style>
+</head>
+<body>
+
+<canvas id="rain-canvas"></canvas>
+<canvas id="particle-canvas"></canvas>
+
+<div id="game">
+  <div class="hdr">
+    <div class="hdr-title">MATRIX<em>PROTOCOL</em>.numpy</div>
+    <div class="hdr-stats">
+      <div><span class="stat-lbl">SCORE </span><span class="stat-val" id="s-score">0</span></div>
+      <div><span class="stat-lbl">STREAK </span><span class="stat-val" id="s-streak">0</span></div>
+    </div>
+  </div>
+
+  <div class="session-nav">
+    <a href="../np_game/index.html"><button class="sess-btn">SESSION 1</button></a>
+    <button class="sess-btn active">SESSION 2</button>
+  </div>
+
+  <div class="progress">
+    <button class="nav-btn" id="btn-prev" onclick="navLevel(-1)" disabled>← PREV</button>
+    <div class="pdot active" id="pd1"></div>
+    <div class="pdot" id="pd2"></div>
+    <div class="pdot" id="pd3"></div>
+    <div class="pdot" id="pd4"></div>
+    <button class="nav-btn" id="btn-next" onclick="navLevel(1)">NEXT →</button>
+  </div>
+
+  <div id="lvl-area"></div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+//  MATRIX RAIN
+// ══════════════════════════════════════════════════════════════
+const rc = document.getElementById('rain-canvas');
+const rx = rc.getContext('2d');
+function sizeRain() { rc.width = window.innerWidth; rc.height = window.innerHeight; }
+sizeRain(); window.addEventListener('resize', sizeRain);
+const CHARS = 'np.arange linspace copy shape 0123456789'.split('');
+const FS = 13;
+let drops = Array.from({length: Math.floor(rc.width/FS)}, () => Math.random()*-120);
+(function rain() {
+  rx.fillStyle='rgba(2,12,6,.05)'; rx.fillRect(0,0,rc.width,rc.height);
+  rx.fillStyle='#00ff41'; rx.font=`${FS}px Courier New`;
+  drops.forEach((d,i) => {
+    rx.fillText(CHARS[Math.random()*CHARS.length|0], i*FS, d*FS);
+    if (d*FS>rc.height && Math.random()>.975) drops[i]=0; drops[i]++;
+  });
+  setTimeout(rain,45);
+})();
+
+// ══════════════════════════════════════════════════════════════
+//  PARTICLES
+// ══════════════════════════════════════════════════════════════
+const pc = document.getElementById('particle-canvas');
+const px = pc.getContext('2d');
+function sizePart() { pc.width=window.innerWidth; pc.height=window.innerHeight; }
+sizePart(); window.addEventListener('resize',sizePart);
+let parts=[];
+function burst(x,y,color='#00ff41',n=36) {
+  for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,s=Math.random()*7+2;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:1,decay:Math.random()*.03+.012,sz:Math.random()*4+1,color});}
+}
+function burstEl(el,color){const r=el.getBoundingClientRect();burst(r.left+r.width/2,r.top+r.height/2,color,44);}
+(function animParts(){
+  px.clearRect(0,0,pc.width,pc.height);
+  parts=parts.filter(p=>p.life>0);
+  for(const p of parts){px.save();px.globalAlpha=p.life;px.fillStyle=p.color;px.shadowBlur=10;px.shadowColor=p.color;px.fillRect(p.x-p.sz/2,p.y-p.sz/2,p.sz,p.sz);px.restore();p.x+=p.vx;p.y+=p.vy;p.vy+=.18;p.life-=p.decay;}
+  requestAnimationFrame(animParts);
+})();
+
+// ══════════════════════════════════════════════════════════════
+//  GAME STATE
+// ══════════════════════════════════════════════════════════════
+const G = { level:1, score:0, streak:0, att:0 };
+function addScore(pts){ G.score+=pts; G.streak++; document.getElementById('s-score').textContent=G.score; document.getElementById('s-streak').textContent=G.streak; }
+function failStreak(){ G.streak=0; document.getElementById('s-streak').textContent='0'; }
+
+// ══════════════════════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════════════════════
+function cellsHTML(rows,cols,vals) {
+  let h=`<div class="matrix" style="grid-template-columns:repeat(${cols},1fr)">`;
+  for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) h+=`<div class="cell" style="animation-delay:${(r*cols+c)*.09}s">${vals[r][c]}</div>`;
+  return h+'</div>';
+}
+function animCells(selector) {
+  document.querySelectorAll(selector).forEach((c,i)=>{
+    c.style.opacity='0'; c.style.transform='scale(.4)';
+    c.style.transition=`all .32s cubic-bezier(.175,.885,.32,1.275) ${i*.07}s`;
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{ c.style.opacity='1'; c.style.transform='scale(1)'; }));
+  });
+}
+function setFB(msg,type){ const el=document.getElementById('fb'); if(!el)return; el.textContent=msg; el.className='fb '+type; }
+function updateAtt(){ const el=document.getElementById('att'); if(el) el.textContent=`ATTEMPTS: ${G.att}`; }
+function nextLevel(ms=2400){ setTimeout(()=>{ G.att=0; G.level++; renderLevel(G.level); },ms); }
+
+function renderLevel(n) {
+  for(let i=1;i<=4;i++) document.getElementById('pd'+i).className='pdot'+(i<n?' done':i===n?' active':'');
+  const prev=document.getElementById('btn-prev'), next=document.getElementById('btn-next');
+  if(prev) prev.disabled=n<=1; if(next) next.disabled=n>=5;
+  const area=document.getElementById('lvl-area');
+  area.innerHTML='';
+  const wrap=document.createElement('div'); wrap.className='lvl'; area.appendChild(wrap);
+  [,l1,l2,l3,l4,lWin][n]?.(wrap);
+}
+function navLevel(dir){ const n=Math.max(1,Math.min(5,G.level+dir)); if(n===G.level)return; G.att=0; G.level=n; renderLevel(n); }
+
+// ══════════════════════════════════════════════════════════════
+//  MISSION 1 — np.arange(0, 10, 2)
+// ══════════════════════════════════════════════════════════════
+function l1(area) {
+  const vals = [[0,2,4,6,8]];
+  area.innerHTML = `
+    <div class="lvl-badge">▶ MISSION 01 / 04</div>
+    <div class="lvl-title">THE SEQUENCE</div>
+    <div class="split">
+      <div class="split-left">
+        <div class="terminal">
+          <div class="term-bar"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div><span>numpy_terminal.py</span></div>
+          <div class="prompt-row">
+            <span class="prompt-sym">&gt;&gt;&gt;&nbsp;</span>
+            <textarea class="code-in" id="ci" rows="2" placeholder="np.___(_,_,_)"></textarea>
+          </div>
+          <span class="hint-tog" onclick="document.getElementById('ht').classList.toggle('on')">[ ? ] HINT</span>
+          <div class="hint-box" id="ht">
+            Use <span>np.arange(start, stop, step)</span><br>
+            The sequence starts at <span>0</span>, ends before <span>10</span>, jumping by <span>2</span>
+          </div>
+          <div class="att" id="att">ATTEMPTS: 0</div>
+          <button class="btn-exec" onclick="chk1()">[ EXECUTE COMMAND ]</button>
+        </div>
+        <div class="fb" id="fb"></div>
+      </div>
+      <div class="split-right">
+        <div class="mat-lbl" style="color:#5a7a5a;margin-bottom:10px">start=0 · stop=10 · step=2</div>
+        ${cellsHTML(1,5,vals)}
+        <div class="mat-lbl">shape: (5,)</div>
+      </div>
+    </div>
+  `;
+  animCells('.split-right .cell');
+}
+function chk1() {
+  const raw=(document.getElementById('ci')?.value||'').toLowerCase().replace(/\s/g,'');
+  G.att++; updateAtt();
+  const ok=raw.includes('arange') && raw.includes('0,10,2');
+  if(ok){
+    const pts=Math.max(100-(G.att-1)*20,20); addScore(pts);
+    setFB(`✓ SEQUENCE LOCKED — np.arange(0, 10, 2) → [0 2 4 6 8].  +${pts} pts`,'ok');
+    document.querySelectorAll('.split-right .cell').forEach((c,i)=>setTimeout(()=>{ c.classList.add('lit'); burstEl(c,'#00ff41'); },i*90));
+    nextLevel();
+  } else {
+    failStreak();
+    const hint=raw.includes('arange')?'Check the arguments: arange(start, stop, step).':'Use np.arange() with 3 arguments.';
+    setFB(`✗ SEQUENCE REJECTED — ${hint}`,'fail');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  MISSION 2 — np.linspace(0, 10, 3)
+// ══════════════════════════════════════════════════════════════
+function l2(area) {
+  const vals = [[0,5,10]];
+  area.innerHTML = `
+    <div class="lvl-badge">▶ MISSION 02 / 04</div>
+    <div class="lvl-title">THE BRIDGE</div>
+    <div class="terminal">
+      <div class="term-bar"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div><span>numpy_terminal.py</span></div>
+      <div class="prompt-row">
+        <span class="prompt-sym">&gt;&gt;&gt;&nbsp;</span>
+        <textarea class="code-in" id="ci" rows="2" placeholder="np.___(_,_,_)"></textarea>
+      </div>
+      <span class="hint-tog" onclick="document.getElementById('ht').classList.toggle('on')">[ ? ] HINT</span>
+      <div class="hint-box" id="ht">
+        Use <span>np.linspace(start, stop, num)</span><br>
+        Returns <span>num</span> evenly spaced values from <span>start</span> to <span>stop</span> (inclusive)
+      </div>
+      <div class="att" id="att">ATTEMPTS: 0</div>
+      <button class="btn-exec" onclick="chk2()">[ EXECUTE COMMAND ]</button>
+    </div>
+    <div class="fb" id="fb"></div>
+    <div class="mat-wrap" style="margin-top:28px">
+      <div class="mat-lbl" style="color:#5a7a5a">3 evenly spaced values from 0 to 10</div>
+      ${cellsHTML(1,3,vals)}
+      <div class="mat-lbl" style="color:#ffd700">shape: (3,)</div>
+    </div>
+  `;
+  animCells('.mat-wrap .cell');
+}
+function chk2() {
+  const raw=(document.getElementById('ci')?.value||'').toLowerCase().replace(/\s/g,'');
+  G.att++; updateAtt();
+  const ok=raw.includes('linspace') && raw.includes('0,10,3');
+  if(ok){
+    const pts=Math.max(100-(G.att-1)*20,20); addScore(pts);
+    setFB(`✓ BRIDGE BUILT — np.linspace(0, 10, 3) → [0. 5. 10.].  +${pts} pts`,'ok');
+    document.querySelectorAll('.mat-wrap .cell').forEach((c,i)=>setTimeout(()=>{ c.classList.add('lit'); burstEl(c,'#00e5ff'); },i*90));
+    nextLevel();
+  } else {
+    failStreak();
+    const hint=raw.includes('linspace')?'Check args: linspace(start, stop, num).':'Use np.linspace() with 3 arguments.';
+    setFB(`✗ BRIDGE FAILED — ${hint}`,'fail');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  MISSION 3 — .shape
+// ══════════════════════════════════════════════════════════════
+const M3 = [[1,2,3,4],[5,6,7,8],[9,10,11,12]];
+
+const Q3 = [
+  { id:'q-rows', label:'arr.shape[0]',  type:'number', ans:'3',       color:'#00e5ff' },
+  { id:'q-cols', label:'arr.shape[1]',  type:'number', ans:'4',       color:'#ffd700' },
+  { id:'q-shp',  label:'arr.shape',     type:'text',   ans:'(3,4)',   color:'#00ff41' },
+];
+
+function l3(area) {
+  const cards=Q3.map(q=>`
+    <div class="q-card" id="card-${q.id}">
+      <div class="q-card-lbl">${q.label}</div>
+      <input type="${q.type}" id="${q.id}" placeholder="write the answer here" />
+    </div>
+  `).join('');
+  area.innerHTML=`
+    <div class="lvl-badge">▶ MISSION 03 / 04</div>
+    <div class="lvl-title">THE BLUEPRINT</div>
+    <div class="split">
+      <div class="split-left">
+        <div class="q-list">${cards}</div>
+        <span class="hint-tog" onclick="document.getElementById('ht').classList.toggle('on')" style="margin-top:10px;display:inline-block">[ ? ] HINT</span>
+        <div class="hint-box" id="ht">
+          <span>.shape</span> returns a tuple <span>(rows, cols)</span><br>
+          <span>.shape[0]</span> = rows &nbsp;|&nbsp; <span>.shape[1]</span> = cols<br>
+          Count the matrix: how many rows? how many columns?
+        </div>
+        <div class="att" id="att" style="margin-top:8px">ATTEMPTS: 0</div>
+        <button class="btn-exec" style="margin-top:10px" onclick="chk3()">[ REVEAL SHAPE ]</button>
+        <div class="fb" id="fb"></div>
+      </div>
+      <div class="split-right">
+        ${cellsHTML(3,4,M3)}
+        <div class="mat-lbl">arr.shape = ?</div>
+      </div>
+    </div>
+  `;
+}
+function chk3() {
+  G.att++; updateAtt();
+  const normalize = v => v.replace(/\s/g,'').toLowerCase();
+  const results=Q3.map(q=>{
+    const raw=normalize(document.getElementById(q.id)?.value||'');
+    return raw===normalize(q.ans);
+  });
+  Q3.forEach((q,i)=>{ const c=document.getElementById('card-'+q.id); if(c) c.className='q-card '+(results[i]?'correct':'wrong'); });
+  if(results.every(Boolean)){
+    const pts=Math.max(150-(G.att-1)*25,30); addScore(pts);
+    setFB(`✓ BLUEPRINT DECODED — shape[0]=3 rows, shape[1]=4 cols, shape=(3,4).  +${pts} pts`,'ok');
+    document.querySelectorAll('.split-right .cell').forEach((c,i)=>setTimeout(()=>{ c.classList.add('lit'); burstEl(c,'#00e5ff'); },i*60));
+    nextLevel(2600);
+  } else {
+    failStreak();
+    const wrong=Q3.filter((_,i)=>!results[i]).map(q=>q.label).join(', ');
+    setFB(`✗ INCORRECT — check: ${wrong}`,'fail');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  MISSION 4 — .copy()
+// ══════════════════════════════════════════════════════════════
+const ORIG  = [0,1,2,3,4,5,6,7,8,9];
+const CLONE = [999,999,999,3,4,5,6,7,8,9];
+
+function smallCell(v, isRed=false) {
+  const cls=isRed?'cell red-cell':'cell';
+  return `<div class="${cls}" style="width:56px;height:44px;font-size:1rem;animation-delay:0s">${v}</div>`;
+}
+
+function l4(area) {
+  const origHTML  = `<div class="matrix" style="grid-template-columns:repeat(10,1fr);gap:5px;padding:10px">${ORIG.map(v=>smallCell(v)).join('')}</div>`;
+  const cloneHTML = `<div class="matrix" style="grid-template-columns:repeat(10,1fr);gap:5px;padding:10px">${CLONE.map((v,i)=>smallCell(v,i<3)).join('')}</div>`;
+  area.innerHTML=`
+    <div class="lvl-badge">▶ MISSION 04 / 04 — FINAL</div>
+    <div class="lvl-title">THE CLONE</div>
+    <div class="split">
+      <div class="split-left">
+        <div class="terminal">
+          <div class="term-bar"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div><span>numpy_terminal.py</span></div>
+          <div class="prev-line">original = np.arange(0, 10) <span class="cm"># [0 1 2 3 … 9]</span></div>
+          <div class="prompt-row">
+            <span class="prompt-sym">&gt;&gt;&gt;&nbsp;</span>
+            <textarea class="code-in" id="ci" rows="3"
+              placeholder="new_arr = original.___()&#10;new_arr[0:3] = 999"></textarea>
+          </div>
+          <span class="hint-tog" onclick="document.getElementById('ht').classList.toggle('on')">[ ? ] HINT</span>
+          <div class="hint-box" id="ht">
+            Without <span>.copy()</span>, assigning <code>new_arr = original</code> makes a reference — changes to new_arr also change original.<br>
+            Use <span>original.copy()</span> to get a truly independent duplicate.
+          </div>
+          <div class="att" id="att">ATTEMPTS: 0</div>
+          <button class="btn-exec" onclick="chk4()">[ EXECUTE CLONE ]</button>
+        </div>
+        <div class="fb" id="fb"></div>
+      </div>
+      <div class="split-right" style="gap:16px">
+        <div>
+          <div class="mat-lbl" style="color:#5a7a5a;margin-bottom:6px">original — unchanged</div>
+          ${origHTML}
+        </div>
+        <div>
+          <div class="mat-lbl" style="color:#ff073a;margin-bottom:6px">new_arr — first 3 set to 999</div>
+          ${cloneHTML}
+        </div>
+      </div>
+    </div>
+  `;
+}
+function chk4() {
+  const raw=(document.getElementById('ci')?.value||'').toLowerCase().replace(/\s/g,'');
+  G.att++; updateAtt();
+  const hasCopy  = raw.includes('.copy()') || raw.includes('np.copy(');
+  const hasSlice = raw.includes('[0:3]') || raw.includes('[0:3]=999');
+  if(hasCopy && hasSlice){
+    const pts=Math.max(200-(G.att-1)*30,40); addScore(pts);
+    setFB(`✓ CLONE SUCCESSFUL — .copy() creates an independent duplicate. Changes stay in new_arr.  +${pts} pts`,'ok');
+    document.querySelectorAll('.split-right .cell').forEach((c,i)=>setTimeout(()=>burstEl(c,i<3?'#ff073a':'#00ff41'),i*55));
+    nextLevel(3000);
+  } else {
+    failStreak();
+    const hint=!hasCopy?'Use .copy() to make an independent copy.':'Add the slice assignment: new_arr[0:3] = 999';
+    setFB(`✗ CLONE FAILED — ${hint}`,'fail');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  WIN SCREEN
+// ══════════════════════════════════════════════════════════════
+function lWin(area) {
+  for(let i=1;i<=4;i++) document.getElementById('pd'+i).className='pdot done';
+  for(let i=0;i<10;i++) setTimeout(()=>burst(Math.random()*window.innerWidth,Math.random()*window.innerHeight*.55,['#00ff41','#ffd700','#00e5ff','#bf00ff','#ff6b00'][Math.random()*5|0],55),i*180);
+  area.innerHTML=`
+    <div class="win">
+      <div class="win-title">SESSION 2 COMPLETE</div>
+      <div class="win-score">FINAL SCORE: <span style="color:#ffd700">${G.score}</span></div>
+      <div class="win-sub">Four more NumPy weapons mastered.</div>
+      <div class="fn-list">
+        <div class="fn-list-hdr">◆ FUNCTIONS UNLOCKED</div>
+        <div class="fn-row"><span class="fn-name">np.arange(start, stop, step)</span><span class="fn-d">→ evenly spaced integers with a step</span></div>
+        <div class="fn-row"><span class="fn-name">np.linspace(start, stop, num)</span><span class="fn-d">→ num evenly spaced values (inclusive)</span></div>
+        <div class="fn-row"><span class="fn-name">.shape</span><span class="fn-d">→ tuple of (rows, cols) — no parentheses</span></div>
+        <div class="fn-row"><span class="fn-name">.shape[0] / .shape[1]</span><span class="fn-d">→ rows / columns individually</span></div>
+        <div class="fn-row"><span class="fn-name">.copy()</span><span class="fn-d">→ independent deep copy of the array</span></div>
+      </div>
+      <button class="btn-restart" onclick="restartGame()">[ REPLAY SESSION 2 ]</button>
+      <div class="sess-nav-win">
+        <a href="../np_game/index.html">← SESSION 1</a>
+      </div>
+    </div>
+  `;
+}
+function restartGame() {
+  Object.assign(G,{level:1,score:0,streak:0,att:0});
+  document.getElementById('s-score').textContent='0';
+  document.getElementById('s-streak').textContent='0';
+  renderLevel(1);
+}
+
+// ── boot ──
+renderLevel(1);
+</script>
+</body>
+</html>

@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 6 - Pandas Sorting, Cleaning & Missing Data</title>
+  <style>
+    :root {
+      --bg-soft: #ffffff;
+      --green-1: #0f5a2e;
+      --green-2: #1f8f4e;
+      --green-3: #dbf6e5;
+      --mint: #e6fff2;
+      --text: #14281d;
+      --muted: #426654;
+      --border: #aadfbd;
+      --code-bg: #0b2517;
+      --code-text: #d2ffe3;
+      --accent-a: #ddfbe7;
+      --accent-b: #f2ffe6;
+      --warn: #fff7d6;
+      --warn-border: #f2c94c;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Trebuchet MS", "Lucida Sans", "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 15% 10%, #e7fff0 0%, transparent 35%),
+        radial-gradient(circle at 85% 18%, #f0fffe 0%, transparent 36%),
+        linear-gradient(180deg, #f4fff6 0%, #ffffff 45%, #edfff4 100%);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 28px 20px 60px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      gap: 22px;
+      align-items: start;
+    }
+
+    .side-nav {
+      position: sticky;
+      top: 20px;
+      background: var(--bg-soft);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px 14px;
+      box-shadow: 0 4px 16px rgba(18,102,55,.07);
+    }
+
+    .side-title {
+      font-size: .8rem;
+      font-weight: 800;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--green-2);
+      margin: 0 0 10px;
+    }
+
+    .part-label {
+      display: block;
+      padding: 8px 4px 4px;
+      font-size: .7rem;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: #0e7490;
+    }
+
+    .topic-link {
+      display: block;
+      width: 100%;
+      border: 1px solid transparent;
+      border-radius: 9px;
+      padding: 7px 10px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: .87rem;
+      text-transform: lowercase;
+      margin-bottom: 4px;
+      transition: all .2s ease;
+      text-align: left;
+    }
+
+    .topic-link:hover { background: #f0fff4; color: var(--green-1); border-color: var(--border); }
+    .topic-link.active { background: #e8faee; color: var(--green-1); border-color: var(--green-2); font-weight: 700; }
+
+    .side-divider { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+
+    .nav-back {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--green-2);
+      background: #e9fbe8;
+      color: var(--green-1);
+      text-decoration: none;
+      font-weight: 700;
+      width: 100%;
+      text-align: center;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, var(--bg-soft) 0%, var(--accent-a) 55%, var(--accent-b) 100%);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow: 0 12px 30px rgba(24,110,58,.12);
+      margin-bottom: 22px;
+    }
+
+    h1 { font-size: 1.9rem; color: var(--green-1); margin: 0 0 8px; }
+    h2, h3 { margin-top: 0; color: var(--green-1); }
+
+    .tag {
+      display: inline-block;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: .82rem;
+      background: var(--green-3);
+      color: var(--green-1);
+      border: 1px solid var(--border);
+      margin-bottom: 10px;
+    }
+
+    .hero-chips { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .hero-chip {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: .78rem;
+      font-weight: 700;
+      background: rgba(6,182,212,.1);
+      color: #0e7490;
+      border: 1px solid rgba(6,182,212,.3);
+    }
+
+    .card {
+      background: var(--bg-soft);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 22px;
+      margin-bottom: 16px;
+      box-shadow: 0 7px 22px rgba(18,102,55,.08);
+    }
+
+    .topic-panel { display: none; }
+    .topic-panel.active { display: block; }
+    .step-title { margin: 0 0 12px; color: var(--green-1); font-size: 1.25rem; }
+
+    .code {
+      background: var(--code-bg);
+      color: var(--code-text);
+      border-radius: 10px;
+      border: 1px solid #2f5a3d;
+      padding: 16px 18px;
+      overflow-x: auto;
+      margin: 10px 0 14px;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: .93rem;
+      white-space: pre;
+      line-height: 1.7;
+    }
+
+    code {
+      background: #e8faee;
+      padding: 2px 6px;
+      border-radius: 5px;
+      color: var(--green-1);
+      font-family: Consolas, "Courier New", monospace;
+      font-size: .92em;
+    }
+
+    .note {
+      background: var(--mint);
+      border: 1px solid var(--border);
+      border-left: 5px solid var(--green-2);
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin: 12px 0;
+      color: var(--muted);
+    }
+
+    .note.warn {
+      background: var(--warn);
+      border-color: var(--warn-border);
+      border-left-color: #d97706;
+      color: #674500;
+    }
+
+    .resource-links {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 14px 0;
+    }
+
+    .resource-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      border-radius: 9px;
+      border: 1px solid var(--green-2);
+      background: #e9fbe8;
+      color: var(--green-1);
+      text-decoration: none;
+      font-weight: 800;
+      font-size: .9rem;
+    }
+
+    .github-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      flex-shrink: 0;
+    }
+    .github-icon svg { width: 22px; height: 22px; fill: var(--green-1); }
+
+    .output {
+      background: #f7fff9;
+      color: #1c3a2a;
+      border: 1px solid var(--border);
+      border-left: 5px solid var(--green-2);
+      border-radius: 10px;
+      padding: 12px 14px;
+      overflow-x: auto;
+      margin: 8px 0 16px;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: .88rem;
+      white-space: pre;
+      line-height: 1.55;
+    }
+
+    .big-result {
+      display: inline-block;
+      margin: 10px 0 8px;
+      padding: 5px 10px;
+      border-radius: 8px;
+      background: #eefcf3;
+      color: var(--green-1);
+      font-weight: 800;
+      border: 1px solid var(--border);
+    }
+
+    .task-box {
+      border: 1px solid var(--border);
+      border-left: 5px solid var(--green-2);
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin: 12px 0;
+      background: #fbfffc;
+    }
+
+    .task-num {
+      font-weight: 800;
+      color: var(--green-1);
+      margin-bottom: 4px;
+    }
+
+    .footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: .88rem;
+      margin-top: 18px;
+    }
+
+    @media (max-width: 820px) {
+      .layout { grid-template-columns: 1fr; }
+      .side-nav { position: static; }
+      .wrap { padding: 18px 12px 44px; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="layout">
+    <aside class="side-nav">
+      <p class="side-title">Lesson 6</p>
+      <span class="part-label">explore</span>
+      <button class="topic-link active" data-target="topic-1">setup & data</button>
+      <button class="topic-link" data-target="topic-2">sorting</button>
+      <button class="topic-link" data-target="topic-3">counts</button>
+      <button class="topic-link" data-target="topic-4">unique values</button>
+      <span class="part-label">transform</span>
+      <button class="topic-link" data-target="topic-5">replace & map</button>
+      <button class="topic-link" data-target="topic-6">top rows</button>
+      <button class="topic-link" data-target="topic-7">sample rows</button>
+      <button class="topic-link" data-target="topic-8">duplicates</button>
+      <span class="part-label">clean</span>
+      <button class="topic-link" data-target="topic-9">missing data</button>
+      <button class="topic-link" data-target="topic-10">exercise</button>
+      <hr class="side-divider">
+      <a class="nav-back" href="../../index.html">Back to index</a>
+    </aside>
+
+    <main>
+      <section class="hero">
+        <span class="tag">June 24, 2026</span>
+        <h1>Pandas Sorting, Cleaning & Missing Data</h1>
+        <p>Today's class continued practical pandas work with <code>tips.csv</code> and <code>movie_scores.csv</code>: sorting rows, counting categories, checking unique values, replacing labels, sampling rows, removing duplicates, and handling missing values.</p>
+        <div class="resource-links">
+          <a class="resource-link" href="../csv/tips.csv" download>Download tips.csv</a>
+          <a class="resource-link" href="../csv/movie_scores.csv" download>Download movie_scores.csv</a>
+          <a class="resource-link" href="../csv/Churn_Modelling.csv" download>Download Churn_Modelling.csv</a>
+        </div>
+        <div class="hero-chips">
+          <span class="hero-chip">sort_values</span>
+          <span class="hero-chip">value_counts</span>
+          <span class="hero-chip">unique / nunique</span>
+          <span class="hero-chip">replace / map</span>
+          <span class="hero-chip">drop_duplicates</span>
+          <span class="hero-chip">dropna / fillna</span>
+        </div>
+      </section>
+
+      <section class="card topic-panel active" id="topic-1">
+        <div class="card" style="box-shadow:none;margin-bottom:16px;background:#fbfffc">
+          <h2 class="step-title">Open Class Code</h2>
+          <p>Open the original notebook from today's class on GitHub.</p>
+          <div class="resource-links">
+            <a class="resource-link" href="https://github.com/pythonai211225-rgb/24.06.2026/blob/main/pandas3_24_06_2026.ipynb" target="_blank" rel="noopener">
+              <span class="github-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.385-1.335-1.755-1.335-1.755-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg></span>
+              pandas3_24_06_2026.ipynb
+            </a>
+          </div>
+        </div>
+        <h2 class="step-title">Setup & Data</h2>
+        <p>Import NumPy, pandas, and <code>display</code> so tables are shown nicely in Jupyter.</p>
+        <div class="code">import numpy as np
+import pandas as pd
+from IPython.display import display</div>
+        <p>The class examples use the datasets below. Download them into the same folder as your notebook so the short file names work.</p>
+        <div class="resource-links">
+          <a class="resource-link" href="../csv/tips.csv" download>Download tips.csv</a>
+          <a class="resource-link" href="../csv/movie_scores.csv" download>Download movie_scores.csv</a>
+          <a class="resource-link" href="../csv/Churn_Modelling.csv" download>Download Churn_Modelling.csv</a>
+        </div>
+        <div class="code">df = pd.read_csv('tips.csv')
+display(df)</div>
+        <div class="output">   total_bill   tip     sex smoker  day    time  size  price_per_person          Payer Name         CC Number Payment ID
+0       16.99  1.01  Female     No  Sun  Dinner     2              8.49  Christy Cunningham  3560325168603410   Sun2959
+1       10.34  1.66    Male     No  Sun  Dinner     3              3.45      Douglas Tucker  4478071379779230   Sun4608
+2       21.01  3.50    Male     No  Sun  Dinner     3              7.00      Travis Walters  6011812112971322   Sun4458
+3       23.68  3.31    Male     No  Sun  Dinner     2             11.84    Nathaniel Harris  4676137647685994   Sun5260
+4       24.59  3.61  Female     No  Sun  Dinner     4              6.15        Tonya Carter  4832732618637221   Sun2251
+... 239 more rows</div>
+        <div class="note">Use <code>pd.read_csv('tips.csv')</code> only after the CSV file is in the same folder as the notebook.</div>
+      </section>
+
+      <section class="card topic-panel" id="topic-2">
+        <h2 class="step-title">Sorting Rows</h2>
+        <p><code>sort_values</code> orders rows by one or more columns. With multiple columns, pandas sorts by the first column, then breaks ties using the next column.</p>
+        <div class="big-result">Sort by one column</div>
+        <div class="code">df = pd.read_csv('tips.csv')
+
+df.sort_values('tip').head(10)</div>
+        <div class="output">     total_bill   tip     sex smoker  day    time  size          Payer Name
+67         3.07  1.00  Female    Yes  Sat  Dinner     1       Tiffany Brock
+92         5.75  1.00  Female    Yes  Fri  Dinner     2        Leah Ramirez
+111        7.25  1.00  Female     No  Sat  Dinner     1         Terri Jones
+236       12.60  1.00    Male    Yes  Sat  Dinner     2       Matthew Myers
+0         16.99  1.01  Female     No  Sun  Dinner     2  Christy Cunningham
+215       12.90  1.10  Female    Yes  Sat  Dinner     2          Jessica Owen
+237       32.83  1.17    Male    Yes  Sat  Dinner     2          Thomas Brown
+75        10.51  1.25    Male     No  Sat  Dinner     2         Kenneth Hayes
+135        8.51  1.25  Female     No Thur   Lunch     2        Rebecca Harris
+235       10.07  1.25    Male     No  Sat  Dinner     2         Sean Gonzalez</div>
+        <div class="big-result">Sort by two columns</div>
+        <div class="code"># sort by tip from small to large; if tips are equal, sort size from large to small
+df.sort_values(
+    by=['tip', 'size'],
+    ascending=[True, False]
+)</div>
+        <div class="output">     total_bill   tip     sex smoker  day    time  size          Payer Name
+92         5.75  1.00  Female    Yes  Fri  Dinner     2        Leah Ramirez
+236       12.60  1.00    Male    Yes  Sat  Dinner     2       Matthew Myers
+67         3.07  1.00  Female    Yes  Sat  Dinner     1       Tiffany Brock
+111        7.25  1.00  Female     No  Sat  Dinner     1         Terri Jones
+0         16.99  1.01  Female     No  Sun  Dinner     2  Christy Cunningham</div>
+        <div class="note">This means: sort by <code>tip</code> from small to large, and when two rows have the same tip, put the larger <code>size</code> first.</div>
+      </section>
+
+      <section class="card topic-panel" id="topic-3">
+        <h2 class="step-title">Counting Values</h2>
+        <p><code>value_counts()</code> answers "how many rows are in each category?" It can work on one column or on several columns together.</p>
+        <div class="big-result">One column</div>
+        <div class="code">df = pd.read_csv('tips.csv')
+
+print(df['smoker'].value_counts())</div>
+        <div class="output">No     151
+Yes     93
+Name: smoker, dtype: int64</div>
+        <div class="big-result">Combinations of columns</div>
+        <div class="code">display(df[['sex', 'smoker']].value_counts())
+
+display(df[['sex', 'smoker']].value_counts()['Female']['No'])
+print(df[['sex', 'smoker']].value_counts()[('Male', 'Yes')])</div>
+        <div class="output">sex     smoker
+Male    No        97
+        Yes       60
+Female  No        54
+        Yes       33
+dtype: int64
+
+54
+60</div>
+        <div class="note">For two columns, the result uses a MultiIndex. You can access a specific combination with a tuple, for example <code>('Male', 'Yes')</code>.</div>
+      </section>
+
+      <section class="card topic-panel" id="topic-4">
+        <h2 class="step-title">Unique Values</h2>
+        <p>Use unique-value tools to discover what values exist in a column and how many different values there are.</p>
+        <div class="code">df = pd.read_csv('tips.csv')
+
+display(df['day'].unique())          # like SQL DISTINCT
+display(df['size'].unique())
+
+print(100 in df['size'].values)     # fastest membership check
+print(3 in df['size'].unique())     # works, but usually worse
+print(df['size'].isin([100]).any()) # also possible
+
+print(len(df['size'].unique()))
+print(df['size'].nunique())         # count distinct values</div>
+        <div class="output">array(['Sun', 'Sat', 'Thur', 'Fri'], dtype=object)
+array([2, 3, 4, 1, 6, 5], dtype=int64)
+False
+True
+False
+6
+6</div>
+        <div class="note">Use <code>.unique()</code> when you need the actual values, and <code>.nunique()</code> when you only need the count.</div>
+      </section>
+
+      <section class="card topic-panel" id="topic-5">
+        <h2 class="step-title">Replace & Map</h2>
+        <p>There are two common ways to change values in a column.</p>
+        <div class="big-result"><code>.replace()</code> can change only some values</div>
+        <div class="code">df = pd.read_csv('tips.csv')
+
+df['sex'] = df['sex'].replace(['Female'], ['F'])
+df.head()</div>
+        <div class="output">   total_bill   tip   sex smoker  day    time  size          Payer Name
+0       16.99  1.01     F     No  Sun  Dinner     2  Christy Cunningham
+1       10.34  1.66  Male     No  Sun  Dinner     3      Douglas Tucker
+2       21.01  3.50  Male     No  Sun  Dinner     3      Travis Walters
+3       23.68  3.31  Male     No  Sun  Dinner     2    Nathaniel Harris
+4       24.59  3.61     F     No  Sun  Dinner     4        Tonya Carter</div>
+        <div class="big-result"><code>.map()</code> is readable, but must cover every value</div>
+        <div class="code">gender_map = {'Female': 'F', 'Male': 'Male'}
+
+df['sex'] = df['sex'].map(gender_map)
+df</div>
+        <div class="output">   total_bill   tip   sex smoker  day    time  size          Payer Name
+0       16.99  1.01     F     No  Sun  Dinner     2  Christy Cunningham
+1       10.34  1.66  Male     No  Sun  Dinner     3      Douglas Tucker
+2       21.01  3.50  Male     No  Sun  Dinner     3      Travis Walters
+3       23.68  3.31  Male     No  Sun  Dinner     2    Nathaniel Harris
+4       24.59  3.61     F     No  Sun  Dinner     4        Tonya Carter
+... 239 more rows</div>
+        <div class="note warn">If <code>.map()</code> sees a value that is missing from the dictionary, it returns <code>NaN</code> for that row. Include every possible original value.</div>
+      </section>
+
+      <section class="card topic-panel" id="topic-6">
+        <h2 class="step-title">Top & Cheapest Rows</h2>
+        <p>Use sorting, <code>nlargest</code>, and <code>nsmallest</code> to quickly inspect rows with the biggest or smallest values.</p>
+        <div class="big-result">Most expensive and cheapest rows</div>
+        <div class="code">df = pd.read_csv('tips.csv')
+
+# Method 1: sort total_bill from highest to lowest and take the first 3 rows
+display(df.sort_values(['total_bill'], ascending=False).head(3))
+
+# Method 2: select the 3 highest values in the total_bill column
+display(df.nlargest(3, 'total_bill'))
+
+# Select the 3 lowest values in the total_bill column
+display(df.nsmallest(3, 'total_bill'))</div>
+        <div class="output">df.sort_values(['total_bill'], ascending=False).head(3)
+     total_bill    tip   sex smoker  day    time  size       Payer Name
+170       50.81  10.00  Male    Yes  Sat  Dinner     3    Gregory Clark
+212       48.33   9.00  Male     No  Sat  Dinner     4  Alex Williamson
+59        48.27   6.73  Male     No  Sat  Dinner     4      Brian Ortiz
+
+df.nlargest(3, 'total_bill')
+     total_bill    tip   sex smoker  day    time  size       Payer Name
+170       50.81  10.00  Male    Yes  Sat  Dinner     3    Gregory Clark
+212       48.33   9.00  Male     No  Sat  Dinner     4  Alex Williamson
+59        48.27   6.73  Male     No  Sat  Dinner     4      Brian Ortiz
+
+df.nsmallest(3, 'total_bill')
+     total_bill  tip     sex smoker  day    time  size     Payer Name
+67         3.07  1.0  Female    Yes  Sat  Dinner     1  Tiffany Brock
+92         5.75  1.0  Female    Yes  Fri  Dinner     2    Leah Ramirez
+111        7.25  1.0  Female     No  Sat  Dinner     1     Terri Jones</div>
+        <div class="note">Use <code>nlargest</code> and <code>nsmallest</code> when you only need the top few rows by one numeric column. Class practice: get the 3 largest tips, then get the unique <code>Payer Name</code> values of the people who gave the 5 largest tips.</div>
+      </section>
+
+      <section class="card topic-panel" id="topic-7">
+        <h2 class="step-title">sample()</h2>
+        <p>Use <code>sample()</code> when you want random rows from a DataFrame.</p>
+        <div class="big-result">Random rows</div>
+        <div class="code">df = pd.read_csv('tips.csv')
+
+df.sample(5)            # 5 random rows
+df.sample(frac=0.01)   # 1% random sample</div>
+        <div class="output">Example df.sample(5) result:
+     total_bill   tip     sex smoker   day    time  size         Payer Name
+24        19.82  3.18    Male     No   Sat  Dinner     2      James Jenkins
+83        32.68  5.00    Male    Yes  Thur   Lunch     2     Michael Acosta
+128       11.38  2.00  Female     No  Thur   Lunch     2        Iris Parker
+176       17.89  2.00    Male    Yes   Sun  Dinner     2  Marion Robertson
+235       10.07  1.25    Male     No   Sat  Dinner     2       Walter Bell
+
+Your rows will usually be different because the sample is random.</div>
+        <div class="note">Add <code>random_state=42</code> when you want the same random sample every time, for example <code>df.sample(5, random_state=42)</code>.</div>
+      </section>
+
+      <section class="card topic-panel" id="topic-8">
+        <h2 class="step-title">Duplicates</h2>
+        <p>Duplicates are one of the first things to check while cleaning data.</p>
+        <div class="code">simple_df = pd.DataFrame([1, 2, 2, 2], ['a', 'b', 'c', 'd'])
+
+display(simple_df)
+display(simple_df.duplicated())
+
+display(simple_df[~simple_df.duplicated()])
+display(simple_df.drop_duplicates(keep='last'))
+display(simple_df.drop_duplicates(keep='first'))
+display(simple_df.drop_duplicates(keep=False))</div>
+        <div class="output">simple_df:
+   0
+a  1
+b  2
+c  2
+d  2
+
+simple_df.duplicated():
+a    False
+b    False
+c     True
+d     True
+dtype: bool
+
+drop_duplicates(keep='last'):
+   0
+a  1
+d  2
+
+drop_duplicates(keep='first'):
+   0
+a  1
+b  2
+
+drop_duplicates(keep=False):
+   0
+a  1</div>
+        <div class="big-result">Keep one row per group, based on sorting</div>
+        <div class="code">df = pd.read_csv('tips.csv')
+
+# One row from each size, with the highest tip in that size
+df.sort_values(
+    by=['size', 'tip'],
+    ascending=[True, False]
+).drop_duplicates('size')</div>
+        <div class="output">     total_bill    tip     sex smoker   day    time  size       Payer Name
+222        8.58   1.92    Male    Yes   Fri   Lunch     1   Jason Lawrence
+88        24.71   5.85    Male     No  Thur   Lunch     2     Roger Taylor
+170       50.81  10.00    Male    Yes   Sat  Dinner     3    Gregory Clark
+212       48.33   9.00    Male     No   Sat  Dinner     4  Alex Williamson
+155       29.85   5.14  Female     No   Sun  Dinner     5   Madison Wilson
+141       34.30   6.70    Male     No  Thur   Lunch     6   Steven Carlson</div>
+        <div class="note">The trick is to sort first, then drop duplicates. <code>drop_duplicates('size')</code> keeps the first row it sees for each table size.</div>
+      </section>
+
+      <section class="card topic-panel" id="topic-9">
+        <h2 class="step-title">Missing Data</h2>
+        <p>Missing values require a decision: remove rows, keep rows, or fill values with something meaningful such as 0, a mean, a min/max, or a domain-specific value.</p>
+        <div class="big-result">NaN checks</div>
+        <div class="code">import math
+
+x = np.nan
+print(x == np.nan)      # False: NaN never equals anything, even itself
+print(x is np.nan)
+print(np.isnan(x))
+print(math.isnan(x))</div>
+        <div class="output">False
+True
+True
+True</div>
+        <div class="big-result">Identify rows with values</div>
+        <div class="code">df = pd.read_csv('movie_scores.csv')
+
+# show True where a value is missing and False where it exists
+display(df.isna())
+
+# keep rows where first_name is not missing using isna() + NOT (~)
+display(df[~df['first_name'].isna()])
+
+# keep rows where first_name is not missing using notnull()
+display(df[df['first_name'].notnull()])
+
+# keep rows where both score columns are not missing
+display(df[df['pre_movie_score'].notnull() & df['post_movie_score'].notnull()])</div>
+        <div class="output">df.isna()
+   first_name  last_name    age    sex  pre_movie_score  post_movie_score
+0       False      False  False  False            False             False
+1        True       True   True   True             True              True
+2       False      False  False  False             True              True
+3       False      False  False  False            False             False
+4       False      False  False  False            False             False
+
+df[df['first_name'].notnull()]
+  first_name last_name   age sex  pre_movie_score  post_movie_score
+0        Tom     Hanks  63.0   m              8.0              10.0
+2       Hugh   Jackman  51.0   m              NaN               NaN
+3      Oprah   Winfrey  66.0   f              6.0               8.0
+4       Emma     Stone  31.0   f              7.0               9.0
+
+both scores not missing:
+  first_name last_name   age sex  pre_movie_score  post_movie_score
+0        Tom     Hanks  63.0   m              8.0              10.0
+3      Oprah   Winfrey  66.0   f              6.0               8.0
+4       Emma     Stone  31.0   f              7.0               9.0</div>
+        <div class="big-result">Drop missing rows</div>
+        <div class="code">display(df.dropna())          # remove rows with even 1 NaN
+display(df.dropna(thresh=5)) # keep rows with at least 5 real values
+
+# remove rows where first_name OR pre_movie_score is missing
+display(df.dropna(subset=['first_name', 'pre_movie_score']))</div>
+        <div class="output">df.dropna()
+  first_name last_name   age sex  pre_movie_score  post_movie_score
+0        Tom     Hanks  63.0   m              8.0              10.0
+3      Oprah   Winfrey  66.0   f              6.0               8.0
+4       Emma     Stone  31.0   f              7.0               9.0
+
+df.dropna(thresh=5)
+  first_name last_name   age sex  pre_movie_score  post_movie_score
+0        Tom     Hanks  63.0   m              8.0              10.0
+2       Hugh   Jackman  51.0   m              NaN               NaN
+3      Oprah   Winfrey  66.0   f              6.0               8.0
+4       Emma     Stone  31.0   f              7.0               9.0
+
+df.dropna(subset=['first_name', 'pre_movie_score'])
+  first_name last_name   age sex  pre_movie_score  post_movie_score
+0        Tom     Hanks  63.0   m              8.0              10.0
+3      Oprah   Winfrey  66.0   f              6.0               8.0
+4       Emma     Stone  31.0   f              7.0               9.0</div>
+        <div class="big-result">Fill missing values</div>
+        <div class="code"># replace NaN values manually with 0
+df['pre_movie_score'] = df['pre_movie_score'].replace(np.nan, 0)
+
+# fill NaN values with 0 using the pandas fillna method
+df['pre_movie_score'] = df['pre_movie_score'].fillna(0)
+
+# fill NaN values with the average pre_movie_score
+df['pre_movie_score'] = df['pre_movie_score'].fillna(
+    df['pre_movie_score'].mean()
+)</div>
+        <div class="output">fillna(0)
+  first_name last_name   age sex  pre_movie_score  post_movie_score
+0        Tom     Hanks  63.0   m              8.0              10.0
+1        NaN       NaN   NaN NaN              0.0               NaN
+2       Hugh   Jackman  51.0   m              0.0               NaN
+3      Oprah   Winfrey  66.0   f              6.0               8.0
+4       Emma     Stone  31.0   f              7.0               9.0
+
+fillna(df['pre_movie_score'].mean())  # mean = 7.0
+  first_name last_name   age sex  pre_movie_score  post_movie_score
+0        Tom     Hanks  63.0   m              8.0              10.0
+1        NaN       NaN   NaN NaN              7.0               NaN
+2       Hugh   Jackman  51.0   m              7.0               NaN
+3      Oprah   Winfrey  66.0   f              6.0               8.0
+4       Emma     Stone  31.0   f              7.0               9.0</div>
+        <div class="note warn">Do not fill every missing value automatically. Choose the replacement based on what the column means.</div>
+      </section>
+
+      <section class="card topic-panel" id="topic-10">
+        <h2 class="step-title">Exercise</h2>
+        <p>Use <code>Churn_Modelling.csv</code><br>
+        Create a notebook, solve any <strong>3 questions from Task 1 to Task 10</strong>, and solve <strong>Task 11</strong></p>
+        <div class="resource-links">
+          <a class="resource-link" href="../csv/Churn_Modelling.csv" download>Download Churn_Modelling.csv</a>
+        </div>
+
+        <div class="task-box">
+          <div class="task-num">Task 1</div>
+          <p><strong>Setup &amp; data:</strong> Load the file with <code>df = pd.read_csv('Churn_Modelling.csv')</code>.<br>
+          Display the first 7 rows, then print <code>df.shape</code> and <code>df.columns</code></p>
+        </div>
+
+        <div class="task-box">
+          <div class="task-num">Task 2</div>
+          <p><strong>Sorting:</strong> Sort customers by <code>CreditScore</code> from lowest to highest and show the first 7 rows</p>
+        </div>
+
+        <div class="task-box">
+          <div class="task-num">Task 3</div>
+          <p><strong>Multi-column sorting:</strong> Sort by <code>Geography</code> ascending and <code>Balance</code> descending.<br>
+          Show the first 12 rows and explain what the two sort directions mean</p>
+        </div>
+
+        <div class="task-box">
+          <div class="task-num">Task 4</div>
+          <p><strong>Counts:</strong> Use <code>value_counts()</code> to count customers by <code>Geography</code>.<br>
+          Then count each <code>Geography</code> + <code>Gender</code> combination</p>
+        </div>
+
+        <div class="task-box">
+          <div class="task-num">Task 5</div>
+          <p><strong>Unique values:</strong> Show the unique values in <code>Geography</code>, <code>Gender</code>, <code>NumOfProducts</code>, and <code>Exited</code>.<br>
+          Then use <code>nunique()</code> to count how many different values each of these columns has</p>
+        </div>
+
+        <div class="task-box">
+          <div class="task-num">Task 6</div>
+          <p><strong>Replace &amp; map:</strong> Create a copy of the DataFrame.<br>
+          In the copy, replace <code>Female</code> with <code>F</code> and <code>Male</code> with <code>M</code> using <code>.replace()</code>.<br>
+          Then solve the same change with <code>.map()</code></p>
+        </div>
+
+        <div class="task-box">
+          <div class="task-num">Task 7</div>
+          <p><strong>Top &amp; lowest values:</strong> Find the 6 customers with the highest <code>Balance</code> using <code>nlargest</code>.<br>
+          Then find the 4 customers with the lowest <code>CreditScore</code> using <code>nsmallest</code></p>
+        </div>
+
+        <div class="task-box">
+          <div class="task-num">Task 8</div>
+          <p><strong>sample():</strong> Show 9 random customers using <code>sample(9)</code>.<br>
+          Then show a 3% random sample using <code>sample(frac=0.03)</code></p>
+        </div>
+
+        <div class="task-box">
+          <div class="task-num">Task 9</div>
+          <p><strong>Duplicates:</strong> Check whether the dataset has duplicated <code>CustomerId</code> values.<br>
+          Then use sorting plus <code>drop_duplicates('Geography')</code> to keep one customer per country with the highest <code>Balance</code></p>
+        </div>
+
+        <div class="task-box">
+          <div class="task-num">Task 10</div>
+          <p><strong>Largest values plus unique values:</strong> Find the 12 customers with the highest <code>EstimatedSalary</code>.<br>
+          From those rows, print the unique <code>Geography</code> values</p>
+        </div>
+
+        <div class="task-box">
+          <div class="task-num">Task 11</div>
+          <p><strong>Missing data:</strong> Use the DataFrame below and implement the requested cleaning operations</p>
+          <div class="code">df_missing = pd.DataFrame({
+    'A': [None, 2, 3, None, 5],
+    'B': [10, None, None, 40, 50],
+    'C': [100, None, 300, 400, None]
+})</div>
+          <ol class="task-list">
+            <li>Eliminate any row in the DataFrame that contains at least one <code>NaN</code> value</li>
+            <li>Modify the previous task and eliminate only rows that have <code>NaN</code> values across all columns</li>
+            <li>Eliminate rows that have at least one <code>NaN</code> in columns <code>A</code> and <code>C</code> only</li>
+            <li>Replace all <code>NaN</code> values with a specified value of your choice</li>
+            <li>Replace all <code>NaN</code> values in column <code>B</code> with the mean of the non-NaN values in that column</li>
+          </ol>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <div class="footer">Lesson 6 - Jun 24, 2026 - Pandas Sorting, Cleaning & Missing Data</div>
+</div>
+
+<script>
+  const links = document.querySelectorAll('.topic-link');
+  const panels = document.querySelectorAll('.topic-panel');
+
+  function showTopic(id) {
+    panels.forEach(panel => panel.classList.toggle('active', panel.id === id));
+    links.forEach(link => link.classList.toggle('active', link.dataset.target === id));
+  }
+
+  links.forEach(link => {
+    if (link.dataset.target) {
+      link.addEventListener('click', () => {
+        showTopic(link.dataset.target);
+        location.hash = link.dataset.target;
+      });
+    }
+  });
+
+  const hash = location.hash.replace('#', '');
+  if (hash && document.getElementById(hash)) showTopic(hash);
+</script>
+</body>
+</html>
