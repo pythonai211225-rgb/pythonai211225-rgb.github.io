@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Duck Quest — NumPy Bridge Builder</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--hd:'Space Grotesk',sans-serif;--code:'JetBrains Mono',monospace;--c1:#22d3ee;--c2:#22c55e;--text:#f8fafc;--muted:#94a3b8}
+html,body{height:100%;overflow:hidden;font-family:var(--hd);background:#0f172a;color:var(--text)}
+#cv{position:fixed;inset:0;z-index:0;display:block}
+
+/* HUD */
+#hud{position:fixed;top:0;left:0;right:0;z-index:20;display:flex;align-items:center;justify-content:space-between;padding:.55rem 1.4rem;background:rgba(15,23,42,.85);backdrop-filter:blur(14px);border-bottom:1px solid rgba(34,211,238,.15)}
+.hud-logo{font-size:1.05rem;font-weight:700}
+.hud-logo span{color:var(--c1)}
+#prog-dots{display:flex;gap:.4rem;align-items:center}
+.pdot{width:26px;height:8px;border-radius:4px;border:2px solid;transition:all .3s;opacity:.4}
+.pdot.active{opacity:1;box-shadow:0 0 8px currentColor}
+.pdot.done{opacity:.8}
+.hud-xp{font-family:var(--code);font-size:.8rem;color:var(--c1);border:1px solid rgba(34,211,238,.25);padding:.22rem .7rem;border-radius:99px;background:rgba(34,211,238,.07)}
+
+/* UI PANEL */
+#ui{position:fixed;bottom:0;left:0;right:0;z-index:20;background:rgba(10,18,40,.95);backdrop-filter:blur(20px);border-top:1px solid rgba(34,211,238,.15);padding:.9rem 1.5rem 1rem}
+.ui-row{max-width:900px;margin:0 auto;display:grid;grid-template-columns:1fr 1.35fr;gap:1.2rem;align-items:start}
+.lv-badge{display:inline-flex;align-items:center;gap:.35rem;font-size:.68rem;font-weight:700;letter-spacing:.1em;padding:.18rem .55rem;border-radius:99px;border:1px solid;margin-bottom:.4rem}
+.lv-title{font-size:1.05rem;font-weight:700;margin-bottom:.3rem}
+.lv-story{font-size:.79rem;color:var(--muted);line-height:1.55;margin-bottom:.45rem}
+.lv-prompt{font-size:.76rem;font-family:var(--code);padding:.3rem .6rem;border-radius:6px;border-left:3px solid}
+
+.import-ln{font-family:var(--code);font-size:.72rem;padding:.32rem .65rem;background:rgba(255,255,255,.03);border-radius:6px;margin-bottom:.28rem;border-left:3px solid rgba(168,85,247,.4);color:var(--muted)}
+.import-ln .kw{color:#a855f7}.import-ln .nm{color:var(--c1)}.import-ln .al{color:#fbbf24}
+.ans-pre{font-family:var(--code);font-size:.76rem;color:var(--muted);margin-bottom:.22rem}
+.ans-pre .vr{color:#7dd3fc}.ans-pre .op{color:#a855f7}
+.code-in{width:100%;background:rgba(2,6,23,.9);border:1.5px solid rgba(34,211,238,.2);border-radius:10px;padding:.65rem .95rem;font-family:var(--code);font-size:.88rem;color:var(--c1);outline:none;caret-color:var(--c1);resize:none;line-height:1.55;transition:border-color .2s,box-shadow .2s,color .2s;min-height:56px}
+.code-in::placeholder{color:rgba(148,163,184,.22)}
+.code-in:focus{border-color:var(--c1);box-shadow:0 0 0 3px rgba(34,211,238,.1)}
+.code-in.ok{border-color:#22c55e;color:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.1)}
+.code-in.bad{border-color:#ef4444;color:#ef4444;animation:shk .35s ease}
+@keyframes shk{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}
+.btns{display:flex;gap:.55rem;margin-top:.45rem}
+.btn{display:inline-flex;align-items:center;gap:.38rem;padding:.52rem 1.05rem;border-radius:9px;font-family:var(--hd);font-size:.83rem;font-weight:600;cursor:pointer;border:none;transition:all .18s}
+.btn-run{background:linear-gradient(135deg,#22d3ee,#0ea5e9);color:#020617;box-shadow:0 0 14px rgba(34,211,238,.22)}
+.btn-run:hover{transform:translateY(-2px);box-shadow:0 0 22px rgba(34,211,238,.4)}
+.btn-hint{background:rgba(255,255,255,.06);color:var(--muted);border:1px solid rgba(255,255,255,.1)}
+.btn-hint:hover{background:rgba(255,255,255,.1);color:var(--text)}
+.fb{font-size:.8rem;padding:.45rem .7rem;border-radius:8px;margin-top:.45rem;display:none;align-items:center;gap:.45rem}
+.fb.show{display:flex}
+.fb.ok{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.2);color:#22c55e}
+.fb.bad{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.18);color:#ef4444}
+.fb.hint{background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.2);color:#fbbf24}
+
+/* WIN */
+#win{position:fixed;inset:0;z-index:50;display:none;flex-direction:column;align-items:center;justify-content:center;background:rgba(10,18,40,.97);text-align:center;padding:2rem}
+.win-emoji{font-size:4rem;margin-bottom:.5rem;animation:bounce 1s ease-in-out infinite}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+.win-title{font-size:2.6rem;font-weight:700;background:linear-gradient(135deg,#22c55e,#22d3ee,#fbbf24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:.4rem}
+.win-sub{color:var(--muted);font-size:.95rem;line-height:1.7;margin-bottom:1.8rem}
+
+/* QUACK */
+.quack{position:fixed;pointer-events:none;z-index:40;font-family:var(--hd);font-weight:700;font-size:.78rem;background:#fbbf24;color:#1e293b;padding:.18rem .45rem;border-radius:8px;white-space:nowrap;animation:qpop .85s ease forwards}
+@keyframes qpop{0%{opacity:0;transform:translateY(0) scale(.5)}25%{opacity:1;transform:translateY(-8px) scale(1.1)}80%{opacity:.9;transform:translateY(-22px)}100%{opacity:0;transform:translateY(-32px) scale(.8)}}
+/* confetti */
+.cf{position:fixed;pointer-events:none;z-index:999;animation:cfall linear forwards}
+@keyframes cfall{0%{opacity:1;transform:translateY(-10px) rotate(0)}100%{opacity:0;transform:translateY(100vh) rotate(720deg)}}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<div id="hud">
+  <div class="hud-logo">🦆 Duck <span>Quest</span></div>
+  <div id="prog-dots"></div>
+  <div class="hud-xp">XP <span id="xp">0</span></div>
+</div>
+
+<div id="ui">
+  <div class="ui-row">
+    <div>
+      <div class="lv-badge" id="lv-badge">LEVEL 1</div>
+      <div class="lv-title" id="lv-title"></div>
+      <div class="lv-story" id="lv-story"></div>
+      <div class="lv-prompt" id="lv-prompt"></div>
+    </div>
+    <div>
+      <div class="import-ln"><span class="kw">import</span> <span class="nm">numpy</span> <span class="kw">as</span> <span class="al">np</span></div>
+      <div class="ans-pre"><span class="vr">bridge</span> <span class="op">=</span></div>
+      <textarea class="code-in" id="inp" placeholder="np.___( )" spellcheck="false" rows="2"></textarea>
+      <div class="fb" id="fb"></div>
+      <div class="btns">
+        <button class="btn btn-run" onclick="check()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Build Bridge
+        </button>
+        <button class="btn btn-hint" onclick="doHint()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+          Hint
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="win">
+  <div class="win-emoji">🦆</div>
+  <div class="win-title">All Duckies Safe!</div>
+  <div class="win-sub">You built every bridge and guided all the duckies home.<br>You're a true NumPy Bridge Master!</div>
+  <button class="btn btn-run" onclick="restart()" style="font-size:.92rem;padding:.75rem 1.8rem">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/></svg>
+    Play Again
+  </button>
+</div>
+
+<script>
+// ── canvas setup ──────────────────────────────────────────────
+const cv = document.getElementById('cv');
+const cx = cv.getContext('2d');
+let W, H, UI_H, HUD_H = 46;
+
+function resize(){
+  W = cv.width = innerWidth;
+  H = cv.height = innerHeight;
+  UI_H = document.getElementById('ui').offsetHeight;
+}
+resize();
+addEventListener('resize', resize);
+
+// ── levels ────────────────────────────────────────────────────
+const LEVELS = [
+  {
+    id:1, title:'The Zero Bridge', color:'#22c55e',
+    story:'8 duckies are stuck on the riverbank! They can only walk on tiles with value 0. Fill the bridge with zeros to let them cross — 2 rows, 4 tiles each!',
+    prompt:'np.zeros( (2, 4) )  →  2 rows × 4 cols of 0s',
+    grid:[[0,0,0,0],[0,0,0,0]],
+    walkFn: v => v===0,
+    ok:['np.zeros((2,4))','np.zeros((2, 4))','np.zeros([2,4])','np.zeros([2, 4])'],
+    hints:['np.zeros() fills an array with zeros — pass a shape.','np.zeros((rows, cols)) — you need 2 rows and 4 columns.','np.zeros((2, 4))'],
+  },
+  {
+    id:2, title:'The Eye Path', color:'#22d3ee',
+    story:'These 4 duckies can only hop on glowing tiles (value = 1). The identity matrix puts a 1 on each diagonal — one safe tile per row. Build the eye path!',
+    prompt:'np.eye( 4 )  →  4×4 identity matrix',
+    grid:[[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]],
+    walkFn: v => v===1,
+    ok:['np.eye(4)','np.identity(4)','np.eye(4,4)','np.eye(4, 4)'],
+    hints:['The identity matrix has 1s on the diagonal — np.eye() creates it.','np.eye(n) makes an n×n identity matrix.','np.eye(4)'],
+  },
+  {
+    id:3, title:'The Jump Stones', color:'#fbbf24',
+    story:'This duckie is a champion jumper — it leaps exactly 5 steps at a time! Place stones at 0, 5, 10, 15, and 20 so it can reach the other side!',
+    prompt:'np.arange( 0, 21, 5 )  →  [0, 5, 10, 15, 20]',
+    grid:[[0,5,10,15,20]],
+    walkFn: () => true,
+    ok:['np.arange(0,21,5)','np.arange(0, 21, 5)','np.arange(0,25,5)','np.arange(0, 25, 5)','np.arange(5)*5','np.arange(5) * 5','np.array([0,5,10,15,20])','np.array([0, 5, 10, 15, 20])'],
+    hints:['np.arange(start, stop, step) — step of 5 from 0.','Stop at 21 so 20 is included: np.arange(0, 21, 5).','np.arange(0, 21, 5)'],
+  },
+];
+
+// ── game state ────────────────────────────────────────────────
+let G = { lv:0, phase:'idle', t:0, ducks:[], solved:[false,false,false], xp:0, hints:0, attempts:0, hintLvl:0 };
+
+// ── layout helpers ────────────────────────────────────────────
+const BANK_W = 130; // width of each bank
+
+function sceneTop(){ return HUD_H; }
+function sceneBot(){ return H - UI_H; }
+function sceneH(){ return sceneBot() - sceneTop(); }
+
+// River occupies middle 46% of scene height
+function riverTop(){ return sceneTop() + sceneH()*0.27; }
+function riverBot(){ return sceneTop() + sceneH()*0.73; }
+function riverH(){ return riverBot()-riverTop(); }
+
+// Tile layout for current level
+function tileLayout(){
+  const lv = LEVELS[G.lv];
+  const rows = lv.grid.length, cols = lv.grid[0].length;
+  const availW = W - BANK_W*2;
+  const availH = riverH();
+
+  let tW, tH, gapX, gapY;
+
+  if(G.lv===2){ // 5 jump stones with dramatic gaps
+    tW = Math.min(90, availW/cols*0.55);
+    gapX = (availW - tW*cols) / (cols-1);
+    tH = Math.min(80, availH*0.55);
+    gapY = 0;
+  } else {
+    gapX = 6; gapY = 8;
+    tW = Math.min(120, (availW - gapX*(cols-1)) / cols);
+    tH = Math.min(90, (availH - gapY*(rows-1)) / rows);
+  }
+
+  const totalW = tW*cols + gapX*(cols-1);
+  const totalH = tH*rows + gapY*(rows-1);
+  const startX = BANK_W + (availW - totalW)/2;
+  const startY = riverTop() + (availH - totalH)/2;
+
+  return { rows, cols, tW, tH, gapX, gapY, startX, startY };
+}
+
+function tileRect(r, c){
+  const {tW,tH,gapX,gapY,startX,startY} = tileLayout();
+  return { x: startX + c*(tW+gapX), y: startY + r*(tH+gapY), w:tW, h:tH };
+}
+
+// ── drawing: BACKGROUND ───────────────────────────────────────
+function drawBg(){
+  // Sky
+  const sky = cx.createLinearGradient(0,sceneTop(),0,riverTop());
+  sky.addColorStop(0,'#0c1a3a');
+  sky.addColorStop(1,'#1a3a6e');
+  cx.fillStyle=sky;
+  cx.fillRect(0,sceneTop(),W,riverTop()-sceneTop());
+
+  // Stars
+  cx.fillStyle='rgba(255,255,255,0.55)';
+  for(let i=0;i<60;i++){
+    const sx=((i*173+70)%W), sy=sceneTop()+((i*97+30)%(riverTop()-sceneTop()-20));
+    const ss=Math.sin(G.t*.7+i)*.3+.4;
+    cx.beginPath();cx.arc(sx,sy,ss,0,Math.PI*2);cx.fill();
+  }
+
+  // Clouds
+  drawCloud(W*.15+Math.sin(G.t*.15)*20, sceneTop()+30, 70, .7);
+  drawCloud(W*.55+Math.sin(G.t*.12+1)*25, sceneTop()+18, 90, .55);
+  drawCloud(W*.8+Math.sin(G.t*.1+2)*18, sceneTop()+40, 60, .65);
+
+  // Ground under river
+  const gnd = cx.createLinearGradient(0,riverBot(),0,sceneBot());
+  gnd.addColorStop(0,'#1a3a6e');
+  gnd.addColorStop(1,'#0c1a3a');
+  cx.fillStyle=gnd;
+  cx.fillRect(0,riverBot(),W,sceneBot()-riverBot());
+}
+
+function drawCloud(x,y,r,a){
+  cx.globalAlpha=a*0.25;
+  cx.fillStyle='#e0f2fe';
+  cx.beginPath();cx.arc(x,y,r*.5,0,Math.PI*2);cx.fill();
+  cx.beginPath();cx.arc(x+r*.4,y+4,r*.4,0,Math.PI*2);cx.fill();
+  cx.beginPath();cx.arc(x+r*.8,y,r*.45,0,Math.PI*2);cx.fill();
+  cx.globalAlpha=1;
+}
+
+// ── drawing: RIVER ────────────────────────────────────────────
+function drawRiver(){
+  const rt=riverTop(), rb=riverBot(), rh=riverH();
+  // Base water
+  const wg=cx.createLinearGradient(0,rt,0,rb);
+  wg.addColorStop(0,'#1e3a8a');
+  wg.addColorStop(.5,'#1d4ed8');
+  wg.addColorStop(1,'#1e3a8a');
+  cx.fillStyle=wg;
+  cx.fillRect(0,rt,W,rh);
+
+  // Wave lines
+  for(let w=0;w<6;w++){
+    const wy=rt+rh*(w+1)/7;
+    cx.beginPath();
+    for(let px=0;px<=W;px+=3){
+      const py=wy+Math.sin(px/55+G.t*1.4+w*.9)*3.5;
+      px===0?cx.moveTo(px,py):cx.lineTo(px,py);
+    }
+    cx.strokeStyle=`rgba(147,197,253,${.08+w*.008})`;
+    cx.lineWidth=1.8;cx.stroke();
+  }
+
+  // Foam sparkles
+  for(let i=0;i<12;i++){
+    const fx=((i*137+G.t*40)%W);
+    const fy=rt+rh*.3+Math.sin(i*2.5)*rh*.35;
+    const fa=Math.sin(G.t*2+i)*.3+.2;
+    cx.beginPath();cx.arc(fx,fy,1.5,0,Math.PI*2);
+    cx.fillStyle=`rgba(219,234,254,${fa})`;cx.fill();
+  }
+}
+
+// ── drawing: BANKS ────────────────────────────────────────────
+function drawBanks(){
+  const rt=riverTop(), rb=riverBot(), st=sceneTop(), sb=sceneBot();
+  const grassCol='#15803d';
+  const darkGrass='#14532d';
+
+  // Left bank
+  const lg=cx.createLinearGradient(0,st,0,sb);
+  lg.addColorStop(0,darkGrass);lg.addColorStop(.5,grassCol);lg.addColorStop(1,darkGrass);
+  cx.fillStyle=lg;
+  cx.fillRect(0,st,BANK_W,sb-st);
+
+  // Right bank
+  cx.fillStyle=lg;
+  cx.fillRect(W-BANK_W,st,BANK_W,sb-st);
+
+  // Bank edges (water boundary)
+  cx.strokeStyle='rgba(255,255,255,0.12)';
+  cx.lineWidth=2;
+  cx.beginPath();cx.moveTo(BANK_W,rt);cx.lineTo(BANK_W,rb);cx.stroke();
+  cx.beginPath();cx.moveTo(W-BANK_W,rt);cx.lineTo(W-BANK_W,rb);cx.stroke();
+
+  // Grass tufts left
+  for(let i=0;i<5;i++){
+    grass(BANK_W*.2+i*BANK_W*.12, rt-8+Math.sin(i)*6, '#16a34a');
+    grass(BANK_W*.15+i*BANK_W*.14, rb+5+Math.sin(i+2)*5, '#166534');
+  }
+  // Grass tufts right
+  for(let i=0;i<5;i++){
+    grass(W-BANK_W+BANK_W*.15+i*BANK_W*.14, rt-6+Math.sin(i+1)*6, '#16a34a');
+    grass(W-BANK_W+BANK_W*.1+i*BANK_W*.16, rb+6+Math.sin(i+3)*5, '#166534');
+  }
+
+  // Duck house (right bank)
+  drawHouse(W-BANK_W+BANK_W*.5, rt+(rb-rt)*.45);
+
+  // Reeds along bank edges
+  for(let r=0;r<4;r++){
+    reed(BANK_W+4+r*12, rt+8+r*5);
+    reed(W-BANK_W-4-r*12, rt+10+r*5);
+  }
+}
+
+function grass(x,y,col){
+  cx.fillStyle=col;
+  cx.beginPath();cx.moveTo(x-5,y);cx.lineTo(x,y-14);cx.lineTo(x+5,y);cx.closePath();cx.fill();
+  cx.beginPath();cx.moveTo(x-3,y);cx.lineTo(x+2,y-10);cx.lineTo(x+7,y);cx.closePath();cx.fill();
+}
+
+function reed(x,y){
+  const bend=Math.sin(G.t*1.2+x*.05)*4;
+  cx.strokeStyle='#15803d';cx.lineWidth=2;cx.lineCap='round';
+  cx.beginPath();cx.moveTo(x,y+20);cx.quadraticCurveTo(x+bend,y+5,x+bend*1.5,y-15);cx.stroke();
+  cx.fillStyle='#166534';
+  cx.beginPath();cx.ellipse(x+bend*1.5,y-20,4,11,0.2,0,Math.PI*2);cx.fill();
+}
+
+function drawHouse(x,y){
+  cx.save();cx.translate(x,y);
+  // Base
+  cx.fillStyle='#7c3f00';
+  cx.fillRect(-22,-5,44,32);
+  // Roof
+  cx.fillStyle='#b91c1c';
+  cx.beginPath();cx.moveTo(-28,-5);cx.lineTo(0,-30);cx.lineTo(28,-5);cx.closePath();cx.fill();
+  cx.strokeStyle='#7f1d1d';cx.lineWidth=1.5;cx.stroke();
+  // Door arch
+  cx.fillStyle='#451a03';
+  cx.beginPath();cx.arc(0,20,10,Math.PI,0);cx.lineTo(10,30);cx.lineTo(-10,30);cx.closePath();cx.fill();
+  // Windows
+  cx.fillStyle='#fef08a';
+  cx.fillRect(-18,5,10,10);cx.fillRect(8,5,10,10);
+  cx.strokeStyle='#ca8a04';cx.lineWidth=1;cx.strokeRect(-18,5,10,10);cx.strokeRect(8,5,10,10);
+  // Sign
+  cx.fillStyle='#fbbf24';cx.font='bold 8px sans-serif';cx.textAlign='center';
+  cx.fillText('🦆 HOME',0,-35);
+  cx.restore();
+}
+
+// ── drawing: TILES ────────────────────────────────────────────
+function drawTiles(){
+  const lv=LEVELS[G.lv];
+  const {rows,cols}=tileLayout();
+
+  for(let r=rows-1;r>=0;r--){
+    for(let c=0;c<cols;c++){
+      const val=lv.grid[r][c];
+      const walkable=lv.walkFn(val);
+      const {x,y,w,h}=tileRect(r,c);
+      drawOneTile(x,y,w,h,val,walkable,lv.color);
+    }
+  }
+}
+
+function drawOneTile(x,y,w,h,val,walkable,col){
+  const r=10;
+
+  if(!walkable){
+    // Dark void tile — shows water gap
+    cx.globalAlpha=0.6;
+    cx.fillStyle='rgba(30,58,138,0.8)';
+    rrect(x,y,w,h,r);cx.fill();
+    // Water shimmer inside
+    cx.strokeStyle='rgba(147,197,253,0.2)';cx.lineWidth=1;
+    rrect(x+3,y+3,w-6,h-6,7);cx.stroke();
+    cx.globalAlpha=1;
+    // Value (dimmed)
+    cx.fillStyle='rgba(100,116,139,0.5)';
+    cx.font=`bold ${Math.min(20,h*.32)}px 'JetBrains Mono'`;
+    cx.textAlign='center';cx.textBaseline='middle';
+    cx.fillText(String(val),x+w/2,y+h/2);
+    return;
+  }
+
+  // Shadow
+  cx.shadowColor='rgba(0,0,0,0.35)';cx.shadowBlur=8;cx.shadowOffsetY=4;
+  cx.fillStyle=col;
+  rrect(x,y,w,h,r);cx.fill();
+  cx.shadowColor='transparent';cx.shadowBlur=0;cx.shadowOffsetY=0;
+
+  // Glossy top highlight
+  const hi=cx.createLinearGradient(x,y,x,y+h*.45);
+  hi.addColorStop(0,'rgba(255,255,255,0.28)');
+  hi.addColorStop(1,'rgba(255,255,255,0)');
+  cx.fillStyle=hi;
+  rrect(x+2,y+2,w-4,h*.4,r*.7);cx.fill();
+
+  // Subtle border
+  cx.strokeStyle='rgba(255,255,255,0.2)';cx.lineWidth=1.5;
+  rrect(x,y,w,h,r);cx.stroke();
+
+  // Value text
+  cx.fillStyle='#fff';
+  cx.font=`bold ${Math.min(22,h*.35)}px 'JetBrains Mono'`;
+  cx.textAlign='center';cx.textBaseline='middle';
+  // Drop shadow for readability
+  cx.shadowColor='rgba(0,0,0,0.5)';cx.shadowBlur=4;
+  cx.fillText(String(val),x+w/2,y+h/2+1);
+  cx.shadowColor='transparent';cx.shadowBlur=0;
+
+  // Index label top-left
+  cx.fillStyle='rgba(255,255,255,0.45)';
+  cx.font=`${Math.min(10,h*.16)}px 'JetBrains Mono'`;
+  cx.textAlign='left';cx.textBaseline='top';
+  cx.fillText(`[${arguments[6]||''}]`,x+5,y+4);
+}
+
+function rrect(x,y,w,h,r){
+  cx.beginPath();
+  cx.moveTo(x+r,y);
+  cx.lineTo(x+w-r,y);cx.quadraticCurveTo(x+w,y,x+w,y+r);
+  cx.lineTo(x+w,y+h-r);cx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  cx.lineTo(x+r,y+h);cx.quadraticCurveTo(x,y+h,x,y+h-r);
+  cx.lineTo(x,y+r);cx.quadraticCurveTo(x,y,x+r,y);
+  cx.closePath();
+}
+
+// ── drawing: DUCKS ────────────────────────────────────────────
+const DUCK_COLS=['#fbbf24','#f97316','#eab308','#f59e0b'];
+
+function duck(x,y,sc,frame,col,mood){
+  cx.save();cx.translate(x,y);cx.scale(sc,sc);
+
+  const bob = mood==='walk'||mood==='cross' ? Math.sin(frame*.28)*2.5 : 0;
+  const jmp = mood==='jump' ? -Math.abs(Math.sin(frame*.25))*18 : 0;
+  cy = bob + jmp;
+
+  // Shadow
+  cx.beginPath();cx.ellipse(0,16,14,4,0,0,Math.PI*2);
+  cx.fillStyle='rgba(0,0,0,0.25)';cx.fill();
+
+  // Tail tuft
+  cx.save();cx.translate(-17,-2+cy);cx.rotate(0.35);
+  cx.fillStyle=darken(col,20);
+  cx.beginPath();cx.ellipse(0,0,9,6,0,0,Math.PI*2);cx.fill();
+  cx.restore();
+
+  // Body
+  cx.beginPath();cx.ellipse(0,0+cy,19,13,-.12,0,Math.PI*2);
+  cx.fillStyle=col;cx.fill();
+  cx.strokeStyle=darken(col,35);cx.lineWidth=1;cx.stroke();
+
+  // Wing
+  cx.beginPath();cx.ellipse(-2,3+cy,12,6,-.15,0,Math.PI);
+  cx.fillStyle=darken(col,15);cx.fill();
+
+  // Neck
+  cx.beginPath();cx.ellipse(13,-6+cy,7,11,.28,0,Math.PI*2);
+  cx.fillStyle=col;cx.fill();
+
+  // Head
+  cx.beginPath();cx.arc(18,-16+cy,11,0,Math.PI*2);
+  cx.fillStyle=col;cx.fill();
+  cx.strokeStyle=darken(col,35);cx.lineWidth=1;cx.stroke();
+
+  // Eye white
+  cx.beginPath();cx.arc(21,-18+cy,3.5,0,Math.PI*2);
+  cx.fillStyle='white';cx.fill();
+  // Pupil
+  cx.beginPath();cx.arc(22,-18+cy,1.8,0,Math.PI*2);
+  cx.fillStyle='#1e293b';cx.fill();
+  // Eye glint
+  cx.beginPath();cx.arc(23,-19+cy,0.8,0,Math.PI*2);
+  cx.fillStyle='white';cx.fill();
+
+  // Beak
+  cx.beginPath();
+  cx.moveTo(27,-16+cy);cx.lineTo(36,-13+cy);cx.lineTo(27,-11+cy);cx.closePath();
+  cx.fillStyle='#f97316';cx.fill();
+  cx.strokeStyle='#c2410c';cx.lineWidth=.8;cx.stroke();
+  // Beak line
+  cx.beginPath();cx.moveTo(27,-13.5+cy);cx.lineTo(35,-13+cy);
+  cx.strokeStyle='#c2410c';cx.lineWidth=.6;cx.stroke();
+
+  // Legs
+  if(mood==='walk'||mood==='cross'){
+    const sw=Math.sin(frame*.28)*10;
+    cx.strokeStyle='#f97316';cx.lineWidth=2;cx.lineCap='round';
+    cx.beginPath();cx.moveTo(-4,11+cy);cx.lineTo(-4+sw,19);cx.stroke();
+    cx.beginPath();cx.moveTo(-4+sw,19);cx.lineTo(-4+sw+6,21);cx.stroke();
+    cx.beginPath();cx.moveTo(4,11+cy);cx.lineTo(4-sw,19);cx.stroke();
+    cx.beginPath();cx.moveTo(4-sw,19);cx.lineTo(4-sw+6,21);cx.stroke();
+  } else {
+    cx.strokeStyle='#f97316';cx.lineWidth=2;cx.lineCap='round';
+    cx.beginPath();cx.moveTo(-4,12+cy);cx.lineTo(-6,19);cx.stroke();
+    cx.beginPath();cx.moveTo(-6,19);cx.lineTo(0,21);cx.stroke();
+    cx.beginPath();cx.moveTo(4,12+cy);cx.lineTo(6,19);cx.stroke();
+    cx.beginPath();cx.moveTo(6,19);cx.lineTo(12,21);cx.stroke();
+  }
+
+  // Happy stars
+  if(mood==='happy'){
+    for(let i=0;i<3;i++){
+      const sa=i/3*Math.PI*2+frame*.04;
+      cx.fillStyle='#fbbf24';
+      cx.font='11px sans-serif';cx.textAlign='center';cx.textBaseline='middle';
+      cx.fillText('✦',Math.cos(sa)*22,Math.sin(sa)*12-20+cy);
+    }
+  }
+
+  cx.restore();
+}
+
+function darken(hex,a){
+  return `rgba(${parseInt(hex.slice(1,3),16)-a},${parseInt(hex.slice(3,5),16)-a},${parseInt(hex.slice(5,7),16)-a},1)`.replace(/-\d+/g,m=>Math.max(0,+m));
+}
+
+// ── duck objects ──────────────────────────────────────────────
+function spawnDucks(){
+  G.ducks=[];
+  const lv=LEVELS[G.lv];
+  const rows=lv.grid.length, cols=lv.grid[0].length;
+
+  if(G.lv===2){ // jump stones: 1 duck
+    G.ducks.push({r:0,prog:0,frame:0,state:'wait',col:DUCK_COLS[0],delay:0});
+  } else { // rows × 1 duck each (one per row)
+    for(let r=0;r<rows;r++){
+      G.ducks.push({r,prog:0,frame:0,state:'wait',col:DUCK_COLS[r%4],delay:r*22});
+    }
+  }
+}
+
+function updateDucks(dt){
+  const lv=LEVELS[G.lv];
+  const rows=lv.grid.length, cols=lv.grid[0].length;
+
+  G.ducks.forEach(dk=>{
+    dk.frame++;
+    if(dk.delayC===undefined) dk.delayC=0;
+
+    if(G.phase==='idle'||G.phase==='done'){
+      // Queue on left bank
+      const qy = riverTop() + riverH()*(dk.r+.5)/rows;
+      const qx = BANK_W*.55 - dk.r*6;
+      duck(qx, qy, 0.85, dk.frame, dk.col, 'idle');
+      return;
+    }
+
+    // Delay stagger
+    if(dk.state==='wait'){
+      dk.delayC++;
+      if(dk.delayC<dk.delay){
+        const qy=riverTop()+riverH()*(dk.r+.5)/rows;
+        duck(BANK_W*.55-dk.r*6, qy, 0.85, dk.frame, dk.col, 'idle');
+        return;
+      }
+      dk.state='cross';
+    }
+
+    dk.prog+=dt*(G.lv===2?0.9:1.4);
+
+    if(dk.prog>=cols){ dk.state='home'; return; }
+
+    const c1=Math.floor(dk.prog), frac=dk.prog-c1;
+    const c2=Math.min(c1+1,cols-1);
+
+    // Get pixel positions
+    const p1 = tileDuckPos(dk.r,c1, rows, cols);
+    const p2 = tileDuckPos(dk.r,c2, rows, cols);
+
+    let px=p1.x+(p2.x-p1.x)*frac;
+    let py=p1.y+(p2.y-p1.y)*frac;
+
+    // Jump arc for level 3
+    if(G.lv===2) py -= Math.sin(frac*Math.PI)*28;
+
+    duck(px, py, 0.88, dk.frame, dk.col, G.lv===2?'jump':'cross');
+
+    // Quack on new tile
+    const qi='q'+Math.floor(dk.prog+.3);
+    if(frac<0.12&&!dk[qi]){dk[qi]=true;spawnQuack(px,py-30);}
+  });
+}
+
+function tileDuckPos(r, c, rows, cols){
+  // If c < 0 → left bank. If c >= cols → right bank.
+  if(c<0){
+    return {x: BANK_W*.55, y: riverTop()+riverH()*(r+.5)/rows};
+  }
+  if(c>=cols){
+    return {x: W-BANK_W+BANK_W*.35, y: riverTop()+riverH()*(r+.5)/rows};
+  }
+  const tr=tileRect(r,c);
+  return {x: tr.x+tr.w/2, y: tr.y+tr.h*.38};
+}
+
+// ── game logic ────────────────────────────────────────────────
+function norm(s){
+  return s.trim().replace(/import\s+numpy\s+as\s+np\s*/gi,'').replace(/bridge\s*=\s*/,'').replace(/\s+/g,'').toLowerCase().replace(/;$/,'');
+}
+
+function check(){
+  if(G.phase!=='idle') return;
+  const inp=document.getElementById('inp');
+  const val=inp.value.trim();
+  if(!val){showFb('bad','✗ Type your NumPy command first!');return;}
+  G.attempts++;
+  const lv=LEVELS[G.lv];
+  if(lv.ok.some(a=>norm(a)===norm(val))){
+    inp.className='code-in ok';inp.disabled=true;
+    const pts=G.hintLvl===0&&G.attempts===1?10:G.hintLvl===0?7:Math.max(3,10-G.hintLvl*2);
+    G.xp+=pts; document.getElementById('xp').textContent=G.xp;
+    showFb('ok','✓ Bridge built! The duckies are crossing!');
+    G.phase='animating';
+    spawnDucks();
+  } else {
+    inp.className='code-in bad';
+    setTimeout(()=>inp.className='code-in',430);
+    showFb('bad','✗ That bridge won\'t hold! Check your syntax.');
+  }
+}
+
+function doHint(){
+  const lv=LEVELS[G.lv];
+  if(G.hintLvl>=lv.hints.length){showFb('hint','No more hints — the answer is right above!');return;}
+  const h=lv.hints[G.hintLvl];
+  const isAns=G.hintLvl===lv.hints.length-1;
+  G.hintLvl++;G.hints++;
+  showFb('hint',`💡 ${h}`);
+  if(isAns){document.getElementById('inp').value=h;document.getElementById('inp').focus();}
+}
+
+function showFb(type,msg){
+  const f=document.getElementById('fb');
+  f.className=`fb ${type} show`;f.textContent=msg;
+}
+
+function loadLevel(i){
+  G.lv=i;G.phase='idle';G.hintLvl=0;G.attempts=0;
+  spawnDucks();
+  const lv=LEVELS[i];
+  const badge=document.getElementById('lv-badge');
+  badge.textContent=`LEVEL ${i+1} / 3`;
+  badge.style.cssText=`color:${lv.color};border-color:${lv.color}44;background:${lv.color}12`;
+  document.getElementById('lv-title').textContent=lv.title;
+  document.getElementById('lv-story').textContent=lv.story;
+  const pr=document.getElementById('lv-prompt');
+  pr.textContent=lv.prompt;
+  pr.style.cssText=`border-left-color:${lv.color};color:${lv.color};background:${lv.color}10`;
+  const inp=document.getElementById('inp');
+  inp.value='';inp.className='code-in';inp.disabled=false;
+  document.getElementById('fb').classList.remove('show');
+  buildProgDots();
+  setTimeout(()=>inp.focus(),200);
+}
+
+function buildProgDots(){
+  const d=document.getElementById('prog-dots');d.innerHTML='';
+  LEVELS.forEach((_,i)=>{
+    const el=document.createElement('div');el.className='pdot';
+    const col=LEVELS[i].color;
+    el.style.cssText=`border-color:${col};background:${G.lv===i?col:G.solved[i]?col+'80':'transparent'}`;
+    el.classList.toggle('active',i===G.lv);
+    el.classList.toggle('done',G.solved[i]);
+    d.appendChild(el);
+  });
+}
+
+function nextLevel(){
+  G.solved[G.lv]=true;confetti();
+  buildProgDots();
+  if(G.lv<LEVELS.length-1) setTimeout(()=>loadLevel(G.lv+1),1600);
+  else setTimeout(showWin,1600);
+}
+
+function showWin(){
+  document.getElementById('win').style.display='flex';confetti();confetti();
+}
+
+function restart(){
+  G={lv:0,phase:'idle',t:0,ducks:[],solved:[false,false,false],xp:0,hints:0,attempts:0,hintLvl:0};
+  document.getElementById('win').style.display='none';
+  loadLevel(0);
+}
+
+// ── quack bubble ──────────────────────────────────────────────
+function spawnQuack(x,y){
+  const el=document.createElement('div');el.className='quack';
+  el.textContent=['QUACK!','Quack!','QUAAACK!','quack~','Qua..ck!'][Math.floor(Math.random()*5)];
+  el.style.left=x+'px';el.style.top=y+'px';el.style.transform='translateX(-50%)';
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),920);
+}
+
+// ── confetti ──────────────────────────────────────────────────
+function confetti(){
+  const cols=['#22d3ee','#a855f7','#22c55e','#fbbf24','#f472b6','#f97316'];
+  for(let i=0;i<65;i++) setTimeout(()=>{
+    const c=document.createElement('div');c.className='cf';
+    const w=5+Math.random()*7;
+    c.style.cssText=`left:${Math.random()*100}vw;top:-15px;width:${w}px;height:${w}px;border-radius:${Math.random()>.5?'50%':'2px'};background:${cols[i%cols.length]};animation-duration:${1.6+Math.random()*2}s`;
+    document.body.appendChild(c);setTimeout(()=>c.remove(),4000);
+  },i*18);
+}
+
+// ── main loop ─────────────────────────────────────────────────
+let lastT=0;
+function loop(now){
+  const dt=Math.min((now-lastT)/1000,.05);lastT=now;
+  G.t+=dt;
+
+  // Resize check
+  if(cv.width!==innerWidth||cv.height!==innerHeight) resize();
+
+  cx.clearRect(0,0,W,H);
+
+  drawBg();
+  drawRiver();
+  drawBanks();
+  drawTiles();
+  updateDucks(dt);
+
+  // Check all home
+  if(G.phase==='animating'){
+    const cols=LEVELS[G.lv].grid[0].length;
+    if(G.ducks.length&&G.ducks.every(d=>d.state==='home')){
+      G.phase='done';
+      setTimeout(nextLevel,900);
+    }
+  }
+
+  requestAnimationFrame(loop);
+}
+
+// ── keyboard ──────────────────────────────────────────────────
+document.getElementById('inp').addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();check();}
+});
+
+// ── boot ──────────────────────────────────────────────────────
+G.solved=[false,false,false];
+loadLevel(0);
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

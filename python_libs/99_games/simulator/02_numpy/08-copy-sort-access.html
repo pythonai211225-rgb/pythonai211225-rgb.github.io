@@ -1,0 +1,1280 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Topic 08 — Views, Sorting &amp; Indexing</title>
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    .page-layout{display:flex;height:calc(100vh - 54px);overflow:hidden}
+    .sidebar{width:230px;min-width:230px;height:100%;overflow-y:auto;background:#0a0e14;border-right:1px solid var(--border);display:flex;flex-direction:column;scrollbar-width:thin;scrollbar-color:var(--border) transparent;flex-shrink:0}
+    .sidebar-head{padding:20px 18px 14px;font-size:.65rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+    .sidebar-nav{padding:8px 0;flex:1}
+    .s-item{display:flex;align-items:center;gap:11px;padding:10px 18px;cursor:pointer;background:none;border:none;border-left:3px solid transparent;width:100%;text-align:left;transition:background .18s,border-color .18s}
+    .s-item:hover{background:rgba(255,255,255,.04)}
+    .s-item.active{background:rgba(250,204,21,.08);border-left-color:var(--accent)}
+    .s-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;transition:transform .2s}
+    .s-item.active .s-dot{transform:scale(1.45);box-shadow:0 0 8px currentColor}
+    .s-num{font-size:.62rem;color:var(--border);font-family:'Courier New',monospace;font-weight:700;min-width:18px}
+    .s-item.active .s-num{color:var(--accent)}
+    .s-label{font-size:.79rem;color:var(--muted);font-family:'Courier New',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .s-item.active .s-label{color:var(--text)}
+    .s-item.done .s-label::after{content:' ✓';color:var(--green);font-size:.7rem}
+    .s-group{padding:6px 18px 2px;font-size:.59rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--border)}
+
+    .panel-viewport{flex:1;overflow-y:auto;overflow-x:hidden;position:relative}
+    .panel{display:none;flex-direction:column;min-height:100%;padding:40px 52px 100px;max-width:820px;margin:0 auto;animation:fadeIn .35s ease}
+    .panel.active{display:flex}
+    @keyframes fadeIn{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:translateX(0)}}
+    .panel.exit{display:flex;animation:fadeOut .25s ease forwards}
+    @keyframes fadeOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(-28px)}}
+
+    .m-hero{position:relative;height:200px;border-radius:18px;overflow:hidden;margin-bottom:26px;flex-shrink:0}
+    .m-hero img{width:100%;height:100%;object-fit:cover;filter:brightness(.5) saturate(.8);transition:filter .45s}
+    .panel.active .m-hero img{filter:brightness(.6) saturate(1.1)}
+    .m-hero-ov{position:absolute;inset:0;padding:26px 30px;display:flex;flex-direction:column;justify-content:flex-end;background:linear-gradient(0deg,rgba(0,0,0,.78) 0%,rgba(0,0,0,.15) 55%,transparent 100%)}
+    .m-breadcrumb{font-size:.62rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:5px}
+    .m-name{font-size:1.7rem;font-weight:900;color:#fff;font-family:'Courier New',monospace}
+    .m-tagline{font-size:.86rem;color:rgba(255,255,255,.62);margin-top:4px}
+
+    .pills{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 20px;align-items:center}
+    .pill{padding:5px 14px;border-radius:999px;font-size:.7rem;font-weight:700;letter-spacing:.06em}
+    .pill-sig{font-family:'Courier New',monospace;font-size:.74rem;letter-spacing:0;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);color:var(--text)}
+    .pill-ret{background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);color:var(--green);font-family:'Courier New',monospace;letter-spacing:0}
+    .pill-note{background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.3);color:var(--orange);font-family:'Courier New',monospace;font-size:.7rem}
+    .pill-param{position:relative;cursor:help;transition:filter .18s}
+    .pill-param:hover{filter:brightness(1.3)}
+    .pill-param .balloon{position:absolute;bottom:calc(100% + 14px);left:50%;transform:translateX(-50%) translateY(6px);width:230px;background:linear-gradient(155deg,#0e2845 0%,#071a2e 100%);border:1.5px solid rgba(240,182,62,.65);border-radius:14px;padding:13px 16px 11px;box-shadow:0 0 0 1px rgba(240,182,62,.1),0 18px 48px rgba(0,0,0,.72),0 0 36px rgba(240,182,62,.07);opacity:0;pointer-events:none;transition:opacity .22s ease,transform .22s ease;z-index:300}
+    .pill-param:hover .balloon{opacity:1;transform:translateX(-50%) translateY(0);animation:balloonFloat 3s ease-in-out infinite}
+    @keyframes balloonFloat{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-5px)}}
+    .balloon-title{font-family:'Courier New',monospace;font-size:.7rem;font-weight:800;color:#f0b63e;letter-spacing:.04em;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+    .balloon-title::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:#f0b63e;box-shadow:0 0 6px rgba(240,182,62,.7);flex-shrink:0}
+    .balloon-body{font-size:.76rem;color:rgba(230,237,243,.78);line-height:1.6;font-family:'Segoe UI',system-ui,sans-serif}
+    .pill-param .balloon::after{content:'';position:absolute;bottom:-10px;left:50%;transform:translateX(-50%);border-left:10px solid transparent;border-right:10px solid transparent;border-top:10px solid rgba(240,182,62,.65)}
+    .pill-param .balloon::before{content:'';position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);border-left:9px solid transparent;border-right:9px solid transparent;border-top:9px solid #071a2e;z-index:1}
+
+    .m-desc{font-size:.95rem;color:var(--muted);line-height:1.75;margin-bottom:14px}
+    .m-desc code{font-family:'Courier New',monospace;font-size:.88em;padding:1px 6px;border-radius:4px;background:rgba(255,255,255,.06)}
+
+    .demo-box{background:#060a10;border:1px solid var(--border);border-radius:14px;padding:22px 22px 18px;margin-top:20px;flex-shrink:0;display:flex;flex-direction:column}
+    .demo-lbl{font-size:.64rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin-bottom:18px;display:flex;align-items:center;gap:8px}
+    .demo-lbl::before{content:'';width:3px;height:12px;border-radius:2px;background:var(--accent);flex-shrink:0}
+    .demo-controls{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-end;margin-bottom:18px}
+    .ctrl{display:flex;flex-direction:column;gap:5px}
+    .ctrl label{font-size:.69rem;color:var(--muted);font-weight:600}
+    .ctrl input[type=range]{-webkit-appearance:none;width:130px;height:4px;background:var(--border);border-radius:2px;outline:none;cursor:pointer}
+    .ctrl input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;background:var(--accent);border-radius:50%;cursor:pointer;box-shadow:0 0 6px rgba(250,204,21,.5)}
+    .ctrl .cval{font-size:.7rem;color:var(--accent);font-family:'Courier New',monospace;font-weight:700;text-align:center}
+    .demo-canvas-wrap{background:#020509;border-radius:10px;padding:14px;overflow-x:auto;min-height:72px;order:4}
+    canvas{display:block}
+    .demo-out{font-family:'Courier New',monospace;font-size:.8rem;color:#10b981;line-height:1.65;margin-bottom:14px;padding:11px 15px;background:rgba(16,185,129,.05);border:1px solid rgba(16,185,129,.18);border-radius:8px;white-space:pre-wrap;order:3}
+    .demo-btn{padding:8px 18px;border-radius:8px;font-size:.76rem;font-weight:700;cursor:pointer;transition:background .2s,border-color .2s}
+    .toggle-group{display:flex;gap:6px;flex-wrap:wrap}
+    .tgl-btn{padding:6px 16px;border-radius:8px;font-size:.74rem;font-weight:700;cursor:pointer;font-family:'Courier New',monospace;transition:all .2s}
+    .tgl-btn.on{background:rgba(250,204,21,.15);border:1px solid rgba(250,204,21,.45);color:var(--accent)}
+    .tgl-btn:not(.on){background:transparent;border:1px solid var(--border);color:var(--muted)}
+    .tgl-btn:not(.on):hover{border-color:var(--accent);color:var(--text)}
+
+    .panel-nav{display:flex;justify-content:space-between;align-items:center;margin-top:40px;padding-top:24px;border-top:1px solid var(--border);flex-shrink:0}
+    .pnav-btn{display:flex;align-items:center;gap:9px;padding:10px 22px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:.83rem;font-weight:700;cursor:pointer;transition:color .2s,border-color .2s,background .2s}
+    .pnav-btn:hover:not(:disabled){color:var(--text);border-color:var(--accent);background:rgba(250,204,21,.06)}
+    .pnav-btn:disabled{opacity:.28;cursor:default}
+    .pnav-btn.next{background:rgba(250,204,21,.08);border-color:rgba(250,204,21,.35);color:var(--accent)}
+    .pnav-btn.next:hover{background:rgba(250,204,21,.16);border-color:var(--accent)}
+    .pnav-dots{display:flex;gap:7px;align-items:center}
+    .pnav-dot{width:7px;height:7px;border-radius:50%;background:var(--border);transition:background .2s,transform .2s;cursor:pointer;border:none;padding:0}
+    .pnav-dot.active{background:var(--accent);transform:scale(1.4)}
+
+    .overview-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;margin-top:16px}
+    .ov-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 16px 16px;cursor:pointer;transition:border-color .2s,box-shadow .2s,transform .18s;display:flex;flex-direction:column;gap:8px}
+    .ov-card:hover{transform:translateY(-3px);border-color:rgba(250,204,21,.4);box-shadow:0 8px 28px rgba(250,204,21,.08)}
+    .ov-card-num{font-size:.62rem;color:var(--muted);font-weight:800;letter-spacing:.1em}
+    .ov-card-name{font-size:.88rem;font-family:'Courier New',monospace;font-weight:700}
+    .ov-card-desc{font-size:.77rem;color:var(--muted);line-height:1.5}
+    .section-lbl{font-size:.68rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;margin:22px 0 8px;display:flex;align-items:center;gap:8px}
+    .section-lbl span{width:3px;height:12px;border-radius:2px;display:inline-block}
+
+    @media(max-width:700px){.sidebar{display:none}.panel{padding:20px 16px 80px}}
+    .exercise-header{display:flex;align-items:flex-start;gap:16px;margin-bottom:24px;padding:20px;background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.2);border-radius:14px;position:relative;overflow:hidden;}
+    .exercise-header::before{content:'';position:absolute;top:-40px;right:-40px;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,rgba(251,191,36,.1) 0%,transparent 70%);pointer-events:none;}
+    .exercise-badge{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;font-size:1.8rem;font-weight:800;color:#0d1a2e;background:linear-gradient(135deg,#fbbf24,#f59e0b);box-shadow:0 6px 18px rgba(251,191,36,.35);flex-shrink:0;}
+    .ex-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px 16px;margin-bottom:14px;transition:border-color .2s;}
+    .ex-card:hover{border-color:rgba(250,204,21,.3);}
+    .ex-q-head{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+    .ex-num{font-size:.68rem;font-weight:800;letter-spacing:.1em;padding:3px 10px;border-radius:6px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--muted);font-family:'Courier New',monospace;}
+    .ex-task{font-size:.88rem;color:var(--muted);margin-bottom:10px;line-height:1.6;}
+    .ex-task code{font-family:'Courier New',monospace;font-size:.85em;padding:1px 6px;border-radius:4px;background:rgba(255,255,255,.06);}
+  </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">← Python Libs</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item" href="01-intro-numpy.html">01</a>
+    <a class="nav-item" href="02-topics.html">02</a>
+    <a class="nav-item" href="03-cheat-sheet.html">03</a>
+    <a class="nav-item" href="04-placeholder.html">04</a>
+    <a class="nav-item" href="05-arrays-prop-info.html">05</a>
+    <a class="nav-item" href="06-arith-opt.html">06</a>
+    <a class="nav-item" href="07-comp-stat-agg.html">07</a>
+    <a class="nav-item active" href="08-copy-sort-access.html">08</a>
+    <a class="nav-item" href="09-resh-com.html">09</a>
+    <a class="nav-item" href="10-investigations.html">🔍</a>
+    <a class="nav-item" href="solve1.html">★</a>
+    <a class="nav-item" href="solve2.html">★★</a>
+  </div>
+</nav>
+
+<div class="page-layout">
+
+  <aside class="sidebar">
+    <div class="sidebar-head">12 Ops + Exercises</div>
+    <nav class="sidebar-nav">
+      <button class="s-item active" data-panel="0" onclick="goTo(0)"><span class="s-num">00</span><span class="s-dot" style="background:#8b5cf6"></span><span class="s-label">Overview</span></button>
+      <div class="s-group">Views &amp; Copies</div>
+      <button class="s-item" data-panel="1" onclick="goTo(1)"><span class="s-num">01</span><span class="s-dot" style="background:#3b82f6"></span><span class="s-label">.view()</span></button>
+      <button class="s-item" data-panel="2" onclick="goTo(2)"><span class="s-num">02</span><span class="s-dot" style="background:#10b981"></span><span class="s-label">np.copy() / .copy()</span></button>
+      <div class="s-group">Sorting</div>
+      <button class="s-item" data-panel="3" onclick="goTo(3)"><span class="s-num">03</span><span class="s-dot" style="background:#facc15"></span><span class="s-label">.sort()</span></button>
+      <button class="s-item" data-panel="4" onclick="goTo(4)"><span class="s-num">04</span><span class="s-dot" style="background:#f97316"></span><span class="s-label">.sort(axis=0)</span></button>
+      <div class="s-group">Indexing &amp; Slicing</div>
+      <button class="s-item" data-panel="5" onclick="goTo(5)"><span class="s-num">05</span><span class="s-dot" style="background:#06b6d4"></span><span class="s-label">a[i]</span></button>
+      <button class="s-item" data-panel="6" onclick="goTo(6)"><span class="s-num">06</span><span class="s-dot" style="background:#8b5cf6"></span><span class="s-label">a[s:e] = val</span></button>
+      <button class="s-item" data-panel="7" onclick="goTo(7)"><span class="s-num">07</span><span class="s-dot" style="background:#ec4899"></span><span class="s-label">b[row, col]</span></button>
+      <button class="s-item" data-panel="8" onclick="goTo(8)"><span class="s-num">08</span><span class="s-dot" style="background:#a78bfa"></span><span class="s-label">a[0:2]</span></button>
+      <button class="s-item" data-panel="9" onclick="goTo(9)"><span class="s-num">09</span><span class="s-dot" style="background:#14b8a6"></span><span class="s-label">b[0:2, 1]</span></button>
+      <button class="s-item" data-panel="10" onclick="goTo(10)"><span class="s-num">10</span><span class="s-dot" style="background:#f43f5e"></span><span class="s-label">a[::-1]</span></button>
+      <button class="s-item" data-panel="11" onclick="goTo(11)"><span class="s-num">11</span><span class="s-dot" style="background:#34d399"></span><span class="s-label">a[&lt;condition&gt;]</span></button>
+      <button class="s-item" data-panel="12" onclick="goTo(12)"><span class="s-num">12</span><span class="s-dot" style="background:#fb923c"></span><span class="s-label">b[[r],[c]]</span></button>
+      <button class="s-item" data-panel="13" onclick="goTo(13)"><span class="s-num">13</span><span class="s-dot" style="background:#fbbf24"></span><span class="s-label">Exercises</span></button>
+    </nav>
+  </aside>
+
+  <div class="panel-viewport" id="viewport">
+
+    <!-- ══ PANEL 0: Overview ══ -->
+    <div class="panel active" id="panel-0">
+      <div class="hero" style="margin-bottom:36px">
+        <span class="topic-label"><span class="dot"></span>Topic 08 of 09</span>
+        <h1>Views, Sorting &amp; Indexing</h1>
+        <p>Understanding <em>when</em> NumPy shares memory versus making a copy, how to sort arrays in-place or by axis, and all the ways to slice and index into 1D and 2D arrays — the bread and butter of daily NumPy work.</p>
+        <div class="hero-pills">
+          <span class="tag blue">3 Copy/View ops</span>
+          <span class="tag">2 Sort ops</span>
+          <span class="tag green">6 Index/Slice ops</span>
+          <span class="tag orange">Interactive</span>
+        </div>
+      </div>
+      <div class="section-lbl" style="color:#3b82f6"><span style="background:#3b82f6"></span>Views &amp; Deep Copies</div>
+      <div class="overview-grid" style="margin-top:0;margin-bottom:24px">
+        <div class="ov-card" onclick="goTo(1)"><div class="ov-card-num">01 / 12</div><div class="ov-card-name" style="color:#3b82f6">.view()</div><div class="ov-card-desc">Shallow view — mutating it changes the original.</div></div>
+        <div class="ov-card" onclick="goTo(2)"><div class="ov-card-num">02 / 12</div><div class="ov-card-name" style="color:#10b981">np.copy() / .copy()</div><div class="ov-card-desc">Deep copy — fully independent, original safe.</div></div>
+      </div>
+      <div class="section-lbl" style="color:#facc15"><span style="background:#facc15"></span>Sorting</div>
+      <div class="overview-grid" style="margin-top:0;margin-bottom:24px">
+        <div class="ov-card" onclick="goTo(3)"><div class="ov-card-num">03 / 12</div><div class="ov-card-name" style="color:#facc15">.sort()</div><div class="ov-card-desc">Sort in-place ascending — modifies the array.</div></div>
+        <div class="ov-card" onclick="goTo(4)"><div class="ov-card-num">04 / 12</div><div class="ov-card-name" style="color:#f97316">.sort(axis=0)</div><div class="ov-card-desc">Sort 2D arrays along a specific axis.</div></div>
+      </div>
+      <div class="section-lbl" style="color:#06b6d4"><span style="background:#06b6d4"></span>Indexing &amp; Slicing</div>
+      <div class="overview-grid" style="margin-top:0">
+        <div class="ov-card" onclick="goTo(5)"><div class="ov-card-num">05 / 12</div><div class="ov-card-name" style="color:#06b6d4">a[i]</div><div class="ov-card-desc">Single element by 0-based index.</div></div>
+        <div class="ov-card" onclick="goTo(6)"><div class="ov-card-num">06 / 12</div><div class="ov-card-name" style="color:#8b5cf6">a[s:e] = val</div><div class="ov-card-desc">Assign a value to a slice in-place.</div></div>
+        <div class="ov-card" onclick="goTo(7)"><div class="ov-card-num">07 / 12</div><div class="ov-card-name" style="color:#ec4899">b[row, col]</div><div class="ov-card-desc">2D element at exact row, col.</div></div>
+        <div class="ov-card" onclick="goTo(8)"><div class="ov-card-num">08 / 12</div><div class="ov-card-name" style="color:#a78bfa">a[0:2]</div><div class="ov-card-desc">Slice a range — end index not included.</div></div>
+        <div class="ov-card" onclick="goTo(9)"><div class="ov-card-num">09 / 12</div><div class="ov-card-name" style="color:#14b8a6">b[0:2, 1]</div><div class="ov-card-desc">2D slice — row range, specific column.</div></div>
+        <div class="ov-card" onclick="goTo(10)"><div class="ov-card-num">10 / 12</div><div class="ov-card-name" style="color:#f43f5e">a[::-1]</div><div class="ov-card-desc">Reverse the array in one step.</div></div>
+        <div class="ov-card" onclick="goTo(11)"><div class="ov-card-num">11 / 12</div><div class="ov-card-name" style="color:#34d399">a[&lt;condition&gt;]</div><div class="ov-card-desc">Boolean indexing — filter by condition.</div></div>
+        <div class="ov-card" onclick="goTo(12)"><div class="ov-card-num">12 / 12</div><div class="ov-card-name" style="color:#fb923c">b[[r],[c]]</div><div class="ov-card-desc">Fancy indexing — pick arbitrary elements.</div></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" disabled>← Prev</button>
+        <div class="pnav-dots" id="dots-0"></div>
+        <button class="pnav-btn next" onclick="goTo(1)">.view() →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 1: .view() ══ -->
+    <div class="panel" id="panel-1">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1557804506-669a67965ba0?w=900&q=75&fit=crop&h=200" alt="Mirror reflection" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Views &amp; Copies 01 / 02 · Shared Memory</div>
+          <div class="m-name">.view()</div>
+          <div class="m-tagline">A window into the same memory — changes ripple back</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">h = a.view()</span>
+        <span class="pill pill-param" style="background:rgba(59,130,246,.1);color:var(--blue);border:1px solid rgba(59,130,246,.28);">dtype
+          <span class="balloon"><span class="balloon-title">dtype</span><span class="balloon-body">Optional. Reinterpret the raw bytes under a different data type. Omit (the common case) to get a view with the same dtype. Changes to the view affect the original array.</span></span>
+        </span>
+        <span class="pill pill-note">shallow — linked</span>
+        <span class="pill pill-ret">→ ndarray (same data)</span>
+      </div>
+      <p class="m-desc">A view shares the same underlying memory as the original. It looks like a copy but isn't. Writing to <code>h[0]</code> writes straight through to <code>a[0]</code>. This is NumPy's default for most slicing — fast and zero extra memory, but watch out for accidental mutations.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> numpy <span class="kw">as</span> <span class="lib">np</span>
+
+a = <span class="lib">np</span>.<span class="fn">arange</span>(<span class="num">5</span>)         <span class="cm"># [0 1 2 3 4]</span>
+h = a.<span class="fn">view</span>()
+
+h[<span class="num">0</span>] = <span class="num">99</span>
+<span class="fn">print</span>(a)  <span class="cm"># [99  1  2  3  4]  ← original changed!</span>
+<span class="fn">print</span>(h)  <span class="cm"># [99  1  2  3  4]</span>
+
+<span class="cm"># check if arrays share memory</span>
+<span class="lib">np</span>.<span class="fn">shares_memory</span>(a, h)   <span class="cm"># True</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — mutation in view ripples to original</div>
+        <div class="demo-controls">
+          <button class="demo-btn" style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#ef4444;" onclick="mutateView()">✏ Mutate h[0] = 99</button>
+          <button class="demo-btn" style="background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--muted);" onclick="resetView()">↺ Reset</button>
+        </div>
+        <div class="demo-out" id="out-view"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-view" height="110"></canvas></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(0)">← Overview</button>
+        <div class="pnav-dots" id="dots-1"></div>
+        <button class="pnav-btn next" onclick="goTo(2)">np.copy() →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 2: np.copy() / .copy() ══ -->
+    <div class="panel" id="panel-2">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=900&q=75&fit=crop&h=200" alt="Two independent objects" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Views &amp; Copies 02 / 02 · Deep Copy</div>
+          <div class="m-name">np.copy() / .copy()</div>
+          <div class="m-tagline">Fully independent — the original is safe</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">h = np.copy(a)</span>
+        <span class="pill pill-sig">h = a.copy()</span>
+        <span class="pill pill-param" style="background:rgba(249,115,22,.1);color:var(--orange);border:1px solid rgba(249,115,22,.28);">a
+          <span class="balloon"><span class="balloon-title">a</span><span class="balloon-body">The source array to copy. All data is duplicated into a new memory buffer, so changes to the copy never affect the original.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(139,92,246,.1);color:var(--purple);border:1px solid rgba(139,92,246,.28);">order
+          <span class="balloon"><span class="balloon-title">order</span><span class="balloon-body">Memory layout of the copy: <code style="color:#f0b63e">'C'</code> (row-major, default), <code style="color:#f0b63e">'F'</code> (column-major), or <code style="color:#f0b63e">'K'</code> (match source). Rarely needed in everyday use.</span></span>
+        </span>
+        <span class="pill pill-note">deep — independent</span>
+        <span class="pill pill-ret">→ new ndarray</span>
+      </div>
+      <p class="m-desc"><code>np.copy(a)</code> and <code>a.copy()</code> are identical — both allocate fresh memory and duplicate every value. Mutating the copy has zero effect on the original. Prefer <code>.copy()</code> style for clarity. Always copy before sorting or modifying if you need the original intact.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>a = <span class="lib">np</span>.<span class="fn">arange</span>(<span class="num">5</span>)         <span class="cm"># [0 1 2 3 4]</span>
+h = a.<span class="fn">copy</span>()
+
+h[<span class="num">0</span>] = <span class="num">99</span>
+<span class="fn">print</span>(a)  <span class="cm"># [0 1 2 3 4]  ← original unchanged ✓</span>
+<span class="fn">print</span>(h)  <span class="cm"># [99 1 2 3 4]</span>
+
+<span class="lib">np</span>.<span class="fn">shares_memory</span>(a, h)   <span class="cm"># False</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — copy shields the original</div>
+        <div class="demo-controls">
+          <button class="demo-btn" style="background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);color:var(--green);" onclick="mutateCopy()">✏ Mutate h[0] = 99</button>
+          <button class="demo-btn" style="background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--muted);" onclick="resetCopy()">↺ Reset</button>
+        </div>
+        <div class="demo-out" id="out-copy"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-copy" height="110"></canvas></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(1)">← .view()</button>
+        <div class="pnav-dots" id="dots-2"></div>
+        <button class="pnav-btn next" onclick="goTo(3)">.sort() →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 3: .sort() ══ -->
+    <div class="panel" id="panel-3">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1495020689067-958852a7765e?w=900&q=75&fit=crop&h=200" alt="Sorted bookshelf" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Sorting 01 / 02 · In-Place</div>
+          <div class="m-name">.sort()</div>
+          <div class="m-tagline">Sort the array in-place — no copy made</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">array.sort()</span>
+        <span class="pill pill-param" style="background:rgba(16,185,129,.1);color:var(--green);border:1px solid rgba(16,185,129,.28);">kind
+          <span class="balloon"><span class="balloon-title">kind</span><span class="balloon-body">Sorting algorithm: <code style="color:#f0b63e">'quicksort'</code> (default), <code style="color:#f0b63e">'mergesort'</code>, or <code style="color:#f0b63e">'heapsort'</code>. Quicksort is fastest on average; mergesort is stable (preserves relative order of equal elements).</span></span>
+        </span>
+        <span class="pill pill-note">in-place — modifies original</span>
+        <span class="pill pill-ret">→ None (modifies arr)</span>
+      </div>
+      <p class="m-desc">Sorts the array <strong style="color:var(--accent)">in-place</strong> (ascending by default) and returns <code>None</code>. The original array is overwritten. To get a sorted copy without changing the original use <code>np.sort(a)</code> instead.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>a = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">3</span>,<span class="num">1</span>,<span class="num">4</span>,<span class="num">1</span>,<span class="num">5</span>,<span class="num">9</span>,<span class="num">2</span>,<span class="num">6</span>])
+a.<span class="fn">sort</span>()
+<span class="fn">print</span>(a)   <span class="cm"># [1 1 2 3 4 5 6 9]</span>
+
+<span class="cm"># np.sort returns a NEW sorted copy</span>
+b = <span class="lib">np</span>.<span class="fn">sort</span>(a)    <span class="cm"># original a is unchanged</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — bubble sort animation</div>
+        <div class="demo-controls">
+          <button class="demo-btn" style="background:rgba(250,204,21,.1);border:1px solid rgba(250,204,21,.3);color:var(--accent);" onclick="shuffleSortArr()">⟳ Shuffle</button>
+          <button class="demo-btn" style="background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);color:var(--green);" id="sort-btn" onclick="startSort()">▶ Sort</button>
+        </div>
+        <div class="demo-out" id="out-sort"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-sort" height="130"></canvas></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(2)">← np.copy()</button>
+        <div class="pnav-dots" id="dots-3"></div>
+        <button class="pnav-btn next" onclick="goTo(4)">.sort(axis=0) →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 4: .sort(axis=0) ══ -->
+    <div class="panel" id="panel-4">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=900&q=75&fit=crop&h=200" alt="Grid columns" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Sorting 02 / 02 · 2D Sort</div>
+          <div class="m-name">.sort(axis=0)</div>
+          <div class="m-tagline">Sort each column or each row independently</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">array.sort(axis=0)</span>
+        <span class="pill pill-param" style="background:rgba(249,115,22,.1);color:var(--orange);border:1px solid rgba(249,115,22,.28);">axis
+          <span class="balloon"><span class="balloon-title">axis</span><span class="balloon-body"><code style="color:#f0b63e">axis=0</code> sorts each column independently (values move up/down). <code style="color:#f0b63e">axis=1</code> sorts each row independently (values move left/right).</span></span>
+        </span>
+        <span class="pill pill-note">in-place</span>
+      </div>
+      <p class="m-desc">On a 2D array, axis determines the direction of sorting. <code>axis=0</code> sorts down each column — rows are mixed up but columns become ascending. <code>axis=1</code> sorts across each row independently. Rows/columns are never merged with each other.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>c = <span class="lib">np</span>.<span class="fn">array</span>([[<span class="num">3</span>,<span class="num">1</span>,<span class="num">2</span>],
+              [<span class="num">9</span>,<span class="num">4</span>,<span class="num">7</span>],
+              [<span class="num">5</span>,<span class="num">8</span>,<span class="num">6</span>]])
+
+c.<span class="fn">sort</span>(axis=<span class="num">0</span>)
+<span class="cm"># [[3 1 2]   ← each column sorted</span>
+<span class="cm">#  [5 4 6]</span>
+<span class="cm">#  [9 8 7]]</span>
+
+c.<span class="fn">sort</span>(axis=<span class="num">1</span>)
+<span class="cm"># [[1 2 3]   ← each row sorted</span>
+<span class="cm">#  [4 7 9]</span>
+<span class="cm">#  [5 6 8]]</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — pick axis and watch the sort</div>
+        <div class="demo-controls">
+          <div class="toggle-group">
+            <button class="tgl-btn on" id="sax-orig" onclick="setSortAxis('orig')">Original</button>
+            <button class="tgl-btn" id="sax-0" onclick="setSortAxis(0)">sort(axis=0)</button>
+            <button class="tgl-btn" id="sax-1" onclick="setSortAxis(1)">sort(axis=1)</button>
+          </div>
+        </div>
+        <div class="demo-out" id="out-saxis"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-saxis" height="140"></canvas></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(3)">← .sort()</button>
+        <div class="pnav-dots" id="dots-4"></div>
+        <button class="pnav-btn next" onclick="goTo(5)">a[i] →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 5: a[i] ══ -->
+    <div class="panel" id="panel-5">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=900&q=75&fit=crop&h=200" alt="Target cursor" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Indexing 01 / 07 · Element Access</div>
+          <div class="m-name">a[i]</div>
+          <div class="m-tagline">Grab a single element by its 0-based index</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">a[i]</span>
+        <span class="pill pill-param" style="background:rgba(6,182,212,.1);color:var(--cyan);border:1px solid rgba(6,182,212,.28);">i
+          <span class="balloon"><span class="balloon-title">i</span><span class="balloon-body">0-based integer index. Negative values count from the end: <code style="color:#f0b63e">a[-1]</code> is the last element, <code style="color:#f0b63e">a[-2]</code> second-to-last, etc.</span></span>
+        </span>
+        <span class="pill pill-ret">→ scalar</span>
+      </div>
+      <p class="m-desc">NumPy uses <strong style="color:var(--cyan)">zero-based indexing</strong> like Python lists. The first element is at index <code>0</code>, the last at <code>n-1</code>. Negative indices wrap around from the end — <code>a[-1]</code> always gives the last element without needing to know the length.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>a = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>])
+<span class="fn">print</span>(a[<span class="num">2</span>])    <span class="cm"># 3</span>
+<span class="fn">print</span>(a[-<span class="num">1</span>])   <span class="cm"># 3  (last element)</span>
+<span class="fn">print</span>(a[-<span class="num">2</span>])   <span class="cm"># 2  (second to last)</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — drag to pick an index</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>Index</label><input type="range" min="0" max="7" value="2" id="idx-sl" oninput="drawIdxAccess()"><span class="cval" id="idx-vv">2</span></div>
+        </div>
+        <div class="demo-out" id="out-idx"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-idx" height="70"></canvas></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(4)">← .sort(axis=0)</button>
+        <div class="pnav-dots" id="dots-5"></div>
+        <button class="pnav-btn next" onclick="goTo(6)">a[s:e] = val →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 6: a[s:e] = val ══ -->
+    <div class="panel" id="panel-6">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=900&q=75&fit=crop&h=200" alt="Filling containers in a row" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Indexing 02 / 08 · Slice Assignment</div>
+          <div class="m-name">a[s:e] = val</div>
+          <div class="m-tagline">Assign a value to a range of elements in-place</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">a[s:e] = val</span>
+        <span class="pill pill-param" style="background:rgba(236,72,153,.1);color:var(--pink);border:1px solid rgba(236,72,153,.28);">s
+          <span class="balloon"><span class="balloon-title">s (start)</span><span class="balloon-body">Start index (inclusive, 0-based). Defaults to 0 if omitted.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(236,72,153,.1);color:var(--pink);border:1px solid rgba(236,72,153,.28);">e
+          <span class="balloon"><span class="balloon-title">e (end)</span><span class="balloon-body">End index (exclusive). Elements up to but not including index e are filled. Defaults to the end of the array if omitted.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(59,130,246,.1);color:#60a5fa;border:1px solid rgba(59,130,246,.28);">val
+          <span class="balloon"><span class="balloon-title">val</span><span class="balloon-body">Value to assign. A scalar broadcasts across the whole slice; an array of matching length assigns element-by-element.</span></span>
+        </span>
+        <span class="pill pill-ret">→ in-place</span>
+      </div>
+      <p class="m-desc">Slice assignment overwrites a chunk of an array without creating a new one. The slice <code>a[s:e]</code> selects positions <em>s</em> through <em>e−1</em>, and assigning a scalar broadcasts that single value across all selected positions.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>a = <span class="lib">np</span>.<span class="fn">arange</span>(<span class="num">0</span>, <span class="num">10</span>)
+<span class="cm"># [0  1  2  3  4  5  6  7  8  9]</span>
+
+a[<span class="num">0</span>:<span class="num">5</span>] = <span class="num">100</span>
+<span class="fn">print</span>(a)
+<span class="cm"># [100 100 100 100 100   5   6   7   8   9]</span></pre>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(5)">← a[i]</button>
+        <div class="pnav-dots" id="dots-6"></div>
+        <button class="pnav-btn next" onclick="goTo(7)">b[row, col] →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 7: b[row, col] ══ -->
+    <div class="panel" id="panel-7">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1509228627152-72ae9ae6848d?w=900&q=75&fit=crop&h=200" alt="Grid coordinate system" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Indexing 02 / 07 · 2D Element</div>
+          <div class="m-name">b[row, col]</div>
+          <div class="m-tagline">Pinpoint a single cell in a 2D array</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">b[row, col]</span>
+        <span class="pill pill-param" style="background:rgba(236,72,153,.1);color:var(--pink);border:1px solid rgba(236,72,153,.28);">row
+          <span class="balloon"><span class="balloon-title">row</span><span class="balloon-body">Row index (0-based, top to bottom). Equivalent to choosing which sub-array in a list of lists. Supports negative indexing.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(236,72,153,.1);color:var(--pink);border:1px solid rgba(236,72,153,.28);">col
+          <span class="balloon"><span class="balloon-title">col</span><span class="balloon-body">Column index (0-based, left to right). Combined with row, this uniquely identifies one element. Equivalent to <code style="color:#f0b63e">b[row][col]</code>.</span></span>
+        </span>
+        <span class="pill pill-ret">→ scalar</span>
+      </div>
+      <p class="m-desc">Comma notation <code>b[row, col]</code> is faster and more readable than chained <code>b[row][col]</code> — it avoids creating an intermediate 1D array. Think of it as giving the coordinates on a grid: row = down, col = right.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>b = <span class="lib">np</span>.<span class="fn">array</span>([[<span class="num">1.5</span>,<span class="num">2</span>,<span class="num">3</span>],
+              [<span class="num">4</span>,<span class="num">5</span>,<span class="num">6</span>],
+              [<span class="num">7</span>,<span class="num">8</span>,<span class="num">9</span>]])
+<span class="fn">print</span>(b[<span class="num">1</span>, <span class="num">2</span>])  <span class="cm"># 6   (row 1, col 2)</span>
+<span class="fn">print</span>(b[<span class="num">0</span>, <span class="num">0</span>])  <span class="cm"># 1.5 (top-left)</span>
+<span class="fn">print</span>(b[-<span class="num">1</span>,-<span class="num">1</span>]) <span class="cm"># 9   (bottom-right)</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — pick row &amp; col with sliders</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>Row (0-2)</label><input type="range" min="0" max="2" value="1" id="rc-r" oninput="drawRC()"><span class="cval" id="rc-rv">1</span></div>
+          <div class="ctrl"><label>Col (0-2)</label><input type="range" min="0" max="2" value="2" id="rc-c" oninput="drawRC()"><span class="cval" id="rc-cv">2</span></div>
+        </div>
+        <div class="demo-out" id="out-rc"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-rc" height="140"></canvas></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(6)">← a[s:e] = val</button>
+        <div class="pnav-dots" id="dots-7"></div>
+        <button class="pnav-btn next" onclick="goTo(8)">a[0:2] →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 7: a[0:2] ══ -->
+    <div class="panel" id="panel-8">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=900&q=75&fit=crop&h=200" alt="Slice cut" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Indexing 03 / 07 · Range Slice</div>
+          <div class="m-name">a[0:2]</div>
+          <div class="m-tagline">Select a contiguous range — end is excluded</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">a[start:stop]</span>
+        <span class="pill pill-param" style="background:rgba(167,139,250,.1);color:var(--purple);border:1px solid rgba(167,139,250,.28);">start
+          <span class="balloon"><span class="balloon-title">start</span><span class="balloon-body">First index to include (inclusive). If omitted, defaults to <code style="color:#f0b63e">0</code> (the beginning). Supports negative values to count from the end.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(167,139,250,.1);color:var(--purple);border:1px solid rgba(167,139,250,.28);">stop
+          <span class="balloon"><span class="balloon-title">stop</span><span class="balloon-body">First index to <em>exclude</em> (exclusive). The slice goes up to but not including this index. If omitted, goes to the end of the array.</span></span>
+        </span>
+        <span class="pill pill-ret">→ ndarray (view)</span>
+      </div>
+      <p class="m-desc">The stop index is <strong style="color:var(--purple)">exclusive</strong> — <code>a[0:2]</code> returns elements at indices 0 and 1, not 2. A slice returns a <em>view</em> (shared memory) unless you call <code>.copy()</code>. Omit either boundary to go to the beginning or end.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>a = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">10</span>,<span class="num">20</span>,<span class="num">30</span>,<span class="num">40</span>,<span class="num">50</span>,<span class="num">60</span>])
+<span class="fn">print</span>(a[<span class="num">0</span>:<span class="num">2</span>])   <span class="cm"># [10 20]</span>
+<span class="fn">print</span>(a[<span class="num">2</span>:])    <span class="cm"># [30 40 50 60]  — to end</span>
+<span class="fn">print</span>(a[:<span class="num">3</span>])    <span class="cm"># [10 20 30]     — from start</span>
+<span class="fn">print</span>(a[<span class="num">1</span>:<span class="num">4</span>])   <span class="cm"># [20 30 40]</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — drag start and stop</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>Start</label><input type="range" min="0" max="5" value="1" id="sl-s" oninput="drawSlice1D()"><span class="cval" id="sl-sv">1</span></div>
+          <div class="ctrl"><label>Stop</label><input type="range" min="1" max="8" value="4" id="sl-e" oninput="drawSlice1D()"><span class="cval" id="sl-ev">4</span></div>
+        </div>
+        <div class="demo-out" id="out-sl"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-sl" height="70"></canvas></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(7)">← b[row, col]</button>
+        <div class="pnav-dots" id="dots-8"></div>
+        <button class="pnav-btn next" onclick="goTo(9)">b[0:2, 1] →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 8: b[0:2, 1] ══ -->
+    <div class="panel" id="panel-9">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1544197150-b99a580bb7a8?w=900&q=75&fit=crop&h=200" alt="Grid selection" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Indexing 04 / 07 · 2D Slice</div>
+          <div class="m-name">b[0:2, 1]</div>
+          <div class="m-tagline">Select a row range at a fixed column</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">b[row_start:row_end, col]</span>
+        <span class="pill pill-param" style="background:rgba(6,182,212,.1);color:var(--cyan);border:1px solid rgba(6,182,212,.28);">row_start:row_end
+          <span class="balloon"><span class="balloon-title">row_start : row_end</span><span class="balloon-body">A slice along axis 0. Selects rows from <code>row_start</code> (inclusive) to <code>row_end</code> (exclusive). Omit either end to mean “from beginning” or “to end”.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(236,72,153,.1);color:var(--pink);border:1px solid rgba(236,72,153,.28);">col
+          <span class="balloon"><span class="balloon-title">col</span><span class="balloon-body">An integer index along axis 1, selecting one specific column. Reduces the 2D slice to a 1D column vector.</span></span>
+        </span>
+        <span class="pill pill-note">2D slice</span>
+        <span class="pill pill-ret">→ ndarray (view)</span>
+      </div>
+      <p class="m-desc">Combine row slicing with a fixed column (or vice versa). The comma separates the row selector from the column selector. Either can be a range or a single index. <code>b[:, 1]</code> gets the entire second column as a 1D array.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>b = <span class="lib">np</span>.<span class="fn">array</span>([[<span class="num">1.5</span>,<span class="num">2</span>,<span class="num">3</span>],[<span class="num">4</span>,<span class="num">5</span>,<span class="num">6</span>],[<span class="num">7</span>,<span class="num">8</span>,<span class="num">9</span>]])
+<span class="fn">print</span>(b[<span class="num">0</span>:<span class="num">2</span>, <span class="num">1</span>])  <span class="cm"># [2. 5.]   — rows 0-1, col 1</span>
+<span class="fn">print</span>(b[:, <span class="num">1</span>])    <span class="cm"># [2. 5. 8.] — all rows, col 1</span>
+<span class="fn">print</span>(b[<span class="num">0</span>:<span class="num">2</span>, :])   <span class="cm"># first 2 rows, all columns</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — row range + column</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>Row start</label><input type="range" min="0" max="2" value="0" id="sl2-rs" oninput="drawSlice2D()"><span class="cval" id="sl2-rsv">0</span></div>
+          <div class="ctrl"><label>Row stop</label><input type="range" min="1" max="3" value="2" id="sl2-re" oninput="drawSlice2D()"><span class="cval" id="sl2-rev">2</span></div>
+          <div class="ctrl"><label>Column</label><input type="range" min="0" max="2" value="1" id="sl2-c" oninput="drawSlice2D()"><span class="cval" id="sl2-cv">1</span></div>
+        </div>
+        <div class="demo-out" id="out-sl2"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-sl2" height="140"></canvas></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(8)">← a[0:2]</button>
+        <div class="pnav-dots" id="dots-9"></div>
+        <button class="pnav-btn next" onclick="goTo(10)">a[::-1] →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 9: a[::-1] ══ -->
+    <div class="panel" id="panel-10">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1504639725590-34d0984388bd?w=900&q=75&fit=crop&h=200" alt="Reverse mirror" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Indexing 05 / 07 · Reverse</div>
+          <div class="m-name">a[::-1]</div>
+          <div class="m-tagline">Reverse the entire array in one line</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">a[::-1]</span>
+        <span class="pill pill-param" style="background:rgba(250,204,21,.1);color:var(--accent);border:1px solid rgba(250,204,21,.28);">step
+          <span class="balloon"><span class="balloon-title">step</span><span class="balloon-body">The slice step value. <code style="color:#f0b63e">-1</code> walks the array backwards one element at a time. Use <code style="color:#f0b63e">-2</code> to skip every other element while reversing.</span></span>
+        </span>
+        <span class="pill pill-note">step = -1</span>
+        <span class="pill pill-ret">→ ndarray (view)</span>
+      </div>
+      <p class="m-desc">The full slice syntax is <code>a[start:stop:step]</code>. A step of <code>-1</code> means "go backwards", and omitting start/stop means "the whole array" — so <code>a[::-1]</code> returns a reversed view. Use <code>a[::-2]</code> to take every second element in reverse.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>a = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>, <span class="num">4</span>, <span class="num">5</span>])
+<span class="fn">print</span>(a[::<span class="num">-1</span>])   <span class="cm"># [5 4 3 2 1]</span>
+<span class="fn">print</span>(a[::<span class="num">-2</span>])   <span class="cm"># [5 3 1]  — every 2nd, reversed</span>
+<span class="fn">print</span>(a[<span class="num">4</span>::-<span class="num">1</span>])  <span class="cm"># [5 4 3 2 1]  — same</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — original vs reversed</div>
+        <div class="demo-controls">
+          <button class="demo-btn" style="background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.3);color:#f43f5e;" onclick="shuffleRev()">⟳ New array</button>
+        </div>
+        <div class="demo-out" id="out-rev"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-rev" height="110"></canvas></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(9)">← b[0:2, 1]</button>
+        <div class="pnav-dots" id="dots-10"></div>
+        <button class="pnav-btn next" onclick="goTo(11)">a[&lt;condition&gt;] →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 10: a[<condition>] ══ -->
+    <div class="panel" id="panel-11">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?w=900&q=75&fit=crop&h=200" alt="Data filtering screen" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Indexing 06 / 07 · Boolean Mask</div>
+          <div class="m-name">a[&lt;condition&gt;]</div>
+          <div class="m-tagline">Filter elements by condition — boolean indexing</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">a[condition]</span>
+        <span class="pill pill-param" style="background:rgba(139,92,246,.1);color:var(--purple);border:1px solid rgba(139,92,246,.28);">condition
+          <span class="balloon"><span class="balloon-title">condition</span><span class="balloon-body">A boolean array the same shape as <code>a</code>. Elements where <code>True</code> are selected; <code>False</code> elements are discarded. Typically created by a comparison like <code>a &lt; 2</code>.</span></span>
+        </span>
+        <span class="pill pill-note">boolean mask</span>
+        <span class="pill pill-ret">→ 1D ndarray (copy)</span>
+      </div>
+      <p class="m-desc">A boolean condition like <code>a &lt; 5</code> produces a True/False array of the same shape. Using that as an index returns only the elements where the condition is <code>True</code>. Unlike slicing, this returns a <strong style="color:var(--green)">copy</strong>, not a view. Combine conditions with <code>&amp;</code> (AND — both must be true) or <code>|</code> (OR — either must be true). Always wrap each condition in parentheses when combining.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>a = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>, <span class="num">4</span>, <span class="num">5</span>])
+<span class="fn">print</span>(a[a &lt; <span class="num">3</span>])               <span class="cm"># [1 2]</span>
+<span class="fn">print</span>(a[(a &gt; <span class="num">1</span>) &amp; (a &lt; <span class="num">5</span>)])  <span class="cm"># [2 3 4]  — AND: between 1 and 5</span>
+<span class="fn">print</span>(a[(a &lt; <span class="num">2</span>) | (a &gt; <span class="num">4</span>)])  <span class="cm"># [1 5]    — OR:  below 2 or above 4</span>
+<span class="fn">print</span>(a[a % <span class="num">2</span> == <span class="num">0</span>])          <span class="cm"># [2 4]    — even only</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — drag threshold to filter</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>Threshold (a &lt; thr)</label><input type="range" min="1" max="20" value="9" id="bool-thr" oninput="drawBoolIdx()"><span class="cval" id="bool-thrv">9</span></div>
+          <button class="demo-btn" style="background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.3);color:#34d399;" onclick="shuffleBool()">⟳ New values</button>
+        </div>
+        <div class="demo-out" id="out-bool"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-bool" height="80"></canvas></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(10)">← a[::-1]</button>
+        <div class="pnav-dots" id="dots-11"></div>
+        <button class="pnav-btn next" onclick="goTo(12)">b[[r],[c]] →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 11: b[[r],[c]] ══ -->
+    <div class="panel" id="panel-12">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=900&q=75&fit=crop&h=200" alt="Selected data points" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Indexing 07 / 07 · Fancy Indexing</div>
+          <div class="m-name">b[[r…],[c…]]</div>
+          <div class="m-tagline">Pick any combination of elements by coordinate lists</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">b[[rows], [cols]]</span>
+        <span class="pill pill-param" style="background:rgba(6,182,212,.1);color:var(--cyan);border:1px solid rgba(6,182,212,.28);">rows
+          <span class="balloon"><span class="balloon-title">rows</span><span class="balloon-body">A list (or array) of row indices to select. NumPy pairs each row index with the matching column index — it does not form a grid.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(244,63,94,.1);color:#f43f5e;border:1px solid rgba(244,63,94,.28);">cols
+          <span class="balloon"><span class="balloon-title">cols</span><span class="balloon-body">A list (or array) of column indices paired with <code>rows</code>. Element <code>i</code> of the result is <code>b[rows[i], cols[i]]</code>.</span></span>
+        </span>
+        <span class="pill pill-note">fancy — always a copy</span>
+        <span class="pill pill-ret">→ 1D ndarray</span>
+      </div>
+      <p class="m-desc">Fancy indexing uses <strong style="color:var(--orange)">lists of indices</strong> instead of slices. Each pair <code>(rows[i], cols[i])</code> picks one element. The result is always a flat 1D array. This can't be done with slices alone and is a copy, not a view.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>b = <span class="lib">np</span>.<span class="fn">array</span>([[<span class="num">1.5</span>,<span class="num">2</span>,<span class="num">3</span>],[<span class="num">4</span>,<span class="num">5</span>,<span class="num">6</span>]])
+<span class="cm"># pick (row=1,col=0), (row=0,col=1), (row=1,col=2), (row=0,col=0)</span>
+<span class="fn">print</span>(b[[<span class="num">1</span>,<span class="num">0</span>,<span class="num">1</span>,<span class="num">0</span>], [<span class="num">0</span>,<span class="num">1</span>,<span class="num">2</span>,<span class="num">0</span>]])
+<span class="cm"># [4.  2.  6.  1.5]</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — click cells to select them</div>
+        <div class="demo-controls">
+          <button class="demo-btn" style="background:rgba(251,146,60,.1);border:1px solid rgba(251,146,60,.3);color:#fb923c;" onclick="clearFancy()">✕ Clear selection</button>
+        </div>
+        <div class="demo-out" id="out-fancy"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-fancy" height="120" style="cursor:pointer" onclick="clickFancy(event)"></canvas></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(11)">← a[&lt;condition&gt;]</button>
+        <div class="pnav-dots" id="dots-12"></div>
+        <button class="pnav-btn next" onclick="goTo(13)">Exercises →</button>
+      </div>
+    </div>
+
+    <!-- PANEL 12: Exercises -->
+    <div class="panel" id="panel-13">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=900&q=75&fit=crop&h=200" alt="Practice" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Panel 12 · Practice</div>
+          <div class="m-name">Exercises</div>
+          <div class="m-tagline">11 challenges — copy, sort &amp; indexing</div>
+        </div>
+      </div>
+      <div class="exercise-header">
+        <div class="exercise-badge">?</div>
+        <div>
+          <h2 style="font-size:1.15rem;font-weight:900;color:var(--text);margin-bottom:4px;">Practice Time</h2>
+          <p style="color:#fbbf24;font-size:.88rem;font-weight:700;">What does each expression return? No solutions shown!</p>
+        </div>
+      </div>
+      <div id="ex-cards-08">
+        <div class="ex-card">
+          <div class="ex-q-head"><span class="ex-num">Q1</span></div>
+          <p class="ex-task">Given <code>a = np.array([1,2,3])</code> and <code>v = a.view()</code> — if you do <code>v[0] = 99</code>, what does <code>a[0]</code> return?</p>
+          <div class="code-wrap"><div class="code-header"><span class="code-lang">output</span></div>
+          <pre><span class="cm"># view shares memory</span>
+a[0] = ?</pre></div>
+        </div>
+        <div class="ex-card">
+          <div class="ex-q-head"><span class="ex-num">Q2</span></div>
+          <p class="ex-task">Given <code>a = np.array([1,2,3])</code> and <code>c = np.copy(a)</code> — if you do <code>c[0] = 99</code>, what does <code>a[0]</code> return?</p>
+          <div class="code-wrap"><div class="code-header"><span class="code-lang">output</span></div>
+          <pre><span class="cm"># copy is independent</span>
+a[0] = ?</pre></div>
+        </div>
+        <div class="ex-card">
+          <div class="ex-q-head"><span class="ex-num">Q3</span></div>
+          <p class="ex-task">Given <code>a = np.array([3,1,4,1,5,9])</code> — what does <code>a</code> look like after <code>a.sort()</code>?</p>
+          <div class="code-wrap"><div class="code-header"><span class="code-lang">output</span></div>
+          <pre>array([?, ?, ?, ?, ?, ?])</pre></div>
+        </div>
+        <div class="ex-card">
+          <div class="ex-q-head"><span class="ex-num">Q4</span></div>
+          <p class="ex-task">Given <code>b = np.array([[3,1],[4,2]])</code> — what does <code>b</code> look like after <code>b.sort(axis=0)</code>?</p>
+          <div class="code-wrap"><div class="code-header"><span class="code-lang">output</span></div>
+          <pre><span class="cm"># sorts each column independently</span>
+array([[?, ?],
+       [?, ?]])</pre></div>
+        </div>
+        <div class="ex-card">
+          <div class="ex-q-head"><span class="ex-num">Q5</span></div>
+          <p class="ex-task">Given <code>a = np.array([10,20,30,40,50])</code> — what does <code>a[2]</code> return?</p>
+          <div class="code-wrap"><div class="code-header"><span class="code-lang">output</span></div>
+          <pre>?</pre></div>
+        </div>
+        <div class="ex-card">
+          <div class="ex-q-head"><span class="ex-num">Q6</span></div>
+          <p class="ex-task">Given <code>b = np.array([[1,2,3],[4,5,6]])</code> — what does <code>b[1, 2]</code> return?</p>
+          <div class="code-wrap"><div class="code-header"><span class="code-lang">output</span></div>
+          <pre>?</pre></div>
+        </div>
+        <div class="ex-card">
+          <div class="ex-q-head"><span class="ex-num">Q7</span></div>
+          <p class="ex-task">Given <code>a = np.array([10,20,30,40,50])</code> — what does <code>a[1:4]</code> return?</p>
+          <div class="code-wrap"><div class="code-header"><span class="code-lang">output</span></div>
+          <pre>array([?, ?, ?])</pre></div>
+        </div>
+        <div class="ex-card">
+          <div class="ex-q-head"><span class="ex-num">Q8</span></div>
+          <p class="ex-task">Given <code>b = np.array([[1,2,3],[4,5,6],[7,8,9]])</code> — what does <code>b[0:2, 1]</code> return?</p>
+          <div class="code-wrap"><div class="code-header"><span class="code-lang">output</span></div>
+          <pre>array([?, ?])</pre></div>
+        </div>
+        <div class="ex-card">
+          <div class="ex-q-head"><span class="ex-num">Q9</span></div>
+          <p class="ex-task">Given <code>a = np.array([1,2,3,4,5])</code> — what does <code>a[::-1]</code> return?</p>
+          <div class="code-wrap"><div class="code-header"><span class="code-lang">output</span></div>
+          <pre>array([?, ?, ?, ?, ?])</pre></div>
+        </div>
+        <div class="ex-card">
+          <div class="ex-q-head"><span class="ex-num">Q10</span></div>
+          <p class="ex-task">Given <code>a = np.array([1,5,3,8,2])</code> — what does <code>a[a &lt; 4]</code> return?</p>
+          <div class="code-wrap"><div class="code-header"><span class="code-lang">output</span></div>
+          <pre>array([?, ?, ?])</pre></div>
+        </div>
+        <div class="ex-card">
+          <div class="ex-q-head"><span class="ex-num">Q11</span></div>
+          <p class="ex-task">Given <code>b = np.array([[1,2],[3,4],[5,6]])</code> — what does <code>b[[0,2], [1,0]]</code> return?</p>
+          <div class="code-wrap"><div class="code-header"><span class="code-lang">output</span></div>
+          <pre><span class="cm"># fancy indexing picks [row0,col1] and [row2,col0]</span>
+array([?, ?])</pre></div>
+        </div>
+      </div><!-- end ex-cards-08 -->
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(12)">← b[[r],[c]]</button>
+        <div class="pnav-dots" id="dots-13"></div>
+        <button class="pnav-btn next" onclick="goTo(0)" style="background:rgba(139,92,246,.1);border-color:rgba(139,92,246,.4);color:var(--purple);">&#8635; Back to Overview</button>
+      </div>
+    </div>
+
+  </div><!-- /panel-viewport -->
+</div><!-- /page-layout -->
+
+<script>
+const $ = id => document.getElementById(id);
+const TOTAL = 14;
+const LABELS = ['Overview','.view()','np.copy()/.copy()','.sort()','.sort(axis=0)','a[i]','a[s:e]=val','b[row,col]','a[0:2]','b[0:2,1]','a[::-1]','a[<condition>]','b[[r],[c]]','Exercises'];
+let current = 0;
+
+function goTo(idx) {
+  if (idx === current) return;
+  if (current > 0) document.querySelector(`[data-panel="${current}"]`).classList.add('done');
+  const oldP = $('panel-' + current), newP = $('panel-' + idx);
+  oldP.classList.remove('active'); oldP.classList.add('exit');
+  setTimeout(() => oldP.classList.remove('exit'), 280);
+  current = idx; newP.classList.add('active');
+  $('viewport').scrollTop = 0;
+  document.querySelectorAll('.s-item').forEach(b => b.classList.toggle('active', +b.dataset.panel === idx));
+  updateDots();
+  const draws = [null, () => drawViewDemo(false), () => drawCopyDemo(false), () => { shuffleSortArr(); }, () => setSortAxis('orig'), drawIdxAccess, null, drawRC, drawSlice1D, drawSlice2D, shuffleRev, drawBoolIdx, drawFancy, shuffleEx08];
+  if (draws[idx]) setTimeout(draws[idx], 60);
+}
+
+function updateDots() {
+  for (let i = 0; i < TOTAL; i++) {
+    const cont = $('dots-' + i); if (!cont) continue;
+    cont.innerHTML = '';
+    for (let d = 0; d < TOTAL; d++) {
+      const btn = document.createElement('button');
+      btn.className = 'pnav-dot' + (d === current ? ' active' : '');
+      btn.title = LABELS[d]; btn.onclick = () => goTo(d);
+      cont.appendChild(btn);
+    }
+  }
+}
+$('viewport').addEventListener('scroll', () => {
+  const el = $('viewport');
+  $('progress').style.width = (el.scrollTop / (el.scrollHeight - el.clientHeight) * 100) + '%';
+});
+function cp(btn) {
+  navigator.clipboard.writeText(btn.closest('.code-wrap').querySelector('pre').innerText.trim()).then(() => {
+    btn.textContent = '✓ copied'; setTimeout(() => btn.textContent = 'copy', 1600);
+  });
+}
+
+/* ═══ helpers ═══ */
+function drawCellsRow(ctx, vals, y, cs, p, colorFn, labelFn) {
+  vals.forEach((v, i) => {
+    const x = p + i * (cs + p);
+    ctx.fillStyle = colorFn(v, i) + '28'; ctx.beginPath(); ctx.roundRect(x, y, cs, cs - 4, 5); ctx.fill();
+    ctx.strokeStyle = colorFn(v, i) + '66'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = colorFn(v, i); ctx.font = 'bold 13px Courier New';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(labelFn(v, i), x + cs / 2, y + (cs - 4) / 2);
+  });
+}
+
+/* ═══ P1: view ═══ */
+let viewMutated = false;
+function drawViewDemo(mutated) {
+  viewMutated = mutated;
+  const orig = mutated ? [99, 1, 2, 3, 4] : [0, 1, 2, 3, 4];
+  const view = [...orig]; // both same when linked
+  const cs = 56, p = 5, cv = $('cv-view');
+  cv.width = orig.length * (cs + p) + p; cv.height = 110;
+  const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, cv.width, cv.height);
+  // labels
+  ctx.fillStyle = '#3b82f6'; ctx.font = 'bold 10px Segoe UI'; ctx.textAlign = 'left';
+  ctx.fillText('a (original)', p, 10);
+  ctx.fillStyle = '#ec4899'; ctx.fillText('h = a.view()', p, 68);
+  // row A
+  orig.forEach((v, i) => {
+    const x = p + i * (cs + p), isM = mutated && i === 0;
+    ctx.fillStyle = isM ? 'rgba(239,68,68,.3)' : 'rgba(59,130,246,.18)';
+    ctx.beginPath(); ctx.roundRect(x, 14, cs, 38, 5); ctx.fill();
+    ctx.strokeStyle = isM ? 'rgba(239,68,68,.7)' : 'rgba(59,130,246,.5)'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = isM ? '#ef4444' : '#3b82f6'; ctx.font = 'bold 14px Courier New';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(v, x + cs / 2, 33);
+  });
+  // connecting lines
+  ctx.strokeStyle = mutated ? 'rgba(239,68,68,.5)' : 'rgba(255,255,255,.12)'; ctx.lineWidth = 1; ctx.setLineDash([4, 3]);
+  orig.forEach((_, i) => {
+    const x = p + i * (cs + p) + cs / 2;
+    ctx.beginPath(); ctx.moveTo(x, 52); ctx.lineTo(x, 72); ctx.stroke();
+  });
+  ctx.setLineDash([]);
+  // row H (view)
+  view.forEach((v, i) => {
+    const x = p + i * (cs + p), isM = mutated && i === 0;
+    ctx.fillStyle = isM ? 'rgba(239,68,68,.3)' : 'rgba(236,72,153,.18)';
+    ctx.beginPath(); ctx.roundRect(x, 72, cs, 38, 5); ctx.fill();
+    ctx.strokeStyle = isM ? 'rgba(239,68,68,.7)' : 'rgba(236,72,153,.5)'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = isM ? '#ef4444' : '#ec4899'; ctx.font = 'bold 14px Courier New';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(v, x + cs / 2, 91);
+  });
+  $('out-view').textContent = mutated
+    ? `h[0] = 99\nprint(a)  →  [${orig.join(' ')}]  ← CHANGED\nprint(h)  →  [${view.join(' ')}]  ← SAME MEMORY`
+    : `a = np.arange(5)   →  [${orig.join(' ')}]\nh = a.view()\nnp.shares_memory(a, h)  →  True`;
+}
+function mutateView() { drawViewDemo(true); }
+function resetView() { drawViewDemo(false); }
+
+/* ═══ P2: copy ═══ */
+let copyMutated = false;
+function drawCopyDemo(mutated) {
+  copyMutated = mutated;
+  const orig = [0, 1, 2, 3, 4];
+  const cpy = mutated ? [99, 1, 2, 3, 4] : [0, 1, 2, 3, 4];
+  const cs = 56, p = 5, cv = $('cv-copy');
+  cv.width = orig.length * (cs + p) + p; cv.height = 110;
+  const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, cv.width, cv.height);
+  ctx.fillStyle = '#10b981'; ctx.font = 'bold 10px Segoe UI'; ctx.textAlign = 'left';
+  ctx.fillText('a (original)', p, 10);
+  ctx.fillStyle = '#8b5cf6'; ctx.fillText('h = a.copy()', p, 68);
+  orig.forEach((v, i) => {
+    const x = p + i * (cs + p);
+    ctx.fillStyle = 'rgba(16,185,129,.18)'; ctx.beginPath(); ctx.roundRect(x, 14, cs, 38, 5); ctx.fill();
+    ctx.strokeStyle = mutated && i === 0 ? 'rgba(16,185,129,.9)' : 'rgba(16,185,129,.5)'; ctx.lineWidth = mutated && i === 0 ? 2 : 1; ctx.stroke();
+    ctx.fillStyle = '#10b981'; ctx.font = 'bold 14px Courier New';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(v, x + cs / 2, 33);
+  });
+  if (mutated) {
+    // shield icon on original
+    ctx.fillStyle = 'rgba(16,185,129,.2)'; ctx.beginPath(); ctx.roundRect(p - 1, 12, orig.length * (cs + p) + 2, 42, 6); ctx.fill();
+    ctx.strokeStyle = 'rgba(16,185,129,.5)'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#10b981'; ctx.font = '11px Segoe UI'; ctx.textAlign = 'right';
+    ctx.fillText('✓ untouched', cv.width - p, 10);
+  }
+  // dashed gap (no link)
+  ctx.strokeStyle = 'rgba(255,255,255,.08)'; ctx.lineWidth = 1; ctx.setLineDash([2, 6]);
+  orig.forEach((_, i) => {
+    const x = p + i * (cs + p) + cs / 2;
+    ctx.beginPath(); ctx.moveTo(x, 52); ctx.lineTo(x, 72); ctx.stroke();
+  });
+  ctx.setLineDash([]);
+  // row H copy
+  cpy.forEach((v, i) => {
+    const x = p + i * (cs + p), isM = mutated && i === 0;
+    ctx.fillStyle = isM ? 'rgba(239,68,68,.3)' : 'rgba(139,92,246,.18)';
+    ctx.beginPath(); ctx.roundRect(x, 72, cs, 38, 5); ctx.fill();
+    ctx.strokeStyle = isM ? '#ef4444' : 'rgba(139,92,246,.5)'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = isM ? '#ef4444' : '#8b5cf6'; ctx.font = 'bold 14px Courier New';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(v, x + cs / 2, 91);
+  });
+  $('out-copy').textContent = mutated
+    ? `h[0] = 99\nprint(a)  →  [${orig.join(' ')}]  ← unchanged ✓\nprint(h)  →  [${cpy.join(' ')}]  ← only copy changed`
+    : `a = np.arange(5)   →  [0 1 2 3 4]\nh = a.copy()\nnp.shares_memory(a, h)  →  False`;
+}
+function mutateCopy() { drawCopyDemo(true); }
+function resetCopy() { drawCopyDemo(false); }
+
+/* ═══ P3: sort animation ═══ */
+let sVals = [5, 2, 8, 1, 9, 3, 7, 4];
+let sTimer = null;
+function shuffleSortArr() {
+  if (sTimer) { clearInterval(sTimer); sTimer = null; }
+  sVals = Array.from({length: 8}, () => ~~(Math.random() * 16) + 1);
+  drawSortBars(sVals, -1, -1, []);
+  $('out-sort').textContent = `a = [${sVals.join(', ')}]\nPress ▶ Sort to animate bubble sort`;
+  $('sort-btn').textContent = '▶ Sort';
+}
+function startSort() {
+  if (sTimer) return;
+  const arr = [...sVals], n = arr.length;
+  const steps = [];
+  for (let i = 0; i < n - 1; i++) {
+    for (let j = 0; j < n - 1 - i; j++) {
+      steps.push({type: 'cmp', a: j, b: j + 1, arr: [...arr], lock: n - 1 - i});
+      if (arr[j] > arr[j + 1]) {
+        [arr[j], arr[j + 1]] = [arr[j + 1], arr[j]];
+        steps.push({type: 'swp', a: j, b: j + 1, arr: [...arr], lock: n - 1 - i});
+      }
+    }
+  }
+  steps.push({type: 'done', arr: [...arr]});
+  let idx = 0; const locked = [];
+  $('sort-btn').textContent = '⏳ sorting…';
+  sTimer = setInterval(() => {
+    if (idx >= steps.length) { clearInterval(sTimer); sTimer = null; $('sort-btn').textContent = '▶ Sort'; return; }
+    const s = steps[idx++];
+    if (s.type === 'done') { locked.push(...s.arr.map((_, i) => i)); drawSortBars(s.arr, -1, -1, locked); $('out-sort').textContent = `a.sort()  →  [${s.arr.join(', ')}]  ✓`; }
+    else {
+      if (s.type === 'swp') locked.length && locked[locked.length - 1] !== s.lock && locked.push(s.lock);
+      drawSortBars(s.arr, s.a, s.b, locked);
+    }
+  }, 180);
+}
+function drawSortBars(arr, hi1, hi2, locked) {
+  const cv = $('cv-sort'), n = arr.length, mx = Math.max(...arr) + 1;
+  const bw = 46, p = 5, H = 130;
+  cv.width = n * (bw + p) + p; cv.height = H;
+  const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, cv.width, H);
+  arr.forEach((v, i) => {
+    const x = p + i * (bw + p), h = ~~(v / mx * (H - 22));
+    const isHi = i === hi1 || i === hi2, isLocked = locked.includes(i);
+    ctx.fillStyle = isLocked ? 'rgba(16,185,129,.3)' : isHi ? 'rgba(250,204,21,.4)' : 'rgba(59,130,246,.2)';
+    ctx.beginPath(); ctx.roundRect(x, H - h - 18, bw, h, 4); ctx.fill();
+    ctx.strokeStyle = isLocked ? '#10b981' : isHi ? '#facc15' : 'rgba(59,130,246,.5)'; ctx.lineWidth = isHi ? 2 : 1; ctx.stroke();
+    ctx.fillStyle = isLocked ? '#10b981' : isHi ? '#facc15' : '#8b949e'; ctx.font = 'bold 12px Courier New';
+    ctx.textAlign = 'center'; ctx.fillText(v, x + bw / 2, H - 4);
+  });
+}
+
+/* ═══ P4: sort axis ═══ */
+const saxOrig = [[3, 1, 2], [9, 4, 7], [5, 8, 6]];
+function setSortAxis(ax) {
+  ['orig', '0', '1'].forEach(x => $('sax-' + x).className = 'tgl-btn' + (String(ax) === x ? ' on' : ''));
+  let grid;
+  if (ax === 'orig') { grid = saxOrig; }
+  else if (ax === 0) { grid = saxOrig[0].map((_, c) => saxOrig.map(r => r[c]).sort((a, b) => a - b)).reduce((out, col) => { col.forEach((v, r) => { out[r] = out[r] || []; out[r][out[r].length] = v; }); return out; }, saxOrig.map(() => [])); grid = [0, 1, 2].map(r => [0, 1, 2].map(c => saxOrig.map(row => row[c]).sort((a, b) => a - b)[r])); }
+  else { grid = saxOrig.map(row => [...row].sort((a, b) => a - b)); }
+  drawSaxGrid(grid, ax);
+  const flat = grid.flat();
+  $('out-saxis').textContent = ax === 'orig'
+    ? `c = [[3,1,2],[9,4,7],[5,8,6]]`
+    : `c.sort(axis=${ax})\n→  [[${grid[0].join(',')}],[${grid[1].join(',')}],[${grid[2].join(',')}]]`;
+}
+function drawSaxGrid(grid, ax) {
+  const cs = 54, p = 5, cv = $('cv-saxis');
+  const rows = grid.length, cols = grid[0].length;
+  cv.width = cols * (cs + p) + p; cv.height = rows * (cs + p) + p;
+  const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, cv.width, cv.height);
+  grid.forEach((row, r) => row.forEach((v, c) => {
+    const x = p + c * (cs + p), y = p + r * (cs + p);
+    const origV = saxOrig[r][c], changed = v !== origV;
+    ctx.fillStyle = changed ? 'rgba(250,204,21,.2)' : 'rgba(255,255,255,.04)';
+    ctx.beginPath(); ctx.roundRect(x, y, cs, cs, 5); ctx.fill();
+    ctx.strokeStyle = changed ? 'rgba(250,204,21,.6)' : 'rgba(255,255,255,.1)'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = changed ? '#facc15' : '#8b949e'; ctx.font = 'bold 16px Courier New';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(v, x + cs / 2, y + cs / 2);
+  }));
+}
+
+/* ═══ P5: a[i] ═══ */
+const idxArr = [5, 12, 3, 8, 15, 2, 9, 7];
+function drawIdxAccess() {
+  const idx = +$('idx-sl').value; $('idx-vv').textContent = idx;
+  const cs = 54, p = 5, cv = $('cv-idx');
+  cv.width = idxArr.length * (cs + p) + p; cv.height = 70;
+  const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, cv.width, cv.height);
+  idxArr.forEach((v, i) => {
+    const x = p + i * (cs + p), sel = i === idx;
+    ctx.fillStyle = sel ? 'rgba(6,182,212,.3)' : 'rgba(255,255,255,.04)';
+    ctx.beginPath(); ctx.roundRect(x, 4, cs, 44, 5); ctx.fill();
+    ctx.strokeStyle = sel ? '#06b6d4' : 'rgba(255,255,255,.1)'; ctx.lineWidth = sel ? 2 : 1; ctx.stroke();
+    ctx.fillStyle = sel ? '#06b6d4' : '#8b949e'; ctx.font = 'bold 13px Courier New';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(v, x + cs / 2, 26);
+    ctx.fillStyle = sel ? '#facc15' : 'rgba(255,255,255,.2)'; ctx.font = 'bold 9px Courier New';
+    ctx.fillText('[' + i + ']', x + cs / 2, 55);
+  });
+  $('out-idx').textContent = `a = [${idxArr.join(', ')}]\na[${idx}]  →  ${idxArr[idx]}`;
+}
+
+/* ═══ P6: b[row,col] ═══ */
+const rcGrid = [[1.5, 2, 3], [4, 5, 6], [7, 8, 9]];
+function drawRC() {
+  const r = +$('rc-r').value, c = +$('rc-c').value;
+  $('rc-rv').textContent = r; $('rc-cv').textContent = c;
+  const cs = 60, p = 5, cv = $('cv-rc');
+  cv.width = 3 * (cs + p) + p; cv.height = 3 * (cs + p) + p;
+  const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, cv.width, cv.height);
+  rcGrid.forEach((row, ri) => row.forEach((v, ci) => {
+    const x = p + ci * (cs + p), y = p + ri * (cs + p);
+    const isCell = ri === r && ci === c, isRow = ri === r, isCol = ci === c;
+    ctx.fillStyle = isCell ? 'rgba(236,72,153,.35)' : isRow || isCol ? 'rgba(236,72,153,.1)' : 'rgba(255,255,255,.03)';
+    ctx.beginPath(); ctx.roundRect(x, y, cs, cs, 5); ctx.fill();
+    ctx.strokeStyle = isCell ? '#ec4899' : isRow || isCol ? 'rgba(236,72,153,.3)' : 'rgba(255,255,255,.08)';
+    ctx.lineWidth = isCell ? 2 : 1; ctx.stroke();
+    ctx.fillStyle = isCell ? '#ec4899' : isRow || isCol ? 'rgba(236,72,153,.7)' : '#8b949e';
+    ctx.font = 'bold 15px Courier New'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(v, x + cs / 2, y + cs / 2);
+  }));
+  $('out-rc').textContent = `b[${r}, ${c}]  →  ${rcGrid[r][c]}`;
+}
+
+/* ═══ P7: slice 1D ═══ */
+const slArr = [10, 20, 30, 40, 50, 60, 70, 80];
+function drawSlice1D() {
+  let s = +$('sl-s').value, e = +$('sl-e').value;
+  if (s >= e) e = s + 1;
+  $('sl-sv').textContent = s; $('sl-ev').textContent = e;
+  const cs = 54, p = 5, cv = $('cv-sl');
+  cv.width = slArr.length * (cs + p) + p; cv.height = 70;
+  const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, cv.width, cv.height);
+  slArr.forEach((v, i) => {
+    const x = p + i * (cs + p), inRange = i >= s && i < e;
+    ctx.fillStyle = inRange ? 'rgba(167,139,250,.28)' : 'rgba(255,255,255,.04)';
+    ctx.beginPath(); ctx.roundRect(x, 4, cs, 44, 5); ctx.fill();
+    ctx.strokeStyle = inRange ? '#a78bfa' : 'rgba(255,255,255,.1)'; ctx.lineWidth = inRange ? 2 : 1; ctx.stroke();
+    ctx.fillStyle = inRange ? '#a78bfa' : '#8b949e'; ctx.font = 'bold 13px Courier New';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(v, x + cs / 2, 26);
+    ctx.fillStyle = inRange ? 'rgba(167,139,250,.6)' : 'rgba(255,255,255,.18)'; ctx.font = '9px Courier New';
+    ctx.fillText('[' + i + ']', x + cs / 2, 55);
+  });
+  const slice = slArr.slice(s, e);
+  $('out-sl').textContent = `a = [${slArr.join(', ')}]\na[${s}:${e}]  →  [${slice.join(', ')}]`;
+}
+
+/* ═══ P8: 2D slice ═══ */
+const sl2Grid = [[1.5, 2, 3], [4, 5, 6], [7, 8, 9]];
+function drawSlice2D() {
+  let rs = +$('sl2-rs').value, re = +$('sl2-re').value, c = +$('sl2-c').value;
+  if (rs >= re) re = rs + 1;
+  $('sl2-rsv').textContent = rs; $('sl2-rev').textContent = re; $('sl2-cv').textContent = c;
+  const cs = 60, p = 5, cv = $('cv-sl2');
+  cv.width = 3 * (cs + p) + p; cv.height = 3 * (cs + p) + p;
+  const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, cv.width, cv.height);
+  sl2Grid.forEach((row, r) => row.forEach((v, ci) => {
+    const x = p + ci * (cs + p), y = p + r * (cs + p);
+    const inSel = r >= rs && r < re && ci === c;
+    const rowMark = r >= rs && r < re, colMark = ci === c;
+    ctx.fillStyle = inSel ? 'rgba(20,184,166,.35)' : rowMark || colMark ? 'rgba(20,184,166,.1)' : 'rgba(255,255,255,.03)';
+    ctx.beginPath(); ctx.roundRect(x, y, cs, cs, 5); ctx.fill();
+    ctx.strokeStyle = inSel ? '#14b8a6' : rowMark || colMark ? 'rgba(20,184,166,.3)' : 'rgba(255,255,255,.08)';
+    ctx.lineWidth = inSel ? 2 : 1; ctx.stroke();
+    ctx.fillStyle = inSel ? '#14b8a6' : rowMark || colMark ? 'rgba(20,184,166,.7)' : '#8b949e';
+    ctx.font = 'bold 15px Courier New'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(v, x + cs / 2, y + cs / 2);
+  }));
+  const result = sl2Grid.slice(rs, re).map(row => row[c]);
+  $('out-sl2').textContent = `b[${rs}:${re}, ${c}]  →  [${result.join(', ')}]`;
+}
+
+/* ═══ P9: reverse ═══ */
+let revArr = [1, 2, 3, 4, 5, 6];
+function shuffleRev() { revArr = Array.from({length: 6}, () => ~~(Math.random() * 20) + 1); drawRevCanvas(); }
+function drawRevCanvas() {
+  const rev = [...revArr].reverse();
+  const cs = 56, p = 5, n = revArr.length, cv = $('cv-rev');
+  cv.width = n * (cs + p) + p; cv.height = 110;
+  const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, cv.width, cv.height);
+  ctx.fillStyle = '#8b949e'; ctx.font = 'bold 10px Segoe UI'; ctx.textAlign = 'left';
+  ctx.fillText('a', p, 10); ctx.fillText('a[::-1]', p, 72);
+  revArr.forEach((v, i) => {
+    const x = p + i * (cs + p);
+    ctx.fillStyle = 'rgba(59,130,246,.2)'; ctx.beginPath(); ctx.roundRect(x, 14, cs, 40, 5); ctx.fill();
+    ctx.strokeStyle = 'rgba(59,130,246,.5)'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = '#3b82f6'; ctx.font = 'bold 14px Courier New'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(v, x + cs / 2, 34);
+  });
+  // arrows
+  rev.forEach((v, i) => {
+    const xi = p + i * (cs + p), xo = p + (n - 1 - i) * (cs + p);
+    ctx.strokeStyle = 'rgba(244,63,94,.3)'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(xo + cs / 2, 54); ctx.lineTo(xi + cs / 2, 74); ctx.stroke();
+    ctx.setLineDash([]);
+  });
+  rev.forEach((v, i) => {
+    const x = p + i * (cs + p);
+    ctx.fillStyle = 'rgba(244,63,94,.2)'; ctx.beginPath(); ctx.roundRect(x, 74, cs, 40, 5); ctx.fill();
+    ctx.strokeStyle = 'rgba(244,63,94,.5)'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = '#f43f5e'; ctx.font = 'bold 14px Courier New'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(v, x + cs / 2, 94);
+  });
+  $('out-rev').textContent = `a      =  [${revArr.join(', ')}]\na[::-1] → [${rev.join(', ')}]`;
+}
+
+/* ═══ P10: boolean indexing ═══ */
+let boolVals = [4, 11, 2, 17, 8, 5, 14, 3];
+function shuffleBool() { boolVals = Array.from({length: 8}, () => ~~(Math.random() * 20) + 1); drawBoolIdx(); }
+function drawBoolIdx() {
+  const thr = +$('bool-thr').value; $('bool-thrv').textContent = thr;
+  const mask = boolVals.map(v => v < thr);
+  const cs = 54, p = 5, cv = $('cv-bool');
+  cv.width = boolVals.length * (cs + p) + p; cv.height = 80;
+  const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, cv.width, cv.height);
+  boolVals.forEach((v, i) => {
+    const x = p + i * (cs + p), passes = mask[i];
+    ctx.fillStyle = passes ? 'rgba(52,211,153,.25)' : 'rgba(255,255,255,.03)';
+    ctx.beginPath(); ctx.roundRect(x, 4, cs, 44, 5); ctx.fill();
+    ctx.strokeStyle = passes ? 'rgba(52,211,153,.6)' : 'rgba(255,255,255,.08)'; ctx.lineWidth = passes ? 2 : 1; ctx.stroke();
+    ctx.fillStyle = passes ? '#34d399' : '#4b5563'; ctx.font = 'bold 13px Courier New';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(v, x + cs / 2, 26);
+    ctx.fillStyle = passes ? '#34d399' : '#6b7280'; ctx.font = 'bold 9px Courier New';
+    ctx.fillText(passes ? 'True' : 'False', x + cs / 2, 62);
+  });
+  const filtered = boolVals.filter((v, i) => mask[i]);
+  $('out-bool').textContent = `a = [${boolVals.join(', ')}]\na < ${thr}  →  [${mask.map(v => v ? 'T' : 'F').join(', ')}]\na[a < ${thr}]  →  [${filtered.join(', ')}]`;
+}
+
+/* ═══ P11: fancy indexing ═══ */
+const fGrid = [[1.5, 2, 3], [4, 5, 6]];
+let fancySel = [];
+function drawFancy() {
+  const cv = $('cv-fancy'), cs = 70, p = 5;
+  cv.width = 3 * (cs + p) + p; cv.height = 2 * (cs + p) + p;
+  const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, cv.width, cv.height);
+  fGrid.forEach((row, r) => row.forEach((v, c) => {
+    const x = p + c * (cs + p), y = p + r * (cs + p);
+    const isSel = fancySel.some(s => s[0] === r && s[1] === c);
+    ctx.fillStyle = isSel ? 'rgba(251,146,60,.3)' : 'rgba(255,255,255,.04)';
+    ctx.beginPath(); ctx.roundRect(x, y, cs, cs, 5); ctx.fill();
+    ctx.strokeStyle = isSel ? '#fb923c' : 'rgba(255,255,255,.1)'; ctx.lineWidth = isSel ? 2 : 1; ctx.stroke();
+    ctx.fillStyle = isSel ? '#fb923c' : '#8b949e'; ctx.font = 'bold 16px Courier New';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(v, x + cs / 2, y + cs / 2);
+    if (isSel) {
+      ctx.fillStyle = '#facc15'; ctx.font = 'bold 9px Courier New';
+      ctx.fillText(`[${r},${c}]`, x + cs / 2, y + cs - 8);
+    }
+  }));
+  if (fancySel.length > 0) {
+    const rows = fancySel.map(s => s[0]), cols = fancySel.map(s => s[1]);
+    const vals = fancySel.map(s => fGrid[s[0]][s[1]]);
+    $('out-fancy').textContent = `b[[${rows.join(',')}], [${cols.join(',')}]]\n→  [${vals.join(', ')}]`;
+  } else {
+    $('out-fancy').textContent = 'Click cells in the grid to build a fancy index selection.';
+  }
+}
+function clickFancy(e) {
+  const cv = $('cv-fancy'), cs = 70, p = 5;
+  const rect = cv.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  for (let r = 0; r < 2; r++) for (let c = 0; c < 3; c++) {
+    const x = p + c * (cs + p), y = p + r * (cs + p);
+    if (mx >= x && mx <= x + cs && my >= y && my <= y + cs) {
+      const idx = fancySel.findIndex(s => s[0] === r && s[1] === c);
+      if (idx >= 0) fancySel.splice(idx, 1);
+      else fancySel.push([r, c]);
+      drawFancy(); return;
+    }
+  }
+}
+function clearFancy() { fancySel = []; drawFancy(); }
+
+/* ── shuffle exercises ── */
+function shuffleEx08() {
+  const c = document.getElementById('ex-cards-08'); if (!c) return;
+  const cards = Array.from(c.querySelectorAll('.ex-card'));
+  for (let i = cards.length - 1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [cards[i],cards[j]]=[cards[j],cards[i]]; }
+  cards.forEach(card => c.appendChild(card));
+  c.querySelectorAll('.ex-num').forEach((el,i) => { el.textContent='Q'+(i+1); });
+}
+
+/* ── init ── */
+updateDots();
+drawViewDemo(false);
+shuffleEx08();
+(function() {
+  const m = location.hash.match(/^#open-(\d+)$/);
+  if (m) { const p = +m[1]; if (p >= 0 && p <= 13) goTo(p); }
+})();
+</script>
+</body>
+</html>

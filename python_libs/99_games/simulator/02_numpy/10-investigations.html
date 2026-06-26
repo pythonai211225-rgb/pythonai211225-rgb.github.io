@@ -1,0 +1,1123 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NumPy — Investigation Quests</title>
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    .page-layout{display:flex;height:calc(100vh - 54px);overflow:hidden}
+    .sidebar{width:240px;min-width:240px;height:100%;overflow-y:auto;background:#0a0e14;border-right:1px solid var(--border);display:flex;flex-direction:column;scrollbar-width:thin;scrollbar-color:var(--border) transparent;flex-shrink:0}
+    .sidebar-head{padding:20px 18px 12px;font-size:.62rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+    .sidebar-nav{padding:8px 0;flex:1}
+    .s-item{display:flex;align-items:center;gap:10px;padding:11px 18px;cursor:pointer;background:none;border:none;border-left:3px solid transparent;width:100%;text-align:left;transition:background .18s,border-color .18s}
+    .s-item:hover{background:rgba(255,255,255,.04)}
+    .s-item.active{background:rgba(250,204,21,.08);border-left-color:var(--accent)}
+    .s-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;transition:transform .2s}
+    .s-item.active .s-dot{transform:scale(1.45);box-shadow:0 0 8px currentColor}
+    .s-num{font-size:.6rem;color:var(--border);font-family:'Courier New',monospace;font-weight:700;min-width:18px}
+    .s-item.active .s-num{color:var(--accent)}
+    .s-label{font-size:.78rem;color:var(--muted);font-family:'Courier New',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+    .s-item.active .s-label{color:var(--text)}
+    .s-diff{font-size:.57rem;font-weight:800;padding:2px 7px;border-radius:5px;flex-shrink:0}
+
+    .panel-viewport{flex:1;overflow-y:auto;overflow-x:hidden;position:relative}
+    .panel{display:none;flex-direction:column;min-height:100%;padding:40px 50px 100px;max-width:860px;margin:0 auto;animation:fadeIn .38s ease}
+    .panel.active{display:flex}
+    @keyframes fadeIn{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:translateX(0)}}
+    .panel.exit{display:flex;animation:fadeOut .25s ease forwards}
+    @keyframes fadeOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(-28px)}}
+
+    /* Quest header */
+    .quest-header{position:relative;border-radius:18px;overflow:hidden;margin-bottom:28px;padding:28px 30px 24px;flex-shrink:0}
+    .quest-header::after{content:'';position:absolute;top:-60px;right:-60px;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,currentColor 0%,transparent 70%);opacity:.08;pointer-events:none}
+    .quest-num{font-size:.62rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:6px}
+    .quest-title{font-size:1.75rem;font-weight:900;color:#fff;margin-bottom:8px;font-family:'Courier New',monospace}
+    .quest-tagline{font-size:.9rem;color:rgba(255,255,255,.65);line-height:1.6;max-width:540px}
+    .quest-meta{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+    .q-badge{padding:5px 14px;border-radius:999px;font-size:.7rem;font-weight:800;letter-spacing:.06em}
+
+    /* Difficulty colors */
+    .diff-easy{background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.35);color:#10b981}
+    .diff-medium{background:rgba(250,204,21,.12);border:1px solid rgba(250,204,21,.3);color:#facc15}
+    .diff-hard{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:#ef4444}
+    .diff-expert{background:rgba(168,85,247,.12);border:1px solid rgba(168,85,247,.3);color:#a855f7}
+
+    /* Data snippet */
+    .data-box{background:#060a10;border:1px solid var(--border);border-radius:14px;padding:18px 20px 14px;margin-bottom:22px;flex-shrink:0}
+    .data-lbl{font-size:.63rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+    .data-lbl::before{content:'';width:3px;height:12px;border-radius:2px;background:var(--accent);flex-shrink:0}
+
+    /* Canvas viz */
+    .viz-box{background:#020509;border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:22px;overflow-x:auto;flex-shrink:0}
+    canvas{display:block}
+
+    /* Stage cards */
+    .stages{display:flex;flex-direction:column;gap:14px;margin-bottom:28px}
+    .stage{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px 16px;transition:border-color .2s}
+    .stage:hover{border-color:rgba(250,204,21,.2)}
+    .stage-head{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+    .stage-num{font-size:.65rem;font-weight:800;letter-spacing:.1em;padding:3px 10px;border-radius:6px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--muted);font-family:'Courier New',monospace}
+    .stage-title{font-size:.95rem;font-weight:700;color:var(--text)}
+    .stage-task{font-size:.88rem;color:var(--muted);margin-bottom:14px;line-height:1.65}
+    .stage-task code{font-family:'Courier New',monospace;font-size:.85em;padding:1px 6px;border-radius:4px;background:rgba(255,255,255,.06)}
+    .stage-actions{display:flex;gap:10px;flex-wrap:wrap}
+
+    /* Hint & Answer buttons */
+    .btn-hint{padding:7px 18px;border-radius:9px;font-size:.76rem;font-weight:700;cursor:pointer;border:1px solid rgba(250,204,21,.3);background:rgba(250,204,21,.06);color:var(--accent);transition:all .2s;font-family:'Courier New',monospace}
+    .btn-hint:hover{background:rgba(250,204,21,.14);border-color:var(--accent)}
+    .btn-answer{padding:7px 18px;border-radius:9px;font-size:.76rem;font-weight:700;cursor:pointer;border:1px solid rgba(16,185,129,.3);background:rgba(16,185,129,.06);color:#10b981;transition:all .2s;font-family:'Courier New',monospace}
+    .btn-answer:hover{background:rgba(16,185,129,.14);border-color:#10b981}
+
+    /* Hint reveal */
+    .hint-reveal{display:none;margin-top:12px;padding:11px 16px;background:rgba(250,204,21,.06);border:1px solid rgba(250,204,21,.25);border-radius:10px;animation:popIn .28s ease}
+    .hint-reveal.show{display:flex;align-items:center;gap:10px}
+    @keyframes popIn{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
+    .hint-icon{font-size:1.1rem}
+    .hint-text{font-family:'Courier New',monospace;font-size:.82rem;color:var(--accent);font-weight:700}
+
+    /* Answer reveal */
+    .answer-reveal{display:none;margin-top:12px;animation:popIn .28s ease}
+    .answer-reveal.show{display:block}
+    .answer-out{font-family:'Courier New',monospace;font-size:.8rem;color:#10b981;line-height:1.7;padding:12px 16px;background:rgba(16,185,129,.05);border:1px solid rgba(16,185,129,.2);border-radius:10px;white-space:pre-wrap}
+    .answer-code{font-family:'Courier New',monospace;font-size:.8rem;line-height:1.7;padding:12px 16px;background:rgba(59,130,246,.05);border:1px solid rgba(59,130,246,.2);border-radius:10px;white-space:pre-wrap;margin-bottom:8px;color:var(--text)}
+
+    /* Panel nav */
+    .panel-nav{display:flex;justify-content:space-between;align-items:center;margin-top:32px;padding-top:22px;border-top:1px solid var(--border);flex-shrink:0}
+    .pnav-btn{display:flex;align-items:center;gap:9px;padding:10px 22px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:.83rem;font-weight:700;cursor:pointer;transition:color .2s,border-color .2s,background .2s}
+    .pnav-btn:hover:not(:disabled){color:var(--text);border-color:var(--accent);background:rgba(250,204,21,.06)}
+    .pnav-btn:disabled{opacity:.28;cursor:default}
+    .pnav-btn.next{background:rgba(250,204,21,.08);border-color:rgba(250,204,21,.35);color:var(--accent)}
+    .pnav-btn.next:hover{background:rgba(250,204,21,.16);border-color:var(--accent)}
+    .pnav-dots{display:flex;gap:7px;align-items:center}
+    .pnav-dot{width:7px;height:7px;border-radius:50%;background:var(--border);transition:background .2s,transform .2s;cursor:pointer;border:none;padding:0}
+    .pnav-dot.active{background:var(--accent);transform:scale(1.4)}
+
+    /* Overview */
+    .overview-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:24px}
+    .ov-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px 18px 16px;cursor:pointer;transition:border-color .2s,box-shadow .2s,transform .18s;display:flex;flex-direction:column;gap:8px}
+    .ov-card:hover{transform:translateY(-4px);border-color:rgba(250,204,21,.35);box-shadow:0 10px 30px rgba(250,204,21,.07)}
+    .ov-card-num{font-size:.62rem;color:var(--muted);font-weight:800;letter-spacing:.1em}
+    .ov-card-name{font-size:.94rem;font-family:'Courier New',monospace;font-weight:700;color:var(--text)}
+    .ov-card-desc{font-size:.77rem;color:var(--muted);line-height:1.5}
+
+    /* floating particles on overview */
+    .overview-hero{position:relative;padding:36px 30px 30px;border-radius:18px;background:linear-gradient(135deg,rgba(250,204,21,.06),rgba(59,130,246,.05));border:1px solid rgba(250,204,21,.15);margin-bottom:30px;overflow:hidden}
+    .overview-hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 60% at 50% 0%,rgba(250,204,21,.1),transparent);pointer-events:none}
+
+    @media(max-width:700px){.sidebar{display:none}.panel{padding:20px 16px 80px}}
+  </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">← Python Libs</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item" href="01-intro-numpy.html">01</a>
+    <a class="nav-item" href="02-topics.html">02</a>
+    <a class="nav-item" href="03-cheat-sheet.html">03</a>
+    <a class="nav-item" href="05-arrays-prop-info.html">05</a>
+    <a class="nav-item" href="06-arith-opt.html">06</a>
+    <a class="nav-item" href="07-comp-stat-agg.html">07</a>
+    <a class="nav-item" href="08-copy-sort-access.html">08</a>
+    <a class="nav-item" href="09-resh-com.html">09</a>
+    <a class="nav-item active" href="10-investigations.html">🔍</a>
+    <a class="nav-item" href="solve1.html">★</a>
+    <a class="nav-item" href="solve2.html">★★</a>
+  </div>
+</nav>
+
+<div class="page-layout">
+
+<!-- ══ SIDEBAR ══ -->
+<aside class="sidebar">
+  <div class="sidebar-head">5 Investigation Quests</div>
+  <nav class="sidebar-nav" id="sidebar-nav">
+    <button class="s-item active" data-panel="0" onclick="goTo(0)">
+      <span class="s-num">00</span>
+      <span class="s-dot" style="background:#8b5cf6"></span>
+      <span class="s-label">All Quests</span>
+    </button>
+    <button class="s-item" data-panel="1" onclick="goTo(1)">
+      <span class="s-num">01</span>
+      <span class="s-dot" style="background:#10b981"></span>
+      <span class="s-label">Weather Watch</span>
+      <span class="s-diff diff-easy">Easy</span>
+    </button>
+    <button class="s-item" data-panel="2" onclick="goTo(2)">
+      <span class="s-num">02</span>
+      <span class="s-dot" style="background:#3b82f6"></span>
+      <span class="s-label">Shopping Cart</span>
+      <span class="s-diff diff-easy">Easy</span>
+    </button>
+    <button class="s-item" data-panel="3" onclick="goTo(3)">
+      <span class="s-num">03</span>
+      <span class="s-dot" style="background:#facc15"></span>
+      <span class="s-label">Race Podium</span>
+      <span class="s-diff diff-medium">Med</span>
+    </button>
+    <button class="s-item" data-panel="4" onclick="goTo(4)">
+      <span class="s-num">04</span>
+      <span class="s-dot" style="background:#f97316"></span>
+      <span class="s-label">Sensor Grid</span>
+      <span class="s-diff diff-medium">Med</span>
+    </button>
+    <button class="s-item" data-panel="5" onclick="goTo(5)">
+      <span class="s-num">05</span>
+      <span class="s-dot" style="background:#ef4444"></span>
+      <span class="s-label">Factory Analysis</span>
+      <span class="s-diff diff-hard">Hard</span>
+    </button>
+  </nav>
+</aside>
+
+<!-- ══ PANEL VIEWPORT ══ -->
+<div class="panel-viewport" id="viewport">
+
+<!-- ══════════════════════════════════════════
+     PANEL 0 — Overview
+══════════════════════════════════════════ -->
+<div class="panel active" id="panel-0">
+  <div class="overview-hero">
+    <div style="font-size:.65rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:8px">NumPy Investigations</div>
+    <h1 style="font-size:1.9rem;font-weight:900;color:#fff;margin-bottom:10px">Investigation Quests</h1>
+    <p style="font-size:.93rem;color:rgba(255,255,255,.62);max-width:520px;line-height:1.7">Five real-world challenges — you get the data, you write the NumPy code. Each quest uses a different set of functions. Use the hints if you're stuck!</p>
+    <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap">
+      <span class="q-badge diff-easy">2 Easy</span>
+      <span class="q-badge diff-medium">2 Medium</span>
+      <span class="q-badge diff-hard">1 Hard</span>
+      <span class="q-badge" style="background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.3);color:#8b5cf6">5 Quests</span>
+    </div>
+  </div>
+
+  <div class="overview-grid">
+    <div class="ov-card" onclick="goTo(1)">
+      <div class="ov-card-num" style="color:#10b981">Quest 01 · Easy</div>
+      <div class="ov-card-name" style="color:#10b981">Weather Watch</div>
+      <div class="ov-card-desc">Analyse 7 days of temperature data — find the mean, peak, and coldest reading.</div>
+      <div style="font-size:.7rem;color:var(--muted);margin-top:6px">np.mean · np.max · np.min</div>
+    </div>
+    <div class="ov-card" onclick="goTo(2)">
+      <div class="ov-card-num" style="color:#3b82f6">Quest 02 · Easy</div>
+      <div class="ov-card-name" style="color:#3b82f6">Shopping Cart</div>
+      <div class="ov-card-desc">Calculate item totals, grand total, and apply a discount across an order.</div>
+      <div style="font-size:.7rem;color:var(--muted);margin-top:6px">np.multiply · np.sum · broadcasting</div>
+    </div>
+    <div class="ov-card" onclick="goTo(3)">
+      <div class="ov-card-num" style="color:#facc15">Quest 03 · Medium</div>
+      <div class="ov-card-name" style="color:#facc15">Race Podium</div>
+      <div class="ov-card-desc">Sort runner scores, find the champion's index, and extract the top-3 podium.</div>
+      <div style="font-size:.7rem;color:var(--muted);margin-top:6px">np.sort · np.argmax · slicing</div>
+    </div>
+    <div class="ov-card" onclick="goTo(4)">
+      <div class="ov-card-num" style="color:#f97316">Quest 04 · Medium</div>
+      <div class="ov-card-name" style="color:#f97316">Sensor Grid</div>
+      <div class="ov-card-desc">Reshape a flat reading array, compute per-sensor averages, and normalize.</div>
+      <div style="font-size:.7rem;color:var(--muted);margin-top:6px">.reshape · np.mean(axis) · normalization</div>
+    </div>
+    <div class="ov-card" onclick="goTo(5)">
+      <div class="ov-card-num" style="color:#ef4444">Quest 05 · Hard</div>
+      <div class="ov-card-name" style="color:#ef4444">Factory Analysis</div>
+      <div class="ov-card-desc">Multi-step analysis of a 5-machine production grid — inspect, aggregate, compare, normalise.</div>
+      <div style="font-size:.7rem;color:var(--muted);margin-top:6px">.shape · np.mean(axis) · np.std · np.argmin</div>
+    </div>
+  </div>
+
+  <div class="panel-nav">
+    <button class="pnav-btn" disabled>← Prev</button>
+    <div class="pnav-dots" id="dots-0"></div>
+    <button class="pnav-btn next" onclick="goTo(1)">Quest 01 →</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PANEL 1 — Quest: Weather Watch (Easy, ch07)
+══════════════════════════════════════════ -->
+<div class="panel" id="panel-1">
+  <div class="quest-header" style="background:linear-gradient(135deg,rgba(16,185,129,.18) 0%,rgba(6,182,212,.1) 100%);border:1px solid rgba(16,185,129,.3);color:#10b981">
+    <div class="quest-num">Quest 01 of 05</div>
+    <div class="quest-title">Weather Watch</div>
+    <div class="quest-tagline">A weather station recorded temperatures for 7 consecutive days. Use NumPy to extract insights from the data.</div>
+    <div class="quest-meta">
+      <span class="q-badge diff-easy">Easy</span>
+      <span class="q-badge" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:var(--muted)">3 Stages</span>
+      <span class="q-badge" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:var(--muted)">~3 min</span>
+    </div>
+  </div>
+
+  <div class="data-box">
+    <div class="data-lbl">Your Data</div>
+    <div class="code-wrap">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+      <pre><span class="kw">import</span> numpy <span class="kw">as</span> <span class="lib">np</span>
+
+<span class="cm"># Daily temperatures (°C) — Monday to Sunday</span>
+temps = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">18.5</span>, <span class="num">22.3</span>, <span class="num">19.8</span>, <span class="num">25.1</span>, <span class="num">23.6</span>, <span class="num">17.2</span>, <span class="num">21.0</span>])</pre>
+    </div>
+  </div>
+
+  <div class="viz-box">
+    <canvas id="cv-weather" height="160"></canvas>
+  </div>
+
+  <div class="stages">
+    <!-- Stage 1 -->
+    <div class="stage">
+      <div class="stage-head"><span class="stage-num">STAGE 1</span><span class="stage-title">Weekly Average</span></div>
+      <div class="stage-task">Find the <strong>average temperature</strong> across all 7 days. What was the typical temperature this week?</div>
+      <div class="stage-actions">
+        <button class="btn-hint" onclick="toggleHint(this,'hint-1-1')">💡 Hint</button>
+        <button class="btn-answer" onclick="toggleAnswer(this,'ans-1-1')">→ Show Answer</button>
+      </div>
+      <div class="hint-reveal" id="hint-1-1"><span class="hint-icon">💡</span><span class="hint-text">np.mean(temps)</span></div>
+      <div class="answer-reveal" id="ans-1-1">
+        <div class="answer-code">avg = np.mean(temps)</div>
+        <div class="answer-out">21.071428571428573   # ≈ 21.07 °C</div>
+      </div>
+    </div>
+    <!-- Stage 2 -->
+    <div class="stage">
+      <div class="stage-head"><span class="stage-num">STAGE 2</span><span class="stage-title">Peak Heat</span></div>
+      <div class="stage-task">Find the <strong>highest temperature</strong> recorded during the week. Which value is the peak?</div>
+      <div class="stage-actions">
+        <button class="btn-hint" onclick="toggleHint(this,'hint-1-2')">💡 Hint</button>
+        <button class="btn-answer" onclick="toggleAnswer(this,'ans-1-2')">→ Show Answer</button>
+      </div>
+      <div class="hint-reveal" id="hint-1-2"><span class="hint-icon">💡</span><span class="hint-text">np.max(temps)</span></div>
+      <div class="answer-reveal" id="ans-1-2">
+        <div class="answer-code">peak = np.max(temps)
+day_idx = np.argmax(temps)   # bonus: which day?</div>
+        <div class="answer-out">25.1     # Thursday (index 3)</div>
+      </div>
+    </div>
+    <!-- Stage 3 -->
+    <div class="stage">
+      <div class="stage-head"><span class="stage-num">STAGE 3</span><span class="stage-title">Cold Snap</span></div>
+      <div class="stage-task">Find the <strong>coldest temperature</strong> of the week and also calculate the <strong>temperature range</strong> (max − min).</div>
+      <div class="stage-actions">
+        <button class="btn-hint" onclick="toggleHint(this,'hint-1-3')">💡 Hint</button>
+        <button class="btn-answer" onclick="toggleAnswer(this,'ans-1-3')">→ Show Answer</button>
+      </div>
+      <div class="hint-reveal" id="hint-1-3"><span class="hint-icon">💡</span><span class="hint-text">np.min(temps) &nbsp;·&nbsp; np.max(temps) - np.min(temps)</span></div>
+      <div class="answer-reveal" id="ans-1-3">
+        <div class="answer-code">cold  = np.min(temps)
+spread = np.max(temps) - np.min(temps)</div>
+        <div class="answer-out">cold   = 17.2    # Saturday (index 5)
+spread = 7.9     # 25.1 − 17.2</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel-nav">
+    <button class="pnav-btn" onclick="goTo(0)">← All Quests</button>
+    <div class="pnav-dots" id="dots-1"></div>
+    <button class="pnav-btn next" onclick="goTo(2)">Quest 02 →</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PANEL 2 — Quest: Shopping Cart (Easy, ch06)
+══════════════════════════════════════════ -->
+<div class="panel" id="panel-2">
+  <div class="quest-header" style="background:linear-gradient(135deg,rgba(59,130,246,.18) 0%,rgba(139,92,246,.1) 100%);border:1px solid rgba(59,130,246,.3);color:#3b82f6">
+    <div class="quest-num">Quest 02 of 05</div>
+    <div class="quest-title">Shopping Cart</div>
+    <div class="quest-tagline">An online store has 5 items in a cart. Calculate the per-item totals, the grand total, and apply a loyalty discount.</div>
+    <div class="quest-meta">
+      <span class="q-badge diff-easy">Easy</span>
+      <span class="q-badge" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:var(--muted)">3 Stages</span>
+      <span class="q-badge" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:var(--muted)">~4 min</span>
+    </div>
+  </div>
+
+  <div class="data-box">
+    <div class="data-lbl">Your Data</div>
+    <div class="code-wrap">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+      <pre><span class="kw">import</span> numpy <span class="kw">as</span> <span class="lib">np</span>
+
+<span class="cm"># Item prices (£) and quantities ordered</span>
+prices = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">12.99</span>, <span class="num">5.50</span>, <span class="num">8.75</span>, <span class="num">22.00</span>, <span class="num">3.25</span>])
+qty    = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">2</span>,     <span class="num">5</span>,    <span class="num">1</span>,     <span class="num">3</span>,     <span class="num">10</span>   ])</pre>
+    </div>
+  </div>
+
+  <div class="viz-box">
+    <canvas id="cv-cart" height="140"></canvas>
+  </div>
+
+  <div class="stages">
+    <div class="stage">
+      <div class="stage-head"><span class="stage-num">STAGE 1</span><span class="stage-title">Per-Item Totals</span></div>
+      <div class="stage-task">Multiply each item's <code>price</code> by its <code>quantity</code> to get the total cost per item. You should get a new array of 5 values.</div>
+      <div class="stage-actions">
+        <button class="btn-hint" onclick="toggleHint(this,'hint-2-1')">💡 Hint</button>
+        <button class="btn-answer" onclick="toggleAnswer(this,'ans-2-1')">→ Show Answer</button>
+      </div>
+      <div class="hint-reveal" id="hint-2-1"><span class="hint-icon">💡</span><span class="hint-text">np.multiply(prices, qty) &nbsp;—&nbsp; or simply: prices * qty</span></div>
+      <div class="answer-reveal" id="ans-2-1">
+        <div class="answer-code">item_totals = np.multiply(prices, qty)
+# same as: prices * qty</div>
+        <div class="answer-out">array([25.98, 27.5 ,  8.75, 66.  , 32.5 ])</div>
+      </div>
+    </div>
+    <div class="stage">
+      <div class="stage-head"><span class="stage-num">STAGE 2</span><span class="stage-title">Grand Total</span></div>
+      <div class="stage-task">Sum up all the per-item totals from Stage 1 to get the <strong>grand total</strong> of the order.</div>
+      <div class="stage-actions">
+        <button class="btn-hint" onclick="toggleHint(this,'hint-2-2')">💡 Hint</button>
+        <button class="btn-answer" onclick="toggleAnswer(this,'ans-2-2')">→ Show Answer</button>
+      </div>
+      <div class="hint-reveal" id="hint-2-2"><span class="hint-icon">💡</span><span class="hint-text">np.sum(item_totals)</span></div>
+      <div class="answer-reveal" id="ans-2-2">
+        <div class="answer-code">grand_total = np.sum(item_totals)</div>
+        <div class="answer-out">160.73</div>
+      </div>
+    </div>
+    <div class="stage">
+      <div class="stage-head"><span class="stage-num">STAGE 3</span><span class="stage-title">Loyalty Discount</span></div>
+      <div class="stage-task">Apply a <strong>15% loyalty discount</strong> to the grand total. Multiply by <code>0.85</code> to keep 85% of the price. What is the final price?</div>
+      <div class="stage-actions">
+        <button class="btn-hint" onclick="toggleHint(this,'hint-2-3')">💡 Hint</button>
+        <button class="btn-answer" onclick="toggleAnswer(this,'ans-2-3')">→ Show Answer</button>
+      </div>
+      <div class="hint-reveal" id="hint-2-3"><span class="hint-icon">💡</span><span class="hint-text">grand_total * 0.85 &nbsp;—&nbsp; broadcasting a scalar</span></div>
+      <div class="answer-reveal" id="ans-2-3">
+        <div class="answer-code">discounted = grand_total * 0.85
+# or: np.multiply(grand_total, 0.85)</div>
+        <div class="answer-out">136.6205   # £136.62 after 15% off</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel-nav">
+    <button class="pnav-btn" onclick="goTo(1)">← Quest 01</button>
+    <div class="pnav-dots" id="dots-2"></div>
+    <button class="pnav-btn next" onclick="goTo(3)">Quest 03 →</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PANEL 3 — Quest: Race Podium (Medium, ch08)
+══════════════════════════════════════════ -->
+<div class="panel" id="panel-3">
+  <div class="quest-header" style="background:linear-gradient(135deg,rgba(250,204,21,.15) 0%,rgba(249,115,22,.1) 100%);border:1px solid rgba(250,204,21,.3);color:#facc15">
+    <div class="quest-num">Quest 03 of 05</div>
+    <div class="quest-title">Race Podium</div>
+    <div class="quest-tagline">Seven athletes just finished a race and their scores have been recorded. Sort the results, crown the champion, and extract the podium.</div>
+    <div class="quest-meta">
+      <span class="q-badge diff-medium">Medium</span>
+      <span class="q-badge" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:var(--muted)">3 Stages</span>
+      <span class="q-badge" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:var(--muted)">~5 min</span>
+    </div>
+  </div>
+
+  <div class="data-box">
+    <div class="data-lbl">Your Data</div>
+    <div class="code-wrap">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+      <pre><span class="kw">import</span> numpy <span class="kw">as</span> <span class="lib">np</span>
+
+<span class="cm"># Race scores — higher is better</span>
+scores  = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">342</span>, <span class="num">187</span>, <span class="num">456</span>, <span class="num">298</span>, <span class="num">511</span>, <span class="num">223</span>, <span class="num">399</span>])
+players = [<span class="str">'Alice'</span>, <span class="str">'Bob'</span>, <span class="str">'Carlos'</span>, <span class="str">'Diana'</span>, <span class="str">'Eve'</span>, <span class="str">'Frank'</span>, <span class="str">'Grace'</span>]</pre>
+    </div>
+  </div>
+
+  <div class="viz-box">
+    <canvas id="cv-race" height="170"></canvas>
+  </div>
+
+  <div class="stages">
+    <div class="stage">
+      <div class="stage-head"><span class="stage-num">STAGE 1</span><span class="stage-title">Sort the Scores</span></div>
+      <div class="stage-task">Sort the scores array in <strong>descending order</strong> (highest first). Tip: sort ascending first, then reverse with <code>[::-1]</code>.</div>
+      <div class="stage-actions">
+        <button class="btn-hint" onclick="toggleHint(this,'hint-3-1')">💡 Hint</button>
+        <button class="btn-answer" onclick="toggleAnswer(this,'ans-3-1')">→ Show Answer</button>
+      </div>
+      <div class="hint-reveal" id="hint-3-1"><span class="hint-icon">💡</span><span class="hint-text">np.sort(scores)[::-1] &nbsp;—&nbsp; sort then reverse the slice</span></div>
+      <div class="answer-reveal" id="ans-3-1">
+        <div class="answer-code">ranked = np.sort(scores)[::-1]</div>
+        <div class="answer-out">array([511, 456, 399, 342, 298, 223, 187])</div>
+      </div>
+    </div>
+    <div class="stage">
+      <div class="stage-head"><span class="stage-num">STAGE 2</span><span class="stage-title">Who Won?</span></div>
+      <div class="stage-task">Find the <strong>index</strong> of the highest score in the original array. Use this to look up the winner's name from the <code>players</code> list.</div>
+      <div class="stage-actions">
+        <button class="btn-hint" onclick="toggleHint(this,'hint-3-2')">💡 Hint</button>
+        <button class="btn-answer" onclick="toggleAnswer(this,'ans-3-2')">→ Show Answer</button>
+      </div>
+      <div class="hint-reveal" id="hint-3-2"><span class="hint-icon">💡</span><span class="hint-text">np.argmax(scores) → gives the index → use it to index players list</span></div>
+      <div class="answer-reveal" id="ans-3-2">
+        <div class="answer-code">winner_idx  = np.argmax(scores)   # → 4
+winner_name = players[winner_idx]</div>
+        <div class="answer-out">winner_idx  = 4
+winner_name = 'Eve'    # score: 511</div>
+      </div>
+    </div>
+    <div class="stage">
+      <div class="stage-head"><span class="stage-num">STAGE 3</span><span class="stage-title">The Top-3 Podium</span></div>
+      <div class="stage-task">Using <code>np.argsort()</code>, get the <strong>indices</strong> that would sort the array, then use them to extract the names and scores of the top 3 players.</div>
+      <div class="stage-actions">
+        <button class="btn-hint" onclick="toggleHint(this,'hint-3-3')">💡 Hint</button>
+        <button class="btn-answer" onclick="toggleAnswer(this,'ans-3-3')">→ Show Answer</button>
+      </div>
+      <div class="hint-reveal" id="hint-3-3"><span class="hint-icon">💡</span><span class="hint-text">np.argsort(scores)[::-1][:3] → top-3 indices → index into players &amp; scores</span></div>
+      <div class="answer-reveal" id="ans-3-3">
+        <div class="answer-code">top3_idx    = np.argsort(scores)[::-1][:3]
+top3_scores = scores[top3_idx]
+top3_names  = [players[i] for i in top3_idx]</div>
+        <div class="answer-out">top3_idx    = [4, 2, 6]
+top3_scores = [511, 456, 399]
+top3_names  = ['Eve', 'Carlos', 'Grace']</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel-nav">
+    <button class="pnav-btn" onclick="goTo(2)">← Quest 02</button>
+    <div class="pnav-dots" id="dots-3"></div>
+    <button class="pnav-btn next" onclick="goTo(4)">Quest 04 →</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PANEL 4 — Quest: Sensor Grid (Medium, ch09)
+══════════════════════════════════════════ -->
+<div class="panel" id="panel-4">
+  <div class="quest-header" style="background:linear-gradient(135deg,rgba(249,115,22,.16) 0%,rgba(239,68,68,.08) 100%);border:1px solid rgba(249,115,22,.3);color:#f97316">
+    <div class="quest-num">Quest 04 of 05</div>
+    <div class="quest-title">Sensor Grid</div>
+    <div class="quest-tagline">A lab has 3 sensors, each recording 4 time readings stored flat in one array. Reshape, analyse per-sensor, and normalise the data.</div>
+    <div class="quest-meta">
+      <span class="q-badge diff-medium">Medium</span>
+      <span class="q-badge" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:var(--muted)">4 Stages</span>
+      <span class="q-badge" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:var(--muted)">~7 min</span>
+    </div>
+  </div>
+
+  <div class="data-box">
+    <div class="data-lbl">Your Data</div>
+    <div class="code-wrap">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+      <pre><span class="kw">import</span> numpy <span class="kw">as</span> <span class="lib">np</span>
+
+<span class="cm"># 12 readings stored flat — 3 sensors × 4 time steps</span>
+readings = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">22</span>, <span class="num">18</span>, <span class="num">35</span>, <span class="num">29</span>, <span class="num">41</span>, <span class="num">37</span>, <span class="num">26</span>, <span class="num">31</span>, <span class="num">19</span>, <span class="num">44</span>, <span class="num">28</span>, <span class="num">33</span>])</pre>
+    </div>
+  </div>
+
+  <div class="viz-box">
+    <canvas id="cv-sensor" height="160"></canvas>
+  </div>
+
+  <div class="stages">
+    <div class="stage">
+      <div class="stage-head"><span class="stage-num">STAGE 1</span><span class="stage-title">Reshape to a Grid</span></div>
+      <div class="stage-task">Transform the flat array into a <strong>3×4 matrix</strong> — rows = sensors, columns = time steps. What is the resulting shape?</div>
+      <div class="stage-actions">
+        <button class="btn-hint" onclick="toggleHint(this,'hint-4-1')">💡 Hint</button>
+        <button class="btn-answer" onclick="toggleAnswer(this,'ans-4-1')">→ Show Answer</button>
+      </div>
+      <div class="hint-reveal" id="hint-4-1"><span class="hint-icon">💡</span><span class="hint-text">readings.reshape(3, 4) &nbsp;→&nbsp; .shape gives you (3, 4)</span></div>
+      <div class="answer-reveal" id="ans-4-1">
+        <div class="answer-code">grid = readings.reshape(3, 4)
+print(grid.shape)</div>
+        <div class="answer-out">array([[22, 18, 35, 29],   # Sensor A
+       [41, 37, 26, 31],   # Sensor B
+       [19, 44, 28, 33]])  # Sensor C
+shape: (3, 4)</div>
+      </div>
+    </div>
+    <div class="stage">
+      <div class="stage-head"><span class="stage-num">STAGE 2</span><span class="stage-title">Per-Sensor Average</span></div>
+      <div class="stage-task">Calculate the <strong>average reading for each sensor</strong> (i.e. the mean of each row). You should get 3 values — one per sensor. Use the <code>axis</code> parameter.</div>
+      <div class="stage-actions">
+        <button class="btn-hint" onclick="toggleHint(this,'hint-4-2')">💡 Hint</button>
+        <button class="btn-answer" onclick="toggleAnswer(this,'ans-4-2')">→ Show Answer</button>
+      </div>
+      <div class="hint-reveal" id="hint-4-2"><span class="hint-icon">💡</span><span class="hint-text">np.mean(grid, axis=1) &nbsp;—&nbsp; axis=1 means "collapse columns, keep rows"</span></div>
+      <div class="answer-reveal" id="ans-4-2">
+        <div class="answer-code">sensor_avg = np.mean(grid, axis=1)</div>
+        <div class="answer-out">array([26.  , 33.75, 31.  ])
+# Sensor A: 26.0   Sensor B: 33.75   Sensor C: 31.0</div>
+      </div>
+    </div>
+    <div class="stage">
+      <div class="stage-head"><span class="stage-num">STAGE 3</span><span class="stage-title">Hottest Sensor</span></div>
+      <div class="stage-task">Using the per-sensor averages, find <strong>which sensor index has the highest average</strong>. Is it Sensor 0, 1, or 2?</div>
+      <div class="stage-actions">
+        <button class="btn-hint" onclick="toggleHint(this,'hint-4-3')">💡 Hint</button>
+        <button class="btn-answer" onclick="toggleAnswer(this,'ans-4-3')">→ Show Answer</button>
+      </div>
+      <div class="hint-reveal" id="hint-4-3"><span class="hint-icon">💡</span><span class="hint-text">np.argmax(sensor_avg) → returns the index of the max value</span></div>
+      <div class="answer-reveal" id="ans-4-3">
+        <div class="answer-code">hottest = np.argmax(sensor_avg)</div>
+        <div class="answer-out">1     # Sensor B (index 1) with avg 33.75</div>
+      </div>
+    </div>
+    <div class="stage">
+      <div class="stage-head"><span class="stage-num">STAGE 4</span><span class="stage-title">Normalise</span></div>
+      <div class="stage-task">Normalise the entire flat <code>readings</code> array to the range <strong>[0, 1]</strong> using min-max normalisation: <code>(x − min) / (max − min)</code>. Round to 2 decimal places.</div>
+      <div class="stage-actions">
+        <button class="btn-hint" onclick="toggleHint(this,'hint-4-4')">💡 Hint</button>
+        <button class="btn-answer" onclick="toggleAnswer(this,'ans-4-4')">→ Show Answer</button>
+      </div>
+      <div class="hint-reveal" id="hint-4-4"><span class="hint-icon">💡</span><span class="hint-text">(readings - np.min(readings)) / (np.max(readings) - np.min(readings))</span></div>
+      <div class="answer-reveal" id="ans-4-4">
+        <div class="answer-code">norm = (readings - np.min(readings)) / (np.max(readings) - np.min(readings))
+np.round(norm, 2)</div>
+        <div class="answer-out">array([0.12, 0.  , 0.62, 0.38, 0.88, 0.73, 0.27, 0.46, 0.  , 1.  , 0.35, 0.54])
+# min=18 maps to 0.0, max=44 maps to 1.0</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel-nav">
+    <button class="pnav-btn" onclick="goTo(3)">← Quest 03</button>
+    <div class="pnav-dots" id="dots-4"></div>
+    <button class="pnav-btn next" onclick="goTo(5)">Quest 05 →</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PANEL 5 — Quest: Factory Analysis (Hard, multi-chapter)
+══════════════════════════════════════════ -->
+<div class="panel" id="panel-5">
+  <div class="quest-header" style="background:linear-gradient(135deg,rgba(239,68,68,.16) 0%,rgba(168,85,247,.1) 100%);border:1px solid rgba(239,68,68,.3);color:#ef4444">
+    <div class="quest-num">Quest 05 of 05</div>
+    <div class="quest-title">Factory Analysis</div>
+    <div class="quest-tagline">A factory has 5 machines. Each machine logged its hourly output over 4 hours. Your job: inspect the data, rank performance, and flag the weakest machine.</div>
+    <div class="quest-meta">
+      <span class="q-badge diff-hard">Hard</span>
+      <span class="q-badge" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:var(--muted)">5 Stages</span>
+      <span class="q-badge" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:var(--muted)">~10 min</span>
+    </div>
+  </div>
+
+  <div class="data-box">
+    <div class="data-lbl">Your Data</div>
+    <div class="code-wrap">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+      <pre><span class="kw">import</span> numpy <span class="kw">as</span> <span class="lib">np</span>
+
+<span class="cm"># Units produced per hour — rows = machines, cols = hours</span>
+output = <span class="lib">np</span>.<span class="fn">array</span>([
+    [<span class="num">120</span>, <span class="num">135</span>, <span class="num">118</span>, <span class="num">142</span>],   <span class="cm"># Machine A</span>
+    [<span class="num">98</span>,  <span class="num">102</span>, <span class="num">115</span>, <span class="num">88</span> ],   <span class="cm"># Machine B</span>
+    [<span class="num">145</span>, <span class="num">151</span>, <span class="num">139</span>, <span class="num">158</span>],   <span class="cm"># Machine C</span>
+    [<span class="num">87</span>,  <span class="num">94</span>,  <span class="num">90</span>,  <span class="num">96</span> ],   <span class="cm"># Machine D</span>
+    [<span class="num">130</span>, <span class="num">128</span>, <span class="num">134</span>, <span class="num">141</span>]    <span class="cm"># Machine E</span>
+])</pre>
+    </div>
+  </div>
+
+  <div class="viz-box">
+    <canvas id="cv-factory" height="180"></canvas>
+  </div>
+
+  <div class="stages">
+    <div class="stage">
+      <div class="stage-head"><span class="stage-num">STAGE 1</span><span class="stage-title">Inspect the Array</span></div>
+      <div class="stage-task">Inspect the array: what are its <code>.shape</code>, <code>.ndim</code>, <code>.size</code>, and <code>.dtype</code>? How many total readings are there?</div>
+      <div class="stage-actions">
+        <button class="btn-hint" onclick="toggleHint(this,'hint-5-1')">💡 Hint</button>
+        <button class="btn-answer" onclick="toggleAnswer(this,'ans-5-1')">→ Show Answer</button>
+      </div>
+      <div class="hint-reveal" id="hint-5-1"><span class="hint-icon">💡</span><span class="hint-text">output.shape &nbsp;·&nbsp; output.ndim &nbsp;·&nbsp; output.size &nbsp;·&nbsp; output.dtype</span></div>
+      <div class="answer-reveal" id="ans-5-1">
+        <div class="answer-code">output.shape   # → (5, 4)
+output.ndim    # → 2
+output.size    # → 20
+output.dtype   # → int64 (or int32)</div>
+        <div class="answer-out">shape: (5, 4)  — 5 machines, 4 hours each
+ndim:  2       — a 2-D matrix
+size:  20      — 20 total readings
+dtype: int64</div>
+      </div>
+    </div>
+    <div class="stage">
+      <div class="stage-head"><span class="stage-num">STAGE 2</span><span class="stage-title">Average Output per Machine</span></div>
+      <div class="stage-task">Calculate each machine's <strong>average hourly output</strong>. You need one number per machine (one per row). Which axis do you collapse?</div>
+      <div class="stage-actions">
+        <button class="btn-hint" onclick="toggleHint(this,'hint-5-2')">💡 Hint</button>
+        <button class="btn-answer" onclick="toggleAnswer(this,'ans-5-2')">→ Show Answer</button>
+      </div>
+      <div class="hint-reveal" id="hint-5-2"><span class="hint-icon">💡</span><span class="hint-text">np.mean(output, axis=1) — collapse columns (axis=1), keep rows</span></div>
+      <div class="answer-reveal" id="ans-5-2">
+        <div class="answer-code">machine_avg = np.mean(output, axis=1)</div>
+        <div class="answer-out">array([128.75, 100.75, 148.25,  91.75, 133.25])
+#        A       B       C       D       E</div>
+      </div>
+    </div>
+    <div class="stage">
+      <div class="stage-head"><span class="stage-num">STAGE 3</span><span class="stage-title">Worst Performer</span></div>
+      <div class="stage-task">Find the index and name of the <strong>worst performing machine</strong> — the one with the lowest average output. Machine names are: A, B, C, D, E.</div>
+      <div class="stage-actions">
+        <button class="btn-hint" onclick="toggleHint(this,'hint-5-3')">💡 Hint</button>
+        <button class="btn-answer" onclick="toggleAnswer(this,'ans-5-3')">→ Show Answer</button>
+      </div>
+      <div class="hint-reveal" id="hint-5-3"><span class="hint-icon">💡</span><span class="hint-text">np.argmin(machine_avg) → gives index → "ABCDE"[idx]</span></div>
+      <div class="answer-reveal" id="ans-5-3">
+        <div class="answer-code">worst_idx  = np.argmin(machine_avg)
+worst_name = "ABCDE"[worst_idx]</div>
+        <div class="answer-out">worst_idx  = 3
+worst_name = 'D'    # avg 91.75 units/hr</div>
+      </div>
+    </div>
+    <div class="stage">
+      <div class="stage-head"><span class="stage-num">STAGE 4</span><span class="stage-title">Output Spread</span></div>
+      <div class="stage-task">Calculate the <strong>standard deviation</strong> per machine (how consistent is each one?). A low std = consistent machine. Which is the most consistent?</div>
+      <div class="stage-actions">
+        <button class="btn-hint" onclick="toggleHint(this,'hint-5-4')">💡 Hint</button>
+        <button class="btn-answer" onclick="toggleAnswer(this,'ans-5-4')">→ Show Answer</button>
+      </div>
+      <div class="hint-reveal" id="hint-5-4"><span class="hint-icon">💡</span><span class="hint-text">np.std(output, axis=1) &nbsp;·&nbsp; np.argmin(std_vals)</span></div>
+      <div class="answer-reveal" id="ans-5-4">
+        <div class="answer-code">machine_std = np.std(output, axis=1)
+most_consistent = np.argmin(machine_std)</div>
+        <div class="answer-out">std:  A=9.40  B=9.78  C=7.03  D=3.77  E=4.97
+most_consistent = 3  ('D')  ← lowest spread
+# Ironically the worst avg is also the most consistent!</div>
+      </div>
+    </div>
+    <div class="stage">
+      <div class="stage-head"><span class="stage-num">STAGE 5</span><span class="stage-title">Above-Average Machines</span></div>
+      <div class="stage-task">Calculate the <strong>factory-wide average</strong> (all machines, all hours). Then create a <strong>boolean mask</strong> of which machines beat this overall average. How many machines are above average?</div>
+      <div class="stage-actions">
+        <button class="btn-hint" onclick="toggleHint(this,'hint-5-5')">💡 Hint</button>
+        <button class="btn-answer" onclick="toggleAnswer(this,'ans-5-5')">→ Show Answer</button>
+      </div>
+      <div class="hint-reveal" id="hint-5-5"><span class="hint-icon">💡</span><span class="hint-text">np.mean(output) → scalar · machine_avg > factory_avg → bool array · np.sum() counts Trues</span></div>
+      <div class="answer-reveal" id="ans-5-5">
+        <div class="answer-code">factory_avg  = np.mean(output)         # overall mean
+above_avg    = machine_avg > factory_avg   # boolean mask
+count_above  = np.sum(above_avg)</div>
+        <div class="answer-out">factory_avg = 120.5
+above_avg   = [True, False, True, False, True]
+count_above = 3     # machines A, C, E beat factory avg</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel-nav">
+    <button class="pnav-btn" onclick="goTo(4)">← Quest 04</button>
+    <div class="pnav-dots" id="dots-5"></div>
+    <button class="pnav-btn next" onclick="goTo(0)" style="background:rgba(139,92,246,.1);border-color:rgba(139,92,246,.4);color:#8b5cf6">&#8635; Back to Overview</button>
+  </div>
+</div>
+
+</div><!-- /panel-viewport -->
+</div><!-- /page-layout -->
+
+<script>
+const $ = id => document.getElementById(id);
+const TOTAL = 6;
+const LABELS = ['Overview','Weather Watch','Shopping Cart','Race Podium','Sensor Grid','Factory Analysis'];
+
+let current = 0;
+
+function goTo(idx) {
+  if (idx === current) return;
+  const oldP = $('panel-' + current), newP = $('panel-' + idx);
+  oldP.classList.remove('active'); oldP.classList.add('exit');
+  setTimeout(() => oldP.classList.remove('exit'), 300);
+  current = idx;
+  newP.classList.add('active');
+  $('viewport').scrollTop = 0;
+  document.querySelectorAll('.s-item').forEach(b => b.classList.toggle('active', +b.dataset.panel === idx));
+  updateDots();
+  const draws = [null, drawWeather, drawCart, drawRace, drawSensor, drawFactory];
+  if (draws[idx]) setTimeout(draws[idx], 80);
+}
+
+function updateDots() {
+  for (let i = 0; i < TOTAL; i++) {
+    const cont = $('dots-' + i); if (!cont) continue;
+    cont.innerHTML = '';
+    for (let d = 0; d < TOTAL; d++) {
+      const btn = document.createElement('button');
+      btn.className = 'pnav-dot' + (d === current ? ' active' : '');
+      btn.title = LABELS[d]; btn.onclick = () => goTo(d);
+      cont.appendChild(btn);
+    }
+  }
+}
+
+$('viewport').addEventListener('scroll', () => {
+  const el = $('viewport');
+  $('progress').style.width = (el.scrollTop / (el.scrollHeight - el.clientHeight) * 100) + '%';
+});
+
+function cp(btn) {
+  navigator.clipboard.writeText(btn.closest('.code-wrap').querySelector('pre').innerText.trim()).then(() => {
+    btn.textContent = '✓ copied'; setTimeout(() => btn.textContent = 'copy', 1600);
+  });
+}
+
+/* ── Toggle hint ── */
+function toggleHint(btn, id) {
+  const el = $(id);
+  const showing = el.classList.contains('show');
+  el.classList.toggle('show', !showing);
+  btn.textContent = showing ? '💡 Hint' : '💡 Hide';
+}
+
+/* ── Toggle answer ── */
+function toggleAnswer(btn, id) {
+  const el = $(id);
+  const showing = el.classList.contains('show');
+  el.classList.toggle('show', !showing);
+  btn.textContent = showing ? '→ Show Answer' : '↑ Hide';
+}
+
+/* ═══════════════════════════════════════════
+   Canvas: Weather Bar Chart
+═══════════════════════════════════════════ */
+function drawWeather() {
+  const cv = $('cv-weather');
+  const W = cv.parentElement.clientWidth - 36 || 700;
+  cv.width = W; cv.height = 160;
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0, 0, W, cv.height);
+
+  const temps = [18.5, 22.3, 19.8, 25.1, 23.6, 17.2, 21.0];
+  const days  = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const mn = 14, mx = 27;
+  const pad = 40, barW = Math.min(52, (W - pad * 2) / temps.length - 8);
+  const gap = (W - pad * 2 - barW * temps.length) / (temps.length + 1);
+  const H = cv.height;
+  const chartH = H - 50;
+  const mean = temps.reduce((a, b) => a + b, 0) / temps.length;
+
+  const colors = ['#3b82f6','#60a5fa','#06b6d4','#ef4444','#f97316','#8b5cf6','#10b981'];
+
+  // animate bars
+  let progress = 0;
+  const animate = () => {
+    ctx.clearRect(0, 0, W, H);
+    progress = Math.min(progress + 0.05, 1);
+    const ease = 1 - Math.pow(1 - progress, 3);
+
+    temps.forEach((t, i) => {
+      const h = ((t - mn) / (mx - mn)) * chartH * ease;
+      const x = pad + gap * (i + 1) + barW * i;
+      const y = H - 28 - h;
+      const r = ctx.createLinearGradient(0, y, 0, H - 28);
+      r.addColorStop(0, colors[i] + 'cc');
+      r.addColorStop(1, colors[i] + '44');
+      ctx.fillStyle = r;
+      ctx.beginPath(); ctx.roundRect(x, y, barW, h, [5, 5, 0, 0]); ctx.fill();
+
+      // label
+      if (progress > 0.7) {
+        ctx.fillStyle = colors[i];
+        ctx.font = 'bold 11px Courier New';
+        ctx.textAlign = 'center';
+        ctx.fillText(t + '°', x + barW / 2, y - 5);
+      }
+
+      // day
+      ctx.fillStyle = 'rgba(255,255,255,.4)';
+      ctx.font = '10px Segoe UI';
+      ctx.textAlign = 'center';
+      ctx.fillText(days[i], x + barW / 2, H - 10);
+    });
+
+    // mean line
+    if (progress > 0.5) {
+      const meanAlpha = Math.min((progress - 0.5) * 2, 1);
+      const meanY = H - 28 - ((mean - mn) / (mx - mn)) * chartH;
+      ctx.setLineDash([5, 4]);
+      ctx.strokeStyle = `rgba(250,204,21,${meanAlpha * 0.8})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(pad, meanY); ctx.lineTo(W - pad, meanY); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = `rgba(250,204,21,${meanAlpha})`;
+      ctx.font = 'bold 10px Courier New';
+      ctx.textAlign = 'left';
+      ctx.fillText('mean = ' + mean.toFixed(1) + '°', pad + 4, meanY - 5);
+    }
+
+    if (progress < 1) requestAnimationFrame(animate);
+  };
+  animate();
+}
+
+/* ═══════════════════════════════════════════
+   Canvas: Shopping Cart Receipt
+═══════════════════════════════════════════ */
+function drawCart() {
+  const cv = $('cv-cart');
+  const W = cv.parentElement.clientWidth - 36 || 700;
+  cv.width = W; cv.height = 140;
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0, 0, W, cv.height);
+
+  const prices = [12.99, 5.50, 8.75, 22.00, 3.25];
+  const qty    = [2, 5, 1, 3, 10];
+  const totals = prices.map((p, i) => +(p * qty[i]).toFixed(2));
+  const labels = ['Book', 'Pen', 'Bag', 'Lamp', 'Cable'];
+  const colors = ['#3b82f6','#10b981','#f97316','#8b5cf6','#06b6d4'];
+
+  const cs = Math.min(80, (W - 80) / prices.length);
+  const gap = (W - 60 - cs * prices.length) / (prices.length + 1);
+  const H = cv.height;
+
+  let progress = 0;
+  const animate = () => {
+    ctx.clearRect(0, 0, W, H);
+    progress = Math.min(progress + 0.055, 1);
+    const ease = 1 - Math.pow(1 - progress, 3);
+    const maxTotal = Math.max(...totals);
+
+    prices.forEach((p, i) => {
+      const bh = (totals[i] / maxTotal) * 75 * ease;
+      const x = 30 + gap * (i + 1) + cs * i;
+      const y = H - 30 - bh;
+      const grad = ctx.createLinearGradient(0, y, 0, H - 30);
+      grad.addColorStop(0, colors[i] + 'cc');
+      grad.addColorStop(1, colors[i] + '22');
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.roundRect(x, y, cs, bh, [5, 5, 0, 0]); ctx.fill();
+
+      ctx.fillStyle = 'rgba(255,255,255,.4)';
+      ctx.font = '9px Segoe UI'; ctx.textAlign = 'center';
+      ctx.fillText(labels[i], x + cs / 2, H - 14);
+      ctx.fillText('×' + qty[i], x + cs / 2, H - 4);
+
+      if (progress > 0.6) {
+        const a = Math.min((progress - 0.6) * 2.5, 1);
+        ctx.fillStyle = `rgba(255,255,255,${a})`;
+        ctx.font = `bold 10px Courier New`;
+        ctx.fillText('£' + totals[i].toFixed(2), x + cs / 2, y - 5);
+      }
+    });
+
+    if (progress < 1) requestAnimationFrame(animate);
+  };
+  animate();
+}
+
+/* ═══════════════════════════════════════════
+   Canvas: Race Podium Bars
+═══════════════════════════════════════════ */
+function drawRace() {
+  const cv = $('cv-race');
+  const W = cv.parentElement.clientWidth - 36 || 700;
+  cv.width = W; cv.height = 170;
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0, 0, W, cv.height);
+
+  const scores  = [342, 187, 456, 298, 511, 223, 399];
+  const players = ['Alice','Bob','Carlos','Diana','Eve','Frank','Grace'];
+  const colors  = ['#3b82f6','#8b5cf6','#f97316','#06b6d4','#ef4444','#10b981','#facc15'];
+  const H = cv.height;
+  const maxS = Math.max(...scores);
+  const bw = Math.min(62, (W - 60) / scores.length - 6);
+  const gap = (W - 50 - bw * scores.length) / (scores.length + 1);
+
+  let progress = 0;
+  const animate = () => {
+    ctx.clearRect(0, 0, W, H);
+    progress = Math.min(progress + 0.045, 1);
+    const ease = 1 - Math.pow(1 - progress, 4);
+
+    scores.forEach((s, i) => {
+      const bh = (s / maxS) * 110 * ease;
+      const x = 25 + gap * (i + 1) + bw * i;
+      const y = H - 34 - bh;
+      const isWinner = s === maxS;
+      const grad = ctx.createLinearGradient(0, y, 0, H - 34);
+      grad.addColorStop(0, colors[i] + (isWinner ? 'ff' : '99'));
+      grad.addColorStop(1, colors[i] + '22');
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.roundRect(x, y, bw, bh, [5, 5, 0, 0]); ctx.fill();
+      if (isWinner) {
+        ctx.strokeStyle = colors[i]; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.roundRect(x - 1, y - 1, bw + 2, bh + 2, 6); ctx.stroke();
+      }
+
+      ctx.fillStyle = 'rgba(255,255,255,.45)';
+      ctx.font = '9px Segoe UI'; ctx.textAlign = 'center';
+      ctx.fillText(players[i], x + bw / 2, H - 18);
+
+      if (progress > 0.55) {
+        const a = Math.min((progress - 0.55) * 2.2, 1);
+        ctx.fillStyle = `${colors[i]}${Math.round(a*255).toString(16).padStart(2,'0')}`;
+        ctx.font = `bold 11px Courier New`;
+        ctx.fillText(s, x + bw / 2, y - 5);
+      }
+      if (isWinner && progress > 0.85) {
+        ctx.fillStyle = '#facc15';
+        ctx.font = '14px Arial';
+        ctx.fillText('🥇', x + bw / 2 - 7, y - 18);
+      }
+    });
+
+    if (progress < 1) requestAnimationFrame(animate);
+  };
+  animate();
+}
+
+/* ═══════════════════════════════════════════
+   Canvas: Sensor Heat Grid
+═══════════════════════════════════════════ */
+function drawSensor() {
+  const cv = $('cv-sensor');
+  const W = cv.parentElement.clientWidth - 36 || 700;
+  cv.width = W; cv.height = 160;
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0, 0, W, cv.height);
+
+  const readings = [22, 18, 35, 29, 41, 37, 26, 31, 19, 44, 28, 33];
+  const mn = Math.min(...readings), mx = Math.max(...readings);
+  const rows = 3, cols = 4;
+  const labels = ['A','B','C'];
+  const H = cv.height;
+  const cellW = Math.min(80, (W - 60) / cols);
+  const cellH = Math.min(36, (H - 40) / rows);
+  const gx = (W - cellW * cols) / 2;
+  const gy = 18;
+
+  const lerpColor = (t) => {
+    const r = Math.round(24  + t * (239 - 24));
+    const g = Math.round(180 + t * (68  - 180));
+    const b = Math.round(212 + t * (68  - 212));
+    return `rgb(${r},${g},${b})`;
+  };
+
+  let progress = 0;
+  const animate = () => {
+    ctx.clearRect(0, 0, W, H);
+    progress = Math.min(progress + 0.04, 1);
+
+    readings.forEach((v, idx) => {
+      const r = Math.floor(idx / cols);
+      const c = idx % cols;
+      const x = gx + c * cellW;
+      const y = gy + r * (cellH + 6);
+      const t = (v - mn) / (mx - mn);
+      const alpha = 0.2 + t * 0.7;
+      const color = lerpColor(t);
+
+      ctx.globalAlpha = Math.min(progress * 2, 1);
+      ctx.fillStyle = color.replace('rgb', 'rgba').replace(')', `,${alpha})`);
+      ctx.beginPath(); ctx.roundRect(x + 3, y, cellW - 6, cellH, 6); ctx.fill();
+      ctx.strokeStyle = color.replace('rgb', 'rgba').replace(')', ',0.5)');
+      ctx.lineWidth = 1; ctx.stroke();
+
+      ctx.globalAlpha = Math.min(progress * 3, 1);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 12px Courier New';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(v, x + cellW / 2, y + cellH / 2);
+    });
+
+    ctx.globalAlpha = 1;
+
+    // row labels
+    labels.forEach((lbl, r) => {
+      const y = gy + r * (cellH + 6) + cellH / 2;
+      ctx.fillStyle = 'rgba(255,255,255,.35)';
+      ctx.font = 'bold 10px Courier New';
+      ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+      ctx.fillText('Sensor ' + lbl, gx - 4, y);
+    });
+
+    // column labels
+    ['t=0','t=1','t=2','t=3'].forEach((lbl, c) => {
+      const x = gx + c * cellW + cellW / 2;
+      ctx.fillStyle = 'rgba(255,255,255,.25)';
+      ctx.font = '9px Segoe UI';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText(lbl, x, gy + rows * (cellH + 6) + 4);
+    });
+
+    if (progress < 1) requestAnimationFrame(animate);
+  };
+  animate();
+}
+
+/* ═══════════════════════════════════════════
+   Canvas: Factory Grouped Bars
+═══════════════════════════════════════════ */
+function drawFactory() {
+  const cv = $('cv-factory');
+  const W = cv.parentElement.clientWidth - 36 || 700;
+  cv.width = W; cv.height = 180;
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0, 0, W, cv.height);
+
+  const output = [
+    [120, 135, 118, 142],
+    [98,  102, 115, 88 ],
+    [145, 151, 139, 158],
+    [87,  94,  90,  96 ],
+    [130, 128, 134, 141]
+  ];
+  const machines = ['A','B','C','D','E'];
+  const mColors  = ['#3b82f6','#8b5cf6','#ef4444','#f97316','#10b981'];
+  const hColors  = ['rgba(255,255,255,.5)','rgba(255,255,255,.3)','rgba(255,255,255,.18)','rgba(255,255,255,.1)'];
+  const H = cv.height;
+  const maxV = 165;
+  const groupW = Math.min(90, (W - 60) / output.length);
+  const bw = Math.max(8, groupW / 4 - 3);
+  const factoryAvg = output.flat().reduce((a, b) => a + b, 0) / output.flat().length;
+
+  let progress = 0;
+  const animate = () => {
+    ctx.clearRect(0, 0, W, H);
+    progress = Math.min(progress + 0.04, 1);
+    const ease = 1 - Math.pow(1 - progress, 3);
+    const gapX = (W - 50 - groupW * output.length) / (output.length + 1);
+
+    output.forEach((hours, mi) => {
+      const gx = 25 + gapX * (mi + 1) + groupW * mi;
+
+      hours.forEach((v, hi) => {
+        const bh = (v / maxV) * 110 * ease;
+        const x = gx + hi * (bw + 2);
+        const y = H - 32 - bh;
+        const grad = ctx.createLinearGradient(0, y, 0, H - 32);
+        grad.addColorStop(0, mColors[mi] + 'cc');
+        grad.addColorStop(1, mColors[mi] + '22');
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.roundRect(x, y, bw, bh, [3, 3, 0, 0]); ctx.fill();
+      });
+
+      // machine label
+      ctx.fillStyle = mColors[mi];
+      ctx.font = 'bold 11px Courier New'; ctx.textAlign = 'center';
+      ctx.fillText('M-' + machines[mi], gx + groupW / 2 - bw / 2, H - 14);
+    });
+
+    // factory average line
+    if (progress > 0.5) {
+      const alpha = Math.min((progress - 0.5) * 2, 1);
+      const avgY = H - 32 - (factoryAvg / maxV) * 110;
+      ctx.setLineDash([6, 4]);
+      ctx.strokeStyle = `rgba(250,204,21,${alpha * 0.7})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(25, avgY); ctx.lineTo(W - 25, avgY); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = `rgba(250,204,21,${alpha})`;
+      ctx.font = 'bold 9px Courier New'; ctx.textAlign = 'left';
+      ctx.fillText('factory avg = ' + factoryAvg.toFixed(1), 28, avgY - 5);
+    }
+
+    if (progress < 1) requestAnimationFrame(animate);
+  };
+  animate();
+}
+
+/* ── init ── */
+updateDots();
+</script>
+</body>
+</html>

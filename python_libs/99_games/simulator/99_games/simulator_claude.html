@@ -1,0 +1,4143 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NumPy Matrix Simulator Codex</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #020403;
+      --panel: rgba(3, 18, 13, 0.78);
+      --panel-strong: rgba(5, 36, 24, 0.9);
+      --green: #39ff88;
+      --green-soft: #0fbf6a;
+      --cyan: #5df3ff;
+      --red: #ff496d;
+      --gold: #ffd166;
+      --text: #dbffe9;
+      --muted: #78a995;
+      --line: rgba(57, 255, 136, 0.28);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 18% 18%, rgba(13, 90, 54, 0.32), transparent 34%),
+        radial-gradient(circle at 70% 62%, rgba(21, 95, 103, 0.23), transparent 34%),
+        linear-gradient(135deg, #000 0%, #020403 42%, #04100d 100%);
+      color: var(--text);
+    }
+
+    canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    #matrixRain {
+      display: none;
+      opacity: 0;
+      mix-blend-mode: screen;
+    }
+
+    #fxCanvas {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 9999;
+      opacity: 1;
+      mix-blend-mode: screen;
+    }
+
+    .app {
+      position: relative;
+      z-index: 2;
+      min-height: 100vh;
+      padding: clamp(16px, 3vw, 36px);
+      display: grid;
+      grid-template-columns: minmax(80px, 1fr) minmax(430px, 560px) clamp(250px, 28vw, 360px);
+      gap: clamp(16px, 3vw, 30px);
+      align-items: start;
+    }
+
+    .top-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      min-height: 52px;
+      padding: 4px 0;
+    }
+
+    .question-chip {
+      min-width: 168px;
+      padding: 13px 18px;
+      border: 1px solid rgba(93, 243, 255, 0.28);
+      background: rgba(0, 0, 0, 0.38);
+      color: var(--cyan);
+      font: 900 18px/1 "Cascadia Code", Consolas, monospace;
+      text-align: center;
+      text-transform: uppercase;
+      text-shadow: 0 0 14px rgba(93, 243, 255, 0.52);
+    }
+
+    .progress-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 2px 0 6px;
+    }
+
+    .progress-bar-wrap {
+      flex: 1;
+      height: 6px;
+      background: rgba(57, 255, 136, 0.08);
+      border: 1px solid rgba(57, 255, 136, 0.18);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--green), var(--cyan));
+      box-shadow: 0 0 10px rgba(57, 255, 136, 0.55);
+      border-radius: 4px;
+      transition: width 0.5s cubic-bezier(.4,0,.2,1);
+    }
+
+    .progress-label {
+      font: 700 11px/1 "Cascadia Code", Consolas, monospace;
+      color: var(--green);
+      min-width: 34px;
+      text-align: right;
+      text-shadow: 0 0 8px rgba(57, 255, 136, 0.48);
+      letter-spacing: .04em;
+    }
+
+    .timer-panel {
+      --timer-color: var(--green);
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 12px;
+      align-items: center;
+      padding: 10px 12px;
+      border: 1px solid rgba(57, 255, 136, 0.24);
+      background: rgba(0, 0, 0, 0.34);
+      box-shadow: inset 0 0 24px rgba(57, 255, 136, 0.06), 0 0 24px rgba(57, 255, 136, 0.08);
+    }
+
+    .timer-panel[data-state="yellow"] {
+      --timer-color: var(--gold);
+      border-color: rgba(250, 204, 21, 0.32);
+      box-shadow: inset 0 0 24px rgba(250, 204, 21, 0.06), 0 0 24px rgba(250, 204, 21, 0.09);
+    }
+
+    .timer-panel[data-state="red"] {
+      --timer-color: var(--red);
+      border-color: rgba(255, 73, 109, 0.38);
+      box-shadow: inset 0 0 24px rgba(255, 73, 109, 0.08), 0 0 28px rgba(255, 73, 109, 0.16);
+    }
+
+    .timer-panel[data-state="blue"] {
+      --timer-color: var(--cyan);
+      border-color: rgba(93, 243, 255, 0.42);
+      box-shadow: inset 0 0 24px rgba(93, 243, 255, 0.08), 0 0 28px rgba(93, 243, 255, 0.18);
+    }
+
+    .timer-readout {
+      display: grid;
+      gap: 3px;
+      min-width: 54px;
+      color: var(--muted);
+      font: 800 10px/1 "Cascadia Code", Consolas, monospace;
+      text-transform: uppercase;
+    }
+
+    .timer-readout strong {
+      color: var(--timer-color);
+      font-size: 22px;
+      text-shadow: 0 0 14px color-mix(in srgb, var(--timer-color) 72%, transparent);
+    }
+
+    .timer-bars {
+      display: grid;
+      grid-template-columns: repeat(10, minmax(2px, 1fr));
+      gap: 2px;
+      min-height: 28px;
+      align-items: stretch;
+    }
+
+    .timer-bar {
+      min-width: 0;
+      border: 1px solid color-mix(in srgb, var(--timer-color) 38%, transparent);
+      background:
+        linear-gradient(180deg, color-mix(in srgb, var(--timer-color) 54%, transparent), color-mix(in srgb, var(--timer-color) 18%, transparent)),
+        rgba(0, 0, 0, 0.28);
+      box-shadow: 0 0 14px color-mix(in srgb, var(--timer-color) 24%, transparent), inset 0 0 12px color-mix(in srgb, var(--timer-color) 16%, transparent);
+      transform-origin: bottom;
+      transition: opacity 0.24s ease, transform 0.24s ease, border-color 0.24s ease, background 0.24s ease;
+    }
+
+    .timer-bar.empty {
+      opacity: 0.14;
+      transform: scaleY(0.42);
+      border-color: rgba(120, 169, 149, 0.18);
+      background: rgba(120, 169, 149, 0.1);
+      box-shadow: none;
+    }
+
+    .start-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 10001;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at 50% 30%, rgba(57, 255, 136, 0.12), transparent 42%),
+        rgba(0, 0, 0, 0.92);
+      backdrop-filter: blur(14px);
+    }
+    .start-overlay.hidden { display: none; }
+
+    .start-card {
+      width: min(520px, 92vw);
+      padding: 36px 36px 28px;
+      border: 1px solid rgba(57, 255, 136, 0.28);
+      background: rgba(3, 18, 13, 0.82);
+      box-shadow: 0 0 60px rgba(57, 255, 136, 0.08), inset 0 0 40px rgba(57, 255, 136, 0.04);
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+      font-family: "Cascadia Code", Consolas, monospace;
+    }
+    .start-title {
+      font-size: clamp(22px, 5vw, 38px);
+      font-weight: 900;
+      color: var(--green);
+      text-transform: uppercase;
+      text-shadow: 0 0 22px rgba(57, 255, 136, 0.6);
+      letter-spacing: .06em;
+      text-align: center;
+      margin: 0 0 4px;
+    }
+
+    .cfg-row {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+    .cfg-label {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .12em;
+    }
+    .cfg-label strong { color: var(--cyan); font-size: 13px; }
+
+    .cfg-input {
+      width: 100%;
+      background: rgba(0,0,0,0.42);
+      border: 1px solid rgba(57, 255, 136, 0.22);
+      color: var(--green);
+      font: 15px/1 "Cascadia Code", Consolas, monospace;
+      padding: 10px 14px;
+      outline: none;
+    }
+    .cfg-input:focus { border-color: rgba(57, 255, 136, 0.55); }
+
+    .cfg-slider-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .cfg-slider {
+      flex: 1;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 6px;
+      background: rgba(57, 255, 136, 0.12);
+      border: 1px solid rgba(57, 255, 136, 0.22);
+      border-radius: 3px;
+      outline: none;
+      cursor: pointer;
+    }
+    .cfg-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px rgba(57, 255, 136, 0.7);
+      cursor: pointer;
+    }
+    .cfg-slider::-moz-range-thumb {
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px rgba(57, 255, 136, 0.7);
+      border: none;
+      cursor: pointer;
+    }
+    .cfg-val {
+      font-size: 13px;
+      color: var(--cyan);
+      min-width: 38px;
+      text-align: right;
+    }
+
+    .lives-ships {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .lives-ship-icon {
+      opacity: 0.2;
+      transition: opacity .2s;
+      filter: drop-shadow(0 0 6px rgba(57,255,136,0.5)) grayscale(1);
+    }
+    .lives-ship-icon.active { opacity: 1; filter: drop-shadow(0 0 8px rgba(57,255,136,0.7)); }
+
+    #startBtn {
+      margin-top: 4px;
+      width: 100%;
+      min-height: 50px;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      background: linear-gradient(180deg, rgba(57,255,136,.22), rgba(15,191,106,.1));
+      border-color: rgba(57,255,136,.55);
+      color: var(--green);
+      text-shadow: 0 0 12px rgba(57,255,136,.6);
+      cursor: pointer;
+    }
+    #startBtn:hover {
+      background: linear-gradient(180deg, rgba(57,255,136,.34), rgba(15,191,106,.18));
+    }
+
+    .game-over-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      display: none;
+      place-items: center;
+      cursor: pointer;
+      background:
+        radial-gradient(circle at 50% 45%, rgba(255, 73, 109, 0.24), transparent 34%),
+        rgba(0, 0, 0, 0.84);
+      backdrop-filter: blur(10px);
+    }
+
+    .game-over-overlay.show {
+      display: grid;
+      animation: gameOverFade 0.42s ease both;
+    }
+
+    .game-over-message {
+      color: #fff4f7;
+      font: 900 clamp(44px, 10vw, 128px)/0.92 "Cascadia Code", Consolas, monospace;
+      text-align: center;
+      text-transform: uppercase;
+      text-shadow:
+        0 0 24px rgba(255, 73, 109, 0.95),
+        0 0 72px rgba(255, 73, 109, 0.62);
+      letter-spacing: 0;
+      animation: gameOverPulse 0.9s ease-in-out infinite alternate;
+    }
+
+    .game-over-message span {
+      display: block;
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: clamp(13px, 2vw, 20px);
+      line-height: 1.4;
+      text-shadow: 0 0 18px rgba(93, 243, 255, 0.42);
+    }
+
+    .game-over-stats {
+      display: flex;
+      justify-content: center;
+      gap: clamp(14px, 4vw, 36px);
+      margin-top: 24px;
+      font: 900 clamp(16px, 2.5vw, 28px)/1.2 "Cascadia Code", Consolas, monospace;
+      color: var(--green);
+      text-shadow: 0 0 18px rgba(57, 255, 136, 0.58);
+    }
+
+    .game-over-stats b {
+      color: var(--red);
+      text-shadow: 0 0 18px rgba(255, 73, 109, 0.58);
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .left-void {
+      min-height: calc(100vh - clamp(32px, 6vw, 72px));
+      position: relative;
+      overflow: hidden;
+      border-left: 1px solid rgba(57, 255, 136, 0.12);
+      border-right: 1px solid rgba(57, 255, 136, 0.12);
+      background: linear-gradient(180deg, rgba(0, 0, 0, 0.18), rgba(57, 255, 136, 0.04));
+    }
+
+    .left-number-rain {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.72;
+      font: 15px/1.35 "Cascadia Code", Consolas, monospace;
+      color: rgba(57, 255, 136, 0.62);
+      text-shadow: 0 0 12px rgba(57, 255, 136, 0.62);
+    }
+
+    .left-number-rain span {
+      position: absolute;
+      top: -24px;
+      animation: leftRainFall var(--fall-speed, 7s) linear infinite;
+      animation-delay: var(--fall-delay, 0s);
+      writing-mode: vertical-rl;
+      letter-spacing: 0;
+      white-space: nowrap;
+    }
+
+    .ship-fleet {
+      position: fixed;
+      left: clamp(18px, 3vw, 42px);
+      bottom: clamp(18px, 4vh, 38px);
+      z-index: 4;
+      display: flex;
+      flex-direction: column-reverse;
+      align-items: flex-end;
+      gap: clamp(4px, 0.8vw, 10px);
+      pointer-events: none;
+    }
+
+    .sim-ship {
+      position: relative;
+      width: clamp(92px, 13vw, 178px);
+      filter: drop-shadow(0 0 10px rgba(34, 211, 238, 0.18)) saturate(0.82) brightness(0.82);
+      transform-origin: 50% 58%;
+    }
+
+    .sim-ship.active {
+      filter: drop-shadow(0 0 18px rgba(34, 211, 238, 0.58)) saturate(1.25);
+      animation: shipHover 3.2s ease-in-out infinite;
+    }
+
+    .sim-ship::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 57%;
+      width: 76%;
+      height: 62%;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(34, 211, 238, 0.24), rgba(59, 130, 246, 0.08) 42%, transparent 70%);
+      filter: blur(10px);
+      opacity: 0.08;
+    }
+
+    .sim-ship::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 68%;
+      width: 54%;
+      height: 64%;
+      transform: translateX(-50%);
+      background:
+        radial-gradient(ellipse at top, rgba(93, 243, 255, 0.88), rgba(59, 130, 246, 0.28) 38%, transparent 70%),
+        linear-gradient(90deg, transparent 0 24%, rgba(34, 211, 238, 0.72) 25% 34%, transparent 35% 65%, rgba(34, 211, 238, 0.72) 66% 75%, transparent 76%);
+      filter: blur(6px);
+      opacity: 0;
+    }
+
+    .sim-ship.active::before {
+      opacity: 1;
+      animation: engineGlow 0.9s ease-in-out infinite alternate;
+    }
+
+    .sim-ship.active::after {
+      opacity: 1;
+      animation: thrusterPulse 0.34s ease-in-out infinite alternate;
+    }
+
+    .sim-ship img {
+      position: relative;
+      z-index: 1;
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .sim-ship.active img {
+      animation: shipImagePulse 1.1s ease-in-out infinite alternate;
+    }
+
+    .sim-ship.spin {
+      animation: shipSpin 0.95s cubic-bezier(0.2, 0.9, 0.18, 1) 1 forwards;
+    }
+
+    .sim-ship.warn {
+      animation: shipWarn 0.72s ease-in-out 2;
+    }
+
+    .sim-ship.destroyed {
+      pointer-events: none;
+      animation: shipDestroyed 1.05s ease-out forwards;
+    }
+
+    .sim-ship.destroyed::before,
+    .sim-ship.destroyed::after {
+      animation: none;
+      opacity: 0;
+    }
+
+    .sim-ship.destroyed img {
+      animation: shipImageBurn 0.72s ease-out forwards;
+    }
+
+    .sim-ship.active.typing {
+      filter:
+        drop-shadow(0 0 22px rgba(250, 204, 21, 0.95))
+        drop-shadow(0 0 54px rgba(250, 204, 21, 0.5))
+        saturate(1.45);
+    }
+
+    .control-stack,
+    .right-stack {
+      display: grid;
+      gap: 18px;
+      width: 100%;
+    }
+
+    .right-stack {
+      min-height: calc(100vh - clamp(32px, 6vw, 72px));
+      grid-template-rows: auto 1fr;
+    }
+
+    .mystery-copy {
+      position: relative;
+      min-height: 140px;
+      padding: 15px 16px;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(0, 12, 9, 0.78), rgba(0, 0, 0, 0.42));
+      box-shadow: inset 0 0 32px rgba(57, 255, 136, 0.09), 0 0 34px rgba(0, 0, 0, 0.32);
+      overflow: hidden;
+    }
+
+    .mystery-copy::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(180deg, transparent 0 7px, rgba(57, 255, 136, 0.08) 8px);
+      animation: scan 3.4s linear infinite;
+      pointer-events: none;
+    }
+
+    .mystery-copy .label {
+      position: relative;
+      display: block;
+      margin-bottom: 10px;
+      color: var(--cyan);
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+
+    .ghost-text {
+      position: relative;
+      margin: 0;
+      font-family: "Cascadia Code", Consolas, monospace;
+      color: var(--green);
+      font-size: clamp(16px, 1.8vw, 22px);
+      line-height: 1.45;
+      text-shadow: 0 0 10px rgba(57, 255, 136, 0.78);
+      animation: jitter 2.6s infinite steps(2, end);
+    }
+
+    .target-card,
+    .panel,
+    .output-card {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      backdrop-filter: blur(16px);
+      box-shadow: 0 0 38px rgba(57, 255, 136, 0.12), inset 0 0 42px rgba(57, 255, 136, 0.06);
+    }
+
+    .target-card {
+      padding: 14px;
+      width: 100%;
+      transform-origin: top right;
+    }
+
+    .target-card.fade-out {
+      opacity: 0.28;
+      transition: opacity 0.22s ease;
+    }
+
+    .target-card.fade-in {
+      animation: targetFadeIn 0.38s ease;
+    }
+
+    .target-card.explode {
+      animation: targetExplode 0.58s ease forwards;
+    }
+
+    .target-card.required-explosion {
+      animation: targetExplode 0.72s ease forwards;
+    }
+
+    .target-card.required-explosion .cell {
+      animation: requiredCellExplode 0.72s ease-out forwards;
+    }
+
+    .target-card.fly-rect {
+      animation: targetFlyRect 0.72s cubic-bezier(0.2, 0.9, 0.18, 1) forwards;
+    }
+
+    .card-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+
+    .pulse-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 16px var(--green);
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+
+    .panel {
+      min-height: 430px;
+      display: flex;
+      flex-direction: column;
+      padding: 18px;
+    }
+
+    .panel h2,
+    .output-card h2 {
+      margin: 0 0 14px;
+      font-size: 17px;
+      color: var(--cyan);
+      text-transform: uppercase;
+    }
+
+    .prompt {
+      margin: 0 0 16px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .editor-wrap {
+      position: relative;
+      display: grid;
+      min-height: 178px;
+      margin-bottom: 14px;
+    }
+
+    .locked-line {
+      display: none;
+      margin: 0;
+      padding: 16px 16px 0;
+      overflow-x: auto;
+      white-space: pre;
+      border: 1px solid rgba(93, 243, 255, 0.28);
+      border-bottom: 0;
+      background: rgba(0, 0, 0, 0.68);
+      color: rgba(219, 255, 233, 0.72);
+      font: 16px/1.5 "Cascadia Code", Consolas, monospace;
+      box-shadow: inset 0 0 24px rgba(57, 255, 136, 0.06);
+    }
+
+    .editor-wrap.has-locked .locked-line {
+      display: block;
+    }
+
+    .editor-wrap.has-locked textarea {
+      min-height: 132px;
+      border-top-color: rgba(93, 243, 255, 0.12);
+      padding-top: 8px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 178px;
+      resize: none;
+      border: 1px solid rgba(93, 243, 255, 0.28);
+      border-radius: 0;
+      padding: 16px;
+      outline: none;
+      background: rgba(0, 0, 0, 0.58);
+      color: var(--green);
+      font: 16px/1.5 "Cascadia Code", Consolas, monospace;
+      box-shadow: inset 0 0 34px rgba(57, 255, 136, 0.08);
+    }
+
+    textarea:focus {
+      border-color: rgba(93, 243, 255, 0.85);
+      box-shadow: 0 0 0 3px rgba(93, 243, 255, 0.1), inset 0 0 34px rgba(57, 255, 136, 0.11);
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    #actionsNormal, #actionsReveal {
+      display: flex;
+      gap: 10px;
+    }
+
+    #dontKnowButton {
+      border-color: rgba(250, 204, 21, 0.48);
+      background: linear-gradient(180deg, rgba(250, 204, 21, 0.14), rgba(250, 204, 21, 0.06));
+      color: rgba(250, 204, 21, 0.88);
+      font-size: 12px;
+    }
+    #dontKnowButton:hover {
+      background: linear-gradient(180deg, rgba(250, 204, 21, 0.24), rgba(250, 204, 21, 0.11));
+      color: rgba(250, 204, 21, 1);
+    }
+
+    #openTopicButton {
+      border-color: rgba(255, 158, 0, 0.45);
+      background: linear-gradient(180deg, rgba(255, 158, 0, 0.13), rgba(255, 158, 0, 0.05));
+      color: rgba(255, 158, 0, 0.85);
+      font-size: 12px;
+    }
+    #openTopicButton:hover {
+      background: linear-gradient(180deg, rgba(255, 158, 0, 0.24), rgba(255, 158, 0, 0.10));
+      color: rgba(255, 158, 0, 1);
+    }
+
+    #nextRevealButton {
+      border-color: rgba(57, 255, 136, 0.52);
+      background: linear-gradient(180deg, rgba(57, 255, 136, 0.22), rgba(15, 191, 106, 0.11));
+      color: var(--text);
+      font-size: 13px;
+    }
+    #nextRevealButton:hover {
+      background: linear-gradient(180deg, rgba(57, 255, 136, 0.32), rgba(15, 191, 106, 0.18));
+    }
+
+    textarea.revealing {
+      color: rgba(255, 158, 0, 0.92);
+      caret-color: rgba(255, 158, 0, 0.5);
+      box-shadow: inset 0 0 34px rgba(255, 158, 0, 0.07);
+      border-color: rgba(255, 158, 0, 0.35);
+    }
+
+    #revealOverlay {
+      display: none;
+      width: 100%;
+      min-height: 178px;
+      padding: 16px;
+      border: 1px solid rgba(255, 73, 109, 0.38);
+      background: rgba(0, 0, 0, 0.58);
+      font: 16px/1.5 "Cascadia Code", Consolas, monospace;
+      white-space: pre-wrap;
+      box-shadow: inset 0 0 34px rgba(255, 73, 109, 0.06);
+    }
+    .editor-wrap.has-locked #revealOverlay {
+      min-height: 132px;
+      border-top-color: rgba(255, 73, 109, 0.18);
+      padding-top: 8px;
+    }
+    .reveal-fail { color: var(--red); }
+    .reveal-solution { color: rgba(255, 158, 0, 0.92); }
+
+    #muteButton {
+      min-height: unset;
+      height: 22px;
+      padding: 0 7px;
+      font-size: 13px;
+      border-color: rgba(57, 255, 136, 0.22);
+      background: rgba(0,0,0,0.28);
+      line-height: 1;
+      vertical-align: middle;
+      margin-left: 6px;
+    }
+    #muteButton:hover { border-color: rgba(57, 255, 136, 0.5); }
+
+    button {
+      border: 1px solid rgba(57, 255, 136, 0.52);
+      border-radius: 0;
+      min-height: 44px;
+      padding: 0 18px;
+      cursor: pointer;
+      background: linear-gradient(180deg, rgba(57, 255, 136, 0.22), rgba(15, 191, 106, 0.11));
+      color: var(--text);
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0;
+      box-shadow: 0 0 22px rgba(57, 255, 136, 0.12);
+    }
+
+    button:hover {
+      background: linear-gradient(180deg, rgba(57, 255, 136, 0.34), rgba(15, 191, 106, 0.17));
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+    }
+
+    .status {
+      min-height: 52px;
+      padding: 12px;
+      border: 1px solid rgba(120, 169, 149, 0.22);
+      background: rgba(0, 0, 0, 0.32);
+      color: var(--muted);
+      font: 14px/1.45 "Cascadia Code", Consolas, monospace;
+    }
+
+    .cheats {
+      margin-top: auto;
+      padding-top: 16px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .cheats code {
+      color: var(--green);
+    }
+
+    .output-zone {
+      position: relative;
+      display: grid;
+      gap: 16px;
+      align-self: end;
+    }
+
+    .stage-result {
+      display: none;
+      padding: 14px;
+      border: 1px solid rgba(93, 243, 255, 0.24);
+      background: rgba(0, 0, 0, 0.38);
+      box-shadow: inset 0 0 24px rgba(93, 243, 255, 0.06);
+    }
+
+    .stage-result.show {
+      display: block;
+    }
+
+    .stage-result .card-label {
+      margin-bottom: 10px;
+    }
+
+    .output-card {
+      padding: 18px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .output-card::after {
+      content: "";
+      position: absolute;
+      inset: auto 0 0;
+      height: 46%;
+      background: linear-gradient(0deg, rgba(57, 255, 136, 0.08), transparent);
+      pointer-events: none;
+    }
+
+    .matrix-grid {
+      --cols: 4;
+      display: grid;
+      grid-template-columns: repeat(var(--cols), minmax(0, 48px));
+      justify-content: center;
+      gap: 7px;
+      width: 100%;
+    }
+
+    .cell {
+      aspect-ratio: 1;
+      min-width: 0;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(57, 255, 136, 0.42);
+      background:
+        linear-gradient(135deg, rgba(57, 255, 136, 0.18), rgba(0, 0, 0, 0.2)),
+        radial-gradient(circle, rgba(93, 243, 255, 0.2), transparent 58%);
+      color: #f4fff8;
+      font: 900 20px/1 "Cascadia Code", Consolas, monospace;
+      text-shadow: 0 0 14px rgba(57, 255, 136, 0.9);
+      box-shadow: inset 0 0 20px rgba(57, 255, 136, 0.14), 0 0 18px rgba(57, 255, 136, 0.08);
+      transform-style: preserve-3d;
+      animation: cellFloat 3s ease-in-out infinite;
+    }
+
+    .cell.small-text {
+      font-size: 13px;
+      padding: 2px;
+      overflow-wrap: anywhere;
+    }
+
+    .cell.tiny-text {
+      font-size: 10px;
+      padding: 2px;
+      overflow-wrap: anywhere;
+    }
+
+    .target-card .cell {
+      animation-duration: 2.4s;
+    }
+
+    .source-matrix {
+      display: none;
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(57, 255, 136, 0.18);
+    }
+
+    .source-matrix.show {
+      display: block;
+    }
+
+    .source-matrix .card-label {
+      margin-bottom: 8px;
+      color: rgba(93, 243, 255, 0.8);
+    }
+
+    .source-matrix .matrix-grid + .card-label {
+      margin-top: 12px;
+    }
+
+    .created-shell {
+      position: relative;
+      padding: 30px clamp(14px, 2vw, 22px);
+      min-height: 220px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      --hud: rgba(255, 158, 0, 0.9);
+      --hud-dim: rgba(255, 158, 0, 0.28);
+      --hud-ghost: rgba(255, 158, 0, 0.055);
+      border: 1px solid var(--hud-dim);
+      background:
+        repeating-linear-gradient(0deg, transparent 0px, transparent 3px, var(--hud-ghost) 3px, var(--hud-ghost) 4px),
+        rgba(3, 5, 2, 0.97);
+      overflow: hidden;
+      box-shadow:
+        inset 0 0 70px rgba(255, 158, 0, 0.03),
+        0 0 0 1px rgba(0, 0, 0, 0.65),
+        0 0 28px rgba(255, 158, 0, 0.06);
+    }
+
+    .created-shell::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        repeating-linear-gradient(90deg, transparent 0px, transparent 39px, rgba(255, 158, 0, 0.04) 39px, rgba(255, 158, 0, 0.04) 40px);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .created-shell::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent 0%, rgba(255, 158, 0, 0.06) 18%, rgba(255, 158, 0, 0.62) 50%, rgba(255, 158, 0, 0.06) 82%, transparent 100%);
+      box-shadow: 0 0 10px rgba(255, 158, 0, 0.38), 0 0 22px rgba(255, 158, 0, 0.12);
+      animation: hudScan 4s linear infinite;
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    .hud-corner {
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      z-index: 5;
+      pointer-events: none;
+    }
+    .hud-tl { top: 6px; left: 6px; border-top: 1.5px solid var(--hud); border-left: 1.5px solid var(--hud); }
+    .hud-tr { top: 6px; right: 6px; border-top: 1.5px solid var(--hud); border-right: 1.5px solid var(--hud); }
+    .hud-bl { bottom: 6px; left: 6px; border-bottom: 1.5px solid var(--hud); border-left: 1.5px solid var(--hud); }
+    .hud-br { bottom: 6px; right: 6px; border-bottom: 1.5px solid var(--hud); border-right: 1.5px solid var(--hud); }
+
+    .hud-bar {
+      position: absolute;
+      left: 0; right: 0;
+      height: 22px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 22px;
+      font: 700 8px/1 "Cascadia Code", Consolas, monospace;
+      color: var(--hud);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      z-index: 5;
+      pointer-events: none;
+    }
+    .hud-bar-top { top: 0; border-bottom: 1px solid var(--hud-dim); }
+    .hud-bar-bot { bottom: 0; border-top: 1px solid var(--hud-dim); }
+
+    .hud-blink { animation: hudBlink 1.4s step-end infinite; }
+
+    .hud-side-marks {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      z-index: 5;
+      pointer-events: none;
+    }
+    .hud-side-l { left: 4px; align-items: flex-start; }
+    .hud-side-r { right: 4px; align-items: flex-end; }
+    .hud-side-marks span { display: block; height: 1px; background: var(--hud); opacity: 0.5; }
+    .hud-side-l span:nth-child(1), .hud-side-r span:nth-child(1) { width: 10px; }
+    .hud-side-l span:nth-child(2), .hud-side-r span:nth-child(2) { width: 6px; }
+    .hud-side-l span:nth-child(3), .hud-side-r span:nth-child(3) { width: 14px; }
+    .hud-side-l span:nth-child(4), .hud-side-r span:nth-child(4) { width: 6px; }
+    .hud-side-l span:nth-child(5), .hud-side-r span:nth-child(5) { width: 10px; }
+
+    .hud-target {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 44px; height: 44px;
+      border: 1px solid var(--hud-dim);
+      border-radius: 50%;
+      z-index: 1;
+      pointer-events: none;
+    }
+    .hud-target::before, .hud-target::after {
+      content: "";
+      position: absolute;
+      background: var(--hud-dim);
+    }
+    .hud-target::before {
+      top: 50%; left: -8px; right: -8px;
+      height: 1px;
+      transform: translateY(-50%);
+    }
+    .hud-target::after {
+      left: 50%; top: -8px; bottom: -8px;
+      width: 1px;
+      transform: translateX(-50%);
+    }
+
+    .created-inner {
+      position: relative;
+      z-index: 2;
+      width: min(520px, 90%);
+      transition: transform 0.9s cubic-bezier(0.2, 0.9, 0.18, 1), opacity 0.4s;
+    }
+
+    .empty-state {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      display: grid;
+      place-items: center;
+      padding: 22px;
+      color: rgba(255, 158, 0, 0.34);
+      font: 700 9px/2.2 "Cascadia Code", Consolas, monospace;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      text-align: center;
+    }
+
+    .created-shell .cell {
+      border-color: rgba(255, 158, 0, 0.46);
+      background:
+        linear-gradient(135deg, rgba(255, 158, 0, 0.13), rgba(0, 0, 0, 0.22)),
+        radial-gradient(circle, rgba(255, 158, 0, 0.14), transparent 62%);
+      color: rgba(255, 222, 160, 0.96);
+      text-shadow: 0 0 12px rgba(255, 158, 0, 0.88);
+      box-shadow: inset 0 0 16px rgba(255, 158, 0, 0.09), 0 0 12px rgba(255, 158, 0, 0.05);
+    }
+
+    @keyframes scan {
+      to { transform: translateY(24px); }
+    }
+
+    @keyframes jitter {
+      0%, 100% { transform: translate(0, 0); filter: hue-rotate(0deg); }
+      45% { transform: translate(1px, -1px); filter: hue-rotate(18deg); }
+      70% { transform: translate(-1px, 1px); }
+    }
+
+    @keyframes pulse {
+      50% { transform: scale(1.8); opacity: 0.48; }
+    }
+
+    @keyframes rotate {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes leftRainFall {
+      from { transform: translateY(-20%); opacity: 0; }
+      12% { opacity: 1; }
+      88% { opacity: 0.82; }
+      to { transform: translateY(122vh); opacity: 0; }
+    }
+
+    @keyframes shipHover {
+      0%, 100% { transform: translateY(0) rotate(-2.2deg) scale(1); }
+      50% { transform: translateY(-12px) rotate(2deg) scale(1.025); }
+    }
+
+    @keyframes shipSpin {
+      from { transform: translateY(0) rotate(0deg) scale(1.02); }
+      to { transform: translateY(-8px) rotate(360deg) scale(1.04); }
+    }
+
+    @keyframes shipWarn {
+      0%, 100% {
+        filter: drop-shadow(0 0 18px rgba(34, 211, 238, 0.58)) saturate(1.25);
+      }
+      45% {
+        filter: drop-shadow(0 0 28px rgba(255, 73, 109, 0.95)) drop-shadow(0 0 58px rgba(255, 73, 109, 0.5)) saturate(1.4);
+      }
+    }
+
+    @keyframes shipDestroyed {
+      0% {
+        opacity: 1;
+        transform: translateY(0) rotate(0deg) scale(1);
+        filter: drop-shadow(0 0 18px rgba(34, 211, 238, 0.58)) saturate(1.25);
+      }
+      38% {
+        opacity: 1;
+        transform: translateY(-22px) rotate(32deg) scale(1.56);
+        filter:
+          drop-shadow(0 0 38px rgba(255, 73, 109, 1))
+          drop-shadow(0 0 74px rgba(250, 204, 21, 0.92))
+          drop-shadow(0 0 118px rgba(255, 73, 109, 0.62))
+          saturate(2.1);
+      }
+      100% {
+        opacity: 0.1;
+        transform: translateY(34px) rotate(132deg) scale(0.34);
+        filter: grayscale(1) brightness(0.28) sepia(0.8);
+      }
+    }
+
+    @keyframes shipBlastCore {
+      0% { opacity: 0; transform: translate(-50%, -50%) scale(0.35); }
+      34% { opacity: 1; transform: translate(-50%, -50%) scale(2.7); }
+      100% { opacity: 0; transform: translate(-50%, -50%) scale(4.2); }
+    }
+
+    @keyframes shipImageBurn {
+      0% { filter: brightness(1.15) saturate(1.4); }
+      42% { filter: brightness(2.6) saturate(2.2) hue-rotate(-22deg); }
+      100% { filter: grayscale(1) brightness(0.34) sepia(0.9); }
+    }
+
+    @keyframes gameOverFade {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .congrats-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      display: none;
+      place-items: center;
+      cursor: pointer;
+      background:
+        radial-gradient(circle at 50% 40%, rgba(57, 255, 136, 0.22), transparent 40%),
+        rgba(0, 0, 0, 0.88);
+      backdrop-filter: blur(12px);
+    }
+    .congrats-overlay.show {
+      display: grid;
+      animation: gameOverFade 0.5s ease both;
+    }
+    .congrats-box {
+      text-align: center;
+      font-family: "Cascadia Code", Consolas, monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+    .congrats-title {
+      font-size: clamp(36px, 8vw, 96px);
+      font-weight: 900;
+      color: var(--green);
+      text-transform: uppercase;
+      text-shadow: 0 0 28px rgba(57,255,136,.9), 0 0 72px rgba(57,255,136,.4);
+      letter-spacing: .04em;
+      animation: gameOverPulse 1s ease-in-out infinite alternate;
+    }
+    .congrats-stats {
+      font-size: clamp(13px, 2vw, 17px);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .congrats-stats .pilot { font-size: clamp(15px, 2.4vw, 22px); color: var(--cyan); }
+    .congrats-stats .stat  { color: var(--muted); }
+    .congrats-stats strong { color: var(--green); }
+    .congrats-sub {
+      font-size: clamp(11px, 1.6vw, 14px);
+      color: var(--muted);
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      margin-top: 8px;
+    }
+
+    @keyframes gameOverPulse {
+      from { transform: scale(0.98); filter: saturate(1); }
+      to { transform: scale(1.03); filter: saturate(1.35); }
+    }
+
+    @keyframes shipImagePulse {
+      from { filter: brightness(0.92) contrast(1.08) saturate(1.22); }
+      to { filter: brightness(1.08) contrast(1.12) saturate(1.42); }
+    }
+
+    @keyframes engineGlow {
+      from { opacity: 0.45; transform: translate(-50%, -50%) scale(0.92); }
+      to { opacity: 0.9; transform: translate(-50%, -50%) scale(1.08); }
+    }
+
+    @keyframes thrusterPulse {
+      from { opacity: 0.45; transform: translateX(-50%) scaleY(0.7) skewX(-2deg); }
+      to { opacity: 0.95; transform: translateX(-50%) scaleY(1.25) skewX(2deg); }
+    }
+
+    @keyframes cellFloat {
+      0%, 100% { transform: translateY(0) rotateX(0deg); }
+      50% { transform: translateY(-4px) rotateX(8deg); }
+    }
+
+    @keyframes targetFadeIn {
+      from { opacity: 0.28; }
+      to { opacity: 1; }
+    }
+
+    @keyframes targetExplode {
+      0% { opacity: 1; filter: brightness(1); transform: translate(0, 0); }
+      28% { opacity: 1; filter: brightness(2.2); transform: translate(2px, -2px); }
+      52% { opacity: 0.5; filter: brightness(2.7); transform: translate(-2px, 2px); }
+      100% { opacity: 0.18; filter: brightness(1.6); transform: translate(0, 0); }
+    }
+
+    @keyframes requiredCellExplode {
+      0% { transform: translate(0, 0) scale(1); opacity: 1; filter: brightness(1); }
+      35% { transform: translate(0, 0) scale(1.16); opacity: 1; filter: brightness(2.8); }
+      100% {
+        transform: translate(var(--req-boom-x, 0), var(--req-boom-y, 0)) scale(0.2) rotate(var(--req-boom-r, 0deg));
+        opacity: 0;
+        filter: brightness(3);
+      }
+    }
+
+    @keyframes targetFlyRect {
+      0% { opacity: 1; transform: translate(0, 0) scale(1); filter: brightness(1); }
+      45% { opacity: 1; transform: translate(-12px, -14px) scale(1.03); filter: brightness(1.9); }
+      100% { opacity: 0.2; transform: translate(34px, -28px) scale(0.88); filter: brightness(2.3); }
+    }
+
+    /* === Answer modal === */
+    .answer-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 20000;
+      background: rgba(0, 0, 0, 0.78);
+      backdrop-filter: blur(8px);
+      place-items: center;
+    }
+    .answer-modal.show {
+      display: grid;
+      animation: gameOverFade 0.22s ease both;
+    }
+    .answer-modal-box {
+      width: min(480px, 90vw);
+      border: 1px solid rgba(57, 255, 136, 0.38);
+      background: rgba(3, 14, 10, 0.97);
+      box-shadow: 0 0 0 1px rgba(0,0,0,.6), 0 0 42px rgba(57, 255, 136, 0.14);
+      padding: 22px 24px 20px;
+      display: grid;
+      gap: 14px;
+    }
+    .answer-modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .answer-modal-title {
+      color: var(--cyan);
+      font: 800 11px/1 "Cascadia Code", Consolas, monospace;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      text-shadow: 0 0 12px rgba(93, 243, 255, 0.5);
+    }
+    .answer-modal-close {
+      min-height: auto;
+      padding: 4px 10px;
+      font-size: 14px;
+      border-color: rgba(120, 169, 149, 0.3);
+      background: none;
+      color: var(--muted);
+    }
+    .answer-modal-close:hover { color: var(--text); }
+    .answer-modal-context {
+      color: rgba(219, 255, 233, 0.42);
+      font: 13px/1.5 "Cascadia Code", Consolas, monospace;
+      white-space: pre;
+    }
+    .answer-modal-context:empty { display: none; }
+    .answer-modal-code {
+      margin: 0;
+      padding: 14px 16px;
+      border: 1px solid rgba(57, 255, 136, 0.22);
+      background: rgba(0, 0, 0, 0.48);
+      color: var(--green);
+      font: 700 15px/1.5 "Cascadia Code", Consolas, monospace;
+      text-shadow: 0 0 10px rgba(57, 255, 136, 0.7);
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .answer-modal-link {
+      display: inline-block;
+      padding: 10px 16px;
+      border: 1px solid rgba(93, 243, 255, 0.35);
+      background: rgba(93, 243, 255, 0.07);
+      color: var(--cyan);
+      font: 700 11px/1 "Cascadia Code", Consolas, monospace;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      text-decoration: none;
+      text-shadow: 0 0 10px rgba(93, 243, 255, 0.45);
+      transition: background 0.18s;
+    }
+    .answer-modal-link:hover { background: rgba(93, 243, 255, 0.14); }
+
+    .locked-label {
+      display: none;
+      text-align: center;
+      color: var(--red);
+      font: 900 13px/1 "Cascadia Code", Consolas, monospace;
+      letter-spacing: 0.18em;
+      text-shadow: 0 0 16px rgba(255, 73, 109, 0.9), 0 0 32px rgba(255, 73, 109, 0.42);
+      text-transform: uppercase;
+    }
+
+    .locked-label.show {
+      display: block;
+      animation: lockedBlink 0.72s step-end infinite;
+    }
+
+    .locked-label.missed {
+      color: rgba(255, 158, 0, 0.95);
+      text-shadow: 0 0 16px rgba(255, 158, 0, 0.9), 0 0 32px rgba(255, 158, 0, 0.42);
+    }
+
+    @keyframes lockedBlink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+
+    .target-split-view {
+      display: flex;
+      gap: 14px;
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    @keyframes hudScan {
+      0%   { top: 0; }
+      100% { top: calc(100% - 2px); }
+    }
+
+    @keyframes hudBlink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+
+    @media (max-width: 980px) {
+      body {
+        overflow-y: auto;
+      }
+
+      .app {
+        grid-template-columns: 1fr;
+      }
+
+      .left-void {
+        display: none;
+      }
+
+      .right-stack {
+        min-height: auto;
+        grid-template-rows: auto;
+      }
+
+      .output-zone {
+        align-self: auto;
+      }
+
+      .top-nav {
+        position: sticky;
+        top: 12px;
+        z-index: 4;
+        background: rgba(2, 4, 3, 0.72);
+        backdrop-filter: blur(12px);
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="matrixRain"></canvas>
+  <canvas id="fxCanvas"></canvas>
+  <div class="ship-fleet" aria-hidden="true">
+    <div class="sim-ship">
+      <img src="image_64e15e12_ship.png" alt="">
+    </div>
+    <div class="sim-ship">
+      <img src="image_64e15e12_ship.png" alt="">
+    </div>
+    <div class="sim-ship">
+      <img src="image_64e15e12_ship.png" alt="">
+    </div>
+  </div>
+  <div class="start-overlay" id="startOverlay">
+    <div class="start-card">
+      <div class="start-title">NumPy Simulator</div>
+
+      <div class="cfg-row">
+        <label class="cfg-label" for="cfgName">Pilot name</label>
+        <input class="cfg-input" id="cfgName" type="text" maxlength="32" placeholder="anonymous" autocomplete="off" spellcheck="false"/>
+      </div>
+
+      <div class="cfg-row">
+        <div class="cfg-label">Time per question — <strong id="cfgTimeVal">60s</strong></div>
+        <div class="cfg-slider-wrap">
+          <span class="cfg-val">10s</span>
+          <input class="cfg-slider" id="cfgTime" type="range" min="10" max="60" step="5" value="60"/>
+          <span class="cfg-val">60s</span>
+        </div>
+      </div>
+
+      <div class="cfg-row">
+        <div class="cfg-label">Lives — <strong id="cfgLivesVal">3</strong></div>
+        <div class="cfg-slider-wrap">
+          <span class="cfg-val">1</span>
+          <input class="cfg-slider" id="cfgLives" type="range" min="1" max="5" step="1" value="3"/>
+          <span class="cfg-val">5</span>
+        </div>
+        <div class="lives-ships" id="livesShipsPreview"></div>
+      </div>
+
+      <div class="cfg-row">
+        <div class="cfg-label">Questions — <strong id="cfgQVal">all</strong></div>
+        <div class="cfg-slider-wrap">
+          <span class="cfg-val">10</span>
+          <input class="cfg-slider" id="cfgQ" type="range" min="10" max="64" step="1" value="10"/>
+          <span class="cfg-val" id="cfgQMax">64</span>
+        </div>
+      </div>
+
+      <button id="startBtn" type="button">▶ Start Simulator</button>
+    </div>
+  </div>
+
+  <div class="congrats-overlay" id="congratsOverlay" aria-hidden="true">
+    <div class="congrats-box">
+      <div class="congrats-title">Mission<br>Complete</div>
+      <div class="congrats-stats">
+        <div class="pilot" id="congratsPilot"></div>
+        <div class="stat">Correct answers: <strong id="congratsCorrect">0</strong></div>
+        <div class="stat">Lives: <strong id="congratsLivesLeft">0</strong> / <strong id="congratsLivesMax">0</strong> remaining</div>
+        <div class="stat">Time per question: <strong id="congratsTime">0s</strong></div>
+        <div class="stat">Questions: <strong id="congratsQ">0</strong></div>
+      </div>
+      <div class="congrats-sub">Click or press Enter to play again</div>
+    </div>
+  </div>
+  <div class="game-over-overlay" id="gameOverOverlay" aria-hidden="true">
+    <div class="game-over-message">
+      Game Over
+      <div class="game-over-stats">
+        <div id="goName" style="font-size:clamp(13px,2vw,18px);color:var(--cyan);margin-bottom:4px"></div>
+        <div>Correct <strong id="gameOverCorrect">0</strong></div>
+        <div>Missed <strong id="gameOverMissed">0</strong></div>
+        <div id="goLives" style="font-size:clamp(11px,1.6vw,15px);color:var(--muted);margin-top:4px"></div>
+        <div id="goTime" style="font-size:clamp(11px,1.6vw,15px);color:var(--muted)"></div>
+      </div>
+      <span>Press Enter or click to restart</span>
+    </div>
+  </div>
+
+  <main class="app">
+    <h1 class="sr-only">NumPy Matrix Simulator</h1>
+
+    <div class="left-void" aria-hidden="true">
+      <div class="left-number-rain">
+        <span style="left: 8%; --fall-speed: 7.8s; --fall-delay: -1.2s;">010101001101</span>
+        <span style="left: 18%; --fall-speed: 6.4s; --fall-delay: -3.1s;">np.array0010</span>
+        <span style="left: 31%; --fall-speed: 8.2s; --fall-delay: -2.4s;">42 7 4 8 5</span>
+        <span style="left: 44%; --fall-speed: 5.9s; --fall-delay: -4.5s;">0011010110</span>
+        <span style="left: 58%; --fall-speed: 7.1s; --fall-delay: -0.8s;">shape(2,3)</span>
+        <span style="left: 71%; --fall-speed: 6.8s; --fall-delay: -2.9s;">101 np 010</span>
+        <span style="left: 84%; --fall-speed: 8.7s; --fall-delay: -5.2s;">0 1 0 1 0 1</span>
+      </div>
+    </div>
+
+    <section class="control-stack" aria-label="Command console">
+      <nav class="top-nav" aria-label="Question navigation">
+        <span class="question-chip" id="questionChip">Question 1</span>
+      </nav>
+      <div class="progress-row">
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-fill" id="progressFill"></div>
+        </div>
+        <span class="progress-label" id="progressLabel">0%</span>
+      </div>
+
+      <div class="timer-panel" id="timerPanel" data-state="green" aria-label="Question timer">
+        <div class="timer-readout">
+          <span>Time</span>
+          <strong id="timerText">--</strong>
+        </div>
+        <div class="timer-bars" id="timerBars" aria-hidden="true"></div>
+      </div>
+
+      <section aria-label="Encrypted requirement">
+        <div class="mystery-copy">
+          <span class="label" id="requirementLabel">Encrypted requirement<button id="muteButton" type="button" title="Toggle sound">🔊</button></span>
+          <pre class="ghost-text" id="ghostText">2 rows x 4 columns
+all values are zeros</pre>
+        </div>
+      </section>
+
+      <section class="panel" aria-label="Python command panel">
+        <h2>Command Panel</h2>
+        <p class="prompt">Create the exact NumPy matrix. The simulator understands `np.zeros`, `np.ones`, `np.full`, and `np.array`.</p>
+
+        <div class="editor-wrap">
+          <pre class="locked-line" id="lockedLine"></pre>
+          <textarea id="codeInput" spellcheck="false" autocomplete="off">np.zeros((2, 4))</textarea>
+          <div id="revealOverlay" aria-hidden="true"></div>
+        </div>
+
+        <div class="actions">
+          <div class="status" id="status">Awaiting execution...</div>
+          <div id="actionsNormal">
+            <button id="dontKnowButton" type="button">Don't Know</button>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
+              <button id="runButton" type="button">Run</button>
+              <span style="font-size:10px;color:rgba(255,255,255,0.55);letter-spacing:.04em">Ctrl + Enter</span>
+            </div>
+          </div>
+          <div id="actionsReveal" style="display:none">
+            <button id="openTopicButton" type="button">Open Topic</button>
+            <button id="nextRevealButton" type="button">Next →</button>
+          </div>
+        </div>
+
+        <div class="cheats">
+          Tip: create the array described by the encrypted requirement.
+        </div>
+      </section>
+    </section>
+
+    <section class="right-stack" aria-label="Matrix displays">
+      <div class="target-card" id="targetCard">
+        <div class="card-label">
+          <span>Required pattern</span>
+          <span class="pulse-dot" aria-hidden="true"></span>
+        </div>
+        <div class="matrix-grid" id="targetGrid" style="--cols: 4"></div>
+        <div class="source-matrix" id="sourceMatrix">
+          <div class="card-label">
+            <span id="sourceMatrixLabel">Array</span>
+          </div>
+          <div class="matrix-grid" id="sourceMatrixGrid" style="--cols: 3"></div>
+        </div>
+      </div>
+
+      <section class="output-zone" aria-label="Generated result">
+        <div class="stage-result" id="stageResult">
+          <div class="card-label">
+            <span>Stage 1 Result</span>
+          </div>
+          <div class="matrix-grid" id="stageResultGrid" style="--cols: 6"></div>
+        </div>
+
+        <div class="locked-label" id="lockedLabel" aria-live="polite"></div>
+
+        <div class="created-shell" id="createdShell">
+          <div class="hud-corner hud-tl" aria-hidden="true"></div>
+          <div class="hud-corner hud-tr" aria-hidden="true"></div>
+          <div class="hud-corner hud-bl" aria-hidden="true"></div>
+          <div class="hud-corner hud-br" aria-hidden="true"></div>
+          <div class="hud-bar hud-bar-top" aria-hidden="true">
+            <span>SYS:NOMINAL</span>
+            <span>MATRIX DATA</span>
+            <span class="hud-blink">◈ ARMED</span>
+          </div>
+          <div class="hud-bar hud-bar-bot" aria-hidden="true">
+            <span>ALT:0000</span>
+            <span id="hudShape">SHAPE:--</span>
+            <span>MODE:EXEC</span>
+          </div>
+          <div class="hud-side-marks hud-side-l" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span>
+          </div>
+          <div class="hud-side-marks hud-side-r" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span>
+          </div>
+          <div class="hud-target" aria-hidden="true"></div>
+          <div class="empty-state" id="emptyState">AWAITING<br>&#9654; TARGET LOCK</div>
+          <div class="created-inner matrix-grid" id="createdInner"></div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <div class="answer-modal" id="answerModal" aria-hidden="true">
+    <div class="answer-modal-box">
+      <div class="answer-modal-header">
+        <span class="answer-modal-title">Correct Answer</span>
+        <button class="answer-modal-close" id="answerModalClose" aria-label="Close">✕</button>
+      </div>
+      <div class="answer-modal-context" id="answerModalContext"></div>
+      <pre class="answer-modal-code" id="answerModalCode"></pre>
+      <a class="answer-modal-link" id="answerModalLink" target="_blank" href="#" style="display:none">Open lesson page →</a>
+    </div>
+  </div>
+
+  <script>
+    const questions = [
+      {
+        clue: "2 rows x 4 columns\nall values are zeros",
+        prompt: "Create the exact NumPy matrix. The simulator understands `np.zeros`, `np.ones`, `np.full`, `np.array`, and dimension changes",
+        starter: "np.zeros((2, 4))",
+        hint: "Tip: create a two-dimensional array with 2 rows and 4 columns, filled with zeros.",
+        target: [
+          [0, 0, 0, 0],
+          [0, 0, 0, 0]
+        ],
+        source: { url: "../02_numpy/04-placeholder.html#open-2", label: "np.zeros() — Placeholders & Creation" },
+        win: "Your created array matched the target: shape `(2, 4)`, every value `0`."
+      },
+      {
+        stages: [
+          {
+            clue: "stage 1 of 2\ncreate arr from numbers:\n10, 30, 40, 50, 90, 99",
+            prompt: "First create a NumPy array from the six numbers and store it in `arr`",
+            starter: "arr = np.array([10, 30, 40, 50, 90, 99])",
+            hint: "Tip: create a one-dimensional array from the six numbers and store it in `arr`.",
+            target: [
+              [10, 30, 40, 50, 90, 99]
+            ],
+            requiresVariable: "arr",
+            source: { url: "../02_numpy/04-placeholder.html#open-1", label: "np.array() — Placeholders & Creation" },
+            win: "Stage 1 complete: `arr` now stores the one-dimensional array."
+          },
+          {
+            clue: "stage 2 of 2\nreshape arr to 2 x 3",
+            prompt: "Now reshape arr to 2 rows and 3 columns",
+            starter: "arr.reshape(2, 3)",
+            lockedLine: "arr = np.array([10, 30, 40, 50, 90, 99])",
+            hint: "Tip: use .reshape() to change the stored array dimensions to 2 rows and 3 columns.",
+            target: [
+              [10, 30, 40],
+              [50, 90, 99]
+            ],
+            source: { url: "../02_numpy/09-resh-com.html#open-3", label: ".reshape() / .shape — Reshape & Combine" },
+            win: "Stage 2 complete: `arr` now has dimensions `(2, 3)`."
+          }
+        ]
+      },
+      {
+        clue: "create exactly this 1D array\n3, 14, 7, 21, 9",
+        prompt: "Create the exact one-dimensional array",
+        starter: "np.array([3, 14, 7, 21, 9])",
+        hint: "Tip: create a one-dimensional array containing the numbers in the same order.",
+        commandPattern: /^np\.array/i,
+        commandName: "np.array()",
+        target: [
+          [3, 14, 7, 21, 9]
+        ],
+        source: { url: "../02_numpy/04-placeholder.html#open-1", label: "np.array() — Placeholders & Creation" },
+        win: "Created the exact lesson array."
+      },
+      {
+        clue: "create this zeros matrix\n3 rows x 4 columns\nall values are 0",
+        prompt: "Create the exact zeros matrix",
+        starter: "np.zeros((3, 4))",
+        hint: "Tip: create a two-dimensional array with 3 rows and 4 columns, filled with zeros.",
+        commandPattern: /^np\.zeros/i,
+        commandName: "np.zeros()",
+        target: [
+          [0, 0, 0, 0],
+          [0, 0, 0, 0],
+          [0, 0, 0, 0]
+        ],
+        source: { url: "../02_numpy/04-placeholder.html#open-2", label: "np.zeros() — Placeholders & Creation" },
+        win: "Created the `(3, 4)` zeros matrix."
+      },
+      {
+        clue: "create this 2D matrix\n2 rows x 5 columns\nall values are ones",
+        prompt: "Create a matrix filled with ones",
+        starter: "np.ones((2, 5))",
+        hint: "Tip: create a two-dimensional array with 2 rows and 5 columns, filled with ones.",
+        commandPattern: /^np\.ones/i,
+        commandName: "np.ones()",
+        target: [
+          [1, 1, 1, 1, 1],
+          [1, 1, 1, 1, 1]
+        ],
+        source: { url: "../02_numpy/04-placeholder.html#open-3", label: "np.ones() — Placeholders & Creation" },
+        win: "Created a `(2, 5)` ones matrix."
+      },
+      {
+        clue: "create evenly spaced values\nstart 0, stop 30 (not included)\nstep 5",
+        prompt: "Create this 1D array with a fixed step size",
+        starter: "np.arange(0, 30, 5)",
+        hint: "Tip: create values from 0 up to, but not including, 30 with a step of 5.",
+        commandPattern: /^np\.arange/i,
+        commandName: "np.arange()",
+        target: [
+          [0, 5, 10, 15, 20, 25]
+        ],
+        source: { url: "../02_numpy/04-placeholder.html#open-4", label: "np.arange() — Placeholders & Creation" },
+        win: "Created the arange sequence."
+      },
+      {
+        clue: "create exactly 5 values\nfrom 0 to 1\ninclude both ends",
+        prompt: "Create 5 evenly spaced values from 0 to 1",
+        starter: "np.linspace(0, 1, 5)",
+        hint: "Tip: create exactly 5 evenly spaced values from 0 to 1, including both ends.",
+        commandPattern: /^np\.linspace/i,
+        commandName: "np.linspace()",
+        target: [
+          [0, 0.25, 0.5, 0.75, 1]
+        ],
+        source: { url: "../02_numpy/04-placeholder.html#open-5", label: "np.linspace() — Placeholders & Creation" },
+        win: "Created the linspace sequence."
+      },
+      {
+        clue: "create a constant matrix\n3 rows x 3 columns\nfill every cell with 9",
+        prompt: "Create a 3 by 3 matrix filled with the same value",
+        starter: "np.full((3, 3), 9)",
+        hint: "Tip: create a 3 by 3 array where every cell has the same value.",
+        commandPattern: /^np\.full/i,
+        commandName: "np.full()",
+        target: [
+          [9, 9, 9],
+          [9, 9, 9],
+          [9, 9, 9]
+        ],
+        source: { url: "../02_numpy/04-placeholder.html#open-6", label: "np.full() — Placeholders & Creation" },
+        win: "Created the constant-filled matrix."
+      },
+      {
+        clue: "create an identity matrix\n4 rows x 4 columns\nones on the diagonal",
+        prompt: "Create a 4 by 4 identity matrix",
+        starter: "np.eye(4)",
+        hint: "Tip: create a square matrix with ones on the diagonal and zeros elsewhere.",
+        commandPattern: /^np\.eye/i,
+        commandName: "np.eye()",
+        target: [
+          [1, 0, 0, 0],
+          [0, 1, 0, 0],
+          [0, 0, 1, 0],
+          [0, 0, 0, 1]
+        ],
+        source: { url: "../02_numpy/04-placeholder.html#open-7", label: "np.eye() — Placeholders & Creation" },
+        win: "Created the identity matrix."
+      },
+      {
+        stages: [
+          {
+            clue: "stage 1 of 2\nset the random seed to 42",
+            prompt: "First set the NumPy random seed so the next random float matrix is predictable",
+            starter: "np.random.seed(42)",
+            hint: "Tip: set the random generator to the requested seed value.",
+            commandPattern: /^np\.random\.seed/i,
+            commandName: "np.random.seed()",
+            source: { url: "../02_numpy/04-placeholder.html#open-8", label: "np.random.random() — Placeholders & Creation" },
+            target: [
+              ["seed", 42]
+            ],
+            check: "seed",
+            win: "Stage 1 complete: random seed is set."
+          },
+          {
+            clue: "stage 2 of 2\ncreate random floats\nshape: 3 x 3",
+            prompt: "Now create the random float matrix. Because the seed is fixed, the target is exact",
+            starter: "np.random.random((3, 3))",
+            lockedLine: "np.random.seed(42)",
+            hint: "Tip: create random floating-point values in a 3 by 3 shape.",
+            commandPattern: /^np\.random\.random/i,
+            commandName: "np.random.random()",
+            target: [
+              [0.37, 0.95, 0.73],
+              [0.6, 0.16, 0.16],
+              [0.06, 0.87, 0.6]
+            ],
+            source: { url: "../02_numpy/04-placeholder.html#open-8", label: "np.random.random() — Placeholders & Creation" },
+            win: "Created seeded random floats with the exact target values."
+          }
+        ]
+      },
+      {
+        stages: [
+          {
+            clue: "stage 1 of 2\nset the random seed to 42",
+            prompt: "First set the NumPy random seed so the next random matrix is predictable",
+            starter: "np.random.seed(42)",
+            hint: "Tip: set the random generator to the requested seed value.",
+            commandPattern: /^np\.random\.seed/i,
+            commandName: "np.random.seed()",
+            source: { url: "../02_numpy/04-placeholder.html#open-8", label: "np.random.random() — Placeholders & Creation" },
+            target: [
+              ["seed", 42]
+            ],
+            check: "seed",
+            win: "Stage 1 complete: random seed is set."
+          },
+          {
+            clue: "stage 2 of 2\ncreate random integers\nshape: 2 x 5\nrange [1, 10)",
+            prompt: "Now create the random integer matrix. Because the seed is fixed, the target is exact",
+            starter: "np.random.randint(1, 10, size=(2, 5))",
+            lockedLine: "np.random.seed(42)",
+            hint: "Tip: create random whole numbers with 2 rows and 5 columns in the requested range.",
+            commandPattern: /^np\.random\.randint/i,
+            commandName: "np.random.randint()",
+            target: [
+              [7, 4, 8, 5, 7],
+              [3, 7, 8, 5, 4]
+            ],
+            source: { url: "../02_numpy/04-placeholder.html#open-9", label: "np.random.randint() — Placeholders & Creation" },
+            win: "Created seeded random integers with the exact target values."
+          }
+        ]
+      },
+      {
+        clue: "allocate uninitialized memory\nshape: 4 x 3\nfastest allocation",
+        prompt: "Allocate a `(4, 3)` array without filling it first",
+        starter: "np.empty((4, 3))",
+        hint: "Tip: allocate an array with 4 rows and 3 columns without filling the values.",
+        commandPattern: /^np\.empty/i,
+        commandName: "np.empty()",
+        target: [
+          ["?", "?", "?"],
+          ["?", "?", "?"],
+          ["?", "?", "?"],
+          ["?", "?", "?"]
+        ],
+        check: "empty",
+        source: { url: "../02_numpy/04-placeholder.html#open-10", label: "np.empty() — Placeholders & Creation" },
+        win: "Allocated the empty array shape."
+      },
+      {
+        clue: "display the dimensions of array a",
+        prompt: "Write the command that displays the dimensions of array `a`",
+        starter: "a.shape",
+        lockedLine: "a = np.array([[1, 2, 3], [4, 5, 6]])",
+        hint: "Tip: display the property that stores the dimensions of the array.",
+        commandPattern: /^a\.shape$/i,
+        commandName: "a.shape",
+        target: [
+          ["(2, 3)"]
+        ],
+        sourceLabel: "array a",
+        sourceMatrix: [
+          [1, 2, 3],
+          [4, 5, 6]
+        ],
+        source: { url: "../02_numpy/05-arrays-prop-info.html#open-1", label: ".shape — Array Properties & Info" },
+        win: "Displayed the shape."
+      },
+      {
+        clue: "display the number of\ndimensions of array c",
+        prompt: "Write the command that displays the number of dimensions of array `c`",
+        starter: "c.ndim",
+        lockedLine: "c = np.ones((3, 4))",
+        hint: "Tip: display the property that stores how many dimensions the array has.",
+        commandPattern: /^c\.ndim$/i,
+        commandName: "c.ndim",
+        target: [
+          [2]
+        ],
+        sourceLabel: "array c",
+        sourceMatrix: [
+          [1, 1, 1, 1],
+          [1, 1, 1, 1],
+          [1, 1, 1, 1]
+        ],
+        source: { url: "../02_numpy/05-arrays-prop-info.html#open-3", label: ".ndim — Array Properties & Info" },
+        win: "Displayed the dimension count."
+      },
+      {
+        clue: "display total element count\nd has shape (3, 4)",
+        prompt: "Write the command that displays the total number of elements in `d`",
+        starter: "d.size",
+        lockedLine: "d = np.arange(12).reshape(3, 4)",
+        hint: "Tip: display the property that stores the total number of elements.",
+        commandPattern: /^d\.size$/i,
+        commandName: "d.size",
+        target: [
+          [12]
+        ],
+        sourceLabel: "array d",
+        sourceMatrix: [
+          [0, 1, 2, 3],
+          [4, 5, 6, 7],
+          [8, 9, 10, 11]
+        ],
+        source: { url: "../02_numpy/05-arrays-prop-info.html#open-4", label: ".size — Array Properties & Info" },
+        win: "Displayed the total element count."
+      },
+      {
+        clue: "display element type\ne stores floating point values",
+        prompt: "Write the command that displays the dtype of `e`",
+        starter: "e.dtype",
+        lockedLine: "e = np.array([1.0, 2.0, 3.0])",
+        hint: "Tip: display the property that stores the element data type.",
+        commandPattern: /^e\.dtype(?:\.name)?$/i,
+        commandName: "e.dtype",
+        target: [
+          ["float64"]
+        ],
+        source: { url: "../02_numpy/05-arrays-prop-info.html#open-5", label: ".dtype — Array Properties & Info" },
+        sourceLabel: "array e",
+        sourceMatrix: [
+          ["1.0", "2.0", "3.0"]
+        ],
+        win: "Displayed the dtype."
+      },
+      {
+        clue: "convert element type\nmy_ints stores integers\nshow my_ints as floats",
+        prompt: "Write the command that displays `my_ints` converted to floating point values",
+        starter: "my_ints.astype(float)",
+        lockedLine: "my_ints = np.array([1, 2, 3])",
+        hint: "Tip: display the integer array converted to floating-point values.",
+        commandPattern: /^my_ints\.astype\(\s*float\s*\)$/i,
+        commandName: "my_ints.astype(float)",
+        target: [
+          ["1.0", "2.0", "3.0"]
+        ],
+        source: { url: "../02_numpy/05-arrays-prop-info.html#open-6", label: ".astype() — Array Properties & Info" },
+        sourceLabel: "array my_ints",
+        sourceMatrix: [
+          [1, 2, 3]
+        ],
+        win: "Displayed the converted float array."
+      },
+      {
+        clue: "subtract arrays element by element",
+        prompt: "Subtract each matching value in the two arrays",
+        starter: "a - b",
+        lockedLine: "a = np.array([10, 20, 30])\nb = np.array([1, 2, 3])",
+        hint: "Tip: combine the two arrays with element-wise subtraction.",
+        commandPattern: /^(?:np\.subtract\(\s*a\s*,\s*b\s*\)|a\s*-\s*b)$/i,
+        commandName: "np.subtract() or a - b",
+        target: [
+          [9, 18, 27]
+        ],
+        source: { url: "../02_numpy/06-arith-opt.html#open-1", label: "np.subtract() — Arithmetic Operations" },
+        sourceMatrices: [
+          { label: "array a", matrix: [[10, 20, 30]] },
+          { label: "array b", matrix: [[1, 2, 3]] }
+        ],
+        win: "Displayed the element-wise subtraction result."
+      },
+      {
+        clue: "add arrays element by element",
+        prompt: "Add each matching value in the two arrays",
+        starter: "a + b",
+        lockedLine: "a = np.array([1, 2, 3])\nb = np.array([4, 5, 6])",
+        hint: "Tip: combine the two arrays with element-wise addition.",
+        commandPattern: /^(?:np\.add\(\s*a\s*,\s*b\s*\)|a\s*\+\s*b)$/i,
+        commandName: "np.add() or a + b",
+        target: [
+          [5, 7, 9]
+        ],
+        source: { url: "../02_numpy/06-arith-opt.html#open-2", label: "np.add() — Arithmetic Operations" },
+        sourceMatrices: [
+          { label: "array a", matrix: [[1, 2, 3]] },
+          { label: "array b", matrix: [[4, 5, 6]] }
+        ],
+        win: "Displayed the element-wise addition result."
+      },
+      {
+        clue: "divide arrays element by element",
+        prompt: "Divide each matching value in the first array by the second array",
+        starter: "a / b",
+        lockedLine: "a = np.array([10.0, 20.0, 30.0])\nb = np.array([2.0, 4.0, 5.0])",
+        hint: "Tip: combine the two arrays with element-wise division.",
+        commandPattern: /^(?:np\.divide\(\s*a\s*,\s*b\s*\)|a\s*\/\s*b)$/i,
+        commandName: "np.divide() or a / b",
+        target: [
+          [5, 5, 6]
+        ],
+        source: { url: "../02_numpy/06-arith-opt.html#open-3", label: "np.divide() — Arithmetic Operations" },
+        sourceMatrices: [
+          { label: "array a", matrix: [["10.0", "20.0", "30.0"]] },
+          { label: "array b", matrix: [["2.0", "4.0", "5.0"]] }
+        ],
+        win: "Displayed the element-wise division result."
+      },
+      {
+        clue: "multiply arrays element by element",
+        prompt: "Multiply each matching value in the two arrays",
+        starter: "a * b",
+        lockedLine: "a = np.array([2, 3, 4])\nb = np.array([10, 10, 10])",
+        hint: "Tip: combine the two arrays with element-wise multiplication.",
+        commandPattern: /^(?:np\.multiply\(\s*a\s*,\s*b\s*\)|a\s*\*\s*b)$/i,
+        commandName: "np.multiply() or a * b",
+        target: [
+          [20, 30, 40]
+        ],
+        source: { url: "../02_numpy/06-arith-opt.html#open-4", label: "np.multiply() — Arithmetic Operations" },
+        sourceMatrices: [
+          { label: "array a", matrix: [[2, 3, 4]] },
+          { label: "array b", matrix: [[10, 10, 10]] }
+        ],
+        win: "Displayed the element-wise multiplication result."
+      },
+      {
+        clue: "square root each value",
+        prompt: "Create the square root value for each element in the array",
+        starter: "np.sqrt(a)",
+        lockedLine: "a = np.array([0, 1, 4, 9, 16])",
+        hint: "Tip: apply the square-root operation to the whole array.",
+        commandPattern: /^np\.sqrt\(\s*a\s*\)$/i,
+        commandName: "np.sqrt()",
+        target: [
+          [0, 1, 2, 3, 4]
+        ],
+        source: { url: "../02_numpy/06-arith-opt.html#open-6", label: "np.sqrt() — Arithmetic Operations" },
+        sourceLabel: "array a",
+        sourceMatrix: [
+          [0, 1, 4, 9, 16]
+        ],
+        win: "Displayed the square root result."
+      },
+      {
+        clue: "log base 2 each value",
+        prompt: "Create the base-2 logarithm value for each element in the array",
+        starter: "np.log2(a)",
+        lockedLine: "a = np.array([1, 2, 4, 8])",
+        hint: "Tip: apply the base-2 log operation to the whole array.",
+        commandPattern: /^np\.log2\(\s*a\s*\)$/i,
+        commandName: "np.log2()",
+        target: [
+          [0, 1, 2, 3]
+        ],
+        source: { url: "../02_numpy/06-arith-opt.html#open-8", label: "np.log() — Arithmetic Operations" },
+        sourceLabel: "array a",
+        sourceMatrix: [
+          [1, 2, 4, 8]
+        ],
+        win: "Displayed the log base 2 result."
+      },
+      {
+        clue: "log base 10 each value",
+        prompt: "Create the base-10 logarithm value for each element in the array",
+        starter: "np.log10(a)",
+        lockedLine: "a = np.array([1, 10, 100, 1000])",
+        hint: "Tip: apply the base-10 log operation to the whole array.",
+        commandPattern: /^np\.log10\(\s*a\s*\)$/i,
+        commandName: "np.log10()",
+        target: [
+          [0, 1, 2, 3]
+        ],
+        source: { url: "../02_numpy/06-arith-opt.html#open-8", label: "np.log() — Arithmetic Operations" },
+        sourceLabel: "array a",
+        sourceMatrix: [
+          [1, 10, 100, 1000]
+        ],
+        win: "Displayed the log base 10 result."
+      },
+      {
+        clue: "matrix dot product",
+        prompt: "Create the matrix product of `A` and `B`",
+        starter: "A @ B",
+        lockedLine: "A = np.array([[1, 2], [3, 4]])\nB = np.array([[1, 0], [0, 1]])",
+        hint: "Tip: combine the two matrices with matrix multiplication.",
+        commandPattern: /^(?:A\.dot\(\s*B\s*\)|A\s*@\s*B)$/i,
+        commandName: "A.dot(B) or A @ B",
+        target: [
+          [1, 2],
+          [3, 4]
+        ],
+        source: { url: "../02_numpy/06-arith-opt.html#open-9", label: ".dot() — Arithmetic Operations" },
+        sourceMatrices: [
+          { label: "matrix A", matrix: [[1, 2], [3, 4]] },
+          { label: "matrix B", matrix: [[1, 0], [0, 1]] }
+        ],
+        win: "Displayed the dot product result."
+      },
+      {
+        clue: "compare arrays for equality",
+        prompt: "Create a True/False array showing which matching values are equal",
+        starter: "a == b",
+        lockedLine: "a = np.array([1, 2, 3])\nb = np.array([1, 5, 3])",
+        hint: "Tip: compare the two arrays element by element.",
+        commandPattern: /^(?:a\s*==\s*b|np\.equal\(\s*a\s*,\s*b\s*\))$/i,
+        commandName: "a == b or np.equal(a, b)",
+        target: [
+          ["True", "False", "True"]
+        ],
+        source: { url: "../02_numpy/07-comp-stat-agg.html#open-1", label: "a == b — Comparison & Statistics" },
+        sourceMatrices: [
+          { label: "array a", matrix: [[1, 2, 3]] },
+          { label: "array b", matrix: [[1, 5, 3]] }
+        ],
+        win: "Displayed the equality mask."
+      },
+      {
+        clue: "check if each value is greater than 3",
+        prompt: "Create a True/False array showing which values are greater than 3",
+        starter: "a > 3",
+        lockedLine: "a = np.array([1, 5, 3, 8, 2])",
+        hint: "Tip: compare the whole array against the threshold value.",
+        commandPattern: /^a\s*>\s*3$/i,
+        commandName: "a > 3",
+        target: [
+          ["False", "True", "False", "True", "False"]
+        ],
+        source: { url: "../02_numpy/07-comp-stat-agg.html#open-2", label: "a > 2 — Comparison & Statistics" },
+        sourceLabel: "array a",
+        sourceMatrix: [
+          [1, 5, 3, 8, 2]
+        ],
+        win: "Displayed the threshold mask."
+      },
+      {
+        clue: "check whether two arrays are identical",
+        prompt: "Create one boolean result showing whether both arrays match exactly",
+        starter: "np.array_equal(a, b)",
+        lockedLine: "a = np.array([1, 2, 3])\nb = np.array([1, 2, 3])",
+        hint: "Tip: compare both shape and values as one yes/no result.",
+        commandPattern: /^np\.array_equal\(\s*a\s*,\s*b\s*\)$/i,
+        commandName: "np.array_equal(a, b)",
+        target: [
+          ["True"]
+        ],
+        source: { url: "../02_numpy/07-comp-stat-agg.html#open-3", label: "np.array_equal() — Comparison & Statistics" },
+        sourceMatrices: [
+          { label: "array a", matrix: [[1, 2, 3]] },
+          { label: "array b", matrix: [[1, 2, 3]] }
+        ],
+        win: "Displayed the exact-match result."
+      },
+      {
+        clue: "sum matrix columns",
+        prompt: "Create the column totals for the matrix",
+        starter: "a.sum(axis=0)",
+        lockedLine: "a = np.array([[1, 2], [3, 4]])",
+        hint: "Tip: reduce the matrix down the rows so each column gets one total.",
+        commandPattern: /^(?:a\.sum\(\s*axis\s*=\s*0\s*\)|np\.sum\(\s*a\s*,\s*axis\s*=\s*0\s*\))$/i,
+        commandName: "a.sum(axis=0) or np.sum(a, axis=0)",
+        target: [
+          [4, 6]
+        ],
+        source: { url: "../02_numpy/07-comp-stat-agg.html#open-4", label: ".sum() — Comparison & Statistics" },
+        sourceLabel: "matrix a",
+        sourceMatrix: [
+          [1, 2],
+          [3, 4]
+        ],
+        win: "Displayed the column sums."
+      },
+      {
+        clue: "sum matrix rows",
+        prompt: "Create the row totals for the matrix",
+        starter: "a.sum(axis=1)",
+        lockedLine: "a = np.array([[1, 2], [3, 4]])",
+        hint: "Tip: reduce the matrix across the columns so each row gets one total.",
+        commandPattern: /^(?:a\.sum\(\s*axis\s*=\s*1\s*\)|np\.sum\(\s*a\s*,\s*axis\s*=\s*1\s*\))$/i,
+        commandName: "a.sum(axis=1) or np.sum(a, axis=1)",
+        target: [
+          [3, 7]
+        ],
+        source: { url: "../02_numpy/07-comp-stat-agg.html#open-4", label: ".sum() — Comparison & Statistics" },
+        sourceLabel: "matrix a",
+        sourceMatrix: [
+          [1, 2],
+          [3, 4]
+        ],
+        win: "Displayed the row sums."
+      },
+      {
+        clue: "display the smallest value",
+        prompt: "Create one value showing the smallest value in the array",
+        starter: "a.min()",
+        lockedLine: "a = np.array([3, 1, 7, 2, 9, 4])",
+        hint: "Tip: reduce the array to its minimum value.",
+        commandPattern: /^(?:a\.min\(\s*\)|np\.min\(\s*a\s*\))$/i,
+        commandName: "a.min() or np.min(a)",
+        target: [
+          [1]
+        ],
+        source: { url: "../02_numpy/07-comp-stat-agg.html#open-5", label: ".min() / .max() — Comparison & Statistics" },
+        sourceLabel: "array a",
+        sourceMatrix: [
+          [3, 1, 7, 2, 9, 4]
+        ],
+        win: "Displayed the smallest value."
+      },
+      {
+        clue: "display the largest value",
+        prompt: "Create one value showing the largest value in the array",
+        starter: "a.max()",
+        lockedLine: "a = np.array([3, 1, 7, 2, 9, 4])",
+        hint: "Tip: reduce the array to its maximum value.",
+        commandPattern: /^(?:a\.max\(\s*\)|np\.max\(\s*a\s*\))$/i,
+        commandName: "a.max() or np.max(a)",
+        target: [
+          [9]
+        ],
+        source: { url: "../02_numpy/07-comp-stat-agg.html#open-5", label: ".min() / .max() — Comparison & Statistics" },
+        sourceLabel: "array a",
+        sourceMatrix: [
+          [3, 1, 7, 2, 9, 4]
+        ],
+        win: "Displayed the largest value."
+      },
+      {
+        clue: "display the position of the min value",
+        prompt: "Create one value showing the index of the smallest value",
+        starter: "a.argmin()",
+        lockedLine: "a = np.array([3, 1, 7, 2, 9, 4])",
+        hint: "Tip: find the position where the minimum value appears.",
+        commandPattern: /^(?:a\.argmin\(\s*\)|np\.argmin\(\s*a\s*\))$/i,
+        commandName: "a.argmin() or np.argmin(a)",
+        target: [
+          [1]
+        ],
+        source: { url: "../02_numpy/07-comp-stat-agg.html#open-6", label: ".argmin() / .argmax() — Comparison & Statistics" },
+        sourceLabel: "array a",
+        sourceMatrix: [
+          [3, 1, 7, 2, 9, 4]
+        ],
+        win: "Displayed the min index."
+      },
+      {
+        clue: "display the position of the max value",
+        prompt: "Create one value showing the index of the largest value",
+        starter: "a.argmax()",
+        lockedLine: "a = np.array([3, 1, 7, 2, 9, 4])",
+        hint: "Tip: find the position where the maximum value appears.",
+        commandPattern: /^(?:a\.argmax\(\s*\)|np\.argmax\(\s*a\s*\))$/i,
+        commandName: "a.argmax() or np.argmax(a)",
+        target: [
+          [4]
+        ],
+        source: { url: "../02_numpy/07-comp-stat-agg.html#open-6", label: ".argmin() / .argmax() — Comparison & Statistics" },
+        sourceLabel: "array a",
+        sourceMatrix: [
+          [3, 1, 7, 2, 9, 4]
+        ],
+        win: "Displayed the max index."
+      },
+      {
+        clue: "create cumulative sums",
+        prompt: "Create the running total after each value",
+        starter: "a.cumsum()",
+        lockedLine: "a = np.array([1, 2, 3, 4])",
+        hint: "Tip: accumulate values from left to right.",
+        commandPattern: /^(?:a\.cumsum\(\s*\)|np\.cumsum\(\s*a\s*\))$/i,
+        commandName: "a.cumsum() or np.cumsum(a)",
+        target: [
+          [1, 3, 6, 10]
+        ],
+        source: { url: "../02_numpy/07-comp-stat-agg.html#open-7", label: ".cumsum() — Comparison & Statistics" },
+        sourceLabel: "array a",
+        sourceMatrix: [
+          [1, 2, 3, 4]
+        ],
+        win: "Displayed the cumulative sums."
+      },
+      {
+        clue: "display the average value",
+        prompt: "Create one value showing the average of the array",
+        starter: "a.mean()",
+        lockedLine: "a = np.arange(1, 6)",
+        hint: "Tip: calculate the average across all values.",
+        commandPattern: /^(?:a\.mean\(\s*\)|np\.mean\(\s*a\s*\))$/i,
+        commandName: "a.mean() or np.mean(a)",
+        target: [
+          [3]
+        ],
+        source: { url: "../02_numpy/07-comp-stat-agg.html#open-8", label: ".mean() — Comparison & Statistics" },
+        sourceLabel: "array a",
+        sourceMatrix: [
+          [1, 2, 3, 4, 5]
+        ],
+        win: "Displayed the mean."
+      },
+      {
+        clue: "display the median value",
+        prompt: "Create one value showing the middle value of the array",
+        starter: "np.median(a)",
+        lockedLine: "a = np.array([1, 3, 2, 5, 4])",
+        hint: "Tip: calculate the middle value after sorting.",
+        commandPattern: /^np\.median\(\s*a\s*\)$/i,
+        commandName: "np.median(a)",
+        target: [
+          [3]
+        ],
+        source: { url: "../02_numpy/07-comp-stat-agg.html#open-9", label: "np.median() — Comparison & Statistics" },
+        sourceLabel: "array a",
+        sourceMatrix: [
+          [1, 3, 2, 5, 4]
+        ],
+        win: "Displayed the median."
+      },
+      {
+        clue: "display the correlation value",
+        prompt: "Create one value showing the off-diagonal correlation between `x` and `y`",
+        starter: "np.corrcoef(x, y)[0, 1]",
+        lockedLine: "x = np.array([1, 2, 3])\ny = np.array([2, 4, 6])",
+        hint: "Tip: calculate the correlation matrix and take the relationship value between the arrays.",
+        commandPattern: /^np\.corrcoef\(\s*x\s*,\s*y\s*\)\s*\[\s*0\s*,\s*1\s*\]$/i,
+        commandName: "np.corrcoef(x, y)[0, 1]",
+        target: [
+          [1]
+        ],
+        source: { url: "../02_numpy/07-comp-stat-agg.html#open-10", label: "np.corrcoef() — Comparison & Statistics" },
+        sourceMatrices: [
+          { label: "array x", matrix: [[1, 2, 3]] },
+          { label: "array y", matrix: [[2, 4, 6]] }
+        ],
+        win: "Displayed the correlation value."
+      },
+      {
+        clue: "display standard deviation",
+        prompt: "Create one value showing how spread out the array is",
+        starter: "np.std(a)",
+        lockedLine: "a = np.array([2, 4, 4, 4, 5, 5, 7, 9])",
+        hint: "Tip: calculate the population standard deviation.",
+        commandPattern: /^(?:np\.std\(\s*a\s*\)|a\.std\(\s*\))$/i,
+        commandName: "np.std(a) or a.std()",
+        target: [
+          [2]
+        ],
+        source: { url: "../02_numpy/07-comp-stat-agg.html#open-11", label: "np.std() — Comparison & Statistics" },
+        sourceLabel: "array a",
+        sourceMatrix: [
+          [2, 4, 4, 4, 5, 5, 7, 9]
+        ],
+        win: "Displayed the standard deviation."
+      },
+      {
+        clue: "display variance",
+        prompt: "Create one value showing the variance of the array",
+        starter: "np.var(a)",
+        lockedLine: "a = np.array([2, 4, 4, 4, 5, 5, 7, 9])",
+        hint: "Tip: calculate the population variance.",
+        commandPattern: /^(?:np\.var\(\s*a\s*\)|a\.var\(\s*\))$/i,
+        commandName: "np.var(a) or a.var()",
+        target: [
+          [4]
+        ],
+        source: { url: "../02_numpy/07-comp-stat-agg.html#open-12", label: "np.var() — Comparison & Statistics" },
+        sourceLabel: "array a",
+        sourceMatrix: [
+          [2, 4, 4, 4, 5, 5, 7, 9]
+        ],
+        win: "Displayed the variance."
+      },
+      {
+        clue: "join the two arrays horizontally\nb after a",
+        prompt: "Create one array by joining `a` followed by `b`",
+        starter: "np.concatenate((a, b))",
+        lockedLine: "a = np.array([1, 2])\nb = np.array([3, 4])",
+        hint: "Tip: combine the arrays end to end.",
+        commandPattern: /^(?:np\.concatenate\(\s*\(\s*a\s*,\s*b\s*\)\s*\)|np\.hstack\(\s*\(\s*a\s*,\s*b\s*\)\s*\))$/i,
+        commandName: "np.concatenate((a, b)) or np.hstack((a, b))",
+        target: [
+          [1, 2, 3, 4]
+        ],
+        source: { url: "../02_numpy/07-comp-stat-agg.html#open-13", label: "np.concatenate() — Comparison & Statistics" },
+        sourceMatrices: [
+          { label: "array a", matrix: [[1, 2]] },
+          { label: "array b", matrix: [[3, 4]] }
+        ],
+        win: "Displayed the concatenated array."
+      },
+      {
+        clue: "stack matrices as rows",
+        prompt: "Create one matrix by placing `m2` below `m1`",
+        starter: "np.concatenate((m1, m2), axis=0)",
+        lockedLine: "m1 = np.array([[1, 2], [3, 4]])\nm2 = np.array([[5, 6], [7, 8]])",
+        hint: "Tip: join along rows so the result becomes taller.",
+        commandPattern: /^(?:np\.concatenate\(\s*\(\s*m1\s*,\s*m2\s*\)\s*,\s*axis\s*=\s*0\s*\)|np\.vstack\(\s*\(\s*m1\s*,\s*m2\s*\)\s*\))$/i,
+        commandName: "np.concatenate((m1, m2), axis=0) or np.vstack((m1, m2))",
+        target: [
+          [1, 2],
+          [3, 4],
+          [5, 6],
+          [7, 8]
+        ],
+        source: { url: "../02_numpy/07-comp-stat-agg.html#open-13", label: "np.concatenate() — Comparison & Statistics" },
+        sourceMatrices: [
+          { label: "matrix m1", matrix: [[1, 2], [3, 4]] },
+          { label: "matrix m2", matrix: [[5, 6], [7, 8]] }
+        ],
+        win: "Displayed the row-stacked matrix."
+      },
+      {
+        clue: "append matrices as columns",
+        prompt: "Create one matrix by placing `m2` to the right of `m1`",
+        starter: "np.concatenate((m1, m2), axis=1)",
+        lockedLine: "m1 = np.array([[1, 2], [3, 4]])\nm2 = np.array([[5, 6], [7, 8]])",
+        hint: "Tip: join along columns so the result becomes wider.",
+        commandPattern: /^(?:np\.concatenate\(\s*\(\s*m1\s*,\s*m2\s*\)\s*,\s*axis\s*=\s*1\s*\)|np\.hstack\(\s*\(\s*m1\s*,\s*m2\s*\)\s*\))$/i,
+        commandName: "np.concatenate((m1, m2), axis=1) or np.hstack((m1, m2))",
+        source: { url: "../02_numpy/07-comp-stat-agg.html#open-13", label: "np.concatenate() — Comparison & Statistics" },
+        target: [
+          [1, 2, 5, 6],
+          [3, 4, 7, 8]
+        ],
+        sourceMatrices: [
+          { label: "matrix m1", matrix: [[1, 2], [3, 4]] },
+          { label: "matrix m2", matrix: [[5, 6], [7, 8]] }
+        ],
+        win: "Displayed the column-appended matrix."
+      },
+      {
+        clue: "copy the array",
+        prompt: "Create an independent copy of array `a`",
+        starter: "np.copy(a)",
+        lockedLine: "a = np.array([1, 2, 3])",
+        hint: "Tip: duplicate the array into new memory.",
+        commandPattern: /^(?:np\.copy\(\s*a\s*\)|a\.copy\(\s*\))$/i,
+        commandName: "np.copy(a) or a.copy()",
+        target: [
+          [1, 2, 3]
+        ],
+        source: { url: "../02_numpy/08-copy-sort-access.html#open-2", label: "np.copy() — Copy, Sort & Access" },
+        sourceLabel: "array a",
+        sourceMatrix: [
+          [1, 2, 3]
+        ],
+        win: "Displayed the copied array."
+      },
+      {
+        clue: "sort the array ascending",
+        prompt: "Create the array values in ascending order",
+        starter: "np.sort(a)",
+        lockedLine: "a = np.array([3, 1, 4, 1, 5, 9])",
+        hint: "Tip: arrange the values from smallest to largest.",
+        commandPattern: /^(?:np\.sort\(\s*a\s*\)|a\.sort\(\s*\))$/i,
+        commandName: "np.sort(a) or a.sort()",
+        target: [
+          [1, 1, 3, 4, 5, 9]
+        ],
+        source: { url: "../02_numpy/08-copy-sort-access.html#open-3", label: ".sort() — Copy, Sort & Access" },
+        sourceLabel: "array a",
+        sourceMatrix: [
+          [3, 1, 4, 1, 5, 9]
+        ],
+        win: "Displayed the sorted array."
+      },
+      {
+        clue: "sort matrix columns ascending",
+        prompt: "Create the matrix after sorting each column independently",
+        starter: "np.sort(b, axis=0)",
+        lockedLine: "b = np.array([[3, 1], [4, 2]])",
+        hint: "Tip: sort down each column, not across rows.",
+        commandPattern: /^(?:np\.sort\(\s*b\s*,\s*axis\s*=\s*0\s*\)|b\.sort\(\s*axis\s*=\s*0\s*\))$/i,
+        commandName: "np.sort(b, axis=0) or b.sort(axis=0)",
+        target: [
+          [3, 1],
+          [4, 2]
+        ],
+        source: { url: "../02_numpy/08-copy-sort-access.html#open-4", label: ".sort(axis=0) — Copy, Sort & Access" },
+        sourceLabel: "matrix b",
+        sourceMatrix: [
+          [3, 1],
+          [4, 2]
+        ],
+        win: "Displayed the column-sorted matrix."
+      },
+      {
+        clue: "sort matrix rows ascending",
+        prompt: "Create the matrix after sorting each row independently",
+        starter: "np.sort(b, axis=1)",
+        lockedLine: "b = np.array([[3, 1, 2], [9, 5, 7]])",
+        hint: "Tip: sort across each row, not down columns.",
+        commandPattern: /^(?:np\.sort\(\s*b\s*,\s*axis\s*=\s*1\s*\)|b\.sort\(\s*axis\s*=\s*1\s*\))$/i,
+        commandName: "np.sort(b, axis=1) or b.sort(axis=1)",
+        target: [
+          [1, 2, 3],
+          [5, 7, 9]
+        ],
+        source: { url: "../02_numpy/08-copy-sort-access.html#open-4", label: ".sort(axis=1) — Copy, Sort & Access" },
+        sourceLabel: "matrix b",
+        sourceMatrix: [
+          [3, 1, 2],
+          [9, 5, 7]
+        ],
+        win: "Displayed the row-sorted matrix."
+      },
+      {
+        clue: "display value at index 2",
+        prompt: "Create one value by selecting index 2 from the array",
+        starter: "a[2]",
+        lockedLine: "a = np.array([10, 20, 30, 40, 50])",
+        hint: "Tip: use zero-based indexing to pick one element.",
+        commandPattern: /^a\[\s*2\s*\]$/i,
+        commandName: "a[2]",
+        target: [
+          [30]
+        ],
+        source: { url: "../02_numpy/08-copy-sort-access.html#open-5", label: "a[i] — Copy, Sort & Access" },
+        sourceLabel: "array a",
+        sourceMatrix: [
+          [10, 20, 30, 40, 50]
+        ],
+        win: "Displayed the indexed value."
+      },
+      {
+        clue: "assign 99 to elements at\nindexes 2 through 4 in-place",
+        prompt: "Fill indexes 2 up to (not including) 5 with the value 99",
+        starter: "a[2:5] = 99",
+        lockedLine: "a = np.arange(0, 8)",
+        hint: "Tip: a[s:e] = val fills positions s through e-1 in-place. End index is exclusive.",
+        commandPattern: /^a\[\s*2\s*:\s*5\s*\]\s*=\s*99$/i,
+        commandName: "a[2:5] = 99",
+        target: [
+          [0, 1, 99, 99, 99, 5, 6, 7]
+        ],
+        source: { url: "../02_numpy/08-copy-sort-access.html#open-6", label: "a[s:e] = val — Copy, Sort & Access" },
+        sourceLabel: "array a",
+        sourceMatrix: [
+          [0, 1, 2, 3, 4, 5, 6, 7]
+        ],
+        win: "Slice assignment overwrote positions 2, 3, 4 with 99 in-place — no copy created."
+      },
+      {
+        clue: "display row 1 column 2",
+        prompt: "Create one value by selecting row 1 and column 2 from the matrix",
+        starter: "b[1, 2]",
+        lockedLine: "b = np.array([[1, 2, 3], [4, 5, 6]])",
+        hint: "Tip: use row and column indexes separated by a comma.",
+        commandPattern: /^b\[\s*1\s*,\s*2\s*\]$/i,
+        commandName: "b[1, 2]",
+        target: [
+          [6]
+        ],
+        source: { url: "../02_numpy/08-copy-sort-access.html#open-7", label: "b[row, col] — Copy, Sort & Access" },
+        sourceLabel: "matrix b",
+        sourceMatrix: [
+          [1, 2, 3],
+          [4, 5, 6]
+        ],
+        win: "Displayed the 2D indexed value."
+      },
+      {
+        clue: "slice indexes 1 through 3",
+        prompt: "Create the slice that starts at index 1 and stops before index 4",
+        starter: "a[1:4]",
+        lockedLine: "a = np.array([10, 20, 30, 40, 50])",
+        hint: "Tip: the stop index is not included.",
+        commandPattern: /^a\[\s*1\s*:\s*4\s*\]$/i,
+        commandName: "a[1:4]",
+        target: [
+          [20, 30, 40]
+        ],
+        source: { url: "../02_numpy/08-copy-sort-access.html#open-8", label: "a[0:2] — Copy, Sort & Access" },
+        sourceLabel: "array a",
+        sourceMatrix: [
+          [10, 20, 30, 40, 50]
+        ],
+        win: "Displayed the 1D slice."
+      },
+      {
+        clue: "slice first two rows from column 1",
+        prompt: "Create the values from rows 0 and 1 in column 1",
+        starter: "b[0:2, 1]",
+        lockedLine: "b = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])",
+        hint: "Tip: combine a row slice with one fixed column.",
+        commandPattern: /^b\[\s*0\s*:\s*2\s*,\s*1\s*\]$/i,
+        commandName: "b[0:2, 1]",
+        target: [
+          [2, 5]
+        ],
+        source: { url: "../02_numpy/08-copy-sort-access.html#open-9", label: "b[0:2, 1] — Copy, Sort & Access" },
+        sourceLabel: "matrix b",
+        sourceMatrix: [
+          [1, 2, 3],
+          [4, 5, 6],
+          [7, 8, 9]
+        ],
+        win: "Displayed the 2D slice."
+      },
+      {
+        clue: "reverse the array",
+        prompt: "Create the array values in reverse order",
+        starter: "a[::-1]",
+        lockedLine: "a = np.array([1, 2, 3, 4, 5])",
+        hint: "Tip: use a slice step that walks backward.",
+        commandPattern: /^a\[\s*:\s*:\s*-1\s*\]$/i,
+        commandName: "a[::-1]",
+        target: [
+          [5, 4, 3, 2, 1]
+        ],
+        source: { url: "../02_numpy/08-copy-sort-access.html#open-10", label: "a[::-1] — Copy, Sort & Access" },
+        sourceLabel: "array a",
+        sourceMatrix: [
+          [1, 2, 3, 4, 5]
+        ],
+        win: "Displayed the reversed array."
+      },
+      {
+        clue: "filter values below 4",
+        prompt: "Create the array containing only values less than 4",
+        starter: "a[a < 4]",
+        lockedLine: "a = np.array([1, 5, 3, 8, 2])",
+        hint: "Tip: use a boolean condition inside the brackets.",
+        commandPattern: /^a\[\s*a\s*<\s*4\s*\]$/i,
+        commandName: "a[a < 4]",
+        target: [
+          [1, 3, 2]
+        ],
+        source: { url: "../02_numpy/08-copy-sort-access.html#open-11", label: "a[<condition>] — Copy, Sort & Access" },
+        sourceLabel: "array a",
+        sourceMatrix: [
+          [1, 5, 3, 8, 2]
+        ],
+        win: "Displayed the filtered array."
+      },
+      {
+        clue: "filter values below 2 or above 6",
+        prompt: "Create the array containing only values less than 2 OR greater than 6",
+        starter: "a[(a < 2) | (a > 6)]",
+        lockedLine: "a = np.array([1, 5, 3, 8, 2, 7])",
+        hint: "Tip: combine two conditions with | (bitwise OR). Wrap each condition in parentheses.",
+        commandPattern: /^a\[\s*\(\s*a\s*<\s*2\s*\)\s*\|\s*\(\s*a\s*>\s*6\s*\)\s*\]$/i,
+        commandName: "a[(a < 2) | (a > 6)]",
+        target: [
+          [1, 8, 7]
+        ],
+        source: { url: "../02_numpy/08-copy-sort-access.html#open-11", label: "a[<condition>] — Copy, Sort & Access" },
+        sourceLabel: "array a",
+        sourceMatrix: [
+          [1, 5, 3, 8, 2, 7]
+        ],
+        win: "OR filtering kept every element that matched either condition."
+      },
+      {
+        clue: "pick two matrix values by index lists",
+        prompt: "Create the values from row 0 column 1 and row 2 column 0",
+        starter: "b[[0, 2], [1, 0]]",
+        lockedLine: "b = np.array([[1, 2], [3, 4], [5, 6]])",
+        hint: "Tip: pair each row index with the matching column index.",
+        commandPattern: /^b\[\s*\[\s*0\s*,\s*2\s*\]\s*,\s*\[\s*1\s*,\s*0\s*\]\s*\]$/i,
+        commandName: "b[[0, 2], [1, 0]]",
+        target: [
+          [2, 5]
+        ],
+        source: { url: "../02_numpy/08-copy-sort-access.html#open-12", label: "b[[r],[c]] — Copy, Sort & Access" },
+        sourceLabel: "matrix b",
+        sourceMatrix: [
+          [1, 2],
+          [3, 4],
+          [5, 6]
+        ],
+        win: "Displayed the fancy-indexed values."
+      },
+      {
+        clue: "transpose the matrix",
+        prompt: "Create the matrix with rows and columns swapped",
+        starter: "a.T",
+        lockedLine: "a = np.array([[1, 2, 3], [4, 5, 6]])",
+        hint: "Tip: swap rows into columns.",
+        commandPattern: /^(?:a\.T|np\.transpose\(\s*a\s*\))$/i,
+        commandName: "a.T or np.transpose(a)",
+        target: [
+          [1, 4],
+          [2, 5],
+          [3, 6]
+        ],
+        source: { url: "../02_numpy/09-resh-com.html#open-1", label: ".T / transpose() — Reshape & Combine" },
+        sourceLabel: "matrix a",
+        sourceMatrix: [
+          [1, 2, 3],
+          [4, 5, 6]
+        ],
+        win: "Displayed the transposed matrix."
+      },
+      {
+        clue: "flatten the matrix to one row",
+        prompt: "Create a one-dimensional version of the matrix",
+        starter: "a.ravel()",
+        lockedLine: "a = np.array([[1, 2, 3], [4, 5, 6]])",
+        hint: "Tip: read the matrix left to right, top to bottom.",
+        commandPattern: /^(?:a\.ravel\(\s*\)|a\.flatten\(\s*\)|np\.ravel\(\s*a\s*\))$/i,
+        commandName: "a.ravel()",
+        target: [
+          [1, 2, 3, 4, 5, 6]
+        ],
+        source: { url: "../02_numpy/09-resh-com.html#open-2", label: ".ravel() — Reshape & Combine" },
+        sourceLabel: "matrix a",
+        sourceMatrix: [
+          [1, 2, 3],
+          [4, 5, 6]
+        ],
+        win: "Displayed the flattened matrix."
+      },
+      {
+        clue: "append values to the array",
+        prompt: "Create one array by adding 4 and 5 after the existing values",
+        starter: "np.append(a, [4, 5])",
+        lockedLine: "a = np.array([1, 2, 3])",
+        hint: "Tip: add the new values at the end of the array.",
+        commandPattern: /^np\.append\(\s*a\s*,\s*\[\s*4\s*,\s*5\s*\]\s*\)$/i,
+        commandName: "np.append(a, [4, 5])",
+        target: [
+          [1, 2, 3, 4, 5]
+        ],
+        source: { url: "../02_numpy/09-resh-com.html#open-5", label: "np.append() — Reshape & Combine" },
+        sourceLabel: "array a",
+        sourceMatrix: [
+          [1, 2, 3]
+        ],
+        win: "Displayed the appended array."
+      },
+      {
+        clue: "insert value 99 at index 2",
+        prompt: "Create one array by inserting 99 before index 2",
+        starter: "np.insert(a, 2, 99)",
+        lockedLine: "a = np.array([1, 2, 3, 4])",
+        hint: "Tip: insert the new value before the selected index.",
+        commandPattern: /^np\.insert\(\s*a\s*,\s*2\s*,\s*99\s*\)$/i,
+        commandName: "np.insert(a, 2, 99)",
+        target: [
+          [1, 2, 99, 3, 4]
+        ],
+        source: { url: "../02_numpy/09-resh-com.html#open-6", label: "np.insert() — Reshape & Combine" },
+        sourceLabel: "array a",
+        sourceMatrix: [
+          [1, 2, 3, 4]
+        ],
+        win: "Displayed the inserted array."
+      },
+      {
+        clue: "delete value at index 2",
+        prompt: "Create one array after removing the value at index 2",
+        starter: "np.delete(a, 2)",
+        lockedLine: "a = np.array([10, 20, 30, 40, 50])",
+        hint: "Tip: remove the element at the selected index.",
+        commandPattern: /^np\.delete\(\s*a\s*,\s*2\s*\)$/i,
+        commandName: "np.delete(a, 2)",
+        target: [
+          [10, 20, 40, 50]
+        ],
+        source: { url: "../02_numpy/09-resh-com.html#open-7", label: "np.delete() — Reshape & Combine" },
+        sourceLabel: "array a",
+        sourceMatrix: [
+          [10, 20, 30, 40, 50]
+        ],
+        win: "Displayed the array after deletion."
+      },
+      {
+        clue: "stack arrays as columns",
+        prompt: "Create a two-column matrix from arrays `a` and `b`",
+        starter: "np.column_stack((a, b))",
+        lockedLine: "a = np.array([1, 2, 3])\nb = np.array([4, 5, 6])",
+        hint: "Tip: turn each 1D array into a column.",
+        commandPattern: /^np\.column_stack\(\s*\(\s*a\s*,\s*b\s*\)\s*\)$/i,
+        commandName: "np.column_stack((a, b))",
+        target: [
+          [1, 4],
+          [2, 5],
+          [3, 6]
+        ],
+        source: { url: "../02_numpy/09-resh-com.html#open-11", label: "np.column_stack() — Reshape & Combine" },
+        sourceMatrices: [
+          { label: "array a", matrix: [[1, 2, 3]] },
+          { label: "array b", matrix: [[4, 5, 6]] }
+        ],
+        win: "Displayed the column-stacked matrix."
+      },
+      {
+        clue: "split the array into three parts",
+        prompt: "Create three equal parts from the array",
+        starter: "np.hsplit(a, 3)",
+        lockedLine: "a = np.array([1, 2, 3, 4, 5, 6])",
+        hint: "Tip: split the one-dimensional array into equal sections.",
+        commandPattern: /^np\.hsplit\(\s*a\s*,\s*3\s*\)$/i,
+        commandName: "np.hsplit(a, 3)",
+        target: [
+          ["[1, 2]", "[3, 4]", "[5, 6]"]
+        ],
+        source: { url: "../02_numpy/09-resh-com.html#open-12", label: "np.hsplit() — Reshape & Combine" },
+        sourceLabel: "array a",
+        sourceMatrix: [
+          [1, 2, 3, 4, 5, 6]
+        ],
+        win: "Displayed the horizontal split parts."
+      },
+      {
+        clue: "split the matrix into two row groups",
+        prompt: "Create two equal row groups from the matrix",
+        starter: "np.vsplit(a, 2)",
+        lockedLine: "a = np.arange(8).reshape(4, 2)",
+        hint: "Tip: split the matrix into equal groups of rows.",
+        source: { url: "../02_numpy/09-resh-com.html#open-13", label: "np.vsplit() — Reshape & Combine" },
+        commandPattern: /^np\.vsplit\(\s*a\s*,\s*2\s*\)$/i,
+        commandName: "np.vsplit(a, 2)",
+        target: [
+          [0, 1, 4, 5],
+          [2, 3, 6, 7]
+        ],
+        targetDisplay: [
+          [[0, 1], [2, 3]],
+          [[4, 5], [6, 7]]
+        ],
+        sourceLabel: "matrix a",
+        sourceMatrix: [
+          [0, 1],
+          [2, 3],
+          [4, 5],
+          [6, 7]
+        ],
+        win: "Displayed the vertical split parts."
+      }
+    ];
+
+    // Shuffle questions (Fisher-Yates)
+    for (let i = questions.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [questions[i], questions[j]] = [questions[j], questions[i]];
+    }
+
+    let currentQuestion = 0;
+    let currentStage = 0;
+    let stageMemory = null;
+    let randomSeedMemory = null;
+    let clueTypeTimer = null;
+    let missedLabelTimer = null;
+    let revealTypeTimer = null;
+    let timerInterval = null;
+    let timerEndsAt = 0;
+    let failureCount = 0;
+    let solvedCount = 0;
+    let missedCount = 0;
+    const solvedSet = new Set();
+    let pilotName = "anonymous";
+    let livesCount = 3;
+    let questionsCount = 0;
+    let gameOver = false;
+    let TIMER_SECONDS = 60;
+    const TIMER_SEGMENTS = 10;
+
+    const codeInput = document.getElementById("codeInput");
+    const runButton = document.getElementById("runButton");
+    const timerPanel = document.getElementById("timerPanel");
+    const timerText = document.getElementById("timerText");
+    const timerBars = document.getElementById("timerBars");
+    const gameOverOverlay = document.getElementById("gameOverOverlay");
+    const gameOverCorrect = document.getElementById("gameOverCorrect");
+    const gameOverMissed = document.getElementById("gameOverMissed");
+    const simShips = Array.from(document.querySelectorAll(".sim-ship"));
+    const questionChip = document.getElementById("questionChip");
+    const ghostText = document.getElementById("ghostText");
+    const editorWrap = document.querySelector(".editor-wrap");
+    const lockedLine = document.getElementById("lockedLine");
+    const promptEl = document.querySelector(".prompt");
+    const cheatsEl = document.querySelector(".cheats");
+    const statusEl = document.getElementById("status");
+    const targetCard = document.getElementById("targetCard");
+    const targetGrid = document.getElementById("targetGrid");
+    const sourceMatrix = document.getElementById("sourceMatrix");
+    const sourceMatrixGrid = document.getElementById("sourceMatrixGrid");
+    const sourceMatrixLabel = document.getElementById("sourceMatrixLabel");
+    const stageResult = document.getElementById("stageResult");
+    const stageResultGrid = document.getElementById("stageResultGrid");
+    const createdInner = document.getElementById("createdInner");
+    const emptyState = document.getElementById("emptyState");
+    const lockedLabel = document.getElementById("lockedLabel");
+    const answerModal = document.getElementById("answerModal");
+    const answerModalCode = document.getElementById("answerModalCode");
+    const answerModalContext = document.getElementById("answerModalContext");
+    const answerModalLink = document.getElementById("answerModalLink");
+    const answerModalClose = document.getElementById("answerModalClose");
+    const dontKnowButton = document.getElementById("dontKnowButton");
+    const actionsNormal = document.getElementById("actionsNormal");
+    const actionsReveal = document.getElementById("actionsReveal");
+    const openTopicButton = document.getElementById("openTopicButton");
+    const nextRevealButton = document.getElementById("nextRevealButton");
+    const revealOverlay = document.getElementById("revealOverlay");
+    const progressFill = document.getElementById("progressFill");
+    const progressLabel = document.getElementById("progressLabel");
+    const muteButton = document.getElementById("muteButton");
+
+    let isMuted = localStorage.getItem("numpy-sim-muted") === "true";
+
+    function updateMuteButton() {
+      muteButton.textContent = isMuted ? "🔇" : "🔊";
+    }
+    updateMuteButton();
+
+    muteButton.addEventListener("click", () => {
+      isMuted = !isMuted;
+      localStorage.setItem("numpy-sim-muted", String(isMuted));
+      updateMuteButton();
+      if (isMuted) { window.speechSynthesis?.cancel(); stopRadar(); }
+    });
+
+    const sfxExplode = new Audio("explode.mp3");
+    const sfxMissile = new Audio("missile.mp3");
+    const sfxRadar = new Audio("radar.mp3");
+    const sfxWelcome = new Audio("welcome.mp3");
+    sfxRadar.loop = true;
+    let radarTimer = null;
+
+    function startRadar() {
+      clearTimeout(radarTimer);
+      radarTimer = setTimeout(() => {
+        if (!isMuted) { sfxRadar.currentTime = 0; sfxRadar.play().catch(() => {}); }
+      }, 2000);
+    }
+
+    function stopRadar() {
+      clearTimeout(radarTimer);
+      sfxRadar.pause();
+      sfxRadar.currentTime = 0;
+    }
+
+    function playExplodeSfx() {
+      if (isMuted) return;
+      sfxExplode.currentTime = 0;
+      sfxExplode.play().catch(() => {});
+    }
+
+    let ttsVoices = [];
+    function loadVoices() { ttsVoices = window.speechSynthesis?.getVoices() || []; }
+    loadVoices();
+    if (window.speechSynthesis) window.speechSynthesis.onvoiceschanged = loadVoices;
+
+    function speakClue(text, onEnd) {
+      if (isMuted || !window.speechSynthesis) { onEnd?.(); return; }
+      window.speechSynthesis.cancel();
+      const utt = new SpeechSynthesisUtterance(text);
+      utt.rate = 0.92;
+      utt.lang = "en-US";
+      const enVoices = ttsVoices.filter(v => v.lang.startsWith("en"));
+      if (enVoices.length > 0) {
+        utt.voice = enVoices[Math.floor(Math.random() * enVoices.length)];
+      }
+      utt.onend = () => onEnd?.();
+      utt.onerror = () => onEnd?.();
+      window.speechSynthesis.speak(utt);
+    }
+
+    function updateProgress() {
+      const pct = Math.round(solvedSet.size / questions.length * 100);
+      progressFill.style.width = pct + "%";
+      progressLabel.textContent = pct + "%";
+    }
+
+    function buildTimerBars() {
+      timerBars.innerHTML = "";
+      Array.from({ length: TIMER_SEGMENTS }, () => {
+        const bar = document.createElement("span");
+        bar.className = "timer-bar";
+        timerBars.appendChild(bar);
+      });
+    }
+
+    function renderTimer(secondsLeft) {
+      const clamped = Math.max(0, Math.min(TIMER_SECONDS, secondsLeft));
+      const ratio = clamped / TIMER_SECONDS;
+      const activeBars = Math.min(TIMER_SEGMENTS, Math.ceil(secondsLeft));
+      const totalSeconds = Math.ceil(clamped);
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      timerText.textContent = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+      timerPanel.dataset.state = ratio <= 0.15 ? "red" : ratio <= 0.5 ? "yellow" : "green";
+      timerBars.querySelectorAll(".timer-bar").forEach((bar, index) => {
+        bar.classList.toggle("empty", index >= activeBars);
+      });
+    }
+
+    function stopTimer() {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+    }
+
+    function holdTimerSuccess() {
+      stopTimer();
+      timerPanel.dataset.state = "blue";
+    }
+
+    function startTimer() {
+      stopTimer();
+      timerEndsAt = Date.now() + TIMER_SECONDS * 1000;
+      renderTimer(TIMER_SECONDS);
+      timerInterval = setInterval(() => {
+        const secondsLeft = Math.max(0, (timerEndsAt - Date.now()) / 1000);
+        renderTimer(secondsLeft);
+        if (secondsLeft <= 0) {
+          stopTimer();
+          const isOver = registerFailure("TIME: countdown finished.");
+          if (!isOver) revealAnswer();
+        }
+      }, 250);
+    }
+
+    function liveShips() {
+      return simShips.filter(ship => !ship.classList.contains("destroyed"));
+    }
+
+    function activeShip() {
+      const ships = liveShips();
+      return ships[ships.length - 1] || simShips[0];
+    }
+
+    function updateActiveShip() {
+      simShips.forEach(ship => ship.classList.remove("active", "typing"));
+      const ship = activeShip();
+      if (ship && !ship.classList.contains("destroyed")) {
+        ship.classList.add("active");
+      }
+    }
+
+    function clearShipClasses(...classNames) {
+      simShips.forEach(ship => ship.classList.remove(...classNames));
+    }
+
+    function setAliveShipsTyping(isTyping) {
+      activeShip().classList.toggle("typing", isTyping);
+    }
+
+    function showCongrats() {
+      stopRadar();
+      window.speechSynthesis?.cancel();
+      const livesLeft = simShips.filter(s => !s.classList.contains("destroyed")).length;
+      document.getElementById("congratsPilot").textContent = pilotName;
+      document.getElementById("congratsCorrect").textContent = solvedCount;
+      document.getElementById("congratsLivesLeft").textContent = livesLeft;
+      document.getElementById("congratsLivesMax").textContent = livesCount;
+      document.getElementById("congratsTime").textContent = TIMER_SECONDS + "s";
+      document.getElementById("congratsQ").textContent = questionsCount;
+      const overlay = document.getElementById("congratsOverlay");
+      overlay.classList.add("show");
+      overlay.setAttribute("aria-hidden", "false");
+      overlay.addEventListener("click", () => location.reload(), { once: true });
+    }
+
+    function showGameOver() {
+      stopRadar();
+      window.speechSynthesis?.cancel();
+      sfxExplode.pause();
+      sfxExplode.currentTime = 0;
+      gameOverCorrect.textContent = solvedCount;
+      gameOverMissed.textContent = missedCount;
+      document.getElementById("goName").textContent = pilotName;
+      const livesLeft = simShips.filter(s => !s.classList.contains("destroyed")).length;
+      document.getElementById("goLives").textContent = `Lives: ${livesLeft} / ${livesCount} remaining`;
+      document.getElementById("goTime").textContent = `Time per question: ${TIMER_SECONDS}s`;
+      gameOverOverlay.classList.add("show");
+      gameOverOverlay.setAttribute("aria-hidden", "false");
+    }
+
+    function restartGame() {
+      if (gameOver) {
+        location.reload();
+      }
+    }
+
+    function advanceAfterTimeout() {
+      if (gameOver) return;
+      setTimeout(() => {
+        if (gameOver) return;
+        if (currentQuestion < questions.length - 1) {
+          setQuestion(currentQuestion + 1);
+        } else {
+          setQuestion(0);
+        }
+      }, 950);
+    }
+
+    function registerFailure(message, options = {}) {
+      if (gameOver) return false;
+      const ship = activeShip();
+      failureCount += 1;
+      missedCount += 1;
+      ship.classList.remove("typing", "spin", "warn");
+      void ship.offsetWidth;
+      ship.classList.add("warn");
+      setTimeout(() => {
+        ship.classList.remove("warn");
+        playShipExplosion(ship);
+        ship.classList.add("destroyed");
+        updateActiveShip();
+      }, 260);
+
+      if (failureCount >= simShips.length) {
+        gameOver = true;
+        stopTimer();
+        codeInput.readOnly = true;
+        runButton.disabled = true;
+        statusEl.textContent = "GAME OVER: all ships destroyed.";
+        statusEl.style.color = "var(--red)";
+        setTimeout(showGameOver, 620);
+        return true;
+      } else {
+        statusEl.textContent = `${message} Ship ${failureCount} destroyed. ${simShips.length - failureCount} remaining.`;
+        statusEl.style.color = "var(--red)";
+        if (options.advanceOnFailure) {
+          advanceAfterTimeout();
+        }
+        return false;
+      }
+    }
+
+    function drawMatrix(container, matrix) {
+      container.innerHTML = "";
+      container.style.setProperty("--cols", matrix[0]?.length || 1);
+
+      matrix.flat().forEach((value, index) => {
+        const cell = document.createElement("div");
+        cell.className = "cell";
+        const label = String(value);
+        cell.textContent = label;
+        if (label.length > 5) {
+          cell.classList.add("tiny-text");
+        } else if (label.length > 2) {
+          cell.classList.add("small-text");
+        }
+        cell.style.animationDelay = `${index * 0.06}s`;
+        container.appendChild(cell);
+      });
+    }
+
+    function appendSourceMatrix(label, matrix) {
+      const labelEl = document.createElement("div");
+      labelEl.className = "card-label";
+      const labelText = document.createElement("span");
+      labelText.textContent = label || "array";
+      labelEl.appendChild(labelText);
+
+      const grid = document.createElement("div");
+      grid.className = "matrix-grid";
+      drawMatrix(grid, matrix);
+
+      sourceMatrix.append(labelEl, grid);
+    }
+
+    function typeEncryptedRequirement(text) {
+      if (clueTypeTimer) {
+        clearInterval(clueTypeTimer);
+      }
+
+      setAliveShipsTyping(true);
+      ghostText.textContent = "";
+      let index = 0;
+      clueTypeTimer = setInterval(() => {
+        ghostText.textContent += text[index];
+        index += 1;
+        if (index >= text.length) {
+          clearInterval(clueTypeTimer);
+          clueTypeTimer = null;
+        }
+      }, 32);
+    }
+
+    function parseCommand(raw) {
+      let code = raw.trim().replace(/;$/, "");
+      const printMatch = code.match(/^print\((.*)\)$/is);
+      if (printMatch) {
+        code = printMatch[1].trim();
+      }
+
+      let match = code.match(/^(arr|matrix|array|x)\s*=\s*(.+)$/is);
+      if (match) {
+        return {
+          matrix: parseExpression(match[2].trim()),
+          variable: match[1].toLowerCase(),
+          code: match[2].trim(),
+          seed: null
+        };
+      }
+
+      const seedMatch = code.match(/^np\.random\.seed\(\s*(-?\d+)\s*\)$/i);
+      if (seedMatch) {
+        const seed = Number(seedMatch[1]);
+        return {
+          matrix: [["seed", seed]],
+          variable: null,
+          code,
+          seed
+        };
+      }
+
+      return {
+        matrix: parseExpression(code),
+        variable: null,
+        code,
+        seed: null
+      };
+    }
+
+    function parseExpression(code) {
+      let match = code.match(/^np\.array\(\s*(\[.*\])\s*\)\.reshape\(\s*\(?\s*(\d+)\s*,\s*(\d+)\s*\)?\s*\)$/is);
+      if (match) {
+        return reshapeArray(parseArrayLiteral(match[1]), Number(match[2]), Number(match[3]));
+      }
+
+      match = code.match(/^(?:matrix|arr|array|x)\.reshape\(\s*\(?\s*(\d+)\s*,\s*(\d+)\s*\)?\s*\)$/i);
+      if (match) {
+        if (!stageMemory) {
+          throw new Error("Create `arr` in stage 1 before changing its dimensions.");
+        }
+        return reshapeArray(stageMemory, Number(match[1]), Number(match[2]));
+      }
+
+      match = code.match(/^arr\.shape\s*=\s*\(?\s*(\d+)\s*,\s*(\d+)\s*\)?$/i);
+      if (match) {
+        if (!stageMemory) {
+          throw new Error("Create `arr` in stage 1 before changing its dimensions.");
+        }
+        return reshapeArray(stageMemory, Number(match[1]), Number(match[2]));
+      }
+
+      match = code.match(/^np\.zeros\(\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)\s*\)$/i);
+      if (match) return matrixOf(Number(match[1]), Number(match[2]), 0);
+
+      match = code.match(/^np\.ones\(\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)\s*\)$/i);
+      if (match) return matrixOf(Number(match[1]), Number(match[2]), 1);
+
+      match = code.match(/^np\.full\(\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$/i);
+      if (match) return matrixOf(Number(match[1]), Number(match[2]), Number(match[3]));
+
+      match = code.match(/^np\.arange\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$/i);
+      if (match) return [rangeValues(Number(match[1]), Number(match[2]), Number(match[3]))];
+
+      match = code.match(/^np\.linspace\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*,\s*(\d+)\s*\)$/i);
+      if (match) return [linspaceValues(Number(match[1]), Number(match[2]), Number(match[3]))];
+
+      match = code.match(/^np\.eye\(\s*(\d+)\s*\)$/i);
+      if (match) return eyeMatrix(Number(match[1]));
+
+      match = code.match(/^np\.random\.random\(\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)\s*\)$/i);
+      if (match) return randomFloatMatrix(Number(match[1]), Number(match[2]));
+
+      match = code.match(/^np\.random\.randint\(\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*size\s*=\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)\s*\)$/i);
+      if (match) return randomIntMatrix(Number(match[3]), Number(match[4]), Number(match[1]), Number(match[2]));
+
+      match = code.match(/^np\.empty\(\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)\s*\)$/i);
+      if (match) return emptyMatrix(Number(match[1]), Number(match[2]));
+
+      match = code.match(/^a\.shape$/i);
+      if (match) return [["(2, 3)"]];
+
+      match = code.match(/^len\(\s*b\s*\)$/i);
+      if (match) return [[4]];
+
+      match = code.match(/^c\.ndim$/i);
+      if (match) return [[2]];
+
+      match = code.match(/^d\.size$/i);
+      if (match) return [[12]];
+
+      match = code.match(/^e\.dtype(?:\.name)?$/i);
+      if (match) return [["float64"]];
+
+      match = code.match(/^my_ints\.astype\(\s*float\s*\)$/i);
+      if (match) return [["1.0", "2.0", "3.0"]];
+
+      match = code.match(/^(?:np\.subtract\(\s*a\s*,\s*b\s*\)|a\s*-\s*b)$/i);
+      if (match) return [[9, 18, 27]];
+
+      match = code.match(/^(?:np\.add\(\s*a\s*,\s*b\s*\)|a\s*\+\s*b)$/i);
+      if (match) return [[5, 7, 9]];
+
+      match = code.match(/^(?:np\.divide\(\s*a\s*,\s*b\s*\)|a\s*\/\s*b)$/i);
+      if (match) return [[5, 5, 6]];
+
+      match = code.match(/^(?:np\.multiply\(\s*a\s*,\s*b\s*\)|a\s*\*\s*b)$/i);
+      if (match) return [[20, 30, 40]];
+
+      match = code.match(/^np\.sqrt\(\s*a\s*\)$/i);
+      if (match) return [[0, 1, 2, 3, 4]];
+
+      match = code.match(/^np\.log2\(\s*a\s*\)$/i);
+      if (match) return [[0, 1, 2, 3]];
+
+      match = code.match(/^np\.log10\(\s*a\s*\)$/i);
+      if (match) return [[0, 1, 2, 3]];
+
+      match = code.match(/^(?:A\.dot\(\s*B\s*\)|A\s*@\s*B)$/i);
+      if (match) return [[1, 2], [3, 4]];
+
+      match = code.match(/^(?:a\s*==\s*b|np\.equal\(\s*a\s*,\s*b\s*\))$/i);
+      if (match) return [["True", "False", "True"]];
+
+      match = code.match(/^a\s*>\s*3$/i);
+      if (match) return [["False", "True", "False", "True", "False"]];
+
+      match = code.match(/^np\.array_equal\(\s*a\s*,\s*b\s*\)$/i);
+      if (match) return [["True"]];
+
+      match = code.match(/^(?:a\.sum\(\s*axis\s*=\s*0\s*\)|np\.sum\(\s*a\s*,\s*axis\s*=\s*0\s*\))$/i);
+      if (match) return [[4, 6]];
+
+      match = code.match(/^(?:a\.sum\(\s*axis\s*=\s*1\s*\)|np\.sum\(\s*a\s*,\s*axis\s*=\s*1\s*\))$/i);
+      if (match) return [[3, 7]];
+
+      match = code.match(/^(?:a\.min\(\s*\)|np\.min\(\s*a\s*\))$/i);
+      if (match) return [[1]];
+
+      match = code.match(/^(?:a\.max\(\s*\)|np\.max\(\s*a\s*\))$/i);
+      if (match) return [[9]];
+
+      match = code.match(/^(?:a\.argmin\(\s*\)|np\.argmin\(\s*a\s*\))$/i);
+      if (match) return [[1]];
+
+      match = code.match(/^(?:a\.argmax\(\s*\)|np\.argmax\(\s*a\s*\))$/i);
+      if (match) return [[4]];
+
+      match = code.match(/^(?:a\.cumsum\(\s*\)|np\.cumsum\(\s*a\s*\))$/i);
+      if (match) return [[1, 3, 6, 10]];
+
+      match = code.match(/^(?:a\.mean\(\s*\)|np\.mean\(\s*a\s*\))$/i);
+      if (match) return [[3]];
+
+      match = code.match(/^np\.median\(\s*a\s*\)$/i);
+      if (match) return [[3]];
+
+      match = code.match(/^np\.corrcoef\(\s*x\s*,\s*y\s*\)\s*\[\s*0\s*,\s*1\s*\]$/i);
+      if (match) return [[1]];
+
+      match = code.match(/^(?:np\.std\(\s*a\s*\)|a\.std\(\s*\))$/i);
+      if (match) return [[2]];
+
+      match = code.match(/^(?:np\.var\(\s*a\s*\)|a\.var\(\s*\))$/i);
+      if (match) return [[4]];
+
+      match = code.match(/^(?:np\.concatenate\(\s*\(\s*a\s*,\s*b\s*\)\s*\)|np\.hstack\(\s*\(\s*a\s*,\s*b\s*\)\s*\))$/i);
+      if (match) return [[1, 2, 3, 4]];
+
+      match = code.match(/^np\.concatenate\(\s*\(\s*a\s*,\s*b\s*,\s*a\s*\)\s*\)$/i);
+      if (match) return [[1, 2, 3, 4, 1, 2]];
+
+      match = code.match(/^(?:np\.concatenate\(\s*\(\s*m1\s*,\s*m2\s*\)\s*,\s*axis\s*=\s*0\s*\)|np\.vstack\(\s*\(\s*m1\s*,\s*m2\s*\)\s*\))$/i);
+      if (match) return [[1, 2], [3, 4], [5, 6], [7, 8]];
+
+      match = code.match(/^(?:np\.concatenate\(\s*\(\s*m1\s*,\s*m2\s*\)\s*,\s*axis\s*=\s*1\s*\)|np\.hstack\(\s*\(\s*m1\s*,\s*m2\s*\)\s*\))$/i);
+      if (match) return [[1, 2, 5, 6], [3, 4, 7, 8]];
+
+      match = code.match(/^(?:np\.copy\(\s*a\s*\)|a\.copy\(\s*\))$/i);
+      if (match) return [[1, 2, 3]];
+
+      match = code.match(/^(?:np\.sort\(\s*a\s*\)|a\.sort\(\s*\))$/i);
+      if (match) return [[1, 1, 3, 4, 5, 9]];
+
+      match = code.match(/^(?:np\.sort\(\s*b\s*,\s*axis\s*=\s*0\s*\)|b\.sort\(\s*axis\s*=\s*0\s*\))$/i);
+      if (match) return [[3, 1], [4, 2]];
+
+      match = code.match(/^(?:np\.sort\(\s*b\s*,\s*axis\s*=\s*1\s*\)|b\.sort\(\s*axis\s*=\s*1\s*\))$/i);
+      if (match) return [[1, 2, 3], [5, 7, 9]];
+
+      match = code.match(/^a\[\s*2\s*\]$/i);
+      if (match) return [[30]];
+
+      match = code.match(/^a\[\s*2\s*:\s*5\s*\]\s*=\s*99$/i);
+      if (match) return [[0, 1, 99, 99, 99, 5, 6, 7]];
+
+      match = code.match(/^b\[\s*1\s*,\s*2\s*\]$/i);
+      if (match) return [[6]];
+
+      match = code.match(/^a\[\s*1\s*:\s*4\s*\]$/i);
+      if (match) return [[20, 30, 40]];
+
+      match = code.match(/^b\[\s*0\s*:\s*2\s*,\s*1\s*\]$/i);
+      if (match) return [[2, 5]];
+
+      match = code.match(/^a\[\s*:\s*:\s*-1\s*\]$/i);
+      if (match) return [[5, 4, 3, 2, 1]];
+
+      match = code.match(/^a\[\s*a\s*<\s*4\s*\]$/i);
+      if (match) return [[1, 3, 2]];
+
+      match = code.match(/^a\[\s*\(\s*a\s*<\s*2\s*\)\s*\|\s*\(\s*a\s*>\s*6\s*\)\s*\]$/i);
+      if (match) return [[1, 8, 7]];
+
+      match = code.match(/^b\[\s*\[\s*0\s*,\s*2\s*\]\s*,\s*\[\s*1\s*,\s*0\s*\]\s*\]$/i);
+      if (match) return [[2, 5]];
+
+      match = code.match(/^(?:a\.T|np\.transpose\(\s*a\s*\))$/i);
+      if (match) return [[1, 4], [2, 5], [3, 6]];
+
+      match = code.match(/^(?:a\.ravel\(\s*\)|a\.flatten\(\s*\)|np\.ravel\(\s*a\s*\))$/i);
+      if (match) return [[1, 2, 3, 4, 5, 6]];
+
+      match = code.match(/^np\.append\(\s*a\s*,\s*\[\s*4\s*,\s*5\s*\]\s*\)$/i);
+      if (match) return [[1, 2, 3, 4, 5]];
+
+      match = code.match(/^np\.insert\(\s*a\s*,\s*2\s*,\s*99\s*\)$/i);
+      if (match) return [[1, 2, 99, 3, 4]];
+
+      match = code.match(/^np\.delete\(\s*a\s*,\s*2\s*\)$/i);
+      if (match) return [[10, 20, 40, 50]];
+
+      match = code.match(/^np\.column_stack\(\s*\(\s*a\s*,\s*b\s*\)\s*\)$/i);
+      if (match) return [[1, 4], [2, 5], [3, 6]];
+
+      match = code.match(/^np\.hsplit\(\s*a\s*,\s*3\s*\)$/i);
+      if (match) return [["[1, 2]", "[3, 4]", "[5, 6]"]];
+
+      match = code.match(/^np\.vsplit\(\s*a\s*,\s*2\s*\)$/i);
+      if (match) return [[0, 1, 4, 5], [2, 3, 6, 7]];
+
+      match = code.match(/^np\.array\(\s*(\[.*\])\s*\)$/is);
+      if (match) {
+        return parseArrayLiteral(match[1]);
+      }
+
+      throw new Error("Unsupported command. Use a supported NumPy creation or property/info command.");
+    }
+
+    function matrixOf(rows, cols, value) {
+      if (!Number.isInteger(rows) || !Number.isInteger(cols) || rows < 1 || cols < 1 || rows > 8 || cols > 8) {
+        throw new Error("Shape must use whole numbers from 1 to 8.");
+      }
+      return Array.from({ length: rows }, () => Array.from({ length: cols }, () => value));
+    }
+
+    function rangeValues(start, stop, step) {
+      if (step === 0) throw new Error("np.arange step cannot be 0.");
+      const values = [];
+      for (let value = start; step > 0 ? value < stop : value > stop; value += step) {
+        values.push(roundNumber(value));
+        if (values.length > 64) throw new Error("Keep np.arange output to 64 values or fewer.");
+      }
+      return values;
+    }
+
+    function linspaceValues(start, stop, count) {
+      if (!Number.isInteger(count) || count < 1 || count > 64) {
+        throw new Error("np.linspace count must be a whole number from 1 to 64.");
+      }
+      if (count === 1) return [roundNumber(start)];
+      return Array.from({ length: count }, (_, index) =>
+        roundNumber(start + ((stop - start) * index) / (count - 1))
+      );
+    }
+
+    function eyeMatrix(size) {
+      if (!Number.isInteger(size) || size < 1 || size > 8) {
+        throw new Error("np.eye size must be a whole number from 1 to 8.");
+      }
+      return Array.from({ length: size }, (_, row) =>
+        Array.from({ length: size }, (_, col) => row === col ? 1 : 0)
+      );
+    }
+
+    function randomFloatMatrix(rows, cols) {
+      validateShape(rows, cols);
+      if (randomSeedMemory === 42 && rows === 3 && cols === 3) {
+        return [
+          [0.37, 0.95, 0.73],
+          [0.6, 0.16, 0.16],
+          [0.06, 0.87, 0.6]
+        ];
+      }
+      return Array.from({ length: rows }, () =>
+        Array.from({ length: cols }, () => roundNumber(Math.random(), 2))
+      );
+    }
+
+    function randomIntMatrix(rows, cols, low, high) {
+      validateShape(rows, cols);
+      if (!Number.isInteger(low) || !Number.isInteger(high) || high <= low) {
+        throw new Error("np.random.randint needs whole-number bounds where high is greater than low.");
+      }
+      if (randomSeedMemory === 42 && low === 1 && high === 10 && rows === 2 && cols === 5) {
+        return [
+          [7, 4, 8, 5, 7],
+          [3, 7, 8, 5, 4]
+        ];
+      }
+      return Array.from({ length: rows }, () =>
+        Array.from({ length: cols }, () => Math.floor(Math.random() * (high - low)) + low)
+      );
+    }
+
+    function emptyMatrix(rows, cols) {
+      validateShape(rows, cols);
+      return Array.from({ length: rows }, () => Array.from({ length: cols }, () => "?"));
+    }
+
+    function validateShape(rows, cols) {
+      if (!Number.isInteger(rows) || !Number.isInteger(cols) || rows < 1 || cols < 1 || rows > 8 || cols > 8) {
+        throw new Error("Shape must use whole numbers from 1 to 8.");
+      }
+    }
+
+    function roundNumber(value, digits = 6) {
+      return Number(value.toFixed(digits));
+    }
+
+    function parseArrayLiteral(literal) {
+      const jsonLike = literal.replace(/'/g, '"');
+      let parsed;
+      try {
+        parsed = JSON.parse(jsonLike);
+      } catch {
+        throw new Error("The np.array literal needs nested brackets, like [[0,0,0,0],[0,0,0,0]].");
+      }
+
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        throw new Error("np.array must contain values.");
+      }
+
+      if (!parsed.every(Array.isArray)) {
+        parsed.forEach(value => {
+          if (typeof value !== "number" || Number.isNaN(value)) {
+            throw new Error("This simulator only renders numeric arrays.");
+          }
+        });
+        return [parsed];
+      }
+
+      const width = parsed[0].length;
+      if (width === 0 || parsed.some(row => row.length !== width)) {
+        throw new Error("Every row must have the same number of columns.");
+      }
+
+      if (parsed.length > 8 || width > 8) {
+        throw new Error("Keep the simulator matrix at 8 by 8 or smaller.");
+      }
+
+      parsed.flat().forEach(value => {
+        if (typeof value !== "number" || Number.isNaN(value)) {
+          throw new Error("This simulator only renders numeric arrays.");
+        }
+      });
+
+      return parsed;
+    }
+
+    function reshapeArray(matrix, rows, cols) {
+      if (!Number.isInteger(rows) || !Number.isInteger(cols) || rows < 1 || cols < 1 || rows > 8 || cols > 8) {
+        throw new Error("Dimensions must be whole numbers from 1 to 8.");
+      }
+
+      const values = matrix.flat();
+      if (values.length !== rows * cols) {
+        throw new Error(`Cannot change ${values.length} values into dimensions (${rows}, ${cols}).`);
+      }
+
+      return Array.from({ length: rows }, (_, rowIndex) =>
+        values.slice(rowIndex * cols, rowIndex * cols + cols)
+      );
+    }
+
+    function sameMatrix(a, b) {
+      return a.length === b.length &&
+        a.every((row, rowIndex) =>
+          row.length === b[rowIndex].length &&
+          row.every((value, colIndex) => value === b[rowIndex][colIndex])
+        );
+    }
+
+    function stageMatches(matrix, stage) {
+      if (stage.check === "seed") {
+        return sameMatrix(matrix, stage.target);
+      }
+      if (stage.check === "randomFloat") {
+        return hasShape(matrix, 3, 3) && matrix.flat().every(value => typeof value === "number" && value >= 0 && value < 1);
+      }
+      if (stage.check === "randomInt") {
+        return hasShape(matrix, 2, 5) && matrix.flat().every(value => Number.isInteger(value) && value >= 1 && value < 10);
+      }
+      if (stage.check === "empty") {
+        return hasShape(matrix, 4, 3);
+      }
+      return sameMatrix(matrix, stage.target);
+    }
+
+    function hasShape(matrix, rows, cols) {
+      return matrix.length === rows && matrix.every(row => row.length === cols);
+    }
+
+    function playUserMatrixFireworks() {
+      requestAnimationFrame(() => {
+        particles = [];
+        fxCtx.clearRect(0, 0, innerWidth, innerHeight);
+        burstFromElement(createdInner, 220, 11);
+        setTimeout(() => burstFromElement(createdInner, 150, 9), 140);
+        setTimeout(() => burstFromElement(createdInner, 110, 7), 280);
+      });
+    }
+
+    function beginCorrectAnswerAnimation() {
+      holdTimerSuccess();
+      codeInput.readOnly = true;
+      runButton.disabled = true;
+      lockedLabel.textContent = "-- Locked --";
+      lockedLabel.classList.remove("missed");
+      lockedLabel.classList.add("show");
+      const ship = activeShip();
+      ship.classList.remove("warn");
+      ship.classList.remove("spin");
+      void ship.offsetWidth;
+      ship.classList.add("spin");
+    }
+
+    function playShipWarning() {
+      const ship = activeShip();
+      ship.classList.remove("warn");
+      void ship.offsetWidth;
+      ship.classList.add("warn");
+    }
+
+    function playShipExplosion(ship) {
+      requestAnimationFrame(() => {
+        debrisFromElement(ship, 36, 15);
+        setTimeout(() => debrisFromElement(ship, 18, 9), 120);
+      });
+    }
+
+    function playRequiredPatternExplosion() {
+      targetCard.classList.remove("required-explosion", "explode", "fly-rect", "fade-in", "fade-out");
+      targetGrid.querySelectorAll(".cell").forEach(cell => {
+        const angle = Math.random() * Math.PI * 2;
+        const distance = 48 + Math.random() * 72;
+        cell.style.setProperty("--req-boom-x", `${Math.cos(angle) * distance}px`);
+        cell.style.setProperty("--req-boom-y", `${Math.sin(angle) * distance}px`);
+        cell.style.setProperty("--req-boom-r", `${-160 + Math.random() * 320}deg`);
+      });
+      requestAnimationFrame(() => {
+        targetCard.classList.add("required-explosion");
+      });
+    }
+
+    function showAnswerModal() {
+      const stage = getStage();
+      answerModalCode.textContent = stage.starter;
+      answerModalContext.textContent = stage.lockedLine || "";
+      const src = stage.source;
+      if (src) {
+        answerModalLink.href = src.url;
+        answerModalLink.textContent = src.label + " →";
+        answerModalLink.style.display = "inline-block";
+      } else {
+        answerModalLink.style.display = "none";
+      }
+      answerModal.classList.add("show");
+      answerModal.setAttribute("aria-hidden", "false");
+    }
+
+    function hideAnswerModal() {
+      answerModal.classList.remove("show");
+      answerModal.setAttribute("aria-hidden", "true");
+    }
+
+    function revealAnswer(fromDontKnow = false) {
+      if (gameOver) return;
+      if (fromDontKnow) {
+        const isOver = registerFailure("SKIP: don't know.");
+        if (isOver) return;
+      }
+      const stage = getStage();
+      stopTimer();
+      clearTimeout(revealTypeTimer);
+      codeInput.readOnly = true;
+      codeInput.style.display = "none";
+      revealOverlay.style.display = "block";
+      actionsNormal.style.display = "none";
+      actionsReveal.style.display = "flex";
+      if (stage.source) {
+        openTopicButton.style.display = "";
+        openTopicButton.onclick = () => window.open(stage.source.url, "_blank");
+      } else {
+        openTopicButton.style.display = "none";
+      }
+      solvedSet.add(currentQuestion);
+      updateProgress();
+      stopRadar();
+      playExplodeSfx();
+      speakClue("the solution was");
+      revealOverlay.innerHTML = '<span class="reveal-fail">Encryption failed.</span>\n<span class="reveal-solution" id="revealSolutionSpan">the solution was:\n--> </span>';
+      const solutionSpan = document.getElementById("revealSolutionSpan");
+      const text = stage.starter;
+      let i = 0;
+      function typeNext() {
+        if (i < text.length) {
+          solutionSpan.textContent = "the solution was:\n--> " + text.slice(0, i + 1);
+          i++;
+          revealTypeTimer = setTimeout(typeNext, 42);
+        }
+      }
+      typeNext();
+    }
+
+    function runCommand() {
+      if (gameOver) return;
+      clearTimeout(missedLabelTimer);
+      lockedLabel.classList.remove("show", "missed");
+      targetCard.classList.remove("fade-out", "fade-in", "explode", "fly-rect", "required-explosion");
+
+      let parsed;
+      try {
+        parsed = parseCommand(codeInput.value);
+      } catch (error) {
+        playShipWarning();
+        lockedLabel.textContent = "-- Miss --";
+        lockedLabel.classList.add("missed", "show");
+        missedLabelTimer = setTimeout(() => lockedLabel.classList.remove("show", "missed"), 3000);
+        statusEl.textContent = `ERROR: ${error.message}`;
+        statusEl.style.color = "var(--red)";
+        return;
+      }
+
+      const matrix = parsed.matrix;
+      emptyState.style.display = "none";
+      drawMatrix(createdInner, matrix);
+      const hudShapeEl = document.getElementById("hudShape");
+      if (hudShapeEl) hudShapeEl.textContent = `SHAPE:${matrix.length}×${matrix[0]?.length || 0}`;
+
+      const stage = getStage();
+      if (stageMatches(matrix, stage)) {
+        if (stage.commandPattern && !stage.commandPattern.test(parsed.code)) {
+          statusEl.textContent = `The output is correct, but use ${stage.commandName} for this question.`;
+          statusEl.style.color = "var(--gold)";
+          return;
+        }
+
+        if (stage.requiresVariable && parsed.variable !== stage.requiresVariable) {
+          statusEl.textContent = `The values are correct, but store the array in \`${stage.requiresVariable}\`.`;
+          statusEl.style.color = "var(--gold)";
+          return;
+        }
+
+        const hasNextStage = getStages().length > currentStage + 1;
+        statusEl.textContent = hasNextStage ? "MATCH: stage complete. Loading next stage..." : "MATCH: matrix signature verified. Lock sequence armed.";
+        statusEl.style.color = "var(--green)";
+        beginCorrectAnswerAnimation();
+
+        if (hasNextStage) {
+          stageMemory = matrix;
+          if (parsed.seed !== null) {
+            randomSeedMemory = parsed.seed;
+          }
+          setTimeout(() => {
+            drawMatrix(stageResultGrid, matrix);
+            stageResult.classList.add("show");
+            playRequiredPatternExplosion();
+            setTimeout(() => {
+              setStage(currentStage + 1);
+              targetCard.classList.remove("required-explosion");
+              targetCard.classList.add("fade-in");
+              setTimeout(() => targetCard.classList.remove("fade-in"), 420);
+            }, 720);
+          }, 1000);
+          return;
+        }
+
+        if (!isMuted) { sfxMissile.currentTime = 0; sfxMissile.play().catch(() => {}); }
+        actionsNormal.style.display = "none";
+        statusEl.style.display = "none";
+        solvedCount += 1;
+        solvedSet.add(currentQuestion);
+        updateProgress();
+        setTimeout(() => {
+          playRequiredPatternExplosion();
+          setTimeout(() => {
+            if (currentQuestion < questions.length - 1) {
+              setQuestion(currentQuestion + 1);
+            } else {
+              targetCard.classList.remove("required-explosion");
+              setTimeout(showCongrats, 600);
+            }
+          }, 720);
+        }, 1000);
+      } else {
+        playShipWarning();
+        lockedLabel.textContent = "-- Miss --";
+        lockedLabel.classList.add("missed", "show");
+        missedLabelTimer = setTimeout(() => lockedLabel.classList.remove("show", "missed"), 3000);
+        const rows = matrix.length;
+        const cols = matrix[0]?.length || 0;
+        statusEl.textContent = `Created shape (${rows}, ${cols}). Target is (${stage.target.length}, ${stage.target[0].length}).`;
+        statusEl.style.color = "var(--muted)";
+      }
+    }
+
+    function getStages() {
+      const question = questions[currentQuestion];
+      return question.stages || [question];
+    }
+
+    function getStage() {
+      return getStages()[currentStage];
+    }
+
+    function setQuestion(index) {
+      currentQuestion = Math.max(0, Math.min(index, questions.length - 1));
+      currentStage = 0;
+      stageMemory = null;
+      randomSeedMemory = null;
+      stageResult.classList.remove("show");
+      stageResultGrid.innerHTML = "";
+      setStage(0);
+    }
+
+    function setStage(index, options = {}) {
+      const stages = getStages();
+      currentStage = Math.max(0, Math.min(index, stages.length - 1));
+      const stage = stages[currentStage];
+      const stageText = stages.length > 1 ? ` / Stage ${currentStage + 1}` : "";
+
+      questionChip.textContent = `Question ${currentQuestion + 1}${stageText}`;
+      lockedLabel.classList.remove("show", "missed");
+      hideAnswerModal();
+      clearTimeout(revealTypeTimer);
+      window.speechSynthesis?.cancel();
+      stopRadar();
+      codeInput.classList.remove("revealing");
+      codeInput.style.display = "";
+      revealOverlay.style.display = "none";
+      actionsNormal.style.display = "";
+      actionsReveal.style.display = "none";
+      statusEl.style.display = "";
+      clearShipClasses("spin", "warn");
+      updateActiveShip();
+      typeEncryptedRequirement(stage.clue);
+      speakClue(stage.clue, () => { if (!gameOver) { startTimer(); startRadar(); } });
+      promptEl.textContent = stage.prompt;
+      cheatsEl.innerHTML = stage.hint;
+      codeInput.value = "";
+      codeInput.readOnly = gameOver;
+      runButton.disabled = gameOver;
+      lockedLine.textContent = stage.lockedLine || "";
+      editorWrap.classList.toggle("has-locked", Boolean(stage.lockedLine));
+      statusEl.textContent = gameOver ? "GAME OVER: all ships destroyed." : "Awaiting execution...";
+      statusEl.style.color = gameOver ? "var(--red)" : "var(--muted)";
+      if (!options.preserveOutput) {
+        createdInner.innerHTML = "";
+        emptyState.style.display = "grid";
+        const hudShapeEl = document.getElementById("hudShape");
+        if (hudShapeEl) hudShapeEl.textContent = "SHAPE:--";
+      }
+      targetCard.classList.remove("fade-out", "fade-in", "explode", "fly-rect", "required-explosion");
+      if (stage.targetDisplay) {
+        targetGrid.innerHTML = "";
+        targetGrid.className = "target-split-view";
+        stage.targetDisplay.forEach(part => {
+          const sub = document.createElement("div");
+          sub.className = "matrix-grid";
+          drawMatrix(sub, part);
+          targetGrid.appendChild(sub);
+        });
+      } else {
+        targetGrid.className = "matrix-grid";
+        drawMatrix(targetGrid, stage.target);
+      }
+      sourceMatrix.innerHTML = "";
+      if (stage.sourceMatrices) {
+        stage.sourceMatrices.forEach(source => appendSourceMatrix(source.label, source.matrix));
+        sourceMatrix.classList.add("show");
+      } else if (stage.sourceMatrix) {
+        appendSourceMatrix(stage.sourceLabel || "array", stage.sourceMatrix);
+        sourceMatrix.classList.add("show");
+      } else {
+        sourceMatrix.classList.remove("show");
+      }
+
+      requestAnimationFrame(() => {
+        codeInput.focus();
+        codeInput.setSelectionRange(0, 0);
+      });
+    }
+
+    runButton.addEventListener("click", runCommand);
+    dontKnowButton.addEventListener("click", () => revealAnswer(true));
+    nextRevealButton.addEventListener("click", () => {
+      if (currentQuestion < questions.length - 1) {
+        setQuestion(currentQuestion + 1);
+      } else {
+        setQuestion(0);
+      }
+    });
+    answerModalClose.addEventListener("click", hideAnswerModal);
+    answerModal.addEventListener("click", e => { if (e.target === answerModal) hideAnswerModal(); });
+    codeInput.addEventListener("input", () => setAliveShipsTyping(false));
+    gameOverOverlay.addEventListener("click", restartGame);
+    codeInput.addEventListener("keydown", event => {
+      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+        if (!codeInput.classList.contains("revealing")) runCommand();
+      }
+    });
+    document.addEventListener("keydown", event => {
+      if (event.key === "Enter") {
+        if (document.getElementById("congratsOverlay").classList.contains("show")) {
+          location.reload();
+        } else {
+          restartGame();
+        }
+      }
+    });
+
+    // ── Start overlay config ──────────────────────────────────────────
+    const startOverlay  = document.getElementById("startOverlay");
+    const cfgName       = document.getElementById("cfgName");
+    const cfgTime       = document.getElementById("cfgTime");
+    const cfgTimeVal    = document.getElementById("cfgTimeVal");
+    const cfgLives      = document.getElementById("cfgLives");
+    const cfgLivesVal   = document.getElementById("cfgLivesVal");
+    const cfgQ          = document.getElementById("cfgQ");
+    const cfgQVal       = document.getElementById("cfgQVal");
+    const cfgQMax       = document.getElementById("cfgQMax");
+    const livesPreview  = document.getElementById("livesShipsPreview");
+    const startBtn      = document.getElementById("startBtn");
+
+    const TOTAL_Q = questions.length;
+    cfgQ.max = TOTAL_Q;
+    cfgQ.value = 10;
+    cfgQMax.textContent = TOTAL_Q;
+    cfgQVal.textContent = "10";
+
+    function renderLivesPreview(n) {
+      livesPreview.innerHTML = "";
+      for (let i = 0; i < 5; i++) {
+        const s = document.createElement("span");
+        s.className = "lives-ship-icon" + (i < n ? " active" : "");
+        s.innerHTML = `<img src="image_64e15e12_ship.png" alt="ship" style="width:28px;height:28px;object-fit:contain;">`;
+        livesPreview.appendChild(s);
+      }
+    }
+    renderLivesPreview(3);
+
+    cfgTime.addEventListener("input", () => {
+      cfgTimeVal.textContent = cfgTime.value + "s";
+    });
+    cfgLives.addEventListener("input", () => {
+      cfgLivesVal.textContent = cfgLives.value;
+      renderLivesPreview(+cfgLives.value);
+    });
+    cfgQ.addEventListener("input", () => {
+      cfgQVal.textContent = +cfgQ.value === TOTAL_Q ? "all" : cfgQ.value;
+    });
+
+    function launchGame() {
+      pilotName = cfgName.value.trim() || "anonymous";
+      TIMER_SECONDS = +cfgTime.value;
+      livesCount = +cfgLives.value;
+      const qCount = +cfgQ.value;
+      if (qCount < TOTAL_Q) questions.splice(qCount);
+      questionsCount = questions.length;
+
+      // rebuild ship fleet to match chosen lives
+      const fleet = document.querySelector(".ship-fleet");
+      fleet.innerHTML = "";
+      for (let i = 0; i < livesCount; i++) {
+        fleet.innerHTML += `<div class="sim-ship"><img src="image_64e15e12_ship.png" alt=""></div>`;
+      }
+      simShips.length = 0;
+      Array.from(document.querySelectorAll(".sim-ship")).forEach(s => simShips.push(s));
+
+      startOverlay.classList.add("hidden");
+      buildTimerBars();
+      updateActiveShip();
+      setQuestion(0);
+    }
+
+    startBtn.addEventListener("click", launchGame);
+    cfgName.addEventListener("keydown", e => { if (e.key === "Enter") launchGame(); });
+
+    document.addEventListener("pointerdown", () => {
+      sfxWelcome.currentTime = 0;
+      sfxWelcome.play().catch(() => {});
+    }, { once: true });
+
+    const rainCanvas = document.getElementById("matrixRain");
+    const rainCtx = rainCanvas.getContext("2d");
+    const fxCanvas = document.getElementById("fxCanvas");
+    const fxCtx = fxCanvas.getContext("2d");
+    let rainColumns = [];
+    let particles = [];
+
+    function resizeCanvas() {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      [rainCanvas, fxCanvas].forEach(canvas => {
+        canvas.width = Math.floor(innerWidth * dpr);
+        canvas.height = Math.floor(innerHeight * dpr);
+        canvas.style.width = `${innerWidth}px`;
+        canvas.style.height = `${innerHeight}px`;
+      });
+      rainCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      fxCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const count = Math.ceil(innerWidth / 18);
+      rainColumns = Array.from({ length: count }, (_, i) => ({
+        x: i * 18,
+        y: Math.random() * innerHeight,
+        speed: 2 + Math.random() * 4,
+        chars: "01[](),np.zeros"
+      }));
+    }
+
+    function drawRain() {
+      rainCtx.fillStyle = "rgba(0, 0, 0, 0.08)";
+      rainCtx.fillRect(0, 0, innerWidth, innerHeight);
+      rainCtx.font = "16px Cascadia Code, Consolas, monospace";
+
+      rainColumns.forEach(column => {
+        const char = column.chars[Math.floor(Math.random() * column.chars.length)];
+        rainCtx.fillStyle = Math.random() > 0.92 ? "rgba(93, 243, 255, 0.9)" : "rgba(57, 255, 136, 0.68)";
+        rainCtx.fillText(char, column.x, column.y);
+        column.y += column.speed;
+        if (column.y > innerHeight + 40) column.y = -40;
+      });
+    }
+
+    function burstFromElement(element, count = 150, speed = 8, palette = null) {
+      const rect = element.getBoundingClientRect();
+      spawnParticles(rect.left + rect.width / 2, rect.top + rect.height / 2, count, speed, palette);
+    }
+
+    function debrisFromElement(element, count = 24, speed = 10) {
+      const rect = element.getBoundingClientRect();
+      spawnDebris(rect.left + rect.width / 2, rect.top + rect.height / 2, count, speed);
+    }
+
+    function megaBurst() {
+      spawnParticles(innerWidth / 2, innerHeight / 2, 260, 12);
+    }
+
+    function spawnParticles(x, y, count, speed, palette = null) {
+      for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const velocity = Math.random() * speed + 1.4;
+        const color = palette
+          ? palette[Math.floor(Math.random() * palette.length)]
+          : Math.random() > 0.28 ? "57,255,136" : "255,209,102";
+        particles.push({
+          x,
+          y,
+          vx: Math.cos(angle) * velocity,
+          vy: Math.sin(angle) * velocity,
+          life: 1,
+          decay: 0.009 + Math.random() * 0.018,
+          size: 2 + Math.random() * 5,
+          color
+        });
+      }
+    }
+
+    function spawnDebris(x, y, count, speed) {
+      const palette = ["180,232,255", "93,243,255", "255,73,109", "250,204,21", "92,111,128"];
+      for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const velocity = Math.random() * speed + 4;
+        particles.push({
+          type: "debris",
+          x,
+          y,
+          vx: Math.cos(angle) * velocity,
+          vy: Math.sin(angle) * velocity - Math.random() * 4,
+          life: 1,
+          decay: 0.006 + Math.random() * 0.011,
+          size: 8 + Math.random() * 18,
+          width: 5 + Math.random() * 13,
+          height: 2 + Math.random() * 6,
+          rotation: Math.random() * Math.PI,
+          spin: -0.32 + Math.random() * 0.64,
+          color: palette[Math.floor(Math.random() * palette.length)]
+        });
+      }
+    }
+
+    function drawFx() {
+      fxCtx.clearRect(0, 0, innerWidth, innerHeight);
+      particles = particles.filter(particle => particle.life > 0);
+
+      particles.forEach(particle => {
+        particle.x += particle.vx;
+        particle.y += particle.vy;
+        particle.vy += 0.045;
+        particle.life -= particle.decay;
+        particle.rotation += particle.spin || 0;
+
+        fxCtx.fillStyle = `rgba(${particle.color}, ${particle.life})`;
+        fxCtx.shadowColor = `rgba(${particle.color}, ${particle.life})`;
+        fxCtx.shadowBlur = particle.type === "debris" ? 26 : 18;
+
+        if (particle.type === "debris") {
+          fxCtx.save();
+          fxCtx.translate(particle.x, particle.y);
+          fxCtx.rotate(particle.rotation);
+          fxCtx.fillRect(
+            -particle.width * particle.life / 2,
+            -particle.height / 2,
+            particle.width * particle.life,
+            particle.height
+          );
+          fxCtx.restore();
+        } else {
+          fxCtx.beginPath();
+          fxCtx.arc(particle.x, particle.y, particle.size * particle.life, 0, Math.PI * 2);
+          fxCtx.fill();
+        }
+      });
+      fxCtx.shadowBlur = 0;
+    }
+
+    function animate() {
+      drawRain();
+      drawFx();
+      requestAnimationFrame(animate);
+    }
+
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+    animate();
+  </script>
+
+</body>
+</html>

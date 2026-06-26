@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>NumPy Dojo — Master Array Creation</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#020617;--card:rgba(15,23,42,0.85);--border:rgba(56,189,248,0.18);
+  --cyan:#22d3ee;--cyan-dim:rgba(34,211,238,0.12);
+  --purple:#a855f7;--purple-dim:rgba(168,85,247,0.12);
+  --green:#22c55e;--green-dim:rgba(34,197,94,0.12);
+  --red:#ef4444;--yellow:#fbbf24;
+  --text:#f8fafc;--muted:#94a3b8;
+  --hd:'Space Grotesk',sans-serif;--bd:'DM Sans',sans-serif;--code:'JetBrains Mono',monospace;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--bd);overflow-x:hidden}
+#bg{position:fixed;inset:0;z-index:0;pointer-events:none}
+.app{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column}
+
+/* HEADER */
+header{
+  padding:1rem 2rem;display:flex;align-items:center;gap:1.5rem;
+  border-bottom:1px solid var(--border);backdrop-filter:blur(24px);
+  background:rgba(2,6,23,0.75);position:sticky;top:0;z-index:100;
+}
+.logo{display:flex;align-items:center;gap:0.6rem;font-family:var(--hd);font-weight:700;font-size:1.2rem;white-space:nowrap}
+.logo-icon{
+  width:34px;height:34px;border-radius:9px;flex-shrink:0;
+  background:linear-gradient(135deg,var(--cyan),var(--purple));
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 18px rgba(34,211,238,0.35);
+}
+.logo span{color:var(--cyan)}
+.prog-wrap{flex:1;max-width:420px}
+.prog-meta{display:flex;justify-content:space-between;font-size:.72rem;color:var(--muted);margin-bottom:.35rem;font-family:var(--code)}
+.prog-track{height:5px;background:rgba(255,255,255,0.06);border-radius:99px;overflow:hidden}
+.prog-fill{height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--purple));border-radius:99px;transition:width .6s cubic-bezier(.34,1.56,.64,1);box-shadow:0 0 10px var(--cyan)}
+.score{font-family:var(--code);font-size:.85rem;padding:.35rem .9rem;border:1px solid var(--border);border-radius:99px;background:var(--cyan-dim);color:var(--cyan);white-space:nowrap}
+
+/* MAIN */
+main{flex:1;display:flex;align-items:center;justify-content:center;padding:2rem}
+.wrap{width:100%;max-width:1080px}
+
+/* CARD */
+.ex-card{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;animation:slideIn .45s cubic-bezier(.22,1,.36,1)}
+@keyframes slideIn{from{opacity:0;transform:translateY(28px)}to{opacity:1;transform:translateY(0)}}
+
+/* PANEL */
+.panel{
+  background:var(--card);border:1px solid var(--border);border-radius:20px;
+  padding:1.75rem;backdrop-filter:blur(20px);position:relative;overflow:hidden;
+}
+.panel::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--cyan),transparent);opacity:.5}
+
+/* LEFT PANEL */
+.ex-meta{display:flex;align-items:center;gap:.6rem;margin-bottom:1rem}
+.ex-num{font-family:var(--code);font-size:.7rem;color:var(--muted);letter-spacing:.1em}
+.badge{font-size:.68rem;padding:.18rem .55rem;border-radius:99px;font-weight:600;letter-spacing:.04em}
+.badge.beginner{background:rgba(34,197,94,.13);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.badge.intermediate{background:rgba(251,191,36,.13);color:var(--yellow);border:1px solid rgba(251,191,36,.3)}
+.badge.advanced{background:rgba(239,68,68,.13);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.ex-title{font-family:var(--hd);font-size:1.45rem;font-weight:700;margin-bottom:.6rem;line-height:1.3}
+.ex-desc{color:var(--muted);line-height:1.7;font-size:.92rem;margin-bottom:1.5rem}
+
+/* MATRIX */
+.matrix-label{font-family:var(--code);font-size:.68rem;color:var(--muted);letter-spacing:.14em;text-transform:uppercase;margin-bottom:.7rem}
+.matrix-wrap{display:flex;flex-direction:column;gap:.35rem;align-items:flex-start}
+.matrix-row{display:flex;gap:.35rem}
+.cell{
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--code);font-weight:600;font-size:.82rem;
+  border:1px solid;border-radius:9px;
+  animation:cellPop .4s cubic-bezier(.34,1.56,.64,1) both;
+  transition:transform .2s,box-shadow .2s;
+}
+.cell:hover{transform:scale(1.08)}
+@keyframes cellPop{from{opacity:0;transform:scale(.4) rotate(-15deg)}to{opacity:1;transform:scale(1) rotate(0)}}
+.z{background:rgba(148,163,184,.05);border-color:rgba(148,163,184,.18);color:rgba(148,163,184,.55)}
+.o{background:rgba(34,211,238,.08);border-color:rgba(34,211,238,.28);color:var(--cyan)}
+.d{background:rgba(168,85,247,.12);border-color:rgba(168,85,247,.38);color:var(--purple);animation:cellPop .4s cubic-bezier(.34,1.56,.64,1) both,diagGlow 2s ease-in-out infinite}
+@keyframes diagGlow{0%,100%{box-shadow:0 0 8px rgba(168,85,247,.3)}50%{box-shadow:0 0 18px rgba(168,85,247,.6)}}
+.p{background:rgba(34,211,238,.07);border-color:rgba(34,211,238,.22);color:#7dd3fc}
+.s{background:rgba(251,191,36,.08);border-color:rgba(251,191,36,.28);color:var(--yellow)}
+.shape-tag{font-family:var(--code);font-size:.72rem;color:var(--muted);background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:7px;padding:.28rem .65rem;margin-top:1rem;display:inline-block}
+.shape-tag span{color:var(--cyan)}
+
+/* RIGHT PANEL */
+.ed-label{font-family:var(--code);font-size:.68rem;color:var(--muted);letter-spacing:.14em;text-transform:uppercase;margin-bottom:.75rem;display:flex;align-items:center;gap:.5rem}
+.ed-label::after{content:'';flex:1;height:1px;background:var(--border)}
+.import-ln{font-family:var(--code);font-size:.78rem;padding:.45rem .7rem;background:rgba(255,255,255,.03);border-radius:6px;margin-bottom:.4rem;border-left:3px solid rgba(168,85,247,.45);color:var(--muted)}
+.import-ln .kw{color:var(--purple)}.import-ln .nm{color:var(--cyan)}.import-ln .al{color:var(--yellow)}
+.ans-prefix{font-family:var(--code);font-size:.82rem;color:var(--muted);margin-bottom:.35rem}
+.ans-prefix .vr{color:#7dd3fc}.ans-prefix .op{color:var(--purple)}
+
+.input-wrap{position:relative;margin-bottom:1rem}
+.code-in{
+  width:100%;background:rgba(2,6,23,.85);border:1.5px solid var(--border);border-radius:12px;
+  padding:.9rem 1.1rem;font-family:var(--code);font-size:.95rem;color:var(--cyan);
+  outline:none;caret-color:var(--cyan);resize:none;min-height:76px;line-height:1.6;
+  transition:border-color .2s,box-shadow .2s,color .2s;
+}
+.code-in::placeholder{color:rgba(148,163,184,.28)}
+.code-in:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(34,211,238,.1),0 0 20px rgba(34,211,238,.08)}
+.code-in.ok{border-color:var(--green);box-shadow:0 0 0 3px rgba(34,197,94,.1),0 0 20px rgba(34,197,94,.12);color:var(--green)}
+.code-in.bad{border-color:var(--red);box-shadow:0 0 0 3px rgba(239,68,68,.1);animation:shake .38s ease;color:var(--red)}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+
+/* ATTEMPTS */
+.attempts{display:flex;align-items:center;gap:.4rem;margin-bottom:.9rem}
+.atm-lbl{font-size:.7rem;color:var(--muted);font-family:var(--code)}
+.dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.14);transition:all .3s}
+.dot.w{background:var(--red);border-color:var(--red);box-shadow:0 0 6px rgba(239,68,68,.4)}
+.dot.ok{background:var(--green);border-color:var(--green);box-shadow:0 0 6px rgba(34,197,94,.4)}
+
+/* FEEDBACK */
+.fb{min-height:44px;display:flex;align-items:center;gap:.6rem;font-size:.86rem;margin-bottom:1rem;padding:.65rem .9rem;border-radius:9px;opacity:0;transition:opacity .3s;pointer-events:none}
+.fb.show{opacity:1;pointer-events:auto}
+.fb.ok{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.22);color:var(--green)}
+.fb.bad{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.18);color:var(--red)}
+.fb.hint{background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.2);color:var(--yellow)}
+
+/* BUTTONS */
+.btn-row{display:flex;gap:.65rem;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:.45rem;padding:.65rem 1.3rem;border-radius:10px;font-family:var(--bd);font-size:.88rem;font-weight:600;cursor:pointer;border:none;transition:all .2s;white-space:nowrap}
+.btn-run{background:linear-gradient(135deg,var(--cyan),#0ea5e9);color:#020617;box-shadow:0 0 18px rgba(34,211,238,.28)}
+.btn-run:hover{transform:translateY(-2px);box-shadow:0 0 28px rgba(34,211,238,.45)}
+.btn-hint{background:rgba(255,255,255,.06);color:var(--muted);border:1px solid rgba(255,255,255,.1)}
+.btn-hint:hover{background:rgba(255,255,255,.1);color:var(--text)}
+.btn-next{background:linear-gradient(135deg,var(--green),#16a34a);color:#020617;box-shadow:0 0 18px rgba(34,197,94,.28);display:none}
+.btn-next:hover{transform:translateY(-2px);box-shadow:0 0 28px rgba(34,197,94,.45)}
+.btn-next.show{display:inline-flex}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none!important}
+
+/* NAV */
+.ex-nav{display:flex;justify-content:space-between;align-items:center;margin-top:1.25rem}
+.dots-wrap{display:flex;gap:.45rem}
+.nav-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.14);cursor:pointer;transition:all .3s}
+.nav-dot.active{background:var(--cyan);box-shadow:0 0 8px var(--cyan);width:22px;border-radius:4px}
+.nav-dot.done{background:var(--green)}
+.nav-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.45rem .9rem;border-radius:8px;font-size:.78rem;font-weight:600;cursor:pointer;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:var(--muted);transition:all .2s;font-family:var(--bd)}
+.nav-btn:hover{background:rgba(255,255,255,.1);color:var(--text)}
+.solved-ct{font-family:var(--code);font-size:.72rem;color:var(--muted)}
+
+/* COMPLETION */
+.done-screen{display:none;flex-direction:column;align-items:center;text-align:center;padding:2.5rem;max-width:580px;margin:0 auto;animation:slideIn .5s cubic-bezier(.22,1,.36,1)}
+.done-screen.show{display:flex}
+.done-title{font-family:var(--hd);font-size:2.8rem;font-weight:700;background:linear-gradient(135deg,var(--cyan),var(--purple),var(--green));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:.75rem}
+.done-sub{color:var(--muted);font-size:1rem;line-height:1.7;margin-bottom:2rem}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;width:100%;margin-bottom:2rem}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:1.2rem;backdrop-filter:blur(20px)}
+.stat-val{font-family:var(--hd);font-size:1.9rem;font-weight:700;color:var(--cyan)}
+.stat-lbl{font-size:.75rem;color:var(--muted);margin-top:.2rem}
+
+/* PARTICLES / CONFETTI */
+.particle{position:fixed;border-radius:50%;pointer-events:none;z-index:999;animation:burst .6s ease-out forwards}
+@keyframes burst{0%{opacity:1;transform:translate(0,0) scale(1)}100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(0)}}
+.confetti{position:fixed;pointer-events:none;z-index:1000;animation:fall linear forwards}
+@keyframes fall{0%{opacity:1;transform:translateY(-20px) rotate(0deg)}100%{opacity:0;transform:translateY(100vh) rotate(720deg)}}
+
+/* SUCCESS RIPPLE on cells */
+.cell.flash{animation:cellFlash .35s ease!important}
+@keyframes cellFlash{0%{transform:scale(1)}50%{transform:scale(1.2);filter:brightness(1.8)}100%{transform:scale(1)}}
+
+@media(max-width:768px){
+  .ex-card{grid-template-columns:1fr}
+  header{flex-wrap:wrap}.prog-wrap{order:3;width:100%;max-width:none;margin:0}
+  main{padding:1rem}
+}
+</style>
+</head>
+<body>
+<canvas id="bg"></canvas>
+<div class="app">
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><rect x="2" y="2" width="9" height="9" rx="1"/><rect x="13" y="2" width="9" height="9" rx="1"/><rect x="2" y="13" width="9" height="9" rx="1"/><rect x="13" y="13" width="9" height="9" rx="1"/></svg>
+    </div>
+    <span>Num<span>Py</span> Dojo</span>
+  </div>
+  <div class="prog-wrap">
+    <div class="prog-meta">
+      <span id="prog-txt">Exercise 1 of 10</span>
+      <span id="prog-pct">0%</span>
+    </div>
+    <div class="prog-track"><div class="prog-fill" id="prog-fill"></div></div>
+  </div>
+  <div class="score">Score: <span id="score-val">0</span></div>
+</header>
+
+<main>
+<div class="wrap">
+
+  <!-- Exercise card -->
+  <div class="ex-card" id="ex-card">
+
+    <!-- LEFT: visualization -->
+    <div class="panel" id="left-panel">
+      <div class="ex-meta">
+        <span class="ex-num" id="ex-num">EXERCISE 01</span>
+        <span class="badge" id="ex-badge">Beginner</span>
+      </div>
+      <h2 class="ex-title" id="ex-title"></h2>
+      <p class="ex-desc" id="ex-desc"></p>
+      <div class="matrix-label">Target Output — Recreate This</div>
+      <div class="matrix-wrap" id="matrix"></div>
+      <div id="shape-info"></div>
+    </div>
+
+    <!-- RIGHT: editor -->
+    <div class="panel">
+      <div class="ed-label">Write the NumPy Command</div>
+      <div class="import-ln"><span class="kw">import</span> <span class="nm">numpy</span> <span class="kw">as</span> <span class="al">np</span></div>
+      <div class="ans-prefix"><span class="vr">result</span> <span class="op">=</span></div>
+      <div class="input-wrap">
+        <textarea id="code-in" class="code-in" placeholder="np.___( )" spellcheck="false" autocomplete="off" rows="3"></textarea>
+      </div>
+      <div class="attempts">
+        <span class="atm-lbl">Attempts:</span>
+        <div class="dot" id="d0"></div>
+        <div class="dot" id="d1"></div>
+        <div class="dot" id="d2"></div>
+      </div>
+      <div class="fb" id="fb"></div>
+      <div class="btn-row">
+        <button class="btn btn-run" onclick="check()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Run
+        </button>
+        <button class="btn btn-hint" onclick="hint()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+          Hint
+        </button>
+        <button class="btn btn-next" id="next-btn" onclick="nextEx()">
+          Next
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Nav -->
+  <div class="ex-nav" id="ex-nav">
+    <button class="nav-btn" onclick="prevEx()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      Back
+    </button>
+    <div class="dots-wrap" id="nav-dots"></div>
+    <span class="solved-ct"><span id="solved-n">0</span>/10 solved</span>
+  </div>
+
+  <!-- Completion -->
+  <div class="done-screen" id="done-screen">
+    <svg width="72" height="72" viewBox="0 0 24 24" fill="none" style="margin-bottom:1rem;filter:drop-shadow(0 0 20px var(--cyan))">
+      <circle cx="12" cy="12" r="10" stroke="url(#cg)" stroke-width="1.5"/>
+      <path d="M8 12l3 3 5-6" stroke="url(#cg)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <defs><linearGradient id="cg" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse"><stop stop-color="#22d3ee"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs>
+    </svg>
+    <h1 class="done-title">NumPy Master!</h1>
+    <p class="done-sub">You've conquered all 10 array creation challenges. You're ready to build real data science projects with NumPy!</p>
+    <div class="stats">
+      <div class="stat"><div class="stat-val" id="fs">0</div><div class="stat-lbl">Final Score</div></div>
+      <div class="stat"><div class="stat-val" id="fa">0</div><div class="stat-lbl">Total Attempts</div></div>
+      <div class="stat"><div class="stat-val" id="fh">0</div><div class="stat-lbl">Hints Used</div></div>
+    </div>
+    <button class="btn btn-run" onclick="restart()" style="font-size:.95rem;padding:.8rem 2rem">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/></svg>
+      Play Again
+    </button>
+  </div>
+
+</div>
+</main>
+</div>
+
+<script>
+// ── EXERCISES ────────────────────────────────────────────────────
+const EX = [
+  {
+    id:1, title:"Your First Array", diff:"beginner",
+    desc:"Create a 1D NumPy array containing the integers 1 through 5. This is the most fundamental NumPy operation.",
+    values:[[1,2,3,4,5]],
+    ct:(r,c,v)=>v>0?'p':'z',
+    shape:"shape: (5,) · dtype: int64",
+    ok:["np.array([1,2,3,4,5])","np.array([1, 2, 3, 4, 5])"],
+    hints:["Use np.array() and pass a Python list as the argument.","np.array([...]) — place your values inside a list.","np.array([1, 2, 3, 4, 5])"],
+  },
+  {
+    id:2, title:"Zero Matrix", diff:"beginner",
+    desc:"Create a 3×3 matrix filled entirely with zeros. NumPy has a dedicated function for this — no loops needed.",
+    values:[[0,0,0],[0,0,0],[0,0,0]],
+    ct:()=>'z',
+    shape:"shape: (3, 3) · dtype: float64",
+    ok:["np.zeros((3,3))","np.zeros((3, 3))","np.zeros([3,3])","np.zeros([3, 3])"],
+    hints:["There's a special NumPy function for all-zero arrays — its name hints at what it creates.","np.zeros() takes a shape tuple as argument: np.zeros((rows, cols)).","np.zeros((3, 3))"],
+  },
+  {
+    id:3, title:"Ones Matrix", diff:"beginner",
+    desc:"Create a 2×4 matrix filled entirely with ones. Like np.zeros(), but the sister function for ones.",
+    values:[[1,1,1,1],[1,1,1,1]],
+    ct:()=>'o',
+    shape:"shape: (2, 4) · dtype: float64",
+    ok:["np.ones((2,4))","np.ones((2, 4))","np.ones([2,4])","np.ones([2, 4])"],
+    hints:["There's a function symmetrical to np.zeros() for creating all-ones arrays.","np.ones() — pass the shape tuple (rows, cols).","np.ones((2, 4))"],
+  },
+  {
+    id:4, title:"Even Numbers", diff:"beginner",
+    desc:"Generate an array of even numbers: [0, 2, 4, 6, 8]. Use NumPy's range-like generator — no Python lists.",
+    values:[[0,2,4,6,8]],
+    ct:(r,c,v)=>v===0?'z':'p',
+    shape:"shape: (5,) · dtype: int64",
+    ok:["np.arange(0,10,2)","np.arange(0, 10, 2)","np.arange(10)[::2]","np.arange(0,9,2)","np.arange(0, 9, 2)"],
+    hints:["np.arange() works like Python's range() but returns an array. It takes (start, stop, step).","np.arange(start, stop, step) — what step size produces even numbers?","np.arange(0, 10, 2)"],
+  },
+  {
+    id:5, title:"Identity Matrix", diff:"intermediate",
+    desc:"Create a 4×4 identity matrix — 1s on the main diagonal and 0s everywhere else. Essential in linear algebra.",
+    values:[[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]],
+    ct:(r,c,v)=>r===c?'d':'z',
+    shape:"shape: (4, 4) · dtype: float64",
+    ok:["np.eye(4)","np.identity(4)","np.eye(4,4)","np.eye(4, 4)"],
+    hints:["NumPy has a function named after the mathematical symbol for identity — think 'I' for identity.","np.eye(n) creates an n×n identity matrix. The name comes from the letter 'I'.","np.eye(4)"],
+  },
+  {
+    id:6, title:"Fill It Up", diff:"intermediate",
+    desc:"Create a 3×3 matrix where every single element equals 7. NumPy can fill any shape with a constant value.",
+    values:[[7,7,7],[7,7,7],[7,7,7]],
+    ct:()=>'s',
+    shape:"shape: (3, 3) · dtype: int64",
+    ok:["np.full((3,3),7)","np.full((3, 3), 7)","np.full((3,3),7,dtype=int)","np.full((3, 3), 7, dtype=int)"],
+    hints:["There's a NumPy function whose name literally means 'fill an array with a value'.","np.full(shape, fill_value) — pass the shape tuple first, then the value to fill.","np.full((3, 3), 7)"],
+  },
+  {
+    id:7, title:"Linear Space", diff:"intermediate",
+    desc:"Create 5 evenly spaced numbers from 0.0 to 1.0 inclusive: [0, 0.25, 0.5, 0.75, 1.0].",
+    values:[[0,0.25,0.5,0.75,1.0]],
+    ct:(r,c,v)=>v===0?'z':v===1?'o':'p',
+    shape:"shape: (5,) · dtype: float64",
+    ok:["np.linspace(0,1,5)","np.linspace(0, 1, 5)","np.linspace(0.,1.,5)","np.linspace(0.0,1.0,5)","np.linspace(0.0, 1.0, 5)"],
+    hints:["np.linspace() creates evenly spaced points between two endpoints — unlike arange, the third argument is the count, not the step.","np.linspace(start, stop, num) — 'num' is how many points you want.","np.linspace(0, 1, 5)"],
+  },
+  {
+    id:8, title:"Diagonal Array", diff:"intermediate",
+    desc:"Create a 4×4 matrix with [1, 2, 3, 4] on the main diagonal and 0s everywhere else.",
+    values:[[1,0,0,0],[0,2,0,0],[0,0,3,0],[0,0,0,4]],
+    ct:(r,c,v)=>r===c?'d':'z',
+    shape:"shape: (4, 4) · dtype: int64",
+    ok:["np.diag([1,2,3,4])","np.diag([1, 2, 3, 4])"],
+    hints:["NumPy has a function that places a 1D array onto the diagonal of a 2D matrix.","np.diag() can both extract diagonals and construct diagonal matrices from a 1D array.","np.diag([1, 2, 3, 4])"],
+  },
+  {
+    id:9, title:"Reshape Magic", diff:"advanced",
+    desc:"Generate integers 0–5 and reshape into a 2×3 matrix. Method chaining works on NumPy arrays.",
+    values:[[0,1,2],[3,4,5]],
+    ct:(r,c,v)=>v===0?'z':'p',
+    shape:"shape: (2, 3) · dtype: int64",
+    ok:[
+      "np.arange(6).reshape(2,3)","np.arange(6).reshape(2, 3)",
+      "np.arange(6).reshape((2,3))","np.arange(6).reshape((2, 3))",
+      "np.arange(0,6).reshape(2,3)","np.arange(0, 6).reshape(2, 3)",
+      "np.arange(0,6).reshape((2,3))","np.arange(0, 6).reshape((2, 3))",
+    ],
+    hints:["First create the sequence 0–5 with np.arange(), then call .reshape() on the result.","You can chain: np.arange(n).reshape(rows, cols) — no intermediate variable needed.","np.arange(6).reshape(2, 3)"],
+  },
+  {
+    id:10, title:"2D Nested Array", diff:"advanced",
+    desc:"Create a 3×2 matrix from nested lists: rows [10,20], [30,40], [50,60]. Back to basics — but 2D.",
+    values:[[10,20],[30,40],[50,60]],
+    ct:()=>'s',
+    shape:"shape: (3, 2) · dtype: int64",
+    ok:[
+      "np.array([[10,20],[30,40],[50,60]])","np.array([[10, 20],[30, 40],[50, 60]])",
+      "np.array([[10, 20], [30, 40], [50, 60]])","np.array([[10,20], [30,40], [50,60]])",
+    ],
+    hints:["Use np.array() but pass a nested list — a list of lists where each inner list is one row.","np.array([[row0], [row1], [row2]]) — each inner list becomes a row of the matrix.","np.array([[10, 20], [30, 40], [50, 60]])"],
+  },
+];
+
+// ── STATE ──────────────────────────────────────────────────────
+let idx=0, score=0, totalAttempts=0, totalHints=0;
+let solved=new Set(), hintLvl=Array(10).fill(0), atCnt=Array(10).fill(0);
+
+// ── BACKGROUND CANVAS ─────────────────────────────────────────
+const cv=document.getElementById('bg'),cx=cv.getContext('2d');
+let pts=[];
+function resize(){cv.width=innerWidth;cv.height=innerHeight}
+function mkPts(){
+  pts=[];
+  const n=Math.floor(innerWidth*innerHeight/14000);
+  for(let i=0;i<n;i++) pts.push({x:Math.random()*cv.width,y:Math.random()*cv.height,vx:(Math.random()-.5)*.28,vy:(Math.random()-.5)*.28,r:Math.random()*1.4+.4,o:Math.random()*.35+.08});
+}
+function frame(){
+  cx.clearRect(0,0,cv.width,cv.height);
+  // grid
+  cx.strokeStyle='rgba(34,211,238,0.028)';cx.lineWidth=1;
+  const g=56;
+  for(let x=0;x<cv.width;x+=g){cx.beginPath();cx.moveTo(x,0);cx.lineTo(x,cv.height);cx.stroke()}
+  for(let y=0;y<cv.height;y+=g){cx.beginPath();cx.moveTo(0,y);cx.lineTo(cv.width,y);cx.stroke()}
+  // particles + connections
+  for(let i=0;i<pts.length;i++){
+    const p=pts[i];
+    p.x+=p.vx;p.y+=p.vy;
+    if(p.x<0)p.x=cv.width;if(p.x>cv.width)p.x=0;
+    if(p.y<0)p.y=cv.height;if(p.y>cv.height)p.y=0;
+    cx.beginPath();cx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    cx.fillStyle=`rgba(34,211,238,${p.o})`;cx.fill();
+    for(let j=i+1;j<pts.length;j++){
+      const q=pts[j],dx=p.x-q.x,dy=p.y-q.y,d=Math.sqrt(dx*dx+dy*dy);
+      if(d<110){cx.beginPath();cx.moveTo(p.x,p.y);cx.lineTo(q.x,q.y);cx.strokeStyle=`rgba(34,211,238,${.07*(1-d/110)})`;cx.lineWidth=.5;cx.stroke()}
+    }
+  }
+  requestAnimationFrame(frame);
+}
+resize();mkPts();frame();
+addEventListener('resize',()=>{resize();mkPts()});
+
+// ── RENDER ──────────────────────────────────────────────────────
+function render(i){
+  const e=EX[i];
+  document.getElementById('ex-num').textContent=`EXERCISE ${String(e.id).padStart(2,'0')}`;
+  const bd=document.getElementById('ex-badge');
+  bd.textContent=e.diff.charAt(0).toUpperCase()+e.diff.slice(1);
+  bd.className=`badge ${e.diff}`;
+  document.getElementById('ex-title').textContent=e.title;
+  document.getElementById('ex-desc').textContent=e.desc;
+
+  // Matrix
+  const mEl=document.getElementById('matrix');
+  mEl.innerHTML='';
+  // Cell sizing: fewer cols → bigger cells
+  const cols=e.values[0].length;
+  const sz=cols<=2?68:cols<=3?60:cols<=4?52:46;
+  e.values.forEach((row,r)=>{
+    const rEl=document.createElement('div');rEl.className='matrix-row';
+    row.forEach((v,c)=>{
+      const cell=document.createElement('div');
+      cell.className=`cell ${e.ct(r,c,v)}`;
+      cell.style.width=sz+'px';cell.style.height=sz+'px';
+      cell.style.animationDelay=`${(r*cols+c)*55}ms`;
+      // Format value
+      let txt=Number.isInteger(v)?String(v):v.toFixed(2);
+      cell.textContent=txt;
+      // Tooltip
+      cell.title=`[${r}][${c}] = ${txt}`;
+      rEl.appendChild(cell);
+    });
+    mEl.appendChild(rEl);
+  });
+
+  document.getElementById('shape-info').innerHTML=`<span class="shape-tag">${e.shape}</span>`;
+
+  // Reset input
+  const inp=document.getElementById('code-in');
+  inp.value='';inp.className='code-in';
+  clearFb();
+  document.getElementById('next-btn').classList.remove('show');
+
+  // If already solved
+  if(solved.has(i)){
+    inp.className='code-in ok';
+    inp.value=e.ok[0];
+    showFb('ok',svgCheck()+' Already solved — hit Next!');
+    document.getElementById('next-btn').classList.add('show');
+  }
+
+  updateDots(i);
+  updateProgress();
+  navDots();
+
+  // Reanimate card
+  const card=document.getElementById('ex-card');
+  card.style.animation='none';
+  requestAnimationFrame(()=>card.style.animation='slideIn .4s cubic-bezier(.22,1,.36,1)');
+}
+
+function svgCheck(){return'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>'}
+function svgX(){return'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>'}
+function svgInfo(){return'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>'}
+
+// ── ANSWER CHECK ────────────────────────────────────────────────
+function norm(s){
+  return s.trim()
+    .replace(/import\s+numpy\s+as\s+np\s*\n?/gi,'')
+    .replace(/result\s*=\s*/,'')
+    .replace(/\s+/g,'')
+    .toLowerCase()
+    .replace(/;$/,'');
+}
+
+function check(){
+  if(solved.has(idx)){nextEx();return}
+  const inp=document.getElementById('code-in');
+  const val=inp.value.trim();
+  if(!val){showFb('bad',svgX()+' Type your NumPy command above.');return}
+
+  const e=EX[idx];
+  const correct=e.ok.some(a=>norm(a)===norm(val));
+
+  atCnt[idx]++;totalAttempts++;
+  updateDots(idx);
+
+  if(correct){
+    inp.className='code-in ok';
+    solved.add(idx);
+
+    // Scoring: 10 pts first try + no hints, less otherwise
+    const pts=hintLvl[idx]===0&&atCnt[idx]===1?10:hintLvl[idx]===0?7:Math.max(3,10-hintLvl[idx]*2);
+    score+=pts;
+
+    showFb('ok',svgCheck()+' '+pickMsg());
+    document.getElementById('next-btn').classList.add('show');
+    flashCells();
+    burst(inp.getBoundingClientRect());
+    updateProgress();
+    navDots();
+    if(solved.size===EX.length)setTimeout(showDone,1600);
+  } else {
+    inp.className='code-in bad';
+    setTimeout(()=>{if(!solved.has(idx))inp.className='code-in';},500);
+    const left=3-atCnt[idx];
+    if(left<=0) showFb('hint',svgInfo()+' Try the Hint button for guidance.');
+    else showFb('bad',svgX()+` Not quite — check your syntax. ${left} attempt${left!==1?'s':''} left before hint.`);
+  }
+}
+
+function pickMsg(){
+  return['Nailed it!','Precisely!','Perfect!','That\'s the one!','Excellent work!','Spot on!'][Math.floor(Math.random()*6)];
+}
+
+// ── HINTS ───────────────────────────────────────────────────────
+function hint(){
+  const e=EX[idx];
+  const lvl=hintLvl[idx];
+  if(lvl>=e.hints.length){showFb('hint',svgInfo()+' You already have the answer — try running it!');return}
+  totalHints++;hintLvl[idx]++;
+  const h=e.hints[lvl];
+  const isAns=lvl===e.hints.length-1;
+  showFb('hint',`${svgInfo()}<div><div style="font-size:.66rem;opacity:.65;margin-bottom:.2rem">HINT ${lvl+1}/${e.hints.length}${isAns?' · ANSWER':''}</div><code style="font-family:var(--code);font-size:.88rem">${h}</code></div>`);
+  if(isAns){document.getElementById('code-in').value=h;document.getElementById('code-in').focus()}
+}
+
+// ── FEEDBACK ────────────────────────────────────────────────────
+function showFb(type,html){
+  const f=document.getElementById('fb');
+  f.className=`fb ${type} show`;f.innerHTML=html;
+}
+function clearFb(){
+  const f=document.getElementById('fb');
+  f.className='fb';f.innerHTML='';
+}
+
+// ── NAVIGATION ──────────────────────────────────────────────────
+function nextEx(){if(idx<EX.length-1){idx++;render(idx);document.getElementById('code-in').focus()}else showDone()}
+function prevEx(){if(idx>0){idx--;render(idx);document.getElementById('code-in').focus()}}
+function goTo(i){idx=i;render(i);document.getElementById('code-in').focus()}
+
+// ── UI UPDATES ──────────────────────────────────────────────────
+function updateDots(i){
+  const cnt=Math.min(atCnt[i],3);
+  for(let d=0;d<3;d++){
+    const el=document.getElementById(`d${d}`);
+    el.className='dot';
+    if(d<cnt){
+      const isLast=d===cnt-1;
+      el.classList.add(solved.has(i)&&isLast?'ok':'w');
+    }
+  }
+}
+
+function updateProgress(){
+  const pct=Math.round(solved.size/EX.length*100);
+  document.getElementById('prog-fill').style.width=pct+'%';
+  document.getElementById('prog-txt').textContent=`Exercise ${idx+1} of ${EX.length}`;
+  document.getElementById('prog-pct').textContent=pct+'%';
+  document.getElementById('score-val').textContent=score;
+  document.getElementById('solved-n').textContent=solved.size;
+}
+
+function navDots(){
+  const el=document.getElementById('nav-dots');
+  el.innerHTML='';
+  EX.forEach((_,i)=>{
+    const d=document.createElement('div');
+    d.className='nav-dot';
+    if(i===idx)d.classList.add('active');
+    else if(solved.has(i))d.classList.add('done');
+    d.onclick=()=>goTo(i);
+    el.appendChild(d);
+  });
+}
+
+// ── ANIMATIONS ──────────────────────────────────────────────────
+function flashCells(){
+  const cells=document.querySelectorAll('.cell');
+  cells.forEach((c,i)=>setTimeout(()=>{
+    c.classList.add('flash');
+    c.style.borderColor='var(--green)';
+    setTimeout(()=>c.classList.remove('flash'),400);
+  },i*40));
+}
+
+function burst(rect){
+  const cx2=rect.left+rect.width/2,cy2=rect.top+rect.height/2;
+  const colors=['#22d3ee','#a855f7','#22c55e','#fbbf24','#f472b6','#60a5fa'];
+  for(let i=0;i<22;i++){
+    const p=document.createElement('div');
+    p.className='particle';
+    const a=(i/22)*Math.PI*2,dist=60+Math.random()*90;
+    p.style.cssText=`left:${cx2}px;top:${cy2}px;width:${4+Math.random()*5}px;height:${4+Math.random()*5}px;background:${colors[i%colors.length]};--dx:${Math.cos(a)*dist}px;--dy:${Math.sin(a)*dist}px;animation-duration:${.45+Math.random()*.3}s`;
+    document.body.appendChild(p);
+    setTimeout(()=>p.remove(),900);
+  }
+}
+
+function confetti(){
+  const colors=['#22d3ee','#a855f7','#22c55e','#fbbf24','#f472b6','#f87171','#60a5fa'];
+  for(let i=0;i<90;i++){
+    setTimeout(()=>{
+      const c=document.createElement('div');c.className='confetti';
+      const w=5+Math.random()*8;
+      c.style.cssText=`left:${Math.random()*100}vw;top:-20px;width:${w}px;height:${w}px;border-radius:${Math.random()>.5?'50%':'2px'};background:${colors[Math.floor(Math.random()*colors.length)]};animation-duration:${2+Math.random()*2}s`;
+      document.body.appendChild(c);
+      setTimeout(()=>c.remove(),5000);
+    },i*25);
+  }
+}
+
+// ── COMPLETION ──────────────────────────────────────────────────
+function showDone(){
+  document.getElementById('ex-card').style.display='none';
+  document.getElementById('ex-nav').style.display='none';
+  document.getElementById('done-screen').classList.add('show');
+  document.getElementById('fs').textContent=score+'/100';
+  document.getElementById('fa').textContent=totalAttempts;
+  document.getElementById('fh').textContent=totalHints;
+  confetti();
+}
+
+function restart(){
+  idx=0;score=0;totalAttempts=0;totalHints=0;
+  solved=new Set();hintLvl=Array(10).fill(0);atCnt=Array(10).fill(0);
+  document.getElementById('ex-card').style.display='';
+  document.getElementById('ex-nav').style.display='';
+  document.getElementById('done-screen').classList.remove('show');
+  render(0);
+}
+
+// ── KEYBOARD ────────────────────────────────────────────────────
+document.getElementById('code-in').addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();check()}
+});
+
+// ── INIT ────────────────────────────────────────────────────────
+render(0);
+setTimeout(()=>document.getElementById('code-in').focus(),150);
+</script>
+</body>
+</html>
