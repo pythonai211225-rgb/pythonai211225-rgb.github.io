@@ -1706,7 +1706,7 @@ all values are zeros</pre>
         prompt: "Create the exact zeros matrix",
         starter: "np.zeros((3, 4))",
         hint: "Tip: create a two-dimensional array with 3 rows and 4 columns, filled with zeros.",
-        commandPattern: /^np\.zeros/i,
+        commandPattern: /^(?:np\.zeros|np\.full|np\.ones)/i,
         commandName: "np.zeros()",
         target: [
           [0, 0, 0, 0],
@@ -1721,7 +1721,7 @@ all values are zeros</pre>
         prompt: "Create a matrix filled with ones",
         starter: "np.ones((2, 5))",
         hint: "Tip: create a two-dimensional array with 2 rows and 5 columns, filled with ones.",
-        commandPattern: /^np\.ones/i,
+        commandPattern: /^(?:np\.ones|np\.full)/i,
         commandName: "np.ones()",
         target: [
           [1, 1, 1, 1, 1],
@@ -1761,7 +1761,7 @@ all values are zeros</pre>
         prompt: "Create a 3 by 3 matrix filled with the same value",
         starter: "np.full((3, 3), 9)",
         hint: "Tip: create a 3 by 3 array where every cell has the same value.",
-        commandPattern: /^np\.full/i,
+        commandPattern: /^(?:np\.full|np\.ones)/i,
         commandName: "np.full()",
         target: [
           [9, 9, 9],
@@ -2855,6 +2855,7 @@ all values are zeros</pre>
     let stageMemory = null;
     let randomSeedMemory = null;
     let clueTypeTimer = null;
+    let narratorGeneration = 0;
     let missedLabelTimer = null;
     let revealTypeTimer = null;
     let timerInterval = null;
@@ -3173,6 +3174,8 @@ all values are zeros</pre>
         clearInterval(clueTypeTimer);
       }
 
+      narratorGeneration++;
+      dontKnowButton.disabled = true;
       setAliveShipsTyping(true);
       ghostText.textContent = "";
       let index = 0;
@@ -3249,6 +3252,9 @@ all values are zeros</pre>
 
       match = code.match(/^np\.ones\(\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)\s*\)$/i);
       if (match) return matrixOf(Number(match[1]), Number(match[2]), 1);
+
+      match = code.match(/^np\.ones\(\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)\s*\)\s*\*\s*(-?\d+(?:\.\d+)?)$/i);
+      if (match) return matrixOf(Number(match[1]), Number(match[2]), Number(match[3]));
 
       match = code.match(/^np\.full\(\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$/i);
       if (match) return matrixOf(Number(match[1]), Number(match[2]), Number(match[3]));
@@ -3849,7 +3855,11 @@ all values are zeros</pre>
       clearShipClasses("spin", "warn");
       updateActiveShip();
       typeEncryptedRequirement(stage.clue);
-      speakClue(stage.clue, () => { if (!gameOver) { startTimer(); startRadar(); } });
+      const _narratorGen = narratorGeneration;
+      speakClue(stage.clue, () => {
+        if (narratorGeneration === _narratorGen) dontKnowButton.disabled = false;
+        if (!gameOver) { startTimer(); startRadar(); }
+      });
       promptEl.textContent = stage.prompt;
       cheatsEl.innerHTML = stage.hint;
       codeInput.value = "";
