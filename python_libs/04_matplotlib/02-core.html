@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Topic 02 — Basic Plots &amp; Figure Object</title>
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    /* ── page layout with left sidebar ── */
+    .page-wrap { display:flex; min-height:calc(100vh - 54px); }
+    .left-nav {
+      width:180px; min-width:180px;
+      background:var(--surface);
+      border-right:1px solid var(--border);
+      padding:20px 12px;
+      position:sticky;
+      top:54px;
+      height:calc(100vh - 54px);
+      overflow-y:auto;
+    }
+    .content-area { flex:1; min-width:0; }
+
+    /* sidebar buttons */
+    .st-title { font-size:.68rem; font-weight:800; text-transform:uppercase; letter-spacing:.12em; color:var(--muted); padding:0 8px 10px; border-bottom:1px solid var(--border); margin-bottom:8px; display:block; }
+    .st-btn { display:block; width:100%; text-align:left; background:none; border:none; color:var(--muted); padding:9px 12px; border-radius:8px; font-size:.84rem; cursor:pointer; transition:background .15s,color .15s; line-height:1.4; }
+    .st-btn:hover { background:rgba(255,255,255,.06); color:var(--text); }
+    .st-btn.active { background:rgba(249,115,22,.15); color:var(--accent); font-weight:700; }
+
+    /* section tag pills */
+    .section-tag { display:inline-block; padding:3px 10px; border-radius:999px; font-size:.72rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; margin-bottom:12px; }
+    .tag-orange { background:rgba(249,115,22,.15);  color:var(--orange); border:1px solid rgba(249,115,22,.3); }
+    .tag-blue   { background:rgba(59,130,246,.15);  color:var(--blue);   border:1px solid rgba(59,130,246,.3); }
+    .tag-green  { background:rgba(16,185,129,.15);  color:var(--green);  border:1px solid rgba(16,185,129,.3); }
+    .tag-yellow { background:rgba(250,204,21,.15);  color:var(--yellow); border:1px solid rgba(250,204,21,.3); }
+    .tag-purple { background:rgba(139,92,246,.15);  color:var(--purple); border:1px solid rgba(139,92,246,.3); }
+    .tag-cyan   { background:rgba(6,182,212,.15);   color:var(--cyan);   border:1px solid rgba(6,182,212,.3); }
+
+    /* fn-table */
+    .fn-table { width:100%; border-collapse:collapse; font-size:.93rem; margin-top:10px; }
+    .fn-table thead th { background:#1c2230; color:var(--accent); text-align:left; padding:10px 14px; border-bottom:2px solid var(--border); font-size:.8rem; letter-spacing:.08em; text-transform:uppercase; }
+    .fn-table tbody tr { border-bottom:1px solid var(--border); }
+    .fn-table tbody tr:last-child { border-bottom:none; }
+    .fn-table tbody td { padding:12px 14px; vertical-align:top; }
+    .fn-table tbody tr:hover { background:rgba(255,255,255,.03); }
+    .fn-left { vertical-align:top; width:34%; }
+    .fn-name { display:block; color:var(--accent); font-family:'Courier New',monospace; font-weight:700; padding-bottom:8px; margin-bottom:8px; border-bottom:1px solid var(--border); font-size:.92rem; }
+    .fn-desc { display:block; color:var(--muted); font-size:.87rem; line-height:1.6; }
+    .fn-example { background:#0d1117; border:1px solid var(--border); border-radius:8px; padding:10px 14px; font-family:'Courier New',monospace; font-size:.84rem; white-space:pre; line-height:1.6; overflow-x:auto; }
+
+    /* syntax */
+    .cm  { color:#6a9955; font-style:italic; }
+    .kw  { color:#569cd6; }
+    .fn  { color:#dcdcaa; }
+    .num { color:#b5cea8; }
+    .str { color:#ce9178; }
+    .lib { color:#f97316; }
+    .op  { color:#06b6d4; }
+
+    /* chart preview */
+    .chart-preview {
+      margin:16px 0 4px;
+      background:#ffffff;
+      border:1px solid #ccc;
+      border-radius:8px;
+      overflow:hidden;
+      display:block;
+    }
+    .chart-preview svg { display:block; }
+    .chart-label {
+      font-size:.68rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase;
+      color:var(--muted); margin-bottom:6px; margin-top:14px;
+      display:flex; align-items:center; gap:8px;
+    }
+    .chart-label::before { content:'▶'; color:var(--accent); font-size:.6rem; }
+
+    /* intro card */
+    .intro-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px 24px; margin-bottom:20px; line-height:1.7; color:var(--muted); }
+    .intro-card strong { color:var(--text); }
+    .topic-pane { padding-top:0; }
+
+    @media(max-width:700px) { .left-nav { display:none; } }
+  </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">← Python Libs</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item" href="01-intro.html">01</a>
+    <a class="nav-item active" href="02-core.html">02</a>
+    <a class="nav-item" href="03-multi-graph.html">03</a>
+    <a class="nav-item" href="04-seaborn-intro.html">04</a>
+    <a class="nav-item" href="05-seaborn-scatter.html">05</a>
+    <a class="nav-item" href="06-seaborn-charts.html">06</a>
+  </div>
+</nav>
+
+<div class="page-wrap">
+
+  <!-- ── Left sidebar ── -->
+  <nav class="left-nav">
+    <span class="st-title">Topics</span>
+    <button class="st-btn active" id="btn-1" onclick="showTopic(1)">1 · plt.plot()</button>
+    <button class="st-btn" id="btn-2" onclick="showTopic(2)">2 · show / title / labels</button>
+    <button class="st-btn" id="btn-3" onclick="showTopic(3)">3 · xlim &amp; ylim</button>
+    <button class="st-btn" id="btn-4" onclick="showTopic(4)">4 · savefig</button>
+    <button class="st-btn" id="btn-5" onclick="showTopic(5)">5 · Figure Object</button>
+    <button class="st-btn" id="btn-6" onclick="showTopic(6)">6 · add_axes()</button>
+    <button class="st-btn" id="btn-7" onclick="showTopic(7)">7 · Multiple Axes</button>
+    <button class="st-btn" id="btn-8" onclick="showTopic(8)">8 · set_ Methods</button>
+    <button class="st-btn" id="btn-9" onclick="showTopic(9)">9 · figsize &amp; savefig</button>
+  </nav>
+
+  <div class="content-area">
+  <main>
+
+    <!-- ════════════════════════════════
+         TOPIC 1 — plt.plot()
+         ════════════════════════════════ -->
+    <div id="topic-1" class="topic-pane">
+      <div class="hero">
+        <span class="topic-label"><span class="dot"></span>Topic 02 — Basic Plots &amp; Figure Object</span>
+        <h1>Basic Plots &amp; Figure Object</h1>
+        <p>Learn the core matplotlib workflow — drawing a line chart, adding titles and labels, setting axis limits, saving plots, and using the Figure object for complex multi-chart layouts.</p>
+        <div class="hero-pills">
+          <span class="tag">plt.plot()</span>
+          <span class="tag blue">plt.figure()</span>
+          <span class="tag green">fig.add_axes()</span>
+          <span class="tag yellow">savefig()</span>
+          <span class="tag cyan">figsize</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <span class="section-tag tag-orange">plt.plot()</span>
+        <h2>Drawing a Line Chart</h2>
+        <p><code>plt.plot(x, y)</code> is the most fundamental matplotlib function. Pass two arrays — the first goes on the X axis, the second on the Y axis — and matplotlib draws a connected 2D line through all the points.</p>
+        <table class="fn-table">
+          <thead><tr><th style="width:38%">Function / Description</th><th>Code &amp; Output</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="fn-left">
+                <span class="fn-name">plt.plot(x, y)</span>
+                <div class="fn-desc">Draws a 2D line chart. The first array argument maps to the X axis, the second maps to the Y axis. Matplotlib connects each (x, y) coordinate pair with a line.</div>
+              </td>
+              <td>
+                <div class="fn-example"><span class="kw">import</span> <span class="lib">numpy</span> <span class="kw">as</span> <span class="lib">np</span>
+<span class="kw">import</span> <span class="lib">matplotlib</span><span class="op">.</span><span class="lib">pyplot</span> <span class="kw">as</span> <span class="lib">plt</span>
+
+x <span class="op">=</span> <span class="lib">np</span><span class="op">.</span><span class="fn">arange</span>(<span class="num">0</span>, <span class="num">10</span>)  <span class="cm"># [0,1,2,...,9]</span>
+y <span class="op">=</span> <span class="num">2</span> <span class="op">*</span> x             <span class="cm"># [0,2,4,...,18]</span>
+
+<span class="lib">plt</span><span class="op">.</span><span class="fn">plot</span>(x, y)</div>
+                <div class="chart-label">Output chart</div>
+                <div class="chart-preview">
+                  <svg viewBox="0 0 360 220" xmlns="http://www.w3.org/2000/svg" style="width:100%;font-family:DejaVu Sans,Arial,sans-serif">
+                    <rect width="360" height="220" fill="#fff"/>
+                    <!-- plot area -->
+                    <rect x="50" y="15" width="290" height="170" fill="#fff" stroke="#ccc" stroke-width="0.5"/>
+                    <!-- grid lines -->
+                    <line x1="50" y1="57" x2="340" y2="57" stroke="#e0e0e0" stroke-width="1"/>
+                    <line x1="50" y1="99" x2="340" y2="99" stroke="#e0e0e0" stroke-width="1"/>
+                    <line x1="50" y1="141" x2="340" y2="141" stroke="#e0e0e0" stroke-width="1"/>
+                    <line x1="50" y1="183" x2="340" y2="183" stroke="#e0e0e0" stroke-width="1"/>
+                    <line x1="82" y1="15" x2="82" y2="185" stroke="#e0e0e0" stroke-width="1"/>
+                    <line x1="146" y1="15" x2="146" y2="185" stroke="#e0e0e0" stroke-width="1"/>
+                    <line x1="210" y1="15" x2="210" y2="185" stroke="#e0e0e0" stroke-width="1"/>
+                    <line x1="274" y1="15" x2="274" y2="185" stroke="#e0e0e0" stroke-width="1"/>
+                    <!-- data line: y=2x, x from 0–9 mapped to plot area -->
+                    <!-- x: 50+i*32.2, y: 185-v*9.44 where v=2i -->
+                    <polyline points="50,185 82,179 114,173 146,167 178,154 210,148 242,130 274,124 306,106 338,100" fill="none" stroke="#1f77b4" stroke-width="2"/>
+                    <!-- x ticks -->
+                    <text x="50" y="200" text-anchor="middle" font-size="10" fill="#666">0</text>
+                    <text x="114" y="200" text-anchor="middle" font-size="10" fill="#666">2</text>
+                    <text x="178" y="200" text-anchor="middle" font-size="10" fill="#666">4</text>
+                    <text x="242" y="200" text-anchor="middle" font-size="10" fill="#666">6</text>
+                    <text x="306" y="200" text-anchor="middle" font-size="10" fill="#666">8</text>
+                    <!-- y ticks -->
+                    <text x="44" y="188" text-anchor="end" font-size="10" fill="#666">0.0</text>
+                    <text x="44" y="144" text-anchor="end" font-size="10" fill="#666">5.0</text>
+                    <text x="44" y="100" text-anchor="end" font-size="10" fill="#666">10.0</text>
+                    <text x="44" y="56" text-anchor="end" font-size="10" fill="#666">15.0</text>
+                    <!-- axes -->
+                    <line x1="50" y1="185" x2="340" y2="185" stroke="#888" stroke-width="1"/>
+                    <line x1="50" y1="15" x2="50" y2="185" stroke="#888" stroke-width="1"/>
+                  </svg>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div><!-- /topic-1 -->
+
+
+    <!-- ════════════════════════════════
+         TOPIC 2 — show / title / labels
+         ════════════════════════════════ -->
+    <div id="topic-2" class="topic-pane" style="display:none">
+      <div class="section">
+        <span class="section-tag tag-blue">Plot Helpers</span>
+        <h2>plt.show() · plt.title() · plt.xlabel() · plt.ylabel()</h2>
+        <p>After calling <code>plt.plot()</code>, use these helper functions to label and display the chart. All calls must be in the <strong>same Jupyter cell</strong> so matplotlib knows they belong to the same figure.</p>
+        <table class="fn-table">
+          <thead><tr><th style="width:38%">Function / Description</th><th>Code &amp; Output</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="fn-left">
+                <span class="fn-name">plt.show()</span>
+                <div class="fn-desc">Renders and displays the chart. Not needed in Jupyter Notebook (renders automatically), but required when running Python scripts in a terminal or IDE.</div>
+              </td>
+              <td>
+                <div class="fn-example"><span class="lib">plt</span><span class="op">.</span><span class="fn">plot</span>(x, y)
+<span class="lib">plt</span><span class="op">.</span><span class="fn">show</span>()   <span class="cm"># needed outside Jupyter</span></div>
+              </td>
+            </tr>
+            <tr>
+              <td class="fn-left">
+                <span class="fn-name">plt.title('text')</span>
+                <span class="fn-name" style="margin-top:4px">plt.xlabel('text')</span>
+                <span class="fn-name" style="margin-top:4px">plt.ylabel('text')</span>
+                <div class="fn-desc">Add a title above the chart, and labels on the X and Y axes. Call them in the same cell as <code>plt.plot()</code>.</div>
+              </td>
+              <td>
+                <div class="fn-example"><span class="lib">plt</span><span class="op">.</span><span class="fn">plot</span>(x, y)
+<span class="lib">plt</span><span class="op">.</span><span class="fn">title</span>(<span class="str">'Example'</span>)
+<span class="lib">plt</span><span class="op">.</span><span class="fn">xlabel</span>(<span class="str">'X Data'</span>)
+<span class="lib">plt</span><span class="op">.</span><span class="fn">ylabel</span>(<span class="str">'Y Data'</span>)</div>
+                <div class="chart-label">Output chart</div>
+                <div class="chart-preview">
+                  <svg viewBox="0 0 360 240" xmlns="http://www.w3.org/2000/svg" style="width:100%;font-family:DejaVu Sans,Arial,sans-serif">
+                    <rect width="360" height="240" fill="#fff"/>
+                    <!-- title -->
+                    <text x="195" y="18" text-anchor="middle" font-size="13" font-weight="bold" fill="#333">Example</text>
+                    <!-- plot area -->
+                    <rect x="60" y="26" width="280" height="170" fill="#fff" stroke="#ccc" stroke-width="0.5"/>
+                    <!-- grid -->
+                    <line x1="60" y1="68" x2="340" y2="68" stroke="#e0e0e0" stroke-width="1"/>
+                    <line x1="60" y1="110" x2="340" y2="110" stroke="#e0e0e0" stroke-width="1"/>
+                    <line x1="60" y1="152" x2="340" y2="152" stroke="#e0e0e0" stroke-width="1"/>
+                    <line x1="130" y1="26" x2="130" y2="196" stroke="#e0e0e0" stroke-width="1"/>
+                    <line x1="200" y1="26" x2="200" y2="196" stroke="#e0e0e0" stroke-width="1"/>
+                    <line x1="270" y1="26" x2="270" y2="196" stroke="#e0e0e0" stroke-width="1"/>
+                    <!-- line -->
+                    <polyline points="60,196 91,190 122,184 153,178 184,166 215,160 246,148 277,136 308,124 339,118" fill="none" stroke="#1f77b4" stroke-width="2"/>
+                    <!-- axes -->
+                    <line x1="60" y1="196" x2="340" y2="196" stroke="#888" stroke-width="1"/>
+                    <line x1="60" y1="26" x2="60" y2="196" stroke="#888" stroke-width="1"/>
+                    <!-- ticks -->
+                    <text x="60" y="212" text-anchor="middle" font-size="10" fill="#666">0</text>
+                    <text x="130" y="212" text-anchor="middle" font-size="10" fill="#666">2</text>
+                    <text x="200" y="212" text-anchor="middle" font-size="10" fill="#666">4</text>
+                    <text x="270" y="212" text-anchor="middle" font-size="10" fill="#666">6</text>
+                    <text x="340" y="212" text-anchor="middle" font-size="10" fill="#666">8</text>
+                    <text x="54" y="200" text-anchor="end" font-size="10" fill="#666">0</text>
+                    <text x="54" y="154" text-anchor="end" font-size="10" fill="#666">5</text>
+                    <text x="54" y="112" text-anchor="end" font-size="10" fill="#666">10</text>
+                    <text x="54" y="70" text-anchor="end" font-size="10" fill="#666">15</text>
+                    <!-- axis labels -->
+                    <text x="200" y="230" text-anchor="middle" font-size="11" fill="#444">X Data</text>
+                    <text x="12" y="111" text-anchor="middle" font-size="11" fill="#444" transform="rotate(-90,12,111)">Y Data</text>
+                  </svg>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="callout blue" style="margin-top:20px">
+          <strong>Rule:</strong> All <code>plt.*</code> configuration calls must be in the <strong>same Jupyter cell</strong> as <code>plt.plot()</code>. If you split them across cells, each cell starts a new figure.
+        </div>
+      </div>
+    </div><!-- /topic-2 -->
+
+
+    <!-- ════════════════════════════════
+         TOPIC 3 — xlim & ylim
+         ════════════════════════════════ -->
+    <div id="topic-3" class="topic-pane" style="display:none">
+      <div class="section">
+        <span class="section-tag tag-green">Axis Limits</span>
+        <h2>plt.xlim() &amp; plt.ylim()</h2>
+        <p>By default matplotlib calculates the axis range automatically to fit all data. Use these functions to manually specify a narrower or wider visible range.</p>
+        <table class="fn-table">
+          <thead><tr><th style="width:38%">Function / Description</th><th>Code &amp; Output</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="fn-left">
+                <span class="fn-name">plt.xlim(min, max)</span>
+                <span class="fn-name" style="margin-top:4px">plt.ylim(min, max)</span>
+                <div class="fn-desc">Set the visible range of the X and Y axes. Values outside this range are clipped. If not called, matplotlib auto-fits the range to the data.</div>
+              </td>
+              <td>
+                <div class="fn-example"><span class="lib">plt</span><span class="op">.</span><span class="fn">plot</span>(x, y)
+<span class="lib">plt</span><span class="op">.</span><span class="fn">title</span>(<span class="str">'Example'</span>)
+<span class="lib">plt</span><span class="op">.</span><span class="fn">xlabel</span>(<span class="str">'X Data'</span>)
+<span class="lib">plt</span><span class="op">.</span><span class="fn">ylabel</span>(<span class="str">'Y Data'</span>)
+<span class="lib">plt</span><span class="op">.</span><span class="fn">xlim</span>(<span class="num">0</span>, <span class="num">6</span>)   <span class="cm"># show only x 0 → 6</span>
+<span class="lib">plt</span><span class="op">.</span><span class="fn">ylim</span>(<span class="num">0</span>, <span class="num">15</span>)  <span class="cm"># show only y 0 → 15</span></div>
+                <div class="chart-label">Output chart — notice X stops at 6, Y stops at 15</div>
+                <div class="chart-preview">
+                  <svg viewBox="0 0 360 240" xmlns="http://www.w3.org/2000/svg" style="width:100%;font-family:DejaVu Sans,Arial,sans-serif">
+                    <rect width="360" height="240" fill="#fff"/>
+                    <text x="195" y="18" text-anchor="middle" font-size="13" font-weight="bold" fill="#333">Example</text>
+                    <rect x="60" y="26" width="270" height="170" fill="#fff" stroke="#ccc" stroke-width="0.5"/>
+                    <!-- grid -->
+                    <line x1="60" y1="83" x2="330" y2="83" stroke="#e0e0e0" stroke-width="1"/>
+                    <line x1="60" y1="140" x2="330" y2="140" stroke="#e0e0e0" stroke-width="1"/>
+                    <line x1="105" y1="26" x2="105" y2="196" stroke="#e0e0e0" stroke-width="1"/>
+                    <line x1="150" y1="26" x2="150" y2="196" stroke="#e0e0e0" stroke-width="1"/>
+                    <line x1="195" y1="26" x2="195" y2="196" stroke="#e0e0e0" stroke-width="1"/>
+                    <line x1="240" y1="26" x2="240" y2="196" stroke="#e0e0e0" stroke-width="1"/>
+                    <line x1="285" y1="26" x2="285" y2="196" stroke="#e0e0e0" stroke-width="1"/>
+                    <!-- line y=2x, x=0..6 mapped: x→60+i*45, y→196-v*11.33 -->
+                    <polyline points="60,196 105,186 150,175 195,163 240,152 285,141 330,129" fill="none" stroke="#1f77b4" stroke-width="2"/>
+                    <line x1="60" y1="196" x2="330" y2="196" stroke="#888" stroke-width="1"/>
+                    <line x1="60" y1="26" x2="60" y2="196" stroke="#888" stroke-width="1"/>
+                    <text x="60" y="212" text-anchor="middle" font-size="10" fill="#666">0</text>
+                    <text x="105" y="212" text-anchor="middle" font-size="10" fill="#666">1</text>
+                    <text x="150" y="212" text-anchor="middle" font-size="10" fill="#666">2</text>
+                    <text x="195" y="212" text-anchor="middle" font-size="10" fill="#666">3</text>
+                    <text x="240" y="212" text-anchor="middle" font-size="10" fill="#666">4</text>
+                    <text x="285" y="212" text-anchor="middle" font-size="10" fill="#666">5</text>
+                    <text x="330" y="212" text-anchor="middle" font-size="10" fill="#666">6</text>
+                    <text x="54" y="200" text-anchor="end" font-size="10" fill="#666">0</text>
+                    <text x="54" y="142" text-anchor="end" font-size="10" fill="#666">5</text>
+                    <text x="54" y="85" text-anchor="end" font-size="10" fill="#666">10</text>
+                    <text x="54" y="30" text-anchor="end" font-size="10" fill="#666">15</text>
+                    <text x="195" y="230" text-anchor="middle" font-size="11" fill="#444">X Data</text>
+                    <text x="12" y="111" text-anchor="middle" font-size="11" fill="#444" transform="rotate(-90,12,111)">Y Data</text>
+                  </svg>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div><!-- /topic-3 -->
+
+
+    <!-- ════════════════════════════════
+         TOPIC 4 — plt.savefig()
+         ════════════════════════════════ -->
+    <div id="topic-4" class="topic-pane" style="display:none">
+      <div class="section">
+        <span class="section-tag tag-yellow">Save to File</span>
+        <h2>plt.savefig()</h2>
+        <p><code>plt.savefig()</code> saves the current chart as an image file. It must be called in the <strong>same cell</strong> as the rest of the plot configuration, before <code>plt.show()</code>.</p>
+        <table class="fn-table">
+          <thead><tr><th style="width:38%">Function / Description</th><th>Code &amp; Output</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="fn-left">
+                <span class="fn-name">plt.savefig('filename')</span>
+                <div class="fn-desc">Saves the chart to the current working directory. The file extension determines the format — <code>.png</code>, <code>.jpg</code>, <code>.svg</code>, <code>.pdf</code> are all supported.</div>
+              </td>
+              <td>
+                <div class="fn-example"><span class="lib">plt</span><span class="op">.</span><span class="fn">plot</span>(x, y)
+<span class="lib">plt</span><span class="op">.</span><span class="fn">title</span>(<span class="str">'Example'</span>)
+<span class="lib">plt</span><span class="op">.</span><span class="fn">xlabel</span>(<span class="str">'X Data'</span>)
+<span class="lib">plt</span><span class="op">.</span><span class="fn">ylabel</span>(<span class="str">'Y Data'</span>)
+<span class="lib">plt</span><span class="op">.</span><span class="fn">xlim</span>(<span class="num">0</span>, <span class="num">6</span>)
+<span class="lib">plt</span><span class="op">.</span><span class="fn">ylim</span>(<span class="num">0</span>, <span class="num">15</span>)
+<span class="lib">plt</span><span class="op">.</span><span class="fn">savefig</span>(<span class="str">'plot_example.jpg'</span>)</div>
+                <div class="chart-label">Result — image file saved to disk</div>
+                <div class="chart-preview" style="background:#1a1a2e;border-color:#444">
+                  <svg viewBox="0 0 360 80" xmlns="http://www.w3.org/2000/svg" style="width:100%;font-family:DejaVu Sans,Arial,sans-serif">
+                    <rect width="360" height="80" fill="#1a1a2e"/>
+                    <!-- file icon -->
+                    <rect x="20" y="14" width="34" height="42" rx="4" fill="#2d3561" stroke="#4a5490" stroke-width="1.5"/>
+                    <polyline points="20,14 42,14 54,26 54,56 20,56" fill="none" stroke="#4a5490" stroke-width="1.5"/>
+                    <polyline points="42,14 42,26 54,26" fill="none" stroke="#6470c4" stroke-width="1"/>
+                    <rect x="26" y="32" width="22" height="2" rx="1" fill="#6470c4"/>
+                    <rect x="26" y="38" width="16" height="2" rx="1" fill="#6470c4"/>
+                    <rect x="26" y="44" width="20" height="2" rx="1" fill="#6470c4"/>
+                    <!-- file name -->
+                    <text x="68" y="34" font-size="13" font-weight="bold" fill="#e2e8f0">plot_example.jpg</text>
+                    <text x="68" y="52" font-size="10" fill="#8899aa">saved to current folder</text>
+                    <!-- green check -->
+                    <circle cx="330" cy="40" r="14" fill="#10b98133" stroke="#10b981" stroke-width="1.5"/>
+                    <polyline points="323,40 328,46 337,33" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="callout" style="margin-top:16px">
+          <strong>Supported formats:</strong> Change the extension to switch format — <code>.png</code> (lossless), <code>.jpg</code> (compressed), <code>.svg</code> (vector), <code>.pdf</code> (vector, for papers).
+        </div>
+      </div>
+    </div><!-- /topic-4 -->
+
+
+    <!-- ════════════════════════════════
+         TOPIC 5 — Figure Object
+         ════════════════════════════════ -->
+    <div id="topic-5" class="topic-pane" style="display:none">
+      <div class="section">
+        <span class="section-tag tag-purple">Figure Object</span>
+        <h2>plt.figure() — The Canvas</h2>
+        <p>For complex layouts with multiple charts, use the <strong>Figure object</strong>. Think of it as an empty canvas that you can freely divide and place different charts into.</p>
+        <table class="fn-table">
+          <thead><tr><th style="width:38%">Function / Description</th><th>Code &amp; Output</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="fn-left">
+                <span class="fn-name">plt.figure()</span>
+                <div class="fn-desc">Creates an empty canvas (Figure object) with the default size of 640 × 480 pixels. Save it to a variable (usually <code>fig</code>) so you can call its methods to add charts and set the layout.</div>
+              </td>
+              <td>
+                <div class="fn-example">fig <span class="op">=</span> <span class="lib">plt</span><span class="op">.</span><span class="fn">figure</span>()
+<span class="cm"># fig is now an empty canvas ready for charts</span></div>
+                <div class="chart-label">The Figure — an empty canvas</div>
+                <div class="chart-preview">
+                  <svg viewBox="0 0 360 200" xmlns="http://www.w3.org/2000/svg" style="width:100%;font-family:DejaVu Sans,Arial,sans-serif">
+                    <rect width="360" height="200" fill="#f8f8f8" stroke="#ccc" stroke-width="1"/>
+                    <!-- empty canvas indicator -->
+                    <rect x="30" y="20" width="300" height="160" fill="#fff" stroke="#aaa" stroke-width="1.5" stroke-dasharray="8,5"/>
+                    <text x="180" y="90" text-anchor="middle" font-size="13" fill="#bbb" font-style="italic">Empty Figure Canvas</text>
+                    <text x="180" y="110" text-anchor="middle" font-size="10" fill="#ccc">640 × 480 px (default)</text>
+                    <text x="180" y="128" text-anchor="middle" font-size="10" fill="#ccc">use fig.add_axes() to place charts</text>
+                  </svg>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="callout purple" style="margin-top:16px">
+          <strong>When to use Figure:</strong> Use <code>plt.figure()</code> when you need multiple charts on the same canvas, need to control the exact size or layout, or want to save a complex multi-chart image.
+        </div>
+      </div>
+    </div><!-- /topic-5 -->
+
+
+    <!-- ════════════════════════════════
+         TOPIC 6 — add_axes()
+         ════════════════════════════════ -->
+    <div id="topic-6" class="topic-pane" style="display:none">
+      <div class="section">
+        <span class="section-tag tag-cyan">add_axes()</span>
+        <h2>fig.add_axes() — Placing a Chart on the Canvas</h2>
+        <p><code>fig.add_axes([left, bottom, width, height])</code> adds a chart area at a specific position on the canvas. All four values are fractions from 0 to 1 relative to the total canvas size.</p>
+        <table class="fn-table">
+          <thead><tr><th style="width:38%">Parameter / Description</th><th>Code &amp; Output</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="fn-left">
+                <span class="fn-name">fig.add_axes([l, b, w, h])</span>
+                <div class="fn-desc">
+                  <strong>left</strong> — how far from the left edge (0 = far left)<br>
+                  <strong>bottom</strong> — how far from the bottom (0 = bottom)<br>
+                  <strong>width</strong> — fraction of canvas width the chart takes<br>
+                  <strong>height</strong> — fraction of canvas height the chart takes<br><br>
+                  Example <code>[0, 0, 0.5, 1]</code>: starts at bottom-left, takes half the width and full height.
+                </div>
+              </td>
+              <td>
+                <div class="fn-example">x <span class="op">=</span> <span class="lib">np</span><span class="op">.</span><span class="fn">arange</span>(<span class="num">0</span>, <span class="num">10</span>)
+y <span class="op">=</span> <span class="num">2</span> <span class="op">*</span> x
+
+fig  <span class="op">=</span> <span class="lib">plt</span><span class="op">.</span><span class="fn">figure</span>()
+axes <span class="op">=</span> fig<span class="op">.</span><span class="fn">add_axes</span>([<span class="num">0</span>, <span class="num">0</span>, <span class="num">0.5</span>, <span class="num">1</span>])
+<span class="cm"># starts at (0,0), half width, full height</span>
+axes<span class="op">.</span><span class="fn">plot</span>(x, y)</div>
+                <div class="chart-label">Output — chart occupies left half only (width=0.5)</div>
+                <div class="chart-preview">
+                  <svg viewBox="0 0 360 200" xmlns="http://www.w3.org/2000/svg" style="width:100%;font-family:DejaVu Sans,Arial,sans-serif">
+                    <rect width="360" height="200" fill="#fff"/>
+                    <!-- canvas boundary -->
+                    <rect x="10" y="10" width="340" height="180" fill="#f8f8f8" stroke="#ddd" stroke-width="1"/>
+                    <!-- axes takes left half: x=10..185, full height y=10..190 -->
+                    <rect x="38" y="10" width="147" height="170" fill="#fff" stroke="#ccc" stroke-width="1"/>
+                    <!-- grid -->
+                    <line x1="38" y1="52" x2="185" y2="52" stroke="#eee" stroke-width="1"/>
+                    <line x1="38" y1="94" x2="185" y2="94" stroke="#eee" stroke-width="1"/>
+                    <line x1="38" y1="136" x2="185" y2="136" stroke="#eee" stroke-width="1"/>
+                    <!-- line y=2x -->
+                    <polyline points="38,180 55,173 72,165 89,157 106,145 123,137 140,117 157,109 174,101 185,96" fill="none" stroke="#1f77b4" stroke-width="2"/>
+                    <line x1="38" y1="180" x2="185" y2="180" stroke="#888" stroke-width="1"/>
+                    <line x1="38" y1="10" x2="38" y2="180" stroke="#888" stroke-width="1"/>
+                    <text x="38" y="195" text-anchor="middle" font-size="9" fill="#888">0</text>
+                    <text x="185" y="195" text-anchor="middle" font-size="9" fill="#888">9</text>
+                    <text x="30" y="183" text-anchor="end" font-size="9" fill="#888">0</text>
+                    <text x="30" y="13" text-anchor="end" font-size="9" fill="#888">18</text>
+                    <!-- empty right half label -->
+                    <text x="270" y="105" text-anchor="middle" font-size="11" fill="#ccc" font-style="italic">empty</text>
+                    <!-- bracket showing half width -->
+                    <text x="38" y="9" font-size="8" fill="#f97316">width = 0.5 of canvas</text>
+                  </svg>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div><!-- /topic-6 -->
+
+
+    <!-- ════════════════════════════════
+         TOPIC 7 — Multiple Axes
+         ════════════════════════════════ -->
+    <div id="topic-7" class="topic-pane" style="display:none">
+      <div class="section">
+        <span class="section-tag tag-orange">Multiple Axes</span>
+        <h2>Chart Inside a Chart — Zoom-In Layout</h2>
+        <p>Call <code>fig.add_axes()</code> multiple times to layer charts on the same canvas. A common pattern is a large chart showing the full picture with a small inset showing a zoomed-in region.</p>
+        <table class="fn-table">
+          <thead><tr><th style="width:38%">Pattern / Description</th><th>Code &amp; Output</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="fn-left">
+                <span class="fn-name">Two axes on one canvas</span>
+                <div class="fn-desc">
+                  <strong>axes_1</strong> = <code>[0, 0, 1, 1]</code> → full canvas (the big chart)<br><br>
+                  <strong>axes_2</strong> = <code>[0.2, 0.5, 0.25, 0.25]</code> → inset starting 20% from left, 50% from bottom, taking 25% width and 25% height
+                </div>
+              </td>
+              <td>
+                <div class="fn-example">x <span class="op">=</span> <span class="lib">np</span><span class="op">.</span><span class="fn">arange</span>(<span class="num">0</span>, <span class="num">10</span>)
+y <span class="op">=</span> <span class="num">2</span> <span class="op">*</span> x      <span class="cm"># linear</span>
+a <span class="op">=</span> x
+b <span class="op">=</span> a <span class="op">**</span> <span class="num">4</span>    <span class="cm"># exponential</span>
+
+fig    <span class="op">=</span> <span class="lib">plt</span><span class="op">.</span><span class="fn">figure</span>()
+axes_1 <span class="op">=</span> fig<span class="op">.</span><span class="fn">add_axes</span>([<span class="num">0</span>, <span class="num">0</span>, <span class="num">1</span>, <span class="num">1</span>])
+axes_1<span class="op">.</span><span class="fn">plot</span>(a, b)   <span class="cm"># big: exponential</span>
+
+axes_2 <span class="op">=</span> fig<span class="op">.</span><span class="fn">add_axes</span>([<span class="num">0.2</span>, <span class="num">0.5</span>, <span class="num">0.25</span>, <span class="num">0.25</span>])
+axes_2<span class="op">.</span><span class="fn">plot</span>(x, y)   <span class="cm"># inset: linear</span></div>
+                <div class="chart-label">Output — big exponential chart with small linear inset</div>
+                <div class="chart-preview">
+                  <svg viewBox="0 0 360 220" xmlns="http://www.w3.org/2000/svg" style="width:100%;font-family:DejaVu Sans,Arial,sans-serif">
+                    <rect width="360" height="220" fill="#fff"/>
+                    <!-- big axes: full canvas -->
+                    <rect x="40" y="10" width="310" height="190" fill="#fff" stroke="#ccc" stroke-width="0.5"/>
+                    <!-- grid big -->
+                    <line x1="40" y1="57" x2="350" y2="57" stroke="#eee" stroke-width="1"/>
+                    <line x1="40" y1="105" x2="350" y2="105" stroke="#eee" stroke-width="1"/>
+                    <line x1="40" y1="153" x2="350" y2="153" stroke="#eee" stroke-width="1"/>
+                    <line x1="109" y1="10" x2="109" y2="200" stroke="#eee" stroke-width="1"/>
+                    <line x1="178" y1="10" x2="178" y2="200" stroke="#eee" stroke-width="1"/>
+                    <line x1="247" y1="10" x2="247" y2="200" stroke="#eee" stroke-width="1"/>
+                    <!-- exponential curve a**4: values 0,1,16,81,256,625,1296,2401,4096,6561 -->
+                    <!-- y_max=6561, plot_h=190, y mapped: 200 - v/6561*186 -->
+                    <polyline points="40,200 74,200 109,200 143,198 178,193 213,182 247,163 281,132 316,83 350,15" fill="none" stroke="#1f77b4" stroke-width="2"/>
+                    <!-- big axes border -->
+                    <line x1="40" y1="200" x2="350" y2="200" stroke="#888" stroke-width="1"/>
+                    <line x1="40" y1="10" x2="40" y2="200" stroke="#888" stroke-width="1"/>
+                    <!-- y ticks big -->
+                    <text x="35" y="204" text-anchor="end" font-size="9" fill="#666">0</text>
+                    <text x="35" y="160" text-anchor="end" font-size="9" fill="#666">2000</text>
+                    <text x="35" y="108" text-anchor="end" font-size="9" fill="#666">4000</text>
+                    <text x="35" y="58" text-anchor="end" font-size="9" fill="#666">6000</text>
+                    <!-- x ticks big -->
+                    <text x="40" y="212" text-anchor="middle" font-size="9" fill="#666">0</text>
+                    <text x="178" y="212" text-anchor="middle" font-size="9" fill="#666">4</text>
+                    <text x="350" y="212" text-anchor="middle" font-size="9" fill="#666">9</text>
+
+                    <!-- inset axes: [0.2,0.5,0.25,0.25] → x: 40+0.2*310=102, y: 200-0.75*190=57.5, w=0.25*310=77.5, h=0.25*190=47.5 -->
+                    <rect x="103" y="58" width="78" height="48" fill="#fff" stroke="#555" stroke-width="1.2"/>
+                    <!-- linear line in inset: y=2x, x=0-9 in 78px wide, 48px tall -->
+                    <polyline points="103,106 111.7,104 120.3,102 129,100 137.7,95 146.3,93 155,89 163.7,87 172.3,83 181,81" fill="none" stroke="#1f77b4" stroke-width="1.5"/>
+                    <line x1="103" y1="106" x2="181" y2="106" stroke="#888" stroke-width="0.8"/>
+                    <line x1="103" y1="58" x2="103" y2="106" stroke="#888" stroke-width="0.8"/>
+                    <text x="103" y="117" font-size="7" fill="#888">0</text>
+                    <text x="142" y="117" font-size="7" fill="#888">5</text>
+                    <text x="97" y="109" text-anchor="end" font-size="7" fill="#888">0</text>
+                    <text x="97" y="62" text-anchor="end" font-size="7" fill="#888">18</text>
+                  </svg>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div><!-- /topic-7 -->
+
+
+    <!-- ════════════════════════════════
+         TOPIC 8 — set_ Methods
+         ════════════════════════════════ -->
+    <div id="topic-8" class="topic-pane" style="display:none">
+      <div class="section">
+        <span class="section-tag tag-green">Axes Labels on Figure</span>
+        <h2>set_ Methods on Figure Axes</h2>
+        <p>When using the Figure object, title, axis labels, and limits are set on the <strong>axes object</strong> using <code>set_</code>-prefixed methods instead of the <code>plt.*</code> functions.</p>
+        <table class="fn-table">
+          <thead><tr><th style="width:38%">plt. version → axes. version</th><th>Code &amp; Output</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="fn-left">
+                <span class="fn-name">axes.set_title('...')</span>
+                <span class="fn-name" style="margin-top:4px">axes.set_xlabel('...')</span>
+                <span class="fn-name" style="margin-top:4px">axes.set_ylabel('...')</span>
+                <span class="fn-name" style="margin-top:4px">axes.set_xlim(a, b)</span>
+                <span class="fn-name" style="margin-top:4px">axes.set_ylim(a, b)</span>
+                <div class="fn-desc">Same purpose as the <code>plt.*</code> functions, but applied to a specific axes object inside a Figure. Necessary when you have multiple axes and want to configure each independently.</div>
+              </td>
+              <td>
+                <div class="fn-example">fig    <span class="op">=</span> <span class="lib">plt</span><span class="op">.</span><span class="fn">figure</span>()
+axes_1 <span class="op">=</span> fig<span class="op">.</span><span class="fn">add_axes</span>([<span class="num">0</span>, <span class="num">0</span>, <span class="num">1</span>, <span class="num">1</span>])
+axes_1<span class="op">.</span><span class="fn">set_xlim</span>(<span class="num">0</span>, <span class="num">8</span>)
+axes_1<span class="op">.</span><span class="fn">set_ylim</span>(<span class="num">0</span>, <span class="num">8000</span>)
+axes_1<span class="op">.</span><span class="fn">set_xlabel</span>(<span class="str">'A'</span>)
+axes_1<span class="op">.</span><span class="fn">set_ylabel</span>(<span class="str">'B'</span>)
+axes_1<span class="op">.</span><span class="fn">set_title</span>(<span class="str">'Power Of 4'</span>)
+axes_1<span class="op">.</span><span class="fn">plot</span>(a, b)
+
+axes_2 <span class="op">=</span> fig<span class="op">.</span><span class="fn">add_axes</span>([<span class="num">0.2</span>, <span class="num">0.5</span>, <span class="num">0.25</span>, <span class="num">0.25</span>])
+axes_2<span class="op">.</span><span class="fn">set_xlim</span>(<span class="num">1</span>, <span class="num">2</span>)
+axes_2<span class="op">.</span><span class="fn">set_ylim</span>(<span class="num">0</span>, <span class="num">50</span>)
+axes_2<span class="op">.</span><span class="fn">set_title</span>(<span class="str">'Zoomed In'</span>)
+axes_2<span class="op">.</span><span class="fn">plot</span>(x, y)</div>
+                <div class="chart-label">Output — "Power Of 4" chart with labelled axes + zoomed inset</div>
+                <div class="chart-preview">
+                  <svg viewBox="0 0 360 240" xmlns="http://www.w3.org/2000/svg" style="width:100%;font-family:DejaVu Sans,Arial,sans-serif">
+                    <rect width="360" height="240" fill="#fff"/>
+                    <!-- title -->
+                    <text x="195" y="18" text-anchor="middle" font-size="12" font-weight="bold" fill="#333">Power Of 4</text>
+                    <!-- axes border -->
+                    <rect x="50" y="24" width="295" height="185" fill="#fff" stroke="#ccc" stroke-width="0.5"/>
+                    <!-- grid -->
+                    <line x1="50" y1="85" x2="345" y2="85" stroke="#eee" stroke-width="1"/>
+                    <line x1="50" y1="147" x2="345" y2="147" stroke="#eee" stroke-width="1"/>
+                    <line x1="124" y1="24" x2="124" y2="209" stroke="#eee" stroke-width="1"/>
+                    <line x1="198" y1="24" x2="198" y2="209" stroke="#eee" stroke-width="1"/>
+                    <line x1="272" y1="24" x2="272" y2="209" stroke="#eee" stroke-width="1"/>
+                    <!-- exponential curve x**4 xlim=0..8, ylim=0..8000 -->
+                    <!-- x mapped: 50+v/8*295 ; y mapped: 209-v/8000*185 -->
+                    <polyline points="50,209 87,209 124,209 161,207 198,200 235,185 272,157 309,109 345,15" fill="none" stroke="#1f77b4" stroke-width="2"/>
+                    <!-- axes -->
+                    <line x1="50" y1="209" x2="345" y2="209" stroke="#888" stroke-width="1"/>
+                    <line x1="50" y1="24" x2="50" y2="209" stroke="#888" stroke-width="1"/>
+                    <!-- y ticks -->
+                    <text x="44" y="213" text-anchor="end" font-size="9" fill="#666">0</text>
+                    <text x="44" y="150" text-anchor="end" font-size="9" fill="#666">2000</text>
+                    <text x="44" y="89" text-anchor="end" font-size="9" fill="#666">4000</text>
+                    <!-- x ticks -->
+                    <text x="50" y="220" text-anchor="middle" font-size="9" fill="#666">0</text>
+                    <text x="198" y="220" text-anchor="middle" font-size="9" fill="#666">4</text>
+                    <text x="345" y="220" text-anchor="middle" font-size="9" fill="#666">8</text>
+                    <!-- axis labels -->
+                    <text x="197" y="233" text-anchor="middle" font-size="10" fill="#444">A</text>
+                    <text x="14" y="117" text-anchor="middle" font-size="10" fill="#444" transform="rotate(-90,14,117)">B</text>
+                    <!-- inset: [0.2,0.5,0.25,0.25] → x=50+0.2*295=109, y=209-0.75*185=70, w=0.25*295=74, h=0.25*185=46 -->
+                    <rect x="110" y="70" width="74" height="46" fill="#fff" stroke="#555" stroke-width="1.2"/>
+                    <text x="147" y="68" text-anchor="middle" font-size="7" font-weight="bold" fill="#333">Zoomed In</text>
+                    <!-- y=2x, xlim=1..2, ylim=0..50 → map x: 110+(v-1)*74, y: 116-val/50*46 -->
+                    <polyline points="110,107 128,101 147,94 166,87 184,116" fill="none" stroke="#1f77b4" stroke-width="1.5"/>
+                    <line x1="110" y1="116" x2="184" y2="116" stroke="#888" stroke-width="0.8"/>
+                    <line x1="110" y1="70" x2="110" y2="116" stroke="#888" stroke-width="0.8"/>
+                    <text x="110" y="124" font-size="7" fill="#888">1.0</text>
+                    <text x="184" y="124" text-anchor="end" font-size="7" fill="#888">2.0</text>
+                    <text x="106" y="119" text-anchor="end" font-size="7" fill="#888">0</text>
+                    <text x="106" y="73" text-anchor="end" font-size="7" fill="#888">50</text>
+                    <text x="147" y="133" text-anchor="middle" font-size="7" fill="#888">A</text>
+                  </svg>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div><!-- /topic-8 -->
+
+
+    <!-- ════════════════════════════════
+         TOPIC 9 — figsize & fig.savefig()
+         ════════════════════════════════ -->
+    <div id="topic-9" class="topic-pane" style="display:none">
+      <div class="section">
+        <span class="section-tag tag-yellow">Canvas Size &amp; Save</span>
+        <h2>figsize &amp; fig.savefig()</h2>
+        <p>Control the physical size of the canvas with <code>figsize</code> and save the complete figure (including all axes) with <code>fig.savefig()</code>. Use <code>bbox_inches='tight'</code> to prevent labels from being cut off.</p>
+        <table class="fn-table">
+          <thead><tr><th style="width:38%">Parameter / Description</th><th>Code &amp; Output</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="fn-left">
+                <span class="fn-name">plt.figure(figsize=(w, h))</span>
+                <div class="fn-desc">Sets the canvas size in <strong>inches</strong>. The saved image file will match this size. A wide canvas like <code>(10, 3)</code> produces a landscape image; <code>(6, 6)</code> produces a square one.</div>
+              </td>
+              <td>
+                <div class="fn-example"><span class="cm"># wide canvas: 10 inches wide, 3 tall</span>
+fig <span class="op">=</span> <span class="lib">plt</span><span class="op">.</span><span class="fn">figure</span>(figsize<span class="op">=</span>(<span class="num">10</span>, <span class="num">3</span>))</div>
+                <div class="chart-label">Wide canvas vs. default canvas</div>
+                <div class="chart-preview">
+                  <svg viewBox="0 0 360 120" xmlns="http://www.w3.org/2000/svg" style="width:100%;font-family:DejaVu Sans,Arial,sans-serif">
+                    <rect width="360" height="120" fill="#f4f4f4"/>
+                    <!-- wide 10x3 -->
+                    <rect x="10" y="20" width="260" height="78" fill="#fff" stroke="#1f77b4" stroke-width="1.5" stroke-dasharray="6,3"/>
+                    <text x="140" y="56" text-anchor="middle" font-size="10" fill="#1f77b4">figsize=(10, 3)</text>
+                    <text x="140" y="72" text-anchor="middle" font-size="9" fill="#888">wide landscape</text>
+                    <!-- default 6.4x4.8 — shown smaller to right -->
+                    <rect x="284" y="14" width="66" height="90" fill="#fff" stroke="#999" stroke-width="1" stroke-dasharray="4,3"/>
+                    <text x="317" y="57" text-anchor="middle" font-size="8" fill="#999">default</text>
+                    <text x="317" y="70" text-anchor="middle" font-size="7" fill="#bbb">6.4×4.8</text>
+                  </svg>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td class="fn-left">
+                <span class="fn-name">fig.savefig('file.jpg', bbox_inches='tight')</span>
+                <div class="fn-desc">Saves the full figure to a file. Without <code>bbox_inches='tight'</code> the saved image may clip axis labels that extend past the default bounding box. Always use <code>'tight'</code> when labels are present.</div>
+              </td>
+              <td>
+                <div class="fn-example">fig <span class="op">=</span> <span class="lib">plt</span><span class="op">.</span><span class="fn">figure</span>(figsize<span class="op">=</span>(<span class="num">10</span>, <span class="num">3</span>))
+axes <span class="op">=</span> fig<span class="op">.</span><span class="fn">add_axes</span>([<span class="num">0</span>, <span class="num">0</span>, <span class="num">1</span>, <span class="num">1</span>])
+axes<span class="op">.</span><span class="fn">plot</span>(x, y)
+
+<span class="cm"># save — bbox_inches keeps labels from clipping</span>
+fig<span class="op">.</span><span class="fn">savefig</span>(<span class="str">'example_fig.jpg'</span>, bbox_inches<span class="op">=</span><span class="str">'tight'</span>)</div>
+                <div class="chart-label">Without vs. with bbox_inches='tight'</div>
+                <div class="chart-preview">
+                  <svg viewBox="0 0 360 110" xmlns="http://www.w3.org/2000/svg" style="width:100%;font-family:DejaVu Sans,Arial,sans-serif">
+                    <rect width="360" height="110" fill="#1a1a2e"/>
+                    <!-- without tight -->
+                    <rect x="10" y="10" width="155" height="90" fill="#2d3561" stroke="#4a5490" stroke-width="1" rx="4"/>
+                    <text x="87" y="28" text-anchor="middle" font-size="9" fill="#8899aa">Without bbox</text>
+                    <!-- chart area clipped -->
+                    <rect x="22" y="34" width="131" height="55" fill="#fff" stroke="#888" stroke-width="0.5"/>
+                    <!-- label clipped indicator -->
+                    <rect x="10" y="60" width="12" height="14" fill="#ff6b6b44"/>
+                    <text x="16" y="58" text-anchor="middle" font-size="7" fill="#ff6b6b">✂</text>
+                    <text x="87" y="100" text-anchor="middle" font-size="8" fill="#ff6b6b">labels clipped</text>
+                    <!-- with tight -->
+                    <rect x="192" y="10" width="158" height="90" fill="#1a3d2b" stroke="#10b981" stroke-width="1" rx="4"/>
+                    <text x="271" y="28" text-anchor="middle" font-size="9" fill="#10b981">With bbox_inches='tight'</text>
+                    <rect x="212" y="34" width="118" height="55" fill="#fff" stroke="#888" stroke-width="0.5"/>
+                    <!-- y label shown -->
+                    <text x="206" y="62" text-anchor="middle" font-size="8" fill="#10b981" transform="rotate(-90,206,62)">Y</text>
+                    <text x="271" y="100" text-anchor="middle" font-size="8" fill="#10b981">labels included ✓</text>
+                  </svg>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="lesson-nav">
+        <a class="btn-prev" href="01-intro.html">← 01 — Intro</a>
+        <a class="btn-next" href="03-multi-graph.html">03 — Subplots &amp; Chart Types →</a>
+      </div>
+    </div><!-- /topic-9 -->
+
+  </main>
+  </div><!-- /content-area -->
+</div><!-- /page-wrap -->
+
+<script src="app.js"></script>
+<script>
+function showTopic(n) {
+  document.querySelectorAll('.topic-pane').forEach(p => p.style.display = 'none');
+  document.querySelectorAll('.st-btn').forEach(b => b.classList.remove('active'));
+  const pane = document.getElementById('topic-' + n);
+  pane.style.display = 'block';
+  document.getElementById('btn-' + n).classList.add('active');
+  pane.querySelectorAll('.section').forEach(s => s.classList.add('visible'));
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+showTopic(1);
+</script>
+</body>
+</html>
