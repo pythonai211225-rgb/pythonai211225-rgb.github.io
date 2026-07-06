@@ -1451,8 +1451,8 @@
         <div class="cfg-label">Time per question — <strong id="cfgTimeVal">60s</strong></div>
         <div class="cfg-slider-wrap">
           <span class="cfg-val">10s</span>
-          <input class="cfg-slider" id="cfgTime" type="range" min="10" max="60" step="5" value="60"/>
-          <span class="cfg-val">60s</span>
+          <input class="cfg-slider" id="cfgTime" type="range" min="10" max="65" step="5" value="60"/>
+          <span class="cfg-val">∞</span>
         </div>
       </div>
 
@@ -2869,6 +2869,7 @@ all values are zeros</pre>
     let questionsCount = 0;
     let gameOver = false;
     let TIMER_SECONDS = 60;
+    let UNLIMITED_TIME = false;
     const TIMER_SEGMENTS = 10;
 
     const codeInput = document.getElementById("codeInput");
@@ -3015,6 +3016,12 @@ all values are zeros</pre>
 
     function startTimer() {
       stopTimer();
+      if (UNLIMITED_TIME) {
+        timerText.textContent = "∞";
+        timerPanel.dataset.state = "green";
+        timerBars.querySelectorAll(".timer-bar").forEach(bar => bar.classList.remove("empty"));
+        return;
+      }
       timerEndsAt = Date.now() + TIMER_SECONDS * 1000;
       renderTimer(TIMER_SECONDS);
       timerInterval = setInterval(() => {
@@ -3061,7 +3068,7 @@ all values are zeros</pre>
       document.getElementById("congratsCorrect").textContent = solvedCount;
       document.getElementById("congratsLivesLeft").textContent = livesLeft;
       document.getElementById("congratsLivesMax").textContent = livesCount;
-      document.getElementById("congratsTime").textContent = TIMER_SECONDS + "s";
+      document.getElementById("congratsTime").textContent = UNLIMITED_TIME ? "∞" : TIMER_SECONDS + "s";
       document.getElementById("congratsQ").textContent = questionsCount;
       const overlay = document.getElementById("congratsOverlay");
       overlay.classList.add("show");
@@ -3079,7 +3086,7 @@ all values are zeros</pre>
       document.getElementById("goName").textContent = pilotName;
       const livesLeft = simShips.filter(s => !s.classList.contains("destroyed")).length;
       document.getElementById("goLives").textContent = `Lives: ${livesLeft} / ${livesCount} remaining`;
-      document.getElementById("goTime").textContent = `Time per question: ${TIMER_SECONDS}s`;
+      document.getElementById("goTime").textContent = `Time per question: ${UNLIMITED_TIME ? "unlimited" : TIMER_SECONDS + "s"}`;
       gameOverOverlay.classList.add("show");
       gameOverOverlay.setAttribute("aria-hidden", "false");
     }
@@ -3965,7 +3972,7 @@ all values are zeros</pre>
     renderLivesPreview(3);
 
     cfgTime.addEventListener("input", () => {
-      cfgTimeVal.textContent = cfgTime.value + "s";
+      cfgTimeVal.textContent = +cfgTime.value > 60 ? "∞ unlimited" : cfgTime.value + "s";
     });
     cfgLives.addEventListener("input", () => {
       cfgLivesVal.textContent = cfgLives.value;
@@ -3977,7 +3984,8 @@ all values are zeros</pre>
 
     function launchGame() {
       pilotName = cfgName.value.trim() || "anonymous";
-      TIMER_SECONDS = +cfgTime.value;
+      UNLIMITED_TIME = +cfgTime.value > 60;
+      if (!UNLIMITED_TIME) TIMER_SECONDS = +cfgTime.value;
       livesCount = +cfgLives.value;
       const qCount = +cfgQ.value;
       if (qCount < TOTAL_Q) questions.splice(qCount);
