@@ -1,0 +1,1103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Linear Regression 01 — Formula, MSE &amp; sklearn</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded',function(){renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true}],throwOnError:false});});</script>
+  <style>
+    .page-layout { display:flex; height:calc(100vh - 54px); overflow:hidden; }
+    .sidebar { width:230px; min-width:230px; height:100%; overflow-y:auto; background:#0a0e14; border-right:1px solid var(--border); display:flex; flex-direction:column; scrollbar-width:thin; scrollbar-color:var(--border) transparent; flex-shrink:0; }
+    .sidebar-head { padding:20px 18px 14px; font-size:.65rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--border); }
+    .sidebar-nav { padding:8px 0; flex:1; }
+    .s-item { display:flex; align-items:center; gap:11px; padding:10px 18px; cursor:pointer; background:none; border:none; border-left:3px solid transparent; width:100%; text-align:left; transition:background .18s,border-color .18s; }
+    .s-item:hover { background:rgba(255,255,255,.04); }
+    .s-item.active { background:rgba(250,204,21,.08); border-left-color:var(--accent); }
+    .s-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; transition:transform .2s; }
+    .s-item.active .s-dot { transform:scale(1.45); box-shadow:0 0 8px currentColor; }
+    .s-num { font-size:.62rem; color:var(--border); font-family:'Courier New',monospace; font-weight:700; min-width:18px; }
+    .s-item.active .s-num { color:var(--accent); }
+    .s-label { font-size:.79rem; color:var(--muted); font-family:'Courier New',monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .s-item.active .s-label { color:var(--text); }
+    .s-item.done .s-label::after { content:' ✓'; color:var(--green); font-size:.7rem; }
+
+    .panel-viewport { flex:1; overflow-y:auto; overflow-x:hidden; position:relative; }
+    .panel { display:none; flex-direction:column; min-height:100%; padding:40px 52px 100px; max-width:820px; margin:0 auto; animation:fadeIn .35s ease; }
+    .panel.active { display:flex; }
+    @keyframes fadeIn { from{opacity:0;transform:translateX(28px)} to{opacity:1;transform:translateX(0)} }
+    .panel.exit { display:flex; animation:fadeOut .25s ease forwards; }
+    @keyframes fadeOut { from{opacity:1;transform:translateX(0)} to{opacity:0;transform:translateX(-28px)} }
+
+    .m-hero { position:relative; height:200px; border-radius:18px; overflow:hidden; margin-bottom:26px; flex-shrink:0; }
+    .m-hero img { width:100%; height:100%; object-fit:cover; filter:brightness(.5) saturate(.8); transition:filter .45s; }
+    .panel.active .m-hero img { filter:brightness(.6) saturate(1.1); }
+    .m-hero-ov { position:absolute; inset:0; padding:26px 30px; display:flex; flex-direction:column; justify-content:flex-end; background:linear-gradient(0deg,rgba(0,0,0,.78) 0%,rgba(0,0,0,.15) 55%,transparent 100%); }
+    .m-breadcrumb { font-size:.62rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:rgba(255,255,255,.4); margin-bottom:5px; }
+    .m-name { font-size:1.7rem; font-weight:900; color:#fff; font-family:'Courier New',monospace; }
+    .m-tagline { font-size:.86rem; color:rgba(255,255,255,.62); margin-top:4px; }
+
+    .pills { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 20px; align-items:center; }
+    .pill { padding:5px 14px; border-radius:999px; font-size:.7rem; font-weight:700; letter-spacing:.06em; }
+    .pill-sig { font-family:'Courier New',monospace; font-size:.74rem; letter-spacing:0; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.12); color:var(--text); }
+    .pill-ret { background:rgba(16,185,129,.1); border:1px solid rgba(16,185,129,.3); color:var(--green); font-family:'Courier New',monospace; letter-spacing:0; }
+    .pill-note { background:rgba(249,115,22,.1); border:1px solid rgba(249,115,22,.3); color:var(--orange); font-family:'Courier New',monospace; font-size:.7rem; }
+    .pill-param { position:relative; cursor:help; transition:filter .18s; }
+    .pill-param:hover { filter:brightness(1.3); }
+    .pill-param .balloon { position:absolute; bottom:calc(100% + 14px); left:50%; transform:translateX(-50%) translateY(6px); width:230px; background:linear-gradient(155deg,#0e2845 0%,#071a2e 100%); border:1.5px solid rgba(240,182,62,.65); border-radius:14px; padding:13px 16px 11px; box-shadow:0 0 0 1px rgba(240,182,62,.1),0 18px 48px rgba(0,0,0,.72),0 0 36px rgba(240,182,62,.07); opacity:0; pointer-events:none; transition:opacity .22s ease,transform .22s ease; z-index:300; animation:none; }
+    .pill-param:hover .balloon { opacity:1; transform:translateX(-50%) translateY(0); animation:balloonFloat 3s ease-in-out infinite; }
+    @keyframes balloonFloat { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(-5px)} }
+    .balloon-title { font-family:'Courier New',monospace; font-size:.7rem; font-weight:800; color:#f0b63e; letter-spacing:.04em; margin-bottom:6px; display:flex; align-items:center; gap:6px; }
+    .balloon-title::before { content:''; display:inline-block; width:7px; height:7px; border-radius:50%; background:#f0b63e; box-shadow:0 0 6px rgba(240,182,62,.7); flex-shrink:0; }
+    .balloon-body { font-size:.76rem; color:rgba(230,237,243,.78); line-height:1.6; font-family:'Segoe UI',system-ui,sans-serif; font-weight:400; }
+    .pill-param .balloon::after { content:''; position:absolute; bottom:-10px; left:50%; transform:translateX(-50%); border-left:10px solid transparent; border-right:10px solid transparent; border-top:10px solid rgba(240,182,62,.65); }
+    .pill-param .balloon::before { content:''; position:absolute; bottom:-8px; left:50%; transform:translateX(-50%); border-left:9px solid transparent; border-right:9px solid transparent; border-top:9px solid #071a2e; z-index:1; }
+
+    .m-desc { font-size:.95rem; color:var(--muted); line-height:1.75; margin-bottom:14px; }
+    .m-desc code { font-family:'Courier New',monospace; font-size:.88em; padding:1px 6px; border-radius:4px; background:rgba(255,255,255,.06); }
+
+    .demo-box { background:#060a10; border:1px solid var(--border); border-radius:14px; padding:22px 22px 18px; margin-top:20px; flex-shrink:0; display:flex; flex-direction:column; }
+    .demo-lbl { font-size:.64rem; font-weight:800; letter-spacing:.13em; text-transform:uppercase; color:var(--muted); margin-bottom:18px; display:flex; align-items:center; gap:8px; }
+    .demo-lbl::before { content:''; width:3px; height:12px; border-radius:2px; background:var(--accent); flex-shrink:0; }
+    .demo-controls { display:flex; flex-wrap:wrap; gap:18px; align-items:flex-end; margin-bottom:18px; }
+    .ctrl { display:flex; flex-direction:column; gap:5px; }
+    .ctrl label { font-size:.69rem; color:var(--muted); font-weight:600; }
+    .ctrl input[type=range] { -webkit-appearance:none; width:150px; height:4px; background:var(--border); border-radius:2px; outline:none; cursor:pointer; }
+    .ctrl input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:15px; height:15px; background:var(--accent); border-radius:50%; cursor:pointer; box-shadow:0 0 6px rgba(250,204,21,.5); }
+    .ctrl .cval { font-size:.7rem; color:var(--accent); font-family:'Courier New',monospace; font-weight:700; text-align:center; }
+    .demo-canvas-wrap { background:#020509; border-radius:10px; padding:14px; overflow:hidden; min-height:72px; order:4; }
+    canvas { display:block; margin:0 auto; }
+    .demo-out { font-family:'Courier New',monospace; font-size:.8rem; color:#10b981; line-height:1.65; margin-top:0; margin-bottom:14px; padding:11px 15px; background:rgba(16,185,129,.05); border:1px solid rgba(16,185,129,.18); border-radius:8px; white-space:pre-wrap; order:3; }
+
+    .panel-nav { display:flex; justify-content:space-between; align-items:center; margin-top:40px; padding-top:24px; border-top:1px solid var(--border); flex-shrink:0; }
+    .pnav-btn { display:flex; align-items:center; gap:9px; padding:10px 22px; border-radius:10px; border:1px solid var(--border); background:transparent; color:var(--muted); font-size:.83rem; font-weight:700; cursor:pointer; transition:color .2s,border-color .2s,background .2s; }
+    .pnav-btn:hover:not(:disabled) { color:var(--text); border-color:var(--accent); background:rgba(250,204,21,.06); }
+    .pnav-btn:disabled { opacity:.28; cursor:default; }
+    .pnav-btn.next { background:rgba(250,204,21,.08); border-color:rgba(250,204,21,.35); color:var(--accent); }
+    .pnav-btn.next:hover { background:rgba(250,204,21,.16); border-color:var(--accent); }
+    .pnav-dots { display:flex; gap:7px; align-items:center; }
+    .pnav-dot { width:7px; height:7px; border-radius:50%; background:var(--border); transition:background .2s,transform .2s; cursor:pointer; border:none; padding:0; }
+    .pnav-dot.active { background:var(--accent); transform:scale(1.4); }
+
+    .overview-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:14px; margin-top:24px; }
+    .ov-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px 16px 16px; cursor:pointer; transition:border-color .2s,box-shadow .2s,transform .18s; display:flex; flex-direction:column; gap:8px; }
+    .ov-card:hover { transform:translateY(-3px); border-color:rgba(250,204,21,.4); box-shadow:0 8px 28px rgba(250,204,21,.08); }
+    .ov-card-num { font-size:.62rem; color:var(--muted); font-weight:800; letter-spacing:.1em; }
+    .ov-card-name { font-size:.9rem; font-family:'Courier New',monospace; font-weight:700; }
+    .ov-card-desc { font-size:.77rem; color:var(--muted); line-height:1.5; }
+
+    @media(max-width:700px){.sidebar{display:none}.panel{padding:20px 16px 80px}}
+    .katex { color: var(--text); }
+    .katex-display { margin: 6px 0; overflow-x: auto; overflow-y: hidden; padding: 3px 0; }
+    .eq-box { background:rgba(59,130,246,.05); border:1px solid rgba(59,130,246,.2); border-radius:12px; padding:16px 20px; margin:16px 0; font-size:1.05rem; }
+    .eq-box.big { font-size:1.35rem; padding:24px 20px; }
+    .exercise-header{display:flex;align-items:flex-start;gap:16px;margin-bottom:24px;padding:20px;background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.2);border-radius:14px;position:relative;overflow:hidden;}
+    .exercise-header::before{content:'';position:absolute;top:-40px;right:-40px;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,rgba(251,191,36,.1) 0%,transparent 70%);pointer-events:none;}
+    .exercise-badge{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;font-size:1.8rem;font-weight:800;color:#0d1a2e;background:linear-gradient(135deg,#fbbf24,#f59e0b);box-shadow:0 6px 18px rgba(251,191,36,.35);flex-shrink:0;}
+    .ex-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px 16px;margin-bottom:14px;transition:border-color .2s;}
+    .ex-card:hover{border-color:rgba(250,204,21,.3);}
+    .ex-q-head{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+    .ex-num{font-size:.68rem;font-weight:800;letter-spacing:.1em;padding:3px 10px;border-radius:6px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--muted);font-family:'Courier New',monospace;}
+    .ex-task{font-size:.88rem;color:var(--muted);margin-bottom:10px;line-height:1.6;}
+    .ex-task code{font-family:'Courier New',monospace;font-size:.85em;padding:1px 6px;border-radius:4px;background:rgba(255,255,255,.06);}
+    details.hint{margin-top:10px;}
+    details.hint summary{cursor:pointer;font-size:.78rem;color:var(--accent);font-weight:700;}
+  </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">← Python Libs</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item active" href="01-linear-regression.html">01</a>
+  </div>
+</nav>
+
+<div class="page-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-head">Linear Regression</div>
+    <nav class="sidebar-nav">
+      <button class="s-item active" data-panel="0" onclick="goTo(0)"><span class="s-num">00</span><span class="s-dot" style="background:#8b5cf6"></span><span class="s-label">Overview</span></button>
+      <button class="s-item" data-panel="1" onclick="goTo(1)"><span class="s-num">01</span><span class="s-dot" style="background:#a78bfa"></span><span class="s-label">Introduction</span></button>
+      <button class="s-item" data-panel="2" onclick="goTo(2)"><span class="s-num">02</span><span class="s-dot" style="background:#f43f5e"></span><span class="s-label">Key terms</span></button>
+      <button class="s-item" data-panel="3" onclick="goTo(3)"><span class="s-num">03</span><span class="s-dot" style="background:#ec4899"></span><span class="s-label">sklearn</span></button>
+      <button class="s-item" data-panel="4" onclick="goTo(4)"><span class="s-num">04</span><span class="s-dot" style="background:#f97316"></span><span class="s-label">MSE</span></button>
+      <button class="s-item" data-panel="5" onclick="goTo(5)"><span class="s-num">05</span><span class="s-dot" style="background:#10b981"></span><span class="s-label">LinearRegression</span></button>
+      <button class="s-item" data-panel="6" onclick="goTo(6)"><span class="s-num">06</span><span class="s-dot" style="background:#facc15"></span><span class="s-label">Single line</span></button>
+      <button class="s-item" data-panel="7" onclick="goTo(7)"><span class="s-num">07</span><span class="s-dot" style="background:#3b82f6"></span><span class="s-label">Multiple features</span></button>
+      <button class="s-item" data-panel="8" onclick="goTo(8)"><span class="s-num">08</span><span class="s-dot" style="background:#06b6d4"></span><span class="s-label">mean_squared_error</span></button>
+      <button class="s-item" data-panel="9" onclick="goTo(9)"><span class="s-num">09</span><span class="s-dot" style="background:#fbbf24"></span><span class="s-label">Exercises</span></button>
+    </nav>
+  </aside>
+
+  <!-- PANEL VIEWPORT -->
+  <div class="panel-viewport" id="viewport">
+
+    <!-- ══ PANEL 0: Overview ══ -->
+    <div class="panel active" id="panel-0">
+      <div class="hero" style="margin-bottom:36px;">
+        <span class="topic-label"><span class="dot"></span>Linear Regression · Topic 01</span>
+        <h1>Linear Regression</h1>
+        <p>Fit the best straight line through data:</p>
+        <div class="demo-canvas-wrap" style="background:#020509;border-radius:12px;padding:14px;position:relative;z-index:1;"><canvas id="cv-overview" height="260"></canvas></div>
+      </div>
+      <div class="overview-grid" style="margin-top:0;">
+        <div class="ov-card" onclick="goTo(1)"><div class="ov-card-num">01 / 09</div><div class="ov-card-name" style="color:#a78bfa">Introduction</div><div class="ov-card-desc">What are we doing here? Points, a line, and a prediction.</div></div>
+        <div class="ov-card" onclick="goTo(2)"><div class="ov-card-num">02 / 09</div><div class="ov-card-name" style="color:#f43f5e">Key terms</div><div class="ov-card-desc">Observation, prediction, residual — the words of regression.</div></div>
+        <div class="ov-card" onclick="goTo(3)"><div class="ov-card-num">03 / 09</div><div class="ov-card-name" style="color:#ec4899">sklearn</div><div class="ov-card-desc">Meet scikit-learn — the ML library and its fit / predict recipe.</div></div>
+        <div class="ov-card" onclick="goTo(4)"><div class="ov-card-num">04 / 09</div><div class="ov-card-name" style="color:#f97316">MSE</div><div class="ov-card-desc">Mean Squared Error — how wrong the line is, on average.</div></div>
+        <div class="ov-card" onclick="goTo(5)"><div class="ov-card-num">05 / 09</div><div class="ov-card-name" style="color:#10b981">LinearRegression</div><div class="ov-card-desc">sklearn.linear_model — fit, predict, coef_, intercept_.</div></div>
+        <div class="ov-card" onclick="goTo(6)"><div class="ov-card-num">06 / 09</div><div class="ov-card-name" style="color:#facc15">Single line</div><div class="ov-card-desc">y = β₀ + β₁x + ε — one feature: intercept, slope, error term.</div></div>
+        <div class="ov-card" onclick="goTo(7)"><div class="ov-card-num">07 / 09</div><div class="ov-card-name" style="color:#3b82f6">Multiple features</div><div class="ov-card-desc">y = β₀ + β₁x₁ + … + βₙxₙ + ε — one weight per feature.</div></div>
+        <div class="ov-card" onclick="goTo(8)"><div class="ov-card-num">08 / 09</div><div class="ov-card-name" style="color:#06b6d4">mean_squared_error</div><div class="ov-card-desc">sklearn.metrics — score the predictions with one call.</div></div>
+        <div class="ov-card" onclick="goTo(9)"><div class="ov-card-num">09 / 09</div><div class="ov-card-name" style="color:#fbbf24">Exercises</div><div class="ov-card-desc">Your turn — fit a model, read the β, compute the MSE.</div></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" disabled>← Prev</button>
+        <div class="pnav-dots" id="dots-0"></div>
+        <button class="pnav-btn next" onclick="goTo(1)">Introduction →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 1: Introduction ══ -->
+    <div class="panel" id="panel-1">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1501139083538-0139583c060f?w=900&q=75&fit=crop&h=200" alt="Looking for a pattern" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Linear Regression 01 / 09 · The Big Picture</div>
+          <div class="m-name">What are we doing?</div>
+          <div class="m-tagline">Predict a number from data — using one straight line</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">data → points → line → prediction</span>
+        <span class="pill pill-note">no formulas yet</span>
+        <span class="pill pill-ret">→ the whole deck in one picture</span>
+      </div>
+      <p class="m-desc">
+        <strong style="color:var(--accent);font-size:1.15rem;">The question: a friend asks - "if I study 7.5 hours, what grade will I get?"</strong><br>
+        Nobody knows the future<br>
+        But we <strong>do</strong> have data: 10 students told us how many hours they studied and what grade they got<br>
+        Each student becomes <strong style="color:var(--blue)">one point</strong> - x is the hours, y is the grade:
+      </p>
+      <div class="demo-box">
+        <div class="demo-lbl">Step 1 — plot the data: every student is one dot (hours, grade)</div>
+        <div class="demo-out" id="out-intro1"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-intro1" height="250"></canvas></div>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Step 2 — draw the line, then use it: 7.5 hours → grade ≈ 8.0</div>
+        <div class="demo-out" id="out-intro2"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-intro2" height="250"></canvas></div>
+      </div>
+      <ol class="steps">
+        <li class="show"><strong>Collect data</strong><span class="sub">Pairs of (hours studied, grade) — things that already happened.</span></li>
+        <li class="show"><strong>Plot the points</strong><span class="sub">One dot per student. A pattern appears: the dots climb together.</span></li>
+        <li class="show"><strong>Draw the best line through them</strong><span class="sub">The line summarizes ALL the students in one simple rule.</span></li>
+        <li class="show"><strong>Predict with the line</strong><span class="sub">For any new x (7.5 hours) the line hands us a y (grade ≈ 8.0) — even though no student studied exactly 7.5 hours.</span></li>
+      </ol>
+      <div class="callout purple">
+        💡 <strong>This is linear regression</strong> — the whole idea, no math needed. The rest of the deck just sharpens each step: the library that does it (<strong>sklearn</strong>), how to measure which line is best (<strong>MSE</strong>), the line's formula (<strong>β₀, β₁</strong>), and the code (<strong>LinearRegression</strong>, <strong>mean_squared_error</strong>).
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(0)">← Overview</button>
+        <div class="pnav-dots" id="dots-1"></div>
+        <button class="pnav-btn next" onclick="goTo(2)">Key terms →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 2: Key terms ══ -->
+    <div class="panel" id="panel-2">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1509228627152-72ae9ae6848d?w=900&q=75&fit=crop&h=200" alt="Vocabulary of regression" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Linear Regression 02 / 09 · The Vocabulary</div>
+          <div class="m-name">Key terms</div>
+          <div class="m-tagline">Observation · prediction · residual — the words everything else is built on</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-param" style="background:rgba(59,130,246,.1);color:var(--blue);border:1px solid rgba(59,130,246,.28);">observation
+          <span class="balloon"><span class="balloon-title">observation — Yᵢ</span><span class="balloon-body">One <strong>real measured</strong> data point — a blue dot. Student #3 studied 3 hours and got 4.5: that pair (3, 4.5) is one observation.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(16,185,129,.1);color:var(--green);border:1px solid rgba(16,185,129,.28);">prediction
+          <span class="balloon"><span class="balloon-title">prediction — Ŷᵢ (ŷ)</span><span class="balloon-body">What the <strong>line says</strong> for the same x — always a point ON the line. The hat ^ always means "estimated, not real".</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(249,115,22,.1);color:var(--orange);border:1px solid rgba(249,115,22,.28);">residual
+          <span class="balloon"><span class="balloon-title">residual — Yᵢ − Ŷᵢ</span><span class="balloon-body">The <strong>gap</strong> between real and predicted: observation minus prediction. Positive → the line guessed too low; negative → too high.</span></span>
+        </span>
+        <span class="pill pill-ret">→ shared language</span>
+      </div>
+      <p class="m-desc">Before any formula, agree on the words. Regression has exactly three actors on the chart — the <strong style="color:var(--blue)">observation</strong> (what really happened), the <strong style="color:var(--green)">prediction</strong> (what the line claims), and the <strong style="color:var(--orange)">residual</strong> (the gap between them). Everything later — ε, MSE, fit — is built from these three.</p>
+      <table class="dt">
+        <thead><tr><th>Term</th><th>Symbol</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>Feature</td><td>x</td><td>The input we predict <em>from</em> (hours studied) — a.k.a. independent variable</td></tr>
+          <tr class="show"><td>Target / Label</td><td>y</td><td>The value we want to predict (grade) — a.k.a. dependent variable</td></tr>
+          <tr class="show"><td style="color:var(--blue)">Observation</td><td>Yᵢ</td><td>One real measured (x, y) pair — data point i, a blue dot</td></tr>
+          <tr class="show"><td style="color:var(--green)">Prediction</td><td>Ŷᵢ , ŷ</td><td>The model's estimate for the same x — a point on the line</td></tr>
+          <tr class="show"><td style="color:var(--orange)">Residual</td><td>Yᵢ − Ŷᵢ</td><td>Observation minus prediction — the error for point i (the ε leftovers)</td></tr>
+          <tr class="show"><td>Model</td><td>ŷ = β₀ + β₁x</td><td>The rule that turns any x into a prediction — here, the line itself</td></tr>
+          <tr class="show"><td>Fit / Train</td><td>—</td><td>Finding the line that makes all the residuals as small as possible</td></tr>
+        </tbody>
+      </table>
+      <div class="demo-box">
+        <div class="demo-lbl">All three on one chart — student #5 under the microscope</div>
+        <div class="demo-out" id="out-terms"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-terms" height="270"></canvas></div>
+      </div>
+      <div class="callout orange">
+        💡 <strong>One sentence to remember:</strong> the <strong style="color:var(--blue)">observation</strong> is what happened, the <strong style="color:var(--green)">prediction</strong> is what the line says, and the <strong style="color:var(--orange)">residual</strong> is how much the line missed by. A good line = small residuals everywhere.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(1)">← Introduction</button>
+        <div class="pnav-dots" id="dots-2"></div>
+        <button class="pnav-btn next" onclick="goTo(3)">sklearn →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 3: sklearn ══ -->
+    <div class="panel" id="panel-3">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1464802686167-b939a6910659?w=900&q=75&fit=crop&h=200" alt="scikit-learn" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Linear Regression 03 / 09 · The Library</div>
+          <div class="m-name">sklearn</div>
+          <div class="m-tagline">scikit-learn — the machine learning library of Python</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">pip install scikit-learn</span>
+        <span class="pill pill-param" style="background:rgba(236,72,153,.1);color:var(--pink);border:1px solid rgba(236,72,153,.28);">fit
+          <span class="balloon"><span class="balloon-title">model.fit(X, y)</span><span class="balloon-body"><strong>Train</strong> — the model learns its parameters from the data. Every sklearn model has this method.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(6,182,212,.1);color:var(--cyan);border:1px solid rgba(6,182,212,.28);">predict
+          <span class="balloon"><span class="balloon-title">model.predict(X)</span><span class="balloon-body"><strong>Use</strong> — the trained model produces predictions for new data. Same method name on every model.</span></span>
+        </span>
+        <span class="pill pill-note">import name: sklearn</span>
+      </div>
+      <p class="m-desc"><strong>scikit-learn</strong> is Python's standard machine-learning library. It sits on top of NumPy and pandas and ships ready-made models — regression, classification, clustering — all sharing <strong>one uniform recipe</strong>: create the model, <code>fit</code> it on data, <code>predict</code> with it. Learn the recipe once and every model in the library works the same way.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — the universal sklearn recipe</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="cm"># install once (the package name has a dash, the import name doesn't):</span>
+<span class="cm"># pip install scikit-learn</span>
+
+<span class="kw">from</span> sklearn.linear_model <span class="kw">import</span> <span class="cls">LinearRegression</span>
+<span class="kw">from</span> sklearn.metrics <span class="kw">import</span> <span class="fn">mean_squared_error</span>
+
+model = <span class="cls">LinearRegression</span>()      <span class="cm"># 1. create a model object</span>
+model.<span class="fn">fit</span>(X, y)                 <span class="cm"># 2. train it on data</span>
+y_pred = model.<span class="fn">predict</span>(X)       <span class="cm"># 3. predict</span>
+<span class="fn">mean_squared_error</span>(y, y_pred)   <span class="cm"># 4. evaluate</span></pre>
+      </div>
+      <p class="m-desc">The library is organized in <strong>submodules</strong> — you import exactly the tool you need. The two this deck uses:</p>
+      <table class="dt">
+        <thead><tr><th>Submodule</th><th>What's inside</th><th>Used here for</th></tr></thead>
+        <tbody>
+          <tr class="show"><td><code>sklearn.linear_model</code></td><td>Linear models</td><td><strong>LinearRegression</strong> — finds β₀ and β₁</td></tr>
+          <tr class="show"><td><code>sklearn.metrics</code></td><td>Evaluation metrics</td><td><strong>mean_squared_error</strong> — scores the predictions</td></tr>
+          <tr class="show"><td><code>sklearn.model_selection</code></td><td>Data-splitting tools</td><td><strong>train_test_split</strong> — coming in a later lesson</td></tr>
+        </tbody>
+      </table>
+      <div class="callout orange">
+        ⚠️ <strong>Name trap:</strong> you <code>pip install scikit-learn</code> (with a dash) but <code>import sklearn</code> (no dash). There is an impostor package literally called "sklearn" on PyPI — never install that one.
+      </div>
+      <div class="callout green">
+        💡 <strong>Why everyone loves it:</strong> swap <code>LinearRegression()</code> for any other sklearn model — a decision tree, a KNN — and the rest of the code (<code>fit</code>, <code>predict</code>, the metrics) stays <em>identical</em>. That uniform API is the superpower.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(2)">← Key terms</button>
+        <div class="pnav-dots" id="dots-3"></div>
+        <button class="pnav-btn next" onclick="goTo(4)">MSE →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 4: MSE ══ -->
+    <div class="panel" id="panel-4">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1504639725590-34d0984388bd?w=900&q=75&fit=crop&h=200" alt="Measuring error" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Linear Regression 04 / 09 · The Cost Function</div>
+          <div class="m-name">MSE</div>
+          <div class="m-tagline">Mean Squared Error — how wrong is the line, on average?</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">MSE = mean( (actual − predicted)² )</span>
+        <span class="pill pill-param" style="background:rgba(59,130,246,.1);color:var(--blue);border:1px solid rgba(59,130,246,.28);">Yᵢ
+          <span class="balloon"><span class="balloon-title">Yᵢ — actual</span><span class="balloon-body">The <strong>observed</strong> value — what really happened for data point i.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(16,185,129,.1);color:var(--green);border:1px solid rgba(16,185,129,.28);">Ŷᵢ
+          <span class="balloon"><span class="balloon-title">Ŷᵢ — predicted</span><span class="balloon-body">The <strong>estimated</strong> value — what the line says for point i. The hat ^ always means "prediction".</span></span>
+        </span>
+        <span class="pill pill-note">lower = better · 0 = perfect</span>
+        <span class="pill pill-ret">→ one number</span>
+      </div>
+      <div class="eq-box big" style="text-align:center;">
+        $$\mathrm{MSE} = \frac{1}{n}\sum_{i=1}^{n}\left(Y_i - \hat{Y}_i\right)^2$$
+      </div>
+      <p class="m-desc">Read it inside-out, right to left: take each <strong style="color:var(--pink)">prediction error</strong> (residual), <strong>square</strong> it, <strong>sum</strong> all the squares, and <strong>average</strong> over the n points:</p>
+      <table class="dt">
+        <thead><tr><th class="blue">Piece</th><th class="blue">What it does</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>Yᵢ</td><td>The observed (actual) value</td></tr>
+          <tr class="show"><td>Ŷᵢ</td><td>The predicted (estimated) value</td></tr>
+          <tr class="show"><td>(Yᵢ − Ŷᵢ)</td><td>The prediction error (residual)</td></tr>
+          <tr class="show"><td>²</td><td>Squares the errors to remove negative values</td></tr>
+          <tr class="show"><td>Σ</td><td>Sums up all the squared errors</td></tr>
+          <tr class="show"><td>1/n</td><td>Averages the sum over n data points</td></tr>
+        </tbody>
+      </table>
+      <div class="callout orange">
+        ⚠️ <strong>Why square?</strong> Errors of +3 and −3 would cancel to 0 in a plain average — squaring makes every miss positive. It also punishes big misses much harder: one error of 4 costs 16, four errors of 1 cost only 4. That's why "least squares" hates outliers.
+      </div>
+      <p class="m-desc"><strong>Training = minimizing MSE.</strong> Fitting a linear regression means finding the β₀ and β₁ that make this number as small as possible. Drag the sliders and try to beat the optimum:</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — move the line, watch MSE. Can you reach the minimum?</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>bias β₀</label><input type="range" min="-4" max="8" value="6" step="0.5" id="ms-b0" oninput="drawMSE()"><span class="cval" id="ms-b0v">6</span></div>
+          <div class="ctrl"><label>weight β₁</label><input type="range" min="-10" max="25" value="2" id="ms-b1" oninput="drawMSE()"><span class="cval" id="ms-b1v">0.2</span></div>
+        </div>
+        <div class="demo-out" id="out-mse"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-mse" height="280"></canvas></div>
+      </div>
+      <div class="callout green">
+        💡 The orange dashes are the <strong>residuals (Yᵢ − Ŷᵢ)</strong>. MSE is the average of their squares — the best line (β₀ ≈ 2.0, β₁ ≈ 0.8) gets MSE ≈ 0.053, and no other line does better.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(3)">← sklearn</button>
+        <div class="pnav-dots" id="dots-4"></div>
+        <button class="pnav-btn next" onclick="goTo(5)">LinearRegression →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 5: sklearn LinearRegression ══ -->
+    <div class="panel" id="panel-5">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1518186285589-2f7649de83e0?w=900&q=75&fit=crop&h=200" alt="Machine learning" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Linear Regression 05 / 09 · scikit-learn</div>
+          <div class="m-name">LinearRegression</div>
+          <div class="m-tagline">sklearn.linear_model — let the machine find β₀ and β₁</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">from sklearn.linear_model import LinearRegression</span>
+        <span class="pill pill-param" style="background:rgba(16,185,129,.1);color:var(--green);border:1px solid rgba(16,185,129,.28);">fit
+          <span class="balloon"><span class="balloon-title">model.fit(X, y)</span><span class="balloon-body">The <strong>training</strong> step — finds the β₀, β₁, … that minimize MSE on the data. X must be 2D (table of features), y is 1D (the target).</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(6,182,212,.1);color:var(--cyan);border:1px solid rgba(6,182,212,.28);">predict
+          <span class="balloon"><span class="balloon-title">model.predict(X)</span><span class="balloon-body">Computes <code>ŷ = β₀ + β₁x</code> for every row of X — returns an array of predictions.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(59,130,246,.1);color:var(--blue);border:1px solid rgba(59,130,246,.28);">coef_
+          <span class="balloon"><span class="balloon-title">model.coef_</span><span class="balloon-body">The learned <strong>weights</strong> [β₁, β₂, …, βₙ] — one per feature column. The trailing _ means "exists only after fit()".</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(139,92,246,.1);color:var(--purple);border:1px solid rgba(139,92,246,.28);">intercept_
+          <span class="balloon"><span class="balloon-title">model.intercept_</span><span class="balloon-body">The learned <strong>bias β₀</strong> — a single number, where the fitted line crosses the y-axis.</span></span>
+        </span>
+      </div>
+      <p class="m-desc">On the MSE page <em>you</em> hunted for the best β with sliders. <code>LinearRegression</code> solves that search exactly, in one line. The recipe is always the same four steps — <strong>import → create → fit → predict</strong>:</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> pandas <span class="kw">as</span> <span class="lib">pd</span>
+<span class="kw">from</span> sklearn.linear_model <span class="kw">import</span> <span class="cls">LinearRegression</span>
+
+df = <span class="lib">pd</span>.<span class="fn">DataFrame</span>({
+    <span class="str">"hours"</span>: [<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>, <span class="num">4</span>, <span class="num">5</span>, <span class="num">6</span>, <span class="num">7</span>, <span class="num">8</span>, <span class="num">9</span>, <span class="num">10</span>],
+    <span class="str">"score"</span>: [<span class="num">2.9</span>, <span class="num">3.4</span>, <span class="num">4.5</span>, <span class="num">5.4</span>, <span class="num">5.6</span>, <span class="num">7.0</span>, <span class="num">7.3</span>, <span class="num">8.7</span>, <span class="num">9.3</span>, <span class="num">9.8</span>]
+})
+
+X = df[[<span class="str">"hours"</span>]]          <span class="cm"># features — 2D (DataFrame, note [[ ]])</span>
+y = df[<span class="str">"score"</span>]            <span class="cm"># target   — 1D (Series)</span>
+
+model = <span class="cls">LinearRegression</span>()  <span class="cm"># 1. create the model</span>
+model.<span class="fn">fit</span>(X, y)             <span class="cm"># 2. train — finds the best β₀, β₁</span>
+
+<span class="fn">print</span>(model.coef_)          <span class="cm"># [0.797]  → β₁  (weight / slope)</span>
+<span class="fn">print</span>(model.intercept_)     <span class="cm"># 2.007    → β₀  (bias / intercept)</span>
+
+predictions = model.<span class="fn">predict</span>(X)   <span class="cm"># 3. ŷ for every row of X</span>
+<span class="fn">print</span>(model.<span class="fn">predict</span>([[<span class="num">12</span>]]))     <span class="cm"># [11.57] — predict for a NEW x</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Result — the line fit() found for this exact data</div>
+        <div class="demo-out" id="out-fit"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-fit" height="270"></canvas></div>
+      </div>
+      <div class="callout cyan">
+        🧭 <strong>Naming convention:</strong> attributes ending in an underscore (<code>coef_</code>, <code>intercept_</code>) are values <em>learned from data</em> — they don't exist until you call <code>fit()</code>.
+      </div>
+      <ol class="steps">
+        <li class="show"><strong>X must be 2D, y must be 1D</strong><span class="sub">df[["hours"]] with double brackets → DataFrame (table). df["score"] with single brackets → Series.</span></li>
+        <li class="show"><strong>fit() learns the β</strong><span class="sub">It minimizes MSE exactly — the same minimum you chased with the sliders.</span></li>
+        <li class="show"><strong>coef_ and intercept_ hold the answer</strong><span class="sub">The fitted line: ŷ = 2.007 + 0.797·x. With n features, coef_ has n weights.</span></li>
+      </ol>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(4)">← MSE</button>
+        <div class="pnav-dots" id="dots-5"></div>
+        <button class="pnav-btn next" onclick="goTo(6)">Single line →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 6: Single line ══ -->
+    <div class="panel" id="panel-6">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1509228627152-72ae9ae6848d?w=900&q=75&fit=crop&h=200" alt="Straight line through points" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Linear Regression 06 / 09 · Single Line</div>
+          <div class="m-name">y = β₀ + β₁x + ε</div>
+          <div class="m-tagline">One feature, one weight — simple (single) linear regression</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">y = β₀ + β₁·x + ε</span>
+        <span class="pill pill-param" style="background:rgba(59,130,246,.1);color:var(--blue);border:1px solid rgba(59,130,246,.28);">β₁
+          <span class="balloon"><span class="balloon-title">β₁ — slope coefficient</span><span class="balloon-body">The <strong>Weight / Slope</strong>: how much <code>y</code> changes when the feature <code>x</code> grows by 1. This is the <code>m</code> from <code>y = mx + b</code>, renamed.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(16,185,129,.1);color:var(--green);border:1px solid rgba(16,185,129,.28);">β₀
+          <span class="balloon"><span class="balloon-title">β₀ — intercept</span><span class="balloon-body">The <strong>Bias</strong>: the value of <code>y</code> when <code>x = 0</code>. This is the <code>b</code> from <code>y = mx + b</code>, renamed.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(236,72,153,.1);color:var(--pink);border:1px solid rgba(236,72,153,.28);">ε
+          <span class="balloon"><span class="balloon-title">ε — error term</span><span class="balloon-body">The <strong>Residuals</strong>: random noise the line cannot explain. Real data never sits exactly on a line — ε is the leftover gap.</span></span>
+        </span>
+        <span class="pill pill-ret">→ predicted y</span>
+      </div>
+      <div class="eq-box big" style="text-align:center;">
+        $$y = \beta_0 + \beta_1 x + \varepsilon$$
+      </div>
+      <p class="m-desc">This is <code>y = mx + b</code> wearing its machine-learning clothes — same line, new names. <code>x</code> is now called a <strong style="color:var(--blue)">feature</strong>, <code>y</code> a <strong>target</strong>, the slope becomes a <strong style="color:var(--blue)">weight β₁</strong>, the intercept a <strong style="color:var(--green)">bias β₀</strong>, and we admit the data is noisy by adding <strong style="color:var(--pink)">ε</strong>.</p>
+      <table class="dt">
+        <thead><tr><th>Symbol</th><th>Name</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>y</td><td>dependent variable</td><td>The <strong>Target / Label</strong> — the value we want to predict</td></tr>
+          <tr class="show"><td>x</td><td>independent variable</td><td>The <strong>Feature</strong> — the input we predict from</td></tr>
+          <tr class="show"><td style="color:var(--blue)">β₁</td><td>slope coefficient</td><td>The <strong>Weight / Slope</strong> — effect of x on y</td></tr>
+          <tr class="show"><td style="color:var(--green)">β₀</td><td>intercept</td><td>The <strong>Bias</strong> — y when x = 0</td></tr>
+          <tr class="show"><td style="color:var(--pink)">ε</td><td>random error term</td><td>The <strong>Residuals</strong> — noise the line cannot explain</td></tr>
+        </tbody>
+      </table>
+      <p class="m-desc">The model the machine actually learns drops ε (we cannot predict noise) and puts a hat on y — <strong>ŷ</strong> means "the prediction":</p>
+      <div class="eq-box" style="text-align:center;">
+        $$\hat{y} = \beta_0 + \beta_1 x$$
+      </div>
+      <div class="callout blue">
+        💡 <strong>Same line, two dialects:</strong> math class says <code>y = mx + b</code>, machine learning says <code>y = β₀ + β₁x + ε</code>. Slope m → weight β₁, intercept b → bias β₀ — and ε honestly admits the points don't sit exactly on the line.
+      </div>
+      <p class="m-desc">Let <strong style="color:var(--green)">sklearn find the best β₀ and β₁</strong> from the data itself — <code>LinearRegression</code> picks the line that minimizes the squared ε:</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — find β₀ and β₁ with sklearn</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> numpy <span class="kw">as</span> <span class="lib">np</span>
+<span class="kw">from</span> sklearn.linear_model <span class="kw">import</span> <span class="cls">LinearRegression</span>
+
+x = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>, <span class="num">4</span>, <span class="num">5</span>])                 <span class="cm"># the feature (hours)</span>
+y_real = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">2.9</span>, <span class="num">3.4</span>, <span class="num">4.5</span>, <span class="num">5.4</span>, <span class="num">5.6</span>])  <span class="cm"># the target (grades)</span>
+
+X = x.<span class="fn">reshape</span>(-<span class="num">1</span>, <span class="num">1</span>)          <span class="cm"># sklearn needs X as 2D: [[1], [2], [3], [4], [5]]</span>
+
+model = <span class="cls">LinearRegression</span>()
+model.<span class="fn">fit</span>(X, y_real)          <span class="cm"># learn β₀ and β₁ from the data</span>
+
+<span class="fn">print</span>(model.coef_)            <span class="cm"># [0.74]  → β₁  (a — the slope / weight)</span>
+<span class="fn">print</span>(model.intercept_)       <span class="cm"># 2.14    → β₀  (b — the intercept / bias)</span>
+
+<span class="cm"># the fitted line:  ŷ = 2.14 + 0.74x</span>
+<span class="fn">print</span>(model.<span class="fn">predict</span>(X))       <span class="cm"># [2.88 3.62 4.36 5.1  5.84]</span></pre>
+      </div>
+      <div class="callout green">
+        💡 <code>fit()</code> finds the <em>exact</em> minimum-MSE line: β₀ = 2.14, β₁ = 0.74. Panel 05 unpacks how <code>fit / predict / coef_ / intercept_</code> work.
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — data is noisy: the line + the ε that's left over</div>
+        <div class="demo-out" id="out-model"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-model" height="270"></canvas></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(5)">← LinearRegression</button>
+        <div class="pnav-dots" id="dots-6"></div>
+        <button class="pnav-btn next" onclick="goTo(7)">Multiple features →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 7: Multiple features ══ -->
+    <div class="panel" id="panel-7">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1477346611705-65d1883cee1e?w=900&q=75&fit=crop&h=200" alt="Many dimensions" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Linear Regression 07 / 09 · Multiple Features</div>
+          <div class="m-name">Multiple regression</div>
+          <div class="m-tagline">Many features, one weight each — same idea, more dimensions</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">y = β₀ + β₁x₁ + β₂x₂ + … + βₙxₙ + ε</span>
+        <span class="pill pill-note">one β per feature</span>
+        <span class="pill pill-ret">→ predicted y</span>
+      </div>
+      <div class="eq-box big" style="text-align:center;">
+        $$y = \beta_0 + \beta_1 x_1 + \beta_2 x_2 + \dots + \beta_n x_n + \varepsilon$$
+      </div>
+      <div class="demo-box" style="margin-top:0;">
+        <div class="demo-lbl">Two features → the model is no longer a line, it's a PLANE</div>
+        <div class="demo-out" id="out-plane">1 feature (x) → a line in 2D.   2 features (x₁, x₂) → a plane in 3D.
+the red dots are the observations — the plane is the model's prediction ŷ for every (x₁, x₂)</div>
+        <div class="demo-canvas-wrap" style="padding:16px;">
+          <svg viewBox="0 0 760 520" role="img" aria-label="3D regression plane with actual data points" style="display:block;width:100%;max-width:680px;margin:0 auto;background:#020509;border-radius:10px;">
+            <defs>
+              <linearGradient id="planeGradient" x1="0%" y1="100%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#a78bfa" stop-opacity=".62"/>
+                <stop offset="48%" stop-color="#8dd7c7" stop-opacity=".52"/>
+                <stop offset="100%" stop-color="#fde047" stop-opacity=".66"/>
+              </linearGradient>
+            </defs>
+
+            <rect x="20" y="18" width="720" height="470" fill="#050b13" stroke="#263449"/>
+            <text x="380" y="52" text-anchor="middle" fill="#e6edf3" font-size="24" font-weight="800">3D Linear Regression Fit using Scikit-Learn</text>
+
+            <g stroke="#1d2b40" stroke-width="2" opacity=".9">
+              <line x1="108" y1="394" x2="612" y2="448"/>
+              <line x1="108" y1="394" x2="212" y2="156"/>
+              <line x1="108" y1="394" x2="64" y2="190"/>
+
+              <line x1="190" y1="403" x2="294" y2="165"/><line x1="272" y1="412" x2="376" y2="174"/>
+              <line x1="354" y1="421" x2="458" y2="183"/><line x1="436" y1="430" x2="540" y2="192"/>
+              <line x1="518" y1="439" x2="622" y2="201"/>
+
+              <line x1="90" y1="312" x2="594" y2="366"/><line x1="72" y1="230" x2="576" y2="284"/>
+              <line x1="126" y1="353" x2="630" y2="407"/><line x1="144" y1="271" x2="648" y2="325"/>
+              <line x1="162" y1="189" x2="666" y2="243"/>
+
+              <line x1="160" y1="360" x2="116" y2="156"/><line x1="252" y1="328" x2="208" y2="124"/>
+              <line x1="344" y1="296" x2="300" y2="92"/><line x1="436" y1="264" x2="392" y2="60"/>
+              <line x1="528" y1="232" x2="484" y2="28"/>
+            </g>
+
+            <polygon points="96,386 498,248 666,118 248,258" fill="url(#planeGradient)" stroke="#8fb8cc" stroke-width="2" opacity=".82"/>
+            <g stroke="#7ba7ba" stroke-width="1.2" opacity=".55">
+              <line x1="146" y1="370" x2="296" y2="242"/><line x1="210" y1="348" x2="362" y2="221"/>
+              <line x1="274" y1="326" x2="428" y2="201"/><line x1="338" y1="304" x2="494" y2="181"/>
+              <line x1="402" y1="282" x2="560" y2="160"/>
+              <line x1="150" y1="353" x2="552" y2="215"/><line x1="202" y1="318" x2="604" y2="181"/>
+              <line x1="254" y1="283" x2="656" y2="146"/>
+            </g>
+
+            <g fill="#e11d48" stroke="#020509" stroke-width="3" opacity=".96">
+              <circle cx="210" cy="330" r="11"/>
+              <circle cx="252" cy="292" r="11"/>
+              <circle cx="390" cy="226" r="11"/>
+              <circle cx="430" cy="285" r="11"/>
+              <circle cx="564" cy="175" r="11"/>
+            </g>
+
+            <g fill="#e6edf3" font-size="16" font-weight="700">
+              <text x="326" y="478" transform="rotate(10 326 478)">Feature X1</text>
+              <text x="615" y="365" transform="rotate(-50 615 365)">Feature X2</text>
+              <text x="50" y="172" transform="rotate(-83 50 172)">Prediction Y</text>
+            </g>
+
+            <g fill="#8a99ad" font-size="12">
+              <text x="84" y="416">0</text><text x="188" y="428">1</text><text x="270" y="437">2</text>
+              <text x="352" y="446">3</text><text x="434" y="455">4</text><text x="516" y="464">5</text>
+              <text x="616" y="468">6</text>
+              <text x="48" y="204">2</text><text x="66" y="126">8</text><text x="86" y="72">14</text>
+            </g>
+
+            <rect x="462" y="70" width="220" height="72" fill="#0d1117" stroke="#30363d" rx="6"/>
+            <circle cx="486" cy="94" r="10" fill="#e11d48"/>
+            <text x="510" y="100" fill="#e6edf3" font-size="16">Actual Data Points</text>
+            <rect x="474" y="116" width="42" height="14" fill="#9fc7df" opacity=".72"/>
+            <text x="530" y="129" fill="#e6edf3" font-size="16">Regression Plane</text>
+          </svg>
+        </div>
+      </div>
+      <p class="m-desc">Real predictions rarely depend on one input. A house price depends on size <em>and</em> rooms <em>and</em> age — so each <strong style="color:var(--blue)">distinct feature x₁, x₂, …, xₙ</strong> gets its own <strong style="color:var(--blue)">weight β₁, β₂, …, βₙ</strong>. A big |βᵢ| means feature i strongly moves the prediction; βᵢ near 0 means the model barely uses it.</p>
+      <table class="dt">
+        <thead><tr><th class="blue">Symbol</th><th class="blue">Meaning</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>x₁, x₂, …, xₙ</td><td>Distinct input <strong>features</strong> (size, rooms, age, …)</td></tr>
+          <tr class="show"><td style="color:var(--blue)">β₁, β₂, …, βₙ</td><td>Individual <strong>weights</strong> assigned to each respective feature</td></tr>
+          <tr class="show"><td style="color:var(--green)">β₀</td><td>Still the <strong>bias</strong> — the prediction when every feature is 0</td></tr>
+          <tr class="show"><td style="color:var(--pink)">ε</td><td>Still the <strong>noise</strong> — what no combination of features explains</td></tr>
+        </tbody>
+      </table>
+      <p class="m-desc">Example — predicting an apartment price (in ₪1000) from two features:</p>
+      <div class="eq-box" style="text-align:center;">
+        $$\text{price} = 250 + 12\cdot\text{size}_{m^2} + 45\cdot\text{rooms} \qquad (\beta_0 = 250,\;\beta_1 = 12,\;\beta_2 = 45)$$
+      </div>
+      <p class="m-desc"><strong>Python example</strong> — with several features, "multiply each feature by its weight and sum" is exactly a <strong>dot product</strong>:</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> numpy <span class="kw">as</span> <span class="lib">np</span>
+
+beta0 = <span class="num">250</span>                              <span class="cm"># β₀ — bias</span>
+betas = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">12</span>, <span class="num">45</span>])               <span class="cm"># [β₁, β₂] — one weight per feature</span>
+
+apartment = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">80</span>, <span class="num">3</span>])            <span class="cm"># x₁ = 80 m²,  x₂ = 3 rooms</span>
+
+price = beta0 + <span class="lib">np</span>.<span class="fn">dot</span>(betas, apartment) <span class="cm"># β₀ + β₁x₁ + β₂x₂</span>
+<span class="fn">print</span>(price)                             <span class="cm"># 250 + 12·80 + 45·3 = 1345 (₪1000)</span>
+
+<span class="cm"># several apartments at once — one row per apartment</span>
+X = <span class="lib">np</span>.<span class="fn">array</span>([[<span class="num">80</span>, <span class="num">3</span>],
+              [<span class="num">55</span>, <span class="num">2</span>],
+              [<span class="num">120</span>, <span class="num">5</span>]])
+<span class="fn">print</span>(beta0 + X @ betas)                 <span class="cm"># [1345.  1000.  1915.]</span></pre>
+      </div>
+      <div class="callout purple">
+        🧠 <strong>Geometry check:</strong> 1 feature → a line in 2D. 2 features → a plane in 3D. n features → a "hyperplane" we can't draw but the formula handles just fine. The math never changes: multiply each feature by its weight, add the bias.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(6)">← Single line</button>
+        <div class="pnav-dots" id="dots-7"></div>
+        <button class="pnav-btn next" onclick="goTo(8)">mean_squared_error →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 8: mean_squared_error ══ -->
+    <div class="panel" id="panel-8">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=900&q=75&fit=crop&h=200" alt="Evaluation dashboard" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Linear Regression 08 / 09 · Evaluation</div>
+          <div class="m-name">mean_squared_error</div>
+          <div class="m-tagline">sklearn.metrics — the MSE formula as one function call</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">from sklearn.metrics import mean_squared_error</span>
+        <span class="pill pill-param" style="background:rgba(59,130,246,.1);color:var(--blue);border:1px solid rgba(59,130,246,.28);">y_true
+          <span class="balloon"><span class="balloon-title">y_true — first argument</span><span class="balloon-body">The <strong>actual</strong> values Yᵢ — what really happened.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(16,185,129,.1);color:var(--green);border:1px solid rgba(16,185,129,.28);">y_pred
+          <span class="balloon"><span class="balloon-title">y_pred — second argument</span><span class="balloon-body">The <strong>predicted</strong> values Ŷᵢ — what the model said. Usually the output of <code>model.predict(X)</code>.</span></span>
+        </span>
+        <span class="pill pill-ret">→ float (lower = better)</span>
+      </div>
+      <p class="m-desc">You never compute the MSE formula by hand — <code>sklearn.metrics</code> ships it ready-made. Hand it the <strong style="color:var(--blue)">actual values</strong> and the <strong style="color:var(--green)">predictions</strong>, get back the average squared error:</p>
+      <div class="eq-box" style="text-align:center;">
+        $$\texttt{mean\_squared\_error}(y,\ \hat{y}) \;=\; \frac{1}{n}\sum_{i=1}^{n}\left(Y_i - \hat{Y}_i\right)^2$$
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">from</span> sklearn.metrics <span class="kw">import</span> <span class="fn">mean_squared_error</span>
+
+mse = <span class="fn">mean_squared_error</span>(y, predictions)   <span class="cm"># (actual, predicted)</span>
+<span class="fn">print</span>(mse)                                 <span class="cm"># 0.053 — same number as the slider demo!</span></pre>
+      </div>
+      <p class="m-desc">Putting the whole lesson together — <strong>the complete workflow</strong>, from data to score:</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — full workflow</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> pandas <span class="kw">as</span> <span class="lib">pd</span>
+<span class="kw">from</span> sklearn.linear_model <span class="kw">import</span> <span class="cls">LinearRegression</span>
+<span class="kw">from</span> sklearn.metrics <span class="kw">import</span> <span class="fn">mean_squared_error</span>
+
+<span class="cm"># 1. data → features X (2D) and target y (1D)</span>
+X = df[[<span class="str">"hours"</span>]]
+y = df[<span class="str">"score"</span>]
+
+<span class="cm"># 2. create + train the model  (fit finds β₀, β₁)</span>
+model = <span class="cls">LinearRegression</span>()
+model.<span class="fn">fit</span>(X, y)
+
+<span class="cm"># 3. predict  (ŷ = β₀ + β₁x for every row)</span>
+predictions = model.<span class="fn">predict</span>(X)
+
+<span class="cm"># 4. evaluate  (how far are ŷ from the real y?)</span>
+mse = <span class="fn">mean_squared_error</span>(y, predictions)
+<span class="fn">print</span>(<span class="str">f"β₁ = {model.coef_[0]:.3f},  β₀ = {model.intercept_:.3f},  MSE = {mse:.3f}"</span>)
+<span class="cm"># β₁ = 0.797,  β₀ = 2.007,  MSE = 0.053</span></pre>
+      </div>
+      <table class="dt">
+        <thead><tr><th>Step</th><th>Call</th><th>Formula it implements</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>Train</td><td><code>model.fit(X, y)</code></td><td>find β minimizing MSE</td></tr>
+          <tr class="show"><td>Predict</td><td><code>model.predict(X)</code></td><td>ŷ = β₀ + β₁x</td></tr>
+          <tr class="show"><td>Evaluate</td><td><code>mean_squared_error(y, ŷ)</code></td><td>mean of (Yᵢ − Ŷᵢ)²</td></tr>
+        </tbody>
+      </table>
+      <div class="callout orange">
+        ⚠️ <strong>Argument order:</strong> the convention is <code>mean_squared_error(y_true, y_pred)</code> — actual first, predicted second. For plain MSE the result is symmetric, but keep the habit: other metrics <em>do</em> care about the order.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(7)">← Multiple features</button>
+        <div class="pnav-dots" id="dots-8"></div>
+        <button class="pnav-btn next" onclick="goTo(9)">Exercises →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 9: Exercises ══ -->
+    <div class="panel" id="panel-9">
+      <div class="exercise-header">
+        <div class="exercise-badge">✏️</div>
+        <div>
+          <div class="m-breadcrumb" style="color:var(--muted)">Linear Regression 09 / 09 · Practice</div>
+          <div style="font-size:1.4rem;font-weight:900;font-family:'Courier New',monospace;">Exercises — Targil</div>
+          <div style="font-size:.85rem;color:var(--muted);margin-top:4px;">Fit a model, read the β, and score it with MSE — the full workflow.</div>
+        </div>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q1</span><strong>Read the formula</strong></div>
+        <div class="ex-task">
+          A fitted model predicts pizza delivery time (minutes) from distance (km):
+          <div class="eq-box" style="margin-top:12px;text-align:center;">
+            $$\hat{y} = 12 + 4x$$
+          </div>
+          Identify β₀ and β₁, explain what each means <em>in this story</em>, and predict the delivery time for a 5 km order.
+        </div>
+        <details class="hint"><summary>Hint</summary>
+          <div class="ex-task" style="margin-top:8px;">
+            β₀ = 12 (bias — preparation time even at 0 km), β₁ = 4 (weight — extra minutes per km).
+            For x = 5: ŷ = 12 + 4·5 = <strong>32 minutes</strong>.
+          </div>
+        </details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q2</span><strong>MSE by hand</strong></div>
+        <div class="ex-task">
+          Actual values <code>Y = [3, 5, 7]</code>, predictions <code>Ŷ = [4, 5, 5]</code>.
+          Compute the MSE with the formula — then verify with <code>mean_squared_error([3, 5, 7], [4, 5, 5])</code>.
+        </div>
+        <details class="hint"><summary>Hint</summary>
+          <div class="ex-task" style="margin-top:8px;">
+            Errors: −1, 0, 2 → squares: 1, 0, 4 → sum = 5 → MSE = 5 / 3 ≈ <strong>1.667</strong>.
+          </div>
+        </details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q3</span><strong>Fit your own model</strong></div>
+        <div class="ex-task">
+          Build a DataFrame with <code>km = [10, 20, 30, 40, 50]</code> and <code>price = [55, 62, 75, 79, 90]</code> (taxi rides).
+          Fit a <code>LinearRegression</code>, print <code>coef_</code> and <code>intercept_</code>, and predict the price of a 35 km ride.
+        </div>
+        <details class="hint"><summary>Hint</summary>
+          <div class="ex-task" style="margin-top:8px;">
+            Remember: <code>X = df[["km"]]</code> (2D, double brackets), <code>y = df["price"]</code> (1D).
+            Expected roughly: β₁ ≈ 0.88, β₀ ≈ 45.8 → <code>model.predict([[35]])</code> ≈ <strong>76.6</strong>.
+          </div>
+        </details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q4</span><strong>Score it</strong></div>
+        <div class="ex-task">
+          For the taxi model from Q3: compute <code>predictions = model.predict(X)</code> and
+          <code>mean_squared_error(y, predictions)</code>. Then multiply <em>every</em> residual by 2 in your head —
+          what happens to the MSE, and why?
+        </div>
+        <details class="hint"><summary>Hint</summary>
+          <div class="ex-task" style="margin-top:8px;">
+            Doubling every error <strong>quadruples</strong> the MSE — the errors are squared, so 2² = 4× the cost.
+            That's exactly why MSE punishes big misses so hard.
+          </div>
+        </details>
+      </div>
+
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(8)">← mean_squared_error</button>
+        <div class="pnav-dots" id="dots-9"></div>
+        <button class="pnav-btn next" onclick="goTo(0)" style="background:rgba(139,92,246,.1);border-color:rgba(139,92,246,.4);color:var(--purple);">&#8635; Back to Overview</button>
+      </div>
+    </div>
+
+  </div><!-- /panel-viewport -->
+</div><!-- /page-layout -->
+
+<script>
+const $ = id => document.getElementById(id);
+const TOTAL = 10;
+const LABELS = ['Overview','Introduction','Key terms','sklearn','MSE','LinearRegression','Single line','Multiple features','mean_squared_error','Exercises'];
+
+let current = 0;
+
+function goTo(idx) {
+  if (idx === current) return;
+  const oldP = $('panel-' + current), newP = $('panel-' + idx);
+  if (current > 0) document.querySelector(`[data-panel="${current}"]`).classList.add('done');
+  oldP.classList.remove('active'); oldP.classList.add('exit');
+  setTimeout(() => oldP.classList.remove('exit'), 280);
+  current = idx;
+  newP.classList.add('active');
+  $('viewport').scrollTop = 0;
+  document.querySelectorAll('.s-item').forEach(b => b.classList.toggle('active', +b.dataset.panel === idx));
+  updateDots();
+  const draws = [drawOverview, drawIntro, drawTerms, null, drawMSE, drawFit, drawModel, null, null, null];
+  if (draws[idx]) setTimeout(draws[idx], 60);
+}
+
+function updateDots() {
+  for (let i = 0; i < TOTAL; i++) {
+    const cont = $('dots-' + i); if (!cont) continue;
+    cont.innerHTML = '';
+    for (let d = 0; d < TOTAL; d++) {
+      const btn = document.createElement('button');
+      btn.className = 'pnav-dot' + (d === current ? ' active' : '');
+      btn.title = LABELS[d]; btn.onclick = () => goTo(d);
+      cont.appendChild(btn);
+    }
+  }
+}
+
+$('viewport').addEventListener('scroll', () => {
+  const el = $('viewport');
+  $('progress').style.width = (el.scrollTop / (el.scrollHeight - el.clientHeight) * 100) + '%';
+});
+
+function cp(btn) {
+  navigator.clipboard.writeText(btn.closest('.code-wrap').querySelector('pre').innerText.trim()).then(() => {
+    btn.textContent = '✓ copied'; setTimeout(() => btn.textContent = 'copy', 1600);
+  });
+}
+
+/* ══════════ shared cartesian plot helper ══════════ */
+const COL = { grid:'rgba(230,237,243,.07)', axis:'rgba(230,237,243,.45)', tick:'rgba(230,237,243,.4)',
+              accent:'#facc15', blue:'#3b82f6', green:'#10b981', red:'#f43f5e', cyan:'#06b6d4', orange:'#f97316', surface:'#020509' };
+
+function plotSetup(cvId, XMIN=-10, XMAX=10, YMIN=-10, YMAX=10) {
+  const cv = $(cvId), ctx = cv.getContext('2d');
+  const wrap = cv.parentElement;
+  cv.width = Math.min(wrap.clientWidth - 28 || 560, 640);
+  const W = cv.width, H = cv.height;
+  const sx = x => (x - XMIN) / (XMAX - XMIN) * W;
+  const sy = y => H - (y - YMIN) / (YMAX - YMIN) * H;
+  ctx.clearRect(0, 0, W, H);
+  // grid (recessive)
+  ctx.strokeStyle = COL.grid; ctx.lineWidth = 1;
+  for (let gx = Math.ceil(XMIN); gx <= XMAX; gx += 2) { ctx.beginPath(); ctx.moveTo(sx(gx), 0); ctx.lineTo(sx(gx), H); ctx.stroke(); }
+  for (let gy = Math.ceil(YMIN); gy <= YMAX; gy += 2) { ctx.beginPath(); ctx.moveTo(0, sy(gy)); ctx.lineTo(W, sy(gy)); ctx.stroke(); }
+  // axes (dashed)
+  ctx.strokeStyle = COL.axis; ctx.setLineDash([5, 4]); ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, sy(0)); ctx.lineTo(W, sy(0)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(sx(0), 0); ctx.lineTo(sx(0), H); ctx.stroke();
+  ctx.setLineDash([]);
+  // tick labels
+  ctx.fillStyle = COL.tick; ctx.font = '10px Courier New'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  for (let gx = Math.ceil(XMIN / 2) * 2; gx <= XMAX; gx += 2) if (gx !== 0 && sx(gx) > 14 && sx(gx) < W - 14) ctx.fillText(gx, sx(gx), sy(0) + 4);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  for (let gy = Math.ceil(YMIN / 2) * 2; gy <= YMAX; gy += 2) if (gy !== 0 && sy(gy) > 10 && sy(gy) < H - 10) ctx.fillText(gy, sx(0) + 5, sy(gy));
+  return { ctx, sx, sy, W, H, XMIN, XMAX, YMIN, YMAX };
+}
+
+function plotLine(p, m, b, color, label) {
+  const { ctx, sx, sy, XMIN, XMAX, YMIN, YMAX } = p;
+  ctx.save();
+  ctx.beginPath(); ctx.rect(0, 0, p.W, p.H); ctx.clip();
+  ctx.strokeStyle = color; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(sx(XMIN), sy(m * XMIN + b)); ctx.lineTo(sx(XMAX), sy(m * XMAX + b)); ctx.stroke();
+  ctx.restore();
+  if (label) {
+    ctx.font = 'bold 11px Courier New';
+    const ux = (XMAX - XMIN) / p.W, uy = (YMAX - YMIN) / p.H;
+    const tw = ctx.measureText(label).width;
+    let lx = XMAX - (tw + 12) * ux, ly = m * lx + b;
+    const pad = 16 * uy;
+    if (ly > YMAX - pad || ly < YMIN + pad) {
+      ly = Math.max(YMIN + pad, Math.min(YMAX - pad, ly));
+      if (Math.abs(m) > 1e-9) lx = (ly - b) / m;
+      lx = Math.max(XMIN + 12 * ux, Math.min(XMAX - (tw + 12) * ux, lx));
+    }
+    ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+    haloText(ctx, label, sx(lx) + 4, sy(ly) - 5, color);
+  }
+}
+
+function plotPoint(p, x, y, color, label, r = 5) {
+  const { ctx, sx, sy } = p;
+  ctx.beginPath(); ctx.arc(sx(x), sy(y), r, 0, Math.PI * 2);
+  ctx.fillStyle = color; ctx.fill();
+  ctx.lineWidth = 2; ctx.strokeStyle = COL.surface; ctx.stroke();
+  if (label) { ctx.font = 'bold 11px Courier New'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; haloText(ctx, label, sx(x) + 9, sy(y) - 7, color); }
+}
+
+function haloText(ctx, txt, x, y, color) {
+  ctx.lineWidth = 4; ctx.lineJoin = 'round'; ctx.strokeStyle = COL.surface;
+  ctx.strokeText(txt, x, y);
+  ctx.fillStyle = color; ctx.fillText(txt, x, y);
+}
+
+const fmt = v => (Math.round(v * 10) / 10).toString();
+const fmt3 = v => v.toFixed(3);
+
+/* ══════════ the dataset used on every panel (hours → score) ══════════ */
+const DX = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+const DY = [2.9, 3.4, 4.5, 5.4, 5.6, 7.0, 7.3, 8.7, 9.3, 9.8];
+
+// least-squares fit (what sklearn's fit() computes for this data)
+function leastSquares() {
+  const n = DX.length;
+  const mx = DX.reduce((a, b) => a + b) / n, my = DY.reduce((a, b) => a + b) / n;
+  let sxy = 0, sxx = 0;
+  for (let i = 0; i < n; i++) { sxy += (DX[i] - mx) * (DY[i] - my); sxx += (DX[i] - mx) ** 2; }
+  const b1 = sxy / sxx, b0 = my - b1 * mx;
+  return { b0, b1 };
+}
+
+function mseOf(b0, b1) {
+  let s = 0;
+  for (let i = 0; i < DX.length; i++) s += (DY[i] - (b0 + b1 * DX[i])) ** 2;
+  return s / DX.length;
+}
+
+function drawResiduals(p, b0, b1) {
+  const { ctx, sx, sy } = p;
+  ctx.setLineDash([3, 3]); ctx.strokeStyle = COL.orange; ctx.lineWidth = 2;
+  for (let i = 0; i < DX.length; i++) {
+    ctx.beginPath(); ctx.moveTo(sx(DX[i]), sy(DY[i])); ctx.lineTo(sx(DX[i]), sy(b0 + b1 * DX[i])); ctx.stroke();
+  }
+  ctx.setLineDash([]);
+}
+
+function drawData(p) { for (let i = 0; i < DX.length; i++) plotPoint(p, DX[i], DY[i], COL.blue); }
+
+/* ═══ PANEL 1: the model — best line + ε left over ═══ */
+function drawModel() {
+  const { b0, b1 } = leastSquares();
+  const p = plotSetup('cv-model', -1, 12, -1, 12);
+  drawResiduals(p, b0, b1);
+  plotLine(p, b1, b0, COL.green, 'ŷ = β₀ + β₁x');
+  drawData(p);
+  plotPoint(p, 0, b0, COL.accent, `β₀ = ${fmt(b0)}`);
+  $('out-model').textContent = `blue dots  = the data (x, y) — they do NOT sit exactly on a line
+green line = the model  ŷ = β₀ + β₁x   (β₀ ≈ ${fmt3(b0)},  β₁ ≈ ${fmt3(b1)})
+orange dashes = ε, the residuals — the noise the line cannot explain`;
+}
+
+/* ═══ PANEL 0: overview — the whole idea in one graph ═══ */
+function drawOverview() {
+  const { b0, b1 } = leastSquares();
+  const p = plotSetup('cv-overview', -1, 12, -1, 12);
+  plotLine(p, b1, b0, COL.green, 'the best line');
+  drawData(p);
+}
+
+/* ═══ PANEL 1: introduction — points, then the line ═══ */
+let introAnimId = 0;
+function drawIntro() {
+  // step 1: the data + an orange line sweeping through it (left → right, vanish, repeat)
+  cancelAnimationFrame(introAnimId);
+  const { b0, b1 } = leastSquares();
+  const SWEEP = 2200, HOLD = 800, GONE = 700;          // ms per phase
+  const CYCLE = SWEEP + HOLD + GONE;
+  const t0 = performance.now();
+  function frame(now) {
+    if (current !== 1) return;                          // panel left — stop the loop
+    const p1 = plotSetup('cv-intro1', -1, 12, -1, 12);
+    const t = (now - t0) % CYCLE;
+    if (t < SWEEP + HOLD) {                             // sweeping or holding full line
+      const f = Math.min(t / SWEEP, 1);
+      const x1 = p1.XMIN + f * (p1.XMAX - p1.XMIN);
+      const { ctx, sx, sy } = p1;
+      ctx.save();
+      ctx.beginPath(); ctx.rect(0, 0, p1.W, p1.H); ctx.clip();
+      ctx.strokeStyle = COL.orange; ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(sx(p1.XMIN), sy(b0 + b1 * p1.XMIN));
+      ctx.lineTo(sx(x1), sy(b0 + b1 * x1));
+      ctx.stroke();
+      ctx.restore();
+    }                                                   // else: line gone — dots only
+    drawData(p1);
+    introAnimId = requestAnimationFrame(frame);
+  }
+  introAnimId = requestAnimationFrame(frame);
+  $('out-intro1').textContent = `10 students — x = hours studied, y = grade
+each dot is one student: (3, 4.5) means "studied 3 hours → got 4.5"
+the dots climb together… watch the orange line — the pattern IS a line`;
+  // step 2: the line + the prediction for 7.5 hours
+  const p2 = plotSetup('cv-intro2', -1, 12, -1, 12);
+  plotLine(p2, b1, b0, COL.green, 'the line');
+  drawData(p2);
+  const xq = 7.5, yq = b0 + b1 * xq;
+  const { ctx, sx, sy } = p2;
+  ctx.setLineDash([4, 4]); ctx.strokeStyle = COL.red; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(sx(xq), sy(0)); ctx.lineTo(sx(xq), sy(yq)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(sx(xq), sy(yq)); ctx.lineTo(sx(0), sy(yq)); ctx.stroke();
+  ctx.setLineDash([]);
+  plotPoint(p2, xq, yq, COL.red, `7.5h → ${yq.toFixed(1)}`, 6);
+  $('out-intro2').textContent = `the green line passes as close as possible to ALL the dots
+follow the red dashes: x = 7.5 hours → up to the line → grade ≈ ${yq.toFixed(1)}
+no student studied exactly 7.5h — the line predicts it anyway`;
+}
+
+/* ═══ PANEL 2: key terms — observation vs prediction vs residual ═══ */
+function drawTerms() {
+  const { b0, b1 } = leastSquares();
+  const p = plotSetup('cv-terms', -1, 12, -1, 12);
+  plotLine(p, b1, b0, COL.green, 'the model');
+  // all students except #5 — he gets the spotlight below, farther from the line
+  for (let i = 0; i < DX.length; i++) if (i !== 4) plotPoint(p, DX[i], DY[i], COL.blue);
+  const xi = 5, yObs = 4.5, yHat = b0 + b1 * xi;   // student #5: (5, 4.5) — a clear miss
+  const { ctx, sx, sy } = p;
+  // the residual — a solid orange line from prediction down to observation
+  ctx.strokeStyle = COL.orange; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(sx(xi), sy(yHat)); ctx.lineTo(sx(xi), sy(yObs)); ctx.stroke();
+  plotPoint(p, xi, yHat, COL.green, `prediction Ŷ = ${yHat.toFixed(1)}`, 6);
+  plotPoint(p, xi, yObs, COL.blue, null, 6);
+  // observation label below the dot, clear of the residual line
+  ctx.font = 'bold 11px Courier New'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  haloText(ctx, `observation Y = ${yObs}`, sx(xi) + 9, sy(yObs) + 9, COL.blue);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  haloText(ctx, `residual = ${(yObs - yHat).toFixed(1)}`, sx(xi) + 10, sy((yObs + yHat) / 2), COL.orange);
+  $('out-terms').textContent = `student #5 studied x = 5 hours:
+observation Yᵢ = ${yObs}   (what really happened — blue dot)
+prediction  Ŷᵢ = ${yHat.toFixed(2)}  (what the line says — green dot)
+residual  Yᵢ − Ŷᵢ = ${yObs} − ${yHat.toFixed(2)} = ${(yObs - yHat).toFixed(2)}  (the orange line — the model guessed too high)`;
+}
+
+/* ═══ PANEL 3: MSE slider demo ═══ */
+function drawMSE() {
+  const b0 = +$('ms-b0').value, b1 = +$('ms-b1').value / 10;
+  $('ms-b0v').textContent = fmt(b0); $('ms-b1v').textContent = fmt(b1);
+  const p = plotSetup('cv-mse', -1, 12, -1, 12);
+  drawResiduals(p, b0, b1);
+  plotLine(p, b1, b0, COL.accent, `ŷ = ${fmt(b0)} + ${fmt(b1)}x`);
+  drawData(p);
+  const mse = mseOf(b0, b1);
+  const best = leastSquares(), bestMse = mseOf(best.b0, best.b1);
+  const gap = mse - bestMse;
+  const verdict = gap < 0.005 ? '🏆 OPTIMAL — this is the line fit() finds!'
+                : gap < 0.5   ? '🔥 very close — keep nudging'
+                : gap < 3     ? '👍 getting warmer'
+                :               '❌ far off — big orange residuals = big squares';
+  $('out-mse').textContent = `MSE = mean of squared residuals = ${fmt3(mse)}     (best possible: ${fmt3(bestMse)})
+${verdict}`;
+}
+
+/* ═══ PANEL 4: the fitted line sklearn finds ═══ */
+function drawFit() {
+  const { b0, b1 } = leastSquares();
+  const p = plotSetup('cv-fit', -1, 13, -1, 13);
+  plotLine(p, b1, b0, COL.green, `ŷ = ${fmt3(b0)} + ${fmt3(b1)}x`);
+  drawData(p);
+  const yNew = b0 + b1 * 12;
+  plotPoint(p, 12, yNew, COL.red, `predict(12) → ${yNew.toFixed(2)}`, 6);
+  $('out-fit').textContent = `model.coef_      → [${fmt3(b1)}]        β₁, the learned weight
+model.intercept_ → ${fmt3(b0)}          β₀, the learned bias
+model.predict([[12]]) → [${yNew.toFixed(2)}]   a prediction for x the model never saw`;
+}
+
+/* keyboard navigation */
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' && current < TOTAL - 1) goTo(current + 1);
+  if (e.key === 'ArrowLeft' && current > 0) goTo(current - 1);
+});
+
+window.addEventListener('resize', () => {
+  const draws = { 0: drawOverview, 1: drawIntro, 2: drawTerms, 4: drawMSE, 5: drawFit, 6: drawModel };
+  if (draws[current]) draws[current]();
+});
+
+updateDots();
+drawOverview();
+</script>
+</body>
+</html>
