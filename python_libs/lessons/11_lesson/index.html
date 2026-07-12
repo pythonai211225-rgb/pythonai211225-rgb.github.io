@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 11 - Multiple Features and R Squared</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      renderMathInElement(document.body, {
+        delimiters: [
+          { left: '$$', right: '$$', display: true },
+          { left: '\\(', right: '\\)', display: false }
+        ],
+        throwOnError: false
+      });
+    });
+  </script>
+  <style>
+    :root {
+      --bg: #f8fbff;
+      --surface: #ffffff;
+      --ink: #142033;
+      --muted: #52657d;
+      --blue: #2563eb;
+      --blue-dark: #143b73;
+      --cyan: #e7fbff;
+      --green: #0f9f6e;
+      --orange: #f97316;
+      --border: #bfd0ea;
+      --code-bg: #101a2c;
+      --code-text: #dceaff;
+      --soft-blue: #eef6ff;
+      --soft-green: #effbf5;
+      --soft-orange: #fff7ed;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Trebuchet MS", "Lucida Sans", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 10%, #e9f7ff 0%, transparent 34%),
+        radial-gradient(circle at 88% 18%, #effbf5 0%, transparent 32%),
+        linear-gradient(180deg, var(--bg) 0%, #ffffff 56%, #f1f8ff 100%);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    .wrap {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 28px 20px 60px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 242px 1fr;
+      gap: 22px;
+      align-items: start;
+    }
+
+    .side-nav {
+      position: sticky;
+      top: 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px 14px;
+      box-shadow: 0 4px 16px rgba(37,99,235,.08);
+    }
+
+    .side-title {
+      font-size: .8rem;
+      font-weight: 800;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--blue);
+      margin: 0 0 10px;
+    }
+
+    .part-label {
+      display: block;
+      padding: 8px 4px 4px;
+      font-size: .7rem;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--green);
+    }
+
+    .topic-link {
+      display: block;
+      width: 100%;
+      border: 1px solid transparent;
+      border-radius: 9px;
+      padding: 7px 10px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      text-align: left;
+      font: inherit;
+      margin: 2px 0;
+      transition: .16s ease;
+    }
+
+    .topic-link:hover { background: #f0f7ff; color: var(--blue-dark); border-color: var(--border); }
+    .topic-link.active { background: #e9f1ff; color: var(--blue-dark); border-color: var(--blue); font-weight: 700; }
+    .side-divider { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+
+    .nav-back {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--soft-blue);
+      color: var(--blue-dark);
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, var(--surface) 0%, var(--soft-blue) 54%, var(--soft-green) 100%);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow: 0 12px 30px rgba(37,99,235,.12);
+      margin-bottom: 22px;
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 5px 12px;
+      border-radius: 999px;
+      background: #e7fbff;
+      color: #0f766e;
+      font-weight: 800;
+      font-size: .82rem;
+      border: 1px solid #99e6ef;
+    }
+
+    h1 {
+      margin: 14px 0 10px;
+      color: var(--blue-dark);
+      font-size: clamp(2rem, 5vw, 3.3rem);
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+
+    .hero p { max-width: 780px; color: var(--muted); font-size: 1.06rem; }
+    .hero-chips { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+
+    .hero-chip {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: .78rem;
+      font-weight: 700;
+      background: rgba(20,184,166,.1);
+      color: #0f766e;
+      border: 1px solid rgba(20,184,166,.3);
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 22px;
+      margin-bottom: 16px;
+      box-shadow: 0 7px 22px rgba(37,99,235,.08);
+    }
+
+    .topic-panel { display: none; }
+    .topic-panel.active { display: block; }
+    .step-title { margin: 0 0 12px; color: var(--blue-dark); font-size: 1.25rem; }
+
+    .formula-strip {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin: 16px 0;
+    }
+
+    .formula {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      background: #fbfdff;
+    }
+
+    .formula.wide { grid-column: 1 / -1; }
+
+    .formula strong { color: var(--blue-dark); display: block; margin-bottom: 4px; }
+    code { font-family: Consolas, "Courier New", monospace; }
+
+    .math-card {
+      border: 1px solid #b7c8e4;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #ffffff 0%, #f1f7ff 100%);
+      padding: 18px;
+      margin: 18px 0;
+      text-align: center;
+    }
+
+    .math-formula {
+      display: block;
+      color: var(--blue-dark);
+      font-family: "Cambria Math", "Times New Roman", serif;
+      font-size: clamp(1.25rem, 3vw, 2rem);
+      line-height: 1.7;
+      overflow-x: auto;
+      padding: 2px 0;
+    }
+
+    .math-caption {
+      color: var(--muted);
+      margin: 8px 0 0;
+      font-size: .95rem;
+    }
+
+    .math-formula.compact {
+      font-size: clamp(.88rem, 1.8vw, 1.2rem);
+    }
+
+    .math-formula.no-scroll,
+    .math-formula.no-scroll .katex-display {
+      overflow-x: hidden;
+    }
+
+    .math-formula.no-scroll {
+      font-size: clamp(.7rem, 1.45vw, 1rem);
+    }
+
+    .katex { color: var(--blue-dark); }
+    .katex-display { margin: 6px 0; overflow-x: auto; overflow-y: hidden; padding: 3px 0; }
+    .data-table .katex, .math-caption .katex, p .katex { font-size: 1em; }
+
+    .resource-link {
+      display: inline-block;
+      color: var(--blue-dark);
+      font-weight: 800;
+      text-decoration: none;
+      border-bottom: 2px solid rgba(37,99,235,.35);
+    }
+
+    .resource-link:hover { color: var(--blue); border-bottom-color: var(--blue); }
+
+    .resource-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 10px 0 4px;
+    }
+
+    .code {
+      background: var(--code-bg);
+      color: var(--code-text);
+      border-radius: 10px;
+      border: 1px solid #304563;
+      padding: 16px 18px;
+      overflow-x: auto;
+      margin: 12px 0;
+      font-size: .95rem;
+      line-height: 1.5;
+      white-space: pre;
+    }
+
+    .output {
+      background: #f7fbff;
+      color: #1a2d49;
+      border: 1px solid var(--border);
+      border-left: 5px solid var(--blue);
+      border-radius: 10px;
+      padding: 12px 14px;
+      overflow-x: auto;
+      margin: 8px 0 16px;
+      font-family: Consolas, "Courier New", monospace;
+      white-space: pre-wrap;
+    }
+
+    .graph-preview {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #fbfdff;
+      padding: 14px;
+      margin: 18px 0;
+    }
+
+    .graph-preview svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      max-height: 360px;
+    }
+
+    .graph-preview svg.tall-graph { max-height: 520px; }
+
+    .graph-title {
+      font-weight: 800;
+      color: var(--blue-dark);
+      margin: 0 0 8px;
+    }
+
+    .note {
+      background: var(--soft-orange);
+      border: 1px solid #fed7aa;
+      border-left: 5px solid var(--orange);
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin: 12px 0;
+    }
+
+    .task-box {
+      border: 1px solid var(--border);
+      border-left: 5px solid var(--blue);
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin: 12px 0;
+      background: #fbfdff;
+    }
+
+    .task-num {
+      font-weight: 900;
+      color: var(--blue);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      font-size: .78rem;
+    }
+
+    .big-result {
+      font-weight: 900;
+      color: var(--blue-dark);
+      font-size: 1.1rem;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      background: #fbfdff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .data-table th {
+      background: var(--soft-blue);
+      color: var(--blue-dark);
+      text-align: left;
+      padding: 10px 14px;
+      font-size: .9rem;
+      border-bottom: 2px solid var(--border);
+    }
+
+    .data-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      font-family: Consolas, "Courier New", monospace;
+    }
+
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table td.term { font-family: inherit; font-weight: 700; color: var(--blue-dark); }
+
+    .footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: .9rem;
+      margin-top: 18px;
+    }
+
+    @media (max-width: 820px) {
+      .layout { grid-template-columns: 1fr; }
+      .side-nav { position: static; }
+      .wrap { padding: 18px 12px 44px; }
+      .formula-strip { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="layout">
+    <aside class="side-nav">
+      <p class="side-title">Lesson 11</p>
+      <span class="part-label">Regression</span>
+      <button class="topic-link active" data-target="topic-github">1. GitHub Repo</button>
+      <button class="topic-link" data-target="topic-1">2. Imports and setup</button>
+      <button class="topic-link" data-target="topic-2">3. Three features</button>
+      <button class="topic-link" data-target="topic-3">4. Train and read beta</button>
+      <button class="topic-link" data-target="topic-4">5. Predict new rows</button>
+      <button class="topic-link" data-target="topic-5">6. Bonus - predict by hand</button>
+      <span class="part-label">R Squared</span>
+      <button class="topic-link" data-target="topic-6">7. R² Formula</button>
+      <button class="topic-link" data-target="topic-7">8. SSE and SST by hand</button>
+      <button class="topic-link" data-target="topic-8">9. R² in code</button>
+      <button class="topic-link" data-target="topic-9">10. Exercise</button>
+      <hr class="side-divider">
+      <a class="nav-back" href="../../index.html">Back to Python libs</a>
+    </aside>
+
+    <main>
+      <section class="hero">
+        <span class="tag">Today - July 12, 2026</span>
+        <h1>Multiple Features and R Squared</h1>
+        <p>Today's class extended linear regression to <strong>many features at once</strong>. We generated a synthetic dataset with 3 features, let <code>LinearRegression</code> find one weight per feature, predicted the price of new apartments, and then learned a second way to score a model: <strong>R squared</strong>, built from <code>SSE</code> and <code>SST</code>.</p>
+        <div class="hero-chips">
+          <span class="hero-chip">scikit-learn</span>
+          <span class="hero-chip">LinearRegression</span>
+          <span class="hero-chip">coef_ / intercept_</span>
+          <span class="hero-chip">mean_squared_error</span>
+          <span class="hero-chip">r2_score</span>
+          <span class="hero-chip">SSE / SST</span>
+        </div>
+      </section>
+
+      <section class="card topic-panel active" id="topic-github">
+        <h2 class="step-title">Open Class Code</h2>
+        <p>Open the original notebook from today's class on GitHub.</p>
+        <div class="resource-links">
+          <a class="resource-link" href="https://github.com/pythonai211225-rgb/12.07.2026" target="_blank" rel="noopener">
+            pythonai211225-rgb/12.07.2026
+          </a>
+        </div>
+        <div class="note">This repository contains the class code for July 12, 2026.</div>
+      </section>
+
+      <section class="card topic-panel" id="topic-1">
+        <h2 class="step-title">Imports and setup</h2>
+        <p>The notebook starts with the usual data and plotting libraries.</p>
+        <pre class="code"><code>import numpy as np
+import pandas as pd
+from IPython.display import display
+import matplotlib.pyplot as plt
+import seaborn as sns</code></pre>
+
+        <p>Then it imports the model and both scoring functions. Note that <code>r2_score</code> is new today - it sits next to <code>mean_squared_error</code> in <code>sklearn.metrics</code>.</p>
+        <pre class="code"><code>from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error, r2_score</code></pre>
+        <div class="note">Two scores, two questions. <strong>MSE</strong> answers "how big is the average error?" (in squared units). <strong>R squared</strong> answers "what fraction of the variance did the model explain?" (0 to 1).</div>
+      </section>
+
+      <section class="card topic-panel" id="topic-2">
+        <h2 class="step-title">A fixed dataset with three features</h2>
+        <p>Here are the exact feature and target values used throughout the lesson. There is no random code, so everybody in class gets the same result every time.</p>
+
+        <pre class="code"><code>X = np.array([
+    [ 1, 2, 3], [ 2, 1, 4], [3, 4, 2], [ 4, 2, 5],
+    [ 5, 3, 1], [ 6, 5, 4], [7, 1, 6], [ 8, 4, 3],
+    [ 9, 2, 7], [ 3, 7, 5], [6, 8, 2], [10, 6, 4]
+])
+
+y = np.array([
+    14.7, 19.7, 13.0, 25.6, 16.9, 24.2,
+    40.5, 26.9, 45.9, 16.3, 15.0, 31.8
+])</code></pre>
+
+        <div class="note"><code>X</code> has 12 samples and 3 feature columns. <code>y</code> has one matching target value for each row.</div>
+
+        <p>So the numbers we hid in the data are:</p>
+        <table class="data-table">
+          <thead>
+            <tr><th>Part</th><th>True value</th><th>Meaning</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="term">B0 (intercept)</td><td>5</td><td>the bias</td></tr>
+            <tr><td class="term">B1 (weight of x1)</td><td>2.5</td><td>x1 pushes y up</td></tr>
+            <tr><td class="term">B2 (weight of x2)</td><td>-1.5</td><td>x2 pulls y down</td></tr>
+            <tr><td class="term">B3 (weight of x3)</td><td>3.0</td><td>x3 pushes y up the most</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="card topic-panel" id="topic-3">
+        <h2 class="step-title">Train the model and read the equation</h2>
+        <p>The code is <em>exactly</em> the same as with one feature. Because <code>X</code> already has 3 columns, the model simply learns 3 weights instead of 1.</p>
+        <pre class="code"><code>model = LinearRegression()
+model.fit(X, y)
+
+print("beta0 =", model.intercept_)
+print("beta1, beta2, beta3 =", model.coef_)</code></pre>
+        <div class="output">beta0 = 6.007340293971851
+beta1, beta2, beta3 = [ 2.49454376 -1.60503768  2.84756112]</div>
+
+        <p>Read that output carefully. <code>intercept_</code> is a single number (B0), but <code>coef_</code> is now an <strong>array with one weight per feature</strong>.</p>
+
+        <div class="math-card">
+          <span class="math-formula">
+            $$\hat{y} = \beta_0 + \beta_1 x_1 + \beta_2 x_2 + \beta_3 x_3$$
+          </span>
+          <p class="math-caption">One bias, and one weight for every feature column.</p>
+          <span class="math-formula">
+            $$\hat{y} = 6.01 + 2.49x_1 - 1.61x_2 + 2.85x_3$$
+          </span>
+        </div>
+
+        <p>Finally, predict on the training data and score with MSE.</p>
+        <pre class="code"><code>print("--- Model Results ---")
+y_pred = model.predict(X)
+mse = mean_squared_error(y, y_pred)
+print('mse=', mse)</code></pre>
+        <div class="output">--- Model Results ---
+mse= 0.8924765982600965</div>
+      </section>
+
+      <section class="card topic-panel" id="topic-4">
+        <h2 class="step-title">Predict the price of new apartments</h2>
+        <p>The trained model can now price apartments it has never seen. We treat the three features as <strong>Rooms, Floor and Distance</strong>.</p>
+
+        <table class="data-table">
+          <thead>
+            <tr><th>Apartment</th><th>x1 - Rooms</th><th>x2 - Floor</th><th>x3 - Distance</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="term">First</td><td>3</td><td>2</td><td>30</td></tr>
+            <tr><td class="term">Second</td><td>5</td><td>5</td><td>60</td></tr>
+          </tbody>
+        </table>
+
+        <p><code>predict()</code> expects a <strong>2D table</strong>, so we pass a list of rows - each inner list is one apartment.</p>
+        <pre class="code"><code>#                     Rooms  Floor  Distance
+#                       X1     X2      X3
+print(model.predict([[  3,     2,     30],     # 3*B1 + 2*B2 + 30*B3 + B0 = price1
+                     [  5,     5,     60] ]))  # 5*B1 + 5*B2 + 60*B3 + B0 = price2</code></pre>
+        <div class="output">[ 95.71 181.31]</div>
+
+        <div class="math-card">
+          <span class="math-formula compact">
+            $$\hat{y}_1 = \beta_0 + \beta_1(3) + \beta_2(2) + \beta_3(30)$$
+            $$\hat{y}_1 \approx 6.01 + 2.49(3) - 1.61(2) + 2.85(30) \approx \boxed{95.71}$$
+          </span>
+          <span class="math-formula compact">
+            $$\hat{y}_2 = \beta_0 + \beta_1(5) + \beta_2(5) + \beta_3(60)$$
+            $$\hat{y}_2 \approx 6.01 + 2.49(5) - 1.61(5) + 2.85(60) \approx \boxed{181.31}$$
+          </span>
+        </div>
+
+        <div class="note">Two rows in, two predictions out. The model does not "look up" these apartments anywhere - it just plugs the numbers into the equation it learned.</div>
+      </section>
+
+      <section class="card topic-panel" id="topic-5">
+        <h2 class="step-title">Bonus - do the prediction by hand</h2>
+        <p><code>predict()</code> is not magic. It is only "multiply each feature by its weight, add them up, then add the bias". Here are three ways to compute the same number.</p>
+
+
+        <p><strong>Way 1 - write out every term.</strong> Notice <code>coef_[0]</code>, <code>coef_[1]</code>, <code>coef_[2]</code> are B1, B2, B3.</p>
+        <pre class="code"><code>y_pred_3_2_30 = model.intercept_ + model.coef_[0] * 3 + model.coef_[1] * 2 + model.coef_[2] * 30
+y_pred_3_2_30</code></pre>
+        <div class="output">95.70772981</div>
+
+
+        <p><strong>Way 2 - use <code>@</code>, the dot product.</strong> <code>@</code> multiplies each feature by its matching weight and sums the results in one step - exactly the same arithmetic, much shorter.</p>
+        <pre class="code"><code>y_pred_3_2_30 = [3, 2, 30] @ model.coef_ + model.intercept_
+y_pred_3_2_30</code></pre>
+        <div class="output">95.70772981</div>
+
+        <div class="graph-preview">
+          <p class="graph-title">The dot product, step by step: [3, 2, 30] @ model.coef_ + model.intercept_</p>
+          <svg class="tall-graph" viewBox="0 0 780 500" role="img"
+               aria-label="Diagram of a dot product: each feature is multiplied by its matching weight, the three products are summed, then the intercept is added to give the prediction">
+            <defs>
+              <marker id="arrowBlue" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto">
+                <path d="M0,0 L0,6 L8,3 z" fill="#2563eb"/>
+              </marker>
+              <marker id="arrowGrey" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto">
+                <path d="M0,0 L0,6 L8,3 z" fill="#8aa0bd"/>
+              </marker>
+            </defs>
+
+            <rect x="0" y="0" width="780" height="500" fill="#ffffff"/>
+
+            <!-- column headers -->
+            <text x="156" y="76" text-anchor="middle" fill="#143b73" font-size="14" font-weight="800">feature</text>
+            <text x="156" y="92" text-anchor="middle" fill="#52657d" font-size="11">the apartment</text>
+            <text x="321" y="76" text-anchor="middle" fill="#0f766e" font-size="14" font-weight="800">weight</text>
+            <text x="321" y="92" text-anchor="middle" fill="#52657d" font-size="11">model.coef_</text>
+            <text x="523" y="76" text-anchor="middle" fill="#9a3412" font-size="14" font-weight="800">product</text>
+            <text x="523" y="92" text-anchor="middle" fill="#52657d" font-size="11">feature &#215; weight</text>
+
+            <!-- lane 1: rooms -->
+            <text x="108" y="137" text-anchor="end" fill="#52657d" font-size="12">x&#8321; rooms</text>
+            <rect x="118" y="110" width="76" height="44" rx="7" fill="#eef6ff" stroke="#2563eb" stroke-width="2"/>
+            <text x="156" y="139" text-anchor="middle" fill="#143b73" font-size="19" font-weight="800">3</text>
+            <line x1="198" y1="132" x2="242" y2="132" stroke="#2563eb" stroke-width="2" marker-end="url(#arrowBlue)" opacity=".5"/>
+            <text x="220" y="124" text-anchor="middle" fill="#52657d" font-size="15" font-weight="700">&#215;</text>
+            <rect x="246" y="110" width="150" height="44" rx="7" fill="#effbf5" stroke="#0f9f6e" stroke-width="2"/>
+            <text x="321" y="139" text-anchor="middle" fill="#0f766e" font-size="17" font-weight="800">2.4945</text>
+            <line x1="400" y1="132" x2="444" y2="132" stroke="#2563eb" stroke-width="2" marker-end="url(#arrowBlue)" opacity=".5"/>
+            <text x="422" y="124" text-anchor="middle" fill="#52657d" font-size="15" font-weight="700">=</text>
+            <rect x="448" y="110" width="150" height="44" rx="7" fill="#fff7ed" stroke="#f97316" stroke-width="2"/>
+            <text x="523" y="139" text-anchor="middle" fill="#9a3412" font-size="17" font-weight="800">7.4836</text>
+
+            <!-- lane 2: floor -->
+            <text x="108" y="197" text-anchor="end" fill="#52657d" font-size="12">x&#8322; floor</text>
+            <rect x="118" y="170" width="76" height="44" rx="7" fill="#eef6ff" stroke="#2563eb" stroke-width="2"/>
+            <text x="156" y="199" text-anchor="middle" fill="#143b73" font-size="19" font-weight="800">2</text>
+            <line x1="198" y1="192" x2="242" y2="192" stroke="#2563eb" stroke-width="2" marker-end="url(#arrowBlue)" opacity=".5"/>
+            <text x="220" y="184" text-anchor="middle" fill="#52657d" font-size="15" font-weight="700">&#215;</text>
+            <rect x="246" y="170" width="150" height="44" rx="7" fill="#effbf5" stroke="#0f9f6e" stroke-width="2"/>
+            <text x="321" y="199" text-anchor="middle" fill="#0f766e" font-size="17" font-weight="800">&#8722;1.6050</text>
+            <line x1="400" y1="192" x2="444" y2="192" stroke="#2563eb" stroke-width="2" marker-end="url(#arrowBlue)" opacity=".5"/>
+            <text x="422" y="184" text-anchor="middle" fill="#52657d" font-size="15" font-weight="700">=</text>
+            <rect x="448" y="170" width="150" height="44" rx="7" fill="#fff7ed" stroke="#f97316" stroke-width="2"/>
+            <text x="523" y="199" text-anchor="middle" fill="#9a3412" font-size="17" font-weight="800">&#8722;3.2101</text>
+
+            <!-- lane 3: distance -->
+            <text x="108" y="257" text-anchor="end" fill="#52657d" font-size="12">x&#8323; distance</text>
+            <rect x="118" y="230" width="76" height="44" rx="7" fill="#eef6ff" stroke="#2563eb" stroke-width="2"/>
+            <text x="156" y="259" text-anchor="middle" fill="#143b73" font-size="19" font-weight="800">30</text>
+            <line x1="198" y1="252" x2="242" y2="252" stroke="#2563eb" stroke-width="2" marker-end="url(#arrowBlue)" opacity=".5"/>
+            <text x="220" y="244" text-anchor="middle" fill="#52657d" font-size="15" font-weight="700">&#215;</text>
+            <rect x="246" y="230" width="150" height="44" rx="7" fill="#effbf5" stroke="#0f9f6e" stroke-width="2"/>
+            <text x="321" y="259" text-anchor="middle" fill="#0f766e" font-size="17" font-weight="800">2.8476</text>
+            <line x1="400" y1="252" x2="444" y2="252" stroke="#2563eb" stroke-width="2" marker-end="url(#arrowBlue)" opacity=".5"/>
+            <text x="422" y="244" text-anchor="middle" fill="#52657d" font-size="15" font-weight="700">=</text>
+            <rect x="448" y="230" width="150" height="44" rx="7" fill="#fff7ed" stroke="#f97316" stroke-width="2"/>
+            <text x="523" y="259" text-anchor="middle" fill="#9a3412" font-size="17" font-weight="800">85.4268</text>
+
+            <!-- the three products converge into one sum -->
+            <path d="M600 132 C 660 132, 668 150, 668 300" fill="none" stroke="#8aa0bd" stroke-width="2" opacity=".6"/>
+            <path d="M600 192 C 652 192, 668 210, 668 300" fill="none" stroke="#8aa0bd" stroke-width="2" opacity=".6"/>
+            <path d="M600 252 C 646 252, 668 268, 668 300" fill="none" stroke="#8aa0bd" stroke-width="2" opacity=".6"/>
+            <text x="688" y="196" fill="#52657d" font-size="26" font-weight="800">&#8721;</text>
+            <text x="686" y="216" fill="#52657d" font-size="11">add them</text>
+            <text x="686" y="230" fill="#52657d" font-size="11">all up</text>
+            <path d="M668 300 C 668 316, 560 312, 460 326" fill="none" stroke="#8aa0bd" stroke-width="2" marker-end="url(#arrowGrey)" opacity=".6"/>
+
+            <!-- sum of the products -->
+            <text x="108" y="357" text-anchor="end" fill="#52657d" font-size="12">sum of products</text>
+            <rect x="118" y="330" width="480" height="46" rx="7" fill="#f7fbff" stroke="#bfd0ea" stroke-width="2"/>
+            <text x="358" y="360" text-anchor="middle" fill="#143b73" font-size="16" font-weight="700">7.4836  &#8722;  3.2101  +  85.4268   =   89.7004</text>
+
+            <!-- add the bias, once, at the end -->
+            <line x1="358" y1="378" x2="358" y2="386" stroke="#8aa0bd" stroke-width="2" marker-end="url(#arrowGrey)"/>
+            <text x="108" y="417" text-anchor="end" fill="#52657d" font-size="12">+ bias B0</text>
+            <rect x="118" y="390" width="480" height="46" rx="7" fill="#fffbeb" stroke="#f59e0b" stroke-width="2"/>
+            <text x="358" y="420" text-anchor="middle" fill="#92400e" font-size="16" font-weight="700">89.7004   +   6.0073   (model.intercept_)</text>
+
+            <!-- the prediction -->
+            <line x1="358" y1="438" x2="358" y2="448" stroke="#8aa0bd" stroke-width="2" marker-end="url(#arrowGrey)"/>
+            <rect x="118" y="452" width="480" height="44" rx="7" fill="#effbf5" stroke="#0f9f6e" stroke-width="3"/>
+            <text x="358" y="481" text-anchor="middle" fill="#0f766e" font-size="19" font-weight="900">&#375; = 95.7077</text>
+            <text x="614" y="480" fill="#52657d" font-size="12">the predicted price</text>
+          </svg>
+        </div>
+
+        <div class="note">Follow the arrows: every feature meets <strong>its own weight</strong> and they multiply. The three products are then summed, and only at the very end is the bias <code>B0</code> added - <strong>once</strong>, not once per feature. That is the entire computation hiding inside <code>predict()</code>.</div>
+
+        <p><strong>Way 3 - many rows at once.</strong> Give <code>@</code> a matrix of rows and it returns one prediction per row - this is what <code>predict()</code> does internally.</p>
+        <pre class="code"><code>y_pred_2_rows = [[3, 2, 30], [5, 5, 60]] @ model.coef_ + model.intercept_
+y_pred_2_rows</code></pre>
+        <div class="output">array([ 95.70772981, 181.30853788])</div>
+
+        <div class="graph-preview">
+          <p class="graph-title">Matrix form: every ROW of the matrix does its own dot product with coef_</p>
+          <svg viewBox="0 0 780 330" role="img"
+               aria-label="A 2 by 3 matrix multiplied by a 3 element weight vector gives 2 predictions, one per row">
+            <rect x="0" y="0" width="780" height="330" fill="#ffffff"/>
+
+            <!-- the 2x3 feature matrix -->
+            <text x="105" y="52" text-anchor="middle" fill="#143b73" font-size="13" font-weight="800">X - two apartments</text>
+            <text x="105" y="68" text-anchor="middle" fill="#52657d" font-size="11">shape (2, 3)</text>
+            <rect x="30" y="84" width="150" height="52" rx="7" fill="#eef6ff" stroke="#2563eb" stroke-width="2"/>
+            <text x="105" y="116" text-anchor="middle" fill="#143b73" font-size="16" font-weight="800">3&#160;&#160; 2&#160;&#160; 30</text>
+            <rect x="30" y="146" width="150" height="52" rx="7" fill="#eef6ff" stroke="#2563eb" stroke-width="2"/>
+            <text x="105" y="178" text-anchor="middle" fill="#143b73" font-size="16" font-weight="800">5&#160;&#160; 5&#160;&#160; 60</text>
+            <text x="16" y="116" text-anchor="middle" fill="#52657d" font-size="11">row 1</text>
+            <text x="16" y="178" text-anchor="middle" fill="#52657d" font-size="11">row 2</text>
+
+            <text x="205" y="147" text-anchor="middle" fill="#52657d" font-size="22" font-weight="800">@</text>
+
+            <!-- the weight column -->
+            <text x="300" y="52" text-anchor="middle" fill="#0f766e" font-size="13" font-weight="800">model.coef_</text>
+            <text x="300" y="68" text-anchor="middle" fill="#52657d" font-size="11">shape (3,)</text>
+            <rect x="232" y="84" width="136" height="114" rx="7" fill="#effbf5" stroke="#0f9f6e" stroke-width="2"/>
+            <text x="300" y="112" text-anchor="middle" fill="#0f766e" font-size="15" font-weight="800">2.4945</text>
+            <text x="300" y="140" text-anchor="middle" fill="#0f766e" font-size="15" font-weight="800">&#8722;1.6050</text>
+            <text x="300" y="168" text-anchor="middle" fill="#0f766e" font-size="15" font-weight="800">2.8476</text>
+
+            <text x="394" y="147" text-anchor="middle" fill="#52657d" font-size="20" font-weight="800">+</text>
+
+            <!-- the bias -->
+            <text x="462" y="52" text-anchor="middle" fill="#92400e" font-size="13" font-weight="800">intercept_</text>
+            <text x="462" y="68" text-anchor="middle" fill="#52657d" font-size="11">one number</text>
+            <rect x="414" y="122" width="96" height="46" rx="7" fill="#fffbeb" stroke="#f59e0b" stroke-width="2"/>
+            <text x="462" y="151" text-anchor="middle" fill="#92400e" font-size="15" font-weight="800">6.0073</text>
+
+            <text x="536" y="147" text-anchor="middle" fill="#52657d" font-size="20" font-weight="800">=</text>
+
+            <!-- the two predictions -->
+            <text x="655" y="52" text-anchor="middle" fill="#0f766e" font-size="13" font-weight="800">predictions</text>
+            <text x="655" y="68" text-anchor="middle" fill="#52657d" font-size="11">shape (2,)</text>
+            <rect x="570" y="84" width="170" height="52" rx="7" fill="#effbf5" stroke="#0f9f6e" stroke-width="3"/>
+            <text x="655" y="116" text-anchor="middle" fill="#0f766e" font-size="17" font-weight="900">95.7077</text>
+            <rect x="570" y="146" width="170" height="52" rx="7" fill="#effbf5" stroke="#0f9f6e" stroke-width="3"/>
+            <text x="655" y="178" text-anchor="middle" fill="#0f766e" font-size="17" font-weight="900">181.3085</text>
+
+            <text x="380" y="228" text-anchor="middle" fill="#52657d" font-size="12">row 1 &#183; coef_ + 6.0073 = 95.7077</text>
+            <text x="380" y="248" text-anchor="middle" fill="#52657d" font-size="12">row 2 &#183; coef_ + 6.0073 = 181.3085</text>
+
+            <rect x="30" y="270" width="710" height="44" rx="8" fill="#f7fbff" stroke="#bfd0ea"/>
+            <text x="385" y="298" text-anchor="middle" fill="#143b73" font-size="13" font-weight="700">
+              The inner sizes must match: (2, <tspan fill="#f97316" font-weight="900">3</tspan>) @ (<tspan fill="#f97316" font-weight="900">3</tspan>,) &#8594; (2,) &#160;&#160;&#8212;&#160;&#160; 3 features, 3 weights, one prediction per row
+            </text>
+          </svg>
+        </div>
+
+        <div class="note">Same answer as <code>model.predict()</code>. This is the whole secret of a linear model: a dot product plus a bias. Each <strong>row</strong> of the matrix is one apartment, and each row gets its own dot product with the same <code>coef_</code> - so n rows in gives n predictions out.</div>
+      </section>
+
+      <section class="card topic-panel" id="topic-6">
+        <h2 class="step-title">R squared - the coefficient of determination</h2>
+        <p>MSE tells us the size of the average error, but its units are squared and it has no upper limit - so "mse = 3.68" alone does not tell us whether the model is good. <strong>R squared</strong> fixes this: it always lands between 0 and 1.</p>
+
+        <div class="math-card">
+          <span class="math-formula compact no-scroll">
+            $$R^2 = 1 - \frac{SSE}{SST} = 1 - \frac{\sum (y_i - \hat{y}_i)^2}{\sum (y_i - \bar{y})^2}$$
+          </span>
+          <p class="math-caption">R squared measures how well the model explains the variance in the target variable \(y\).</p>
+        </div>
+
+        <p>Every symbol in that formula:</p>
+        <table class="data-table">
+          <thead>
+            <tr><th>Symbol</th><th>Name</th><th>Meaning</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="term">\(R^2\)</td><td>Coefficient of Determination</td><td>The final score - the proportion of variance in the target explained by the model</td></tr>
+            <tr><td class="term">\(SSE\)</td><td>Sum of Squared Errors</td><td>The total squared error made by <strong>your model</strong>. Also called \(SS_{res}\) (Residual Sum of Squares)</td></tr>
+            <tr><td class="term">\(SST\)</td><td>Total Sum of Squares</td><td>The total variance in the data - the squared error you would get if you simply <strong>guessed the average</strong> every time</td></tr>
+            <tr><td class="term">\(\sum\)</td><td>Sigma</td><td>"Add all of these up" - once for every data point</td></tr>
+            <tr><td class="term">\(y_i\)</td><td>actual</td><td>The real (observed) value of the target for point \(i\)</td></tr>
+            <tr><td class="term">\(\hat{y}_i\)</td><td>y-hat, predicted</td><td>The value your model predicted for point \(i\)</td></tr>
+            <tr><td class="term">\(\bar{y}\)</td><td>y-bar</td><td>The mean (average) of all the actual target values</td></tr>
+          </tbody>
+        </table>
+
+        <p>The idea behind the fraction: <strong>SST is the error of the dumbest possible model</strong> (always answer the average), and <strong>SSE is the error of your model</strong>. R squared asks: how much of that dumb error did you remove?</p>
+
+        <div class="formula-strip">
+          <div class="formula">
+            <strong>R&sup2; = 1</strong>
+            <code>SSE = 0</code> - perfect fit. Best... too good to be true
+          </div>
+          <div class="formula">
+            <strong>R&sup2; = 0</strong>
+            <code>SSE = SST</code> - worst. No better than guessing the average
+          </div>
+          <div class="formula">
+            <strong>R&sup2; = 0.97</strong>
+            The model explains 97% of the variance
+          </div>
+        </div>
+        <div class="note"><strong>Next slide:</strong> we will calculate SST, SSE and R squared by hand with three houses.</div>
+      </section>
+
+      <section class="card topic-panel" id="topic-7">
+        <h2 class="step-title">SSE and SST by hand - three houses</h2>
+        <p>Work the formula manually once, on a tiny dataset, and it stops being scary.</p>
+
+        <table class="data-table">
+          <thead>
+            <tr><th>House (\(i\))</th><th>Actual Value \(y_i\)</th><th>Predicted Value \(\hat{y}_i\)</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="term">House 1</td><td>2</td><td>2.5</td></tr>
+            <tr><td class="term">House 2</td><td>3</td><td>3.0</td></tr>
+            <tr><td class="term">House 3</td><td>7</td><td>6.5</td></tr>
+          </tbody>
+        </table>
+
+        <p><strong>Goal:</strong> find \(\bar{y}\) (y-bar), calculate \(SST\) and \(SSE\), then find the final \(R^2\) score.</p>
+
+        <p><strong>Step 1 - the mean of the actual values \(\bar{y}\).</strong></p>
+        <div class="math-card">
+          <span class="math-formula">
+            $$\bar{y} = \frac{2 + 3 + 7}{3} = \frac{12}{3} = 4$$
+          </span>
+        </div>
+
+        <p><strong>Step 2 - SST:</strong> how far each actual value sits from that mean, squared and summed. This is the error of "always guess 4".</p>
+        <div class="math-card">
+          <span class="math-formula compact">
+            $$SST = \sum (y_i - \bar{y})^2 = (2-4)^2 + (3-4)^2 + (7-4)^2 = 4 + 1 + 9 = \boxed{14}$$
+          </span>
+        </div>
+
+        <p><strong>Step 3 - SSE:</strong> how far each actual value sits from <em>our model's prediction</em>, squared and summed.</p>
+        <div class="math-card">
+          <span class="math-formula compact no-scroll">
+            $$SSE = \sum (y_i - \hat{y}_i)^2 = (2-2.5)^2 + (3-3.0)^2 + (7-6.5)^2 = 0.25 + 0 + 0.25 = \boxed{0.5}$$
+          </span>
+        </div>
+
+        <p><strong>Step 4 - put them together.</strong></p>
+        <div class="math-card">
+          <span class="math-formula compact no-scroll">
+            $$R^2 = 1 - \frac{SSE}{SST} = 1 - \frac{0.5}{14} = 1 - 0.0357 = \boxed{0.964}$$
+          </span>
+          <p class="math-caption">The model removed about 96.4% of the error you would have made by guessing the average.</p>
+        </div>
+
+        <div class="note">Sanity check: SSE (0.5) is much smaller than SST (14), so the fraction is tiny and R squared is close to 1. A good model always has <strong>SSE much smaller than SST</strong>.</div>
+      </section>
+
+      <section class="card topic-panel" id="topic-8">
+        <h2 class="step-title">R² in code - and the same thing by hand</h2>
+        <p>Back to the 3-feature apartment model. Scikit-learn computes R squared with one call, and we prove it matches our own formula.</p>
+
+        <p>The full flow: use the fixed data, fit the model, predict, then score it <strong>twice</strong> - with MSE and with R squared.</p>
+        <pre class="code"><code>from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error, r2_score
+
+X = np.array([
+    [ 1, 2, 3], [ 2, 1, 4], [3, 4, 2], [ 4, 2, 5],
+    [ 5, 3, 1], [ 6, 5, 4], [7, 1, 6], [ 8, 4, 3],
+    [ 9, 2, 7], [ 3, 7, 5], [6, 8, 2], [10, 6, 4]
+])
+y = np.array([14.7, 19.7, 13.0, 25.6, 16.9, 24.2,
+              40.5, 26.9, 45.9, 16.3, 15.0, 31.8])
+
+model = LinearRegression()
+model.fit(X, y)
+print(model.intercept_)
+print(model.coef_)
+
+print("--- Model Results ---")
+y_pred = model.predict(X)
+mse = mean_squared_error(y, y_pred)
+print('mse=', mse)</code></pre>
+
+        <div class="math-card">
+          <span class="math-formula compact no-scroll">
+            $$R^2 = 1 - \frac{SSE}{SST} = 1 - \frac{\sum (y_i - \hat{y}_i)^2}{\sum (y_i - \bar{y})^2}$$
+          </span>
+        </div>
+        <pre class="code"><code>r2 = r2_score(y, y_pred)
+print('r2=', r2)</code></pre>
+        <div class="output">r2= 0.99136221831541</div>
+
+        <pre class="code"><code>sse = np.sum( (y - y_pred)**2 )      # error of OUR model
+sst = np.sum( (y - np.mean(y))**2 )  # error of guessing the average
+r2_manual = 1 - (sse/sst)
+print('r2_manual=', r2_manual)</code></pre>
+
+        <div class="output">6.007340293971851
+[ 2.49454376 -1.60503768  2.84756112]
+--- Model Results ---
+mse= 0.8924765982600965
+r2= 0.99136221831541
+r2_manual= 0.99136221831541</div>
+
+        <div class="note"><code>r2</code> and <code>r2_manual</code> are <strong>identical</strong> - that is the proof that <code>r2_score()</code> is nothing more than <code>1 - SSE/SST</code>. Our model explains about <strong>99.14%</strong> of the variance in the prices.</div>
+
+        <p>Note the two scores answer different questions about the same model:</p>
+        <table class="data-table">
+          <thead>
+            <tr><th>Score</th><th>Value</th><th>How to read it</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="term">MSE</td><td>0.8925</td><td>Average squared error. Lower is better, no fixed range.</td></tr>
+            <tr><td class="term">R squared</td><td>0.9914</td><td>99.14% of the variance explained. Higher is better.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="card topic-panel" id="topic-9">
+        <h2 class="step-title">Exercise</h2>
+        <p>Use <code>LinearRegression</code>, <code>mean_squared_error</code> and <code>r2_score</code>.</p>
+
+        <div class="task-box">
+          <div class="task-num">Question 1</div>
+          <p>Compute \(R^2\) <strong>by hand</strong> (no sklearn) for this tiny dataset.<br>
+          Find \(\bar{y}\), then \(SST\), then \(SSE\), then \(R^2\). Show every step.</p>
+          <pre class="code"><code>y      = np.array([10, 12, 20, 18])
+y_pred = np.array([11, 13, 18, 18])</code></pre>
+        </div>
+
+        <div class="task-box">
+          <div class="task-num">Question 2</div>
+          <p>Verify your answer to Question 1 with <code>r2_score(y, y_pred)</code>.<br>
+          Do the two numbers match?</p>
+        </div>
+
+        <div class="task-box">
+          <div class="task-num">Question 3</div>
+          <p>Use the following dataset. <code>X</code> contains <strong>3 features</strong>, and <code>y</code> contains the matching target values.</p>
+          <pre class="code"><code>X = np.array([
+    [2, 1, 3], [4, 2, 1], [6, 3, 5], [8, 1, 4],
+    [3, 5, 2], [5, 4, 6], [7, 2, 3], [9, 5, 1],
+    [1, 3, 4], [10, 4, 5]
+])
+
+y = np.array([18, 20, 36, 40, 15, 32, 33, 30, 17, 43])</code></pre>
+          <ol class="task-list">
+            <li>Use <code>LinearRegression</code> to find and print the intercept and coefficients</li>
+            <li>Find the MSE</li>
+            <li>Find the R² score using <code>r2_score</code></li>
+            <li>Explain whether the R² value you found is a good score or not</li>
+          </ol>
+        </div>
+
+        <div class="big-result" style="margin-top:20px">Submission</div>
+        <div class="card" style="background:var(--cyan);border-color:var(--blue);margin-top:0">
+          <ol class="task-list" style="margin:0">
+            <li><strong>Upload to GitHub:</strong> Add your <code>.ipynb</code> file to a repository and push it.</li>
+            <li>
+              <strong>Send the link</strong> to your repository or notebook to:<br>
+              <a href="mailto:pythonai211225+linear2@gmail.com"
+                 style="color:var(--blue-dark);font-weight:800;font-size:1.05rem;word-break:break-all">
+                pythonai211225+linear2@gmail.com
+              </a>
+            </li>
+          </ol>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="footer">Lesson 11 - Today, July 12, 2026 - Multiple Features and R Squared</div>
+</div>
+
+<script>
+  const links = document.querySelectorAll('.topic-link');
+  const panels = document.querySelectorAll('.topic-panel');
+
+  function showTopic(id) {
+    panels.forEach(panel => panel.classList.toggle('active', panel.id === id));
+    links.forEach(link => link.classList.toggle('active', link.dataset.target === id));
+  }
+
+  links.forEach(link => {
+    if (link.dataset.target) {
+      link.addEventListener('click', () => {
+        showTopic(link.dataset.target);
+        location.hash = link.dataset.target;
+      });
+    }
+  });
+
+  const hash = location.hash.replace('#', '');
+  if (hash && document.getElementById(hash)) showTopic(hash);
+</script>
+</body>
+</html>
