@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Polynomial Regression 01 — Curves, Degrees &amp; PolynomialFeatures</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded',function(){renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true}],throwOnError:false});});</script>
+  <style>
+    .page-layout { display:flex; height:calc(100vh - 54px); overflow:hidden; }
+    .sidebar { width:230px; min-width:230px; height:100%; overflow-y:auto; background:#0a0e14; border-right:1px solid var(--border); display:flex; flex-direction:column; scrollbar-width:thin; scrollbar-color:var(--border) transparent; flex-shrink:0; }
+    .sidebar-head { padding:20px 18px 14px; font-size:.65rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--border); }
+    .sidebar-nav { padding:8px 0; flex:1; }
+    .s-item { display:flex; align-items:center; gap:11px; padding:10px 18px; cursor:pointer; background:none; border:none; border-left:3px solid transparent; width:100%; text-align:left; transition:background .18s,border-color .18s; }
+    .s-item:hover { background:rgba(255,255,255,.04); }
+    .s-item.active { background:rgba(250,204,21,.08); border-left-color:var(--accent); }
+    .s-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; transition:transform .2s; }
+    .s-item.active .s-dot { transform:scale(1.45); box-shadow:0 0 8px currentColor; }
+    .s-num { font-size:.62rem; color:var(--border); font-family:'Courier New',monospace; font-weight:700; min-width:18px; }
+    .s-item.active .s-num { color:var(--accent); }
+    .s-label { font-size:.79rem; color:var(--muted); font-family:'Courier New',monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .s-item.active .s-label { color:var(--text); }
+    .s-item.done .s-label::after { content:' ✓'; color:var(--green); font-size:.7rem; }
+
+    .panel-viewport { flex:1; overflow-y:auto; overflow-x:hidden; position:relative; }
+    .panel { display:none; flex-direction:column; min-height:100%; padding:40px 52px 100px; max-width:820px; margin:0 auto; animation:fadeIn .35s ease; }
+    .panel.active { display:flex; }
+    @keyframes fadeIn { from{opacity:0;transform:translateX(28px)} to{opacity:1;transform:translateX(0)} }
+    .panel.exit { display:flex; animation:fadeOut .25s ease forwards; }
+    @keyframes fadeOut { from{opacity:1;transform:translateX(0)} to{opacity:0;transform:translateX(-28px)} }
+
+    .m-hero { position:relative; height:200px; border-radius:18px; overflow:hidden; margin-bottom:26px; flex-shrink:0; }
+    .m-hero img { width:100%; height:100%; object-fit:cover; filter:brightness(.5) saturate(.8); transition:filter .45s; }
+    .panel.active .m-hero img { filter:brightness(.6) saturate(1.1); }
+    .m-hero-ov { position:absolute; inset:0; padding:26px 30px; display:flex; flex-direction:column; justify-content:flex-end; background:linear-gradient(0deg,rgba(0,0,0,.78) 0%,rgba(0,0,0,.15) 55%,transparent 100%); }
+    .m-breadcrumb { font-size:.62rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:rgba(255,255,255,.4); margin-bottom:5px; }
+    .m-name { font-size:1.7rem; font-weight:900; color:#fff; font-family:'Courier New',monospace; }
+    .m-tagline { font-size:.86rem; color:rgba(255,255,255,.62); margin-top:4px; }
+
+    .pills { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 20px; align-items:center; }
+    .pill { padding:5px 14px; border-radius:999px; font-size:.7rem; font-weight:700; letter-spacing:.06em; }
+    .pill-sig { font-family:'Courier New',monospace; font-size:.74rem; letter-spacing:0; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.12); color:var(--text); }
+    .pill-ret { background:rgba(16,185,129,.1); border:1px solid rgba(16,185,129,.3); color:var(--green); font-family:'Courier New',monospace; letter-spacing:0; }
+    .pill-note { background:rgba(249,115,22,.1); border:1px solid rgba(249,115,22,.3); color:var(--orange); font-family:'Courier New',monospace; font-size:.7rem; }
+    .pill-param { position:relative; cursor:help; transition:filter .18s; }
+    .pill-param:hover { filter:brightness(1.3); }
+    .pill-param .balloon { position:absolute; bottom:calc(100% + 14px); left:50%; transform:translateX(-50%) translateY(6px); width:230px; background:linear-gradient(155deg,#0e2845 0%,#071a2e 100%); border:1.5px solid rgba(240,182,62,.65); border-radius:14px; padding:13px 16px 11px; box-shadow:0 0 0 1px rgba(240,182,62,.1),0 18px 48px rgba(0,0,0,.72),0 0 36px rgba(240,182,62,.07); opacity:0; pointer-events:none; transition:opacity .22s ease,transform .22s ease; z-index:300; }
+    .pill-param:hover .balloon { opacity:1; transform:translateX(-50%) translateY(0); animation:balloonFloat 3s ease-in-out infinite; }
+    @keyframes balloonFloat { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(-5px)} }
+    .balloon-title { font-family:'Courier New',monospace; font-size:.7rem; font-weight:800; color:#f0b63e; letter-spacing:.04em; margin-bottom:6px; display:flex; align-items:center; gap:6px; }
+    .balloon-title::before { content:''; display:inline-block; width:7px; height:7px; border-radius:50%; background:#f0b63e; box-shadow:0 0 6px rgba(240,182,62,.7); flex-shrink:0; }
+    .balloon-body { font-size:.76rem; color:rgba(230,237,243,.78); line-height:1.6; font-family:'Segoe UI',system-ui,sans-serif; font-weight:400; }
+    .pill-param .balloon::after { content:''; position:absolute; bottom:-10px; left:50%; transform:translateX(-50%); border-left:10px solid transparent; border-right:10px solid transparent; border-top:10px solid rgba(240,182,62,.65); }
+    .pill-param .balloon::before { content:''; position:absolute; bottom:-8px; left:50%; transform:translateX(-50%); border-left:9px solid transparent; border-right:9px solid transparent; border-top:9px solid #071a2e; z-index:1; }
+
+    .m-desc { font-size:.95rem; color:var(--muted); line-height:1.75; margin-bottom:14px; }
+    .m-desc code { font-family:'Courier New',monospace; font-size:.88em; padding:1px 6px; border-radius:4px; background:rgba(255,255,255,.06); }
+
+    .demo-box { background:#060a10; border:1px solid var(--border); border-radius:14px; padding:22px 22px 18px; margin-top:20px; flex-shrink:0; display:flex; flex-direction:column; }
+    .demo-lbl { font-size:.64rem; font-weight:800; letter-spacing:.13em; text-transform:uppercase; color:var(--muted); margin-bottom:18px; display:flex; align-items:center; gap:8px; }
+    .demo-lbl::before { content:''; width:3px; height:12px; border-radius:2px; background:var(--accent); flex-shrink:0; }
+    .demo-controls { display:flex; flex-wrap:wrap; gap:18px; align-items:flex-end; margin-bottom:18px; }
+    .ctrl { display:flex; flex-direction:column; gap:5px; }
+    .ctrl label { font-size:.69rem; color:var(--muted); font-weight:600; }
+    .ctrl input[type=range] { -webkit-appearance:none; width:190px; height:4px; background:var(--border); border-radius:2px; outline:none; cursor:pointer; }
+    .ctrl input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:15px; height:15px; background:var(--accent); border-radius:50%; cursor:pointer; box-shadow:0 0 6px rgba(250,204,21,.5); }
+    .ctrl .cval { font-size:.7rem; color:var(--accent); font-family:'Courier New',monospace; font-weight:700; text-align:center; }
+    .demo-canvas-wrap { background:#020509; border-radius:10px; padding:14px; overflow:hidden; min-height:72px; order:4; }
+    canvas { display:block; margin:0 auto; }
+    .demo-out { font-family:'Courier New',monospace; font-size:.8rem; color:#10b981; line-height:1.65; margin-top:0; margin-bottom:14px; padding:11px 15px; background:rgba(16,185,129,.05); border:1px solid rgba(16,185,129,.18); border-radius:8px; white-space:pre-wrap; order:3; }
+
+    .panel-nav { display:flex; justify-content:space-between; align-items:center; margin-top:40px; padding-top:24px; border-top:1px solid var(--border); flex-shrink:0; }
+    .pnav-btn { display:flex; align-items:center; gap:9px; padding:10px 22px; border-radius:10px; border:1px solid var(--border); background:transparent; color:var(--muted); font-size:.83rem; font-weight:700; cursor:pointer; transition:color .2s,border-color .2s,background .2s; }
+    .pnav-btn:hover:not(:disabled) { color:var(--text); border-color:var(--accent); background:rgba(250,204,21,.06); }
+    .pnav-btn:disabled { opacity:.28; cursor:default; }
+    .pnav-btn.next { background:rgba(250,204,21,.08); border-color:rgba(250,204,21,.35); color:var(--accent); }
+    .pnav-btn.next:hover { background:rgba(250,204,21,.16); border-color:var(--accent); }
+    .pnav-dots { display:flex; gap:7px; align-items:center; }
+    .pnav-dot { width:7px; height:7px; border-radius:50%; background:var(--border); transition:background .2s,transform .2s; cursor:pointer; border:none; padding:0; }
+    .pnav-dot.active { background:var(--accent); transform:scale(1.4); }
+
+    .overview-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:14px; margin-top:24px; }
+    .ov-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px 16px 16px; cursor:pointer; transition:border-color .2s,box-shadow .2s,transform .18s; display:flex; flex-direction:column; gap:8px; }
+    .ov-card:hover { transform:translateY(-3px); border-color:rgba(250,204,21,.4); box-shadow:0 8px 28px rgba(250,204,21,.08); }
+    .ov-card-num { font-size:.62rem; color:var(--muted); font-weight:800; letter-spacing:.1em; }
+    .ov-card-name { font-size:.9rem; font-family:'Courier New',monospace; font-weight:700; }
+    .ov-card-desc { font-size:.77rem; color:var(--muted); line-height:1.5; }
+
+    @media(max-width:700px){.sidebar{display:none}.panel{padding:20px 16px 80px}}
+    .katex { color: var(--text); }
+    .katex-display { margin: 6px 0; overflow-x: auto; overflow-y: hidden; padding: 3px 0; }
+    .eq-box { background:rgba(59,130,246,.05); border:1px solid rgba(59,130,246,.2); border-radius:12px; padding:16px 20px; margin:16px 0; font-size:1.05rem; }
+    .eq-box.big { font-size:1.35rem; padding:24px 20px; }
+    .exercise-header{display:flex;align-items:flex-start;gap:16px;margin-bottom:24px;padding:20px;background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.2);border-radius:14px;position:relative;overflow:hidden;}
+    .exercise-header::before{content:'';position:absolute;top:-40px;right:-40px;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,rgba(251,191,36,.1) 0%,transparent 70%);pointer-events:none;}
+    .exercise-badge{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;font-size:1.8rem;font-weight:800;color:#0d1a2e;background:linear-gradient(135deg,#fbbf24,#f59e0b);box-shadow:0 6px 18px rgba(251,191,36,.35);flex-shrink:0;}
+    .ex-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px 16px;margin-bottom:14px;transition:border-color .2s;}
+    .ex-card:hover{border-color:rgba(250,204,21,.3);}
+    .ex-q-head{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+    .ex-num{font-size:.68rem;font-weight:800;letter-spacing:.1em;padding:3px 10px;border-radius:6px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--muted);font-family:'Courier New',monospace;}
+    .ex-task{font-size:.88rem;color:var(--muted);margin-bottom:10px;line-height:1.6;}
+    .ex-task code{font-family:'Courier New',monospace;font-size:.85em;padding:1px 6px;border-radius:4px;background:rgba(255,255,255,.06);}
+    details.hint{margin-top:10px;}
+    details.hint summary{cursor:pointer;font-size:.78rem;color:var(--accent);font-weight:700;}
+  </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">← Python Libs</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item active" href="01-poly-regression.html">01</a>
+  </div>
+</nav>
+
+<div class="page-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-head">Polynomial Regression</div>
+    <nav class="sidebar-nav">
+      <button class="s-item active" data-panel="0" onclick="goTo(0)"><span class="s-num">00</span><span class="s-dot" style="background:#8b5cf6"></span><span class="s-label">Overview</span></button>
+      <button class="s-item" data-panel="1" onclick="goTo(1)"><span class="s-num">01</span><span class="s-dot" style="background:#f43f5e"></span><span class="s-label">When a line fails</span></button>
+      <button class="s-item" data-panel="2" onclick="goTo(2)"><span class="s-num">02</span><span class="s-dot" style="background:#f97316"></span><span class="s-label">Degrees</span></button>
+      <button class="s-item" data-panel="3" onclick="goTo(3)"><span class="s-num">03</span><span class="s-dot" style="background:#facc15"></span><span class="s-label">Plot a quadratic</span></button>
+      <button class="s-item" data-panel="4" onclick="goTo(4)"><span class="s-num">04</span><span class="s-dot" style="background:#06b6d4"></span><span class="s-label">PolynomialFeatures</span></button>
+      <button class="s-item" data-panel="5" onclick="goTo(5)"><span class="s-num">05</span><span class="s-dot" style="background:#10b981"></span><span class="s-label">np.polyfit</span></button>
+      <button class="s-item" data-panel="6" onclick="goTo(6)"><span class="s-num">06</span><span class="s-dot" style="background:#3b82f6"></span><span class="s-label">Choosing degree</span></button>
+      <button class="s-item" data-panel="7" onclick="goTo(7)"><span class="s-num">07</span><span class="s-dot" style="background:#fbbf24"></span><span class="s-label">Exercises</span></button>
+    </nav>
+  </aside>
+
+  <!-- PANEL VIEWPORT -->
+  <div class="panel-viewport" id="viewport">
+
+    <!-- ══ PANEL 0: Overview ══ -->
+    <div class="panel active" id="panel-0">
+      <div class="hero" style="margin-bottom:36px;">
+        <span class="topic-label"><span class="dot"></span>Polynomial Regression · Topic 01</span>
+        <h1>Polynomial Regression</h1>
+        <p>When the data <strong>curves</strong>, a straight line can't follow it. Let the model bend:</p>
+        <div class="demo-canvas-wrap" style="background:#020509;border-radius:12px;padding:14px;position:relative;z-index:1;"><canvas id="cv-overview" height="260"></canvas></div>
+      </div>
+      <div class="overview-grid" style="margin-top:0;">
+        <div class="ov-card" onclick="goTo(1)"><div class="ov-card-num">01 / 07</div><div class="ov-card-name" style="color:#f43f5e">When a line fails</div><div class="ov-card-desc">U-shaped data + a straight line = R² of 0.29. Why lines break.</div></div>
+        <div class="ov-card" onclick="goTo(2)"><div class="ov-card-num">02 / 07</div><div class="ov-card-name" style="color:#f97316">Degrees</div><div class="ov-card-desc">Linear, quadratic, cubic, quartic — the highest power sets the shape.</div></div>
+        <div class="ov-card" onclick="goTo(3)"><div class="ov-card-num">03 / 07</div><div class="ov-card-name" style="color:#facc15">Plot a quadratic</div><div class="ov-card-desc">y = ax² + bx + c — draw a parabola with numpy + matplotlib.</div></div>
+        <div class="ov-card" onclick="goTo(4)"><div class="ov-card-num">04 / 07</div><div class="ov-card-name" style="color:#06b6d4">PolynomialFeatures</div><div class="ov-card-desc">The sklearn way — add x², x³ columns, then LinearRegression.</div></div>
+        <div class="ov-card" onclick="goTo(5)"><div class="ov-card-num">05 / 07</div><div class="ov-card-name" style="color:#10b981">np.polyfit</div><div class="ov-card-desc">Fit the same curve in one line — the shortcut.</div></div>
+        <div class="ov-card" onclick="goTo(6)"><div class="ov-card-num">06 / 07</div><div class="ov-card-name" style="color:#3b82f6">Choosing degree</div><div class="ov-card-desc">Underfit vs just-right vs overfit — the Goldilocks problem.</div></div>
+        <div class="ov-card" onclick="goTo(7)"><div class="ov-card-num">07 / 07</div><div class="ov-card-name" style="color:#fbbf24">Exercises</div><div class="ov-card-desc">Your turn — fit a parabola, read R², pick a degree.</div></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" disabled>← Prev</button>
+        <div class="pnav-dots" id="dots-0"></div>
+        <button class="pnav-btn next" onclick="goTo(1)">When a line fails →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 1: When a line fails ══ -->
+    <div class="panel" id="panel-1">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=900&q=75&fit=crop&h=200" alt="A curving road" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Polynomial Regression 01 / 07 · The Motivation</div>
+          <div class="m-name">When a line fails</div>
+          <div class="m-tagline">Some data curves — and no straight line can chase it</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">data curves ⟶ line = bad fit</span>
+        <span class="pill pill-note">R² = 0.285</span>
+        <span class="pill pill-ret">→ we need a curve</span>
+      </div>
+      <p class="m-desc">
+        An athlete's <strong>running time</strong> vs their weekly <strong>training hours</strong>. Train too little and you're slow; train <em>too much</em> and over-training makes you slow again. The pattern dips down and comes back up — a <strong style="color:var(--red)">U-shape</strong>. Fit a straight <code>LinearRegression</code> and it can't win: to stay near the low middle it must miss both raised ends.
+      </p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — a line on curved data</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> numpy <span class="kw">as</span> <span class="lib">np</span>
+<span class="kw">from</span> sklearn.linear_model <span class="kw">import</span> <span class="cls">LinearRegression</span>
+<span class="kw">from</span> sklearn.metrics <span class="kw">import</span> <span class="fn">mean_squared_error</span>, <span class="fn">r2_score</span>
+
+training_hours = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">2</span>, <span class="num">3</span>, <span class="num">5</span>, <span class="num">7</span>, <span class="num">9</span>, <span class="num">12</span>, <span class="num">16</span>, <span class="num">20</span>, <span class="num">25</span>, <span class="num">30</span>]).<span class="fn">reshape</span>(-<span class="num">1</span>, <span class="num">1</span>)
+running_times  = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">95</span>, <span class="num">85</span>, <span class="num">70</span>, <span class="num">65</span>, <span class="num">60</span>, <span class="num">55</span>, <span class="num">50</span>, <span class="num">53</span>, <span class="num">58</span>, <span class="num">70</span>])
+
+model = <span class="cls">LinearRegression</span>()
+model.<span class="fn">fit</span>(training_hours, running_times)
+y_pred = model.<span class="fn">predict</span>(training_hours)
+
+<span class="fn">print</span>(<span class="str">f"MSE: {mean_squared_error(running_times, y_pred):.7f}"</span>)   <span class="cm"># 134.4338762</span>
+<span class="fn">print</span>(<span class="str">f"R²:  {r2_score(running_times, y_pred):.7f}"</span>)            <span class="cm"># 0.2852683</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">The straight line fights the curve — and loses</div>
+        <div class="demo-out" id="out-fail"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-fail" height="270"></canvas></div>
+      </div>
+      <div class="callout orange">
+        ⚠️ <strong>R² = 0.285 is a failing grade</strong> — the line explains only 29% of the variance. Nothing is broken in sklearn; we simply asked a straight tool to draw a bent shape.
+      </div>
+      <div class="callout blue">
+        💡 <strong>The fix:</strong> give the model higher powers of x — <code>x²</code>, <code>x³</code>, … — so the fitted shape can <em>bend</em>. That is <strong>polynomial regression</strong>, and the rest of this deck builds it.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(0)">← Overview</button>
+        <div class="pnav-dots" id="dots-1"></div>
+        <button class="pnav-btn next" onclick="goTo(4)">PolynomialFeatures →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 4: PolynomialFeatures ══ -->
+    <div class="panel" id="panel-2">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1509228468518-180dd4864904?w=900&q=75&fit=crop&h=200" alt="Curves of different shapes" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Polynomial Regression 02 / 07 · The Vocabulary</div>
+          <div class="m-name">Degrees</div>
+          <div class="m-tagline">The highest power decides how many times the curve can bend</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">y = aₙxⁿ + … + a₁x + a₀</span>
+        <span class="pill pill-param" style="background:rgba(249,115,22,.1);color:var(--orange);border:1px solid rgba(249,115,22,.28);">degree
+          <span class="balloon"><span class="balloon-title">degree — n</span><span class="balloon-body">The <strong>highest power</strong> of x that appears. Degree 2 → one bend, degree 3 → two bends, and so on.</span></span>
+        </span>
+        <span class="pill pill-ret">→ the shape</span>
+      </div>
+      <p class="m-desc">A <strong>polynomial</strong> raises <code>x</code> to whole-number powers and adds the pieces up. The <strong style="color:var(--orange)">degree</strong> — the highest power present — controls the shape: a degree-<em>n</em> curve can bend up to <strong>n − 1</strong> times.</p>
+      <div class="eq-box big" style="text-align:center;">
+        $$y = a_n x^n + \dots + a_2 x^2 + a_1 x + a_0$$
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue">Name</th><th class="blue">Highest power</th><th class="blue">Shape</th><th class="blue">Bends</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>Linear</td><td>x¹</td><td>A straight line</td><td>0</td></tr>
+          <tr class="show"><td>Quadratic</td><td>x²</td><td>A parabola (U or ∩)</td><td>1</td></tr>
+          <tr class="show"><td>Cubic</td><td>x³</td><td>An S-curve</td><td>2</td></tr>
+          <tr class="show"><td>Quartic</td><td>x⁴</td><td>A W / M shape</td><td>3</td></tr>
+        </tbody>
+      </table>
+      <div class="demo-box">
+        <div class="demo-lbl">The same four degrees, drawn — watch the bends multiply</div>
+        <div class="demo-out" id="out-deg"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-deg" height="300"></canvas></div>
+      </div>
+      <div class="callout purple">
+        🧠 <strong>Etymology:</strong> <em>quadratic</em> is from the Latin <em>quadratus</em> = "square" (x is <em>squared</em>), and <em>cubic</em> from <em>cubus</em> = "cube" (x is <em>cubed</em>). A <strong>quartic</strong> is the polynomial whose highest power is really <strong>4</strong>.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(1)">← When a line fails</button>
+        <div class="pnav-dots" id="dots-2"></div>
+        <button class="pnav-btn next" onclick="goTo(3)">Plot a quadratic →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 3: Plot a quadratic ══ -->
+    <div class="panel" id="panel-3">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1509228468518-180dd4864904?w=900&q=75&fit=crop&h=200" alt="Parabolic curve" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Polynomial Regression 03 / 07 · The Shape</div>
+          <div class="m-name">Plot a quadratic</div>
+          <div class="m-tagline">Draw the one-bend curve before you fit one</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">y = a·x² + b·x + c</span>
+        <span class="pill pill-param" style="background:rgba(59,130,246,.1);color:var(--blue);border:1px solid rgba(59,130,246,.28);">a
+          <span class="balloon"><span class="balloon-title">a — curvature</span><span class="balloon-body">Multiplies <strong>x²</strong>. Its sign flips the parabola: a &gt; 0 opens up (a valley), a &lt; 0 opens down (a hill). Bigger |a| → tighter curve.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(16,185,129,.1);color:var(--green);border:1px solid rgba(16,185,129,.28);">b
+          <span class="balloon"><span class="balloon-title">b — tilt</span><span class="balloon-body">Multiplies <strong>x</strong>. It slides the vertex left/right and tilts the curve.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(249,115,22,.1);color:var(--orange);border:1px solid rgba(249,115,22,.28);">c
+          <span class="balloon"><span class="balloon-title">c — intercept</span><span class="balloon-body">The constant. It is exactly where the curve crosses the y-axis (the value of y when x = 0).</span></span>
+        </span>
+      </div>
+      <p class="m-desc">The <strong>quadratic</strong> is the simplest curve — one bend. Choose the three coefficients, sweep x with <code>np.linspace</code>, and let NumPy compute every y at once:</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — draw y = x² − 3x + 2</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> numpy <span class="kw">as</span> <span class="lib">np</span>
+<span class="kw">import</span> matplotlib.pyplot <span class="kw">as</span> <span class="lib">plt</span>
+
+<span class="cm"># Coefficients</span>
+a, b, c = <span class="num">1.0</span>, -<span class="num">3.0</span>, <span class="num">2.0</span>              <span class="cm"># y = x² - 3x + 2</span>
+x = <span class="lib">np</span>.<span class="fn">linspace</span>(-<span class="num">10</span>, <span class="num">10</span>, <span class="num">400</span>)
+y = a * x**<span class="num">2</span> + b * x + c              <span class="cm"># vectorised: 400 y-values at once</span>
+
+<span class="lib">plt</span>.<span class="fn">figure</span>()
+<span class="lib">plt</span>.<span class="fn">plot</span>(x, y)
+<span class="lib">plt</span>.<span class="fn">axhline</span>(<span class="num">0</span>, linewidth=<span class="num">1</span>)
+<span class="lib">plt</span>.<span class="fn">axvline</span>(<span class="num">0</span>, linewidth=<span class="num">1</span>)
+<span class="lib">plt</span>.<span class="fn">xlabel</span>(<span class="str">'x'</span>); <span class="lib">plt</span>.<span class="fn">ylabel</span>(<span class="str">'y'</span>)
+<span class="lib">plt</span>.<span class="fn">title</span>(<span class="str">'y = x² - 3x + 2'</span>)
+<span class="lib">plt</span>.<span class="fn">grid</span>(<span class="cls">True</span>, which=<span class="str">'both'</span>, linestyle=<span class="str">'--'</span>, alpha=<span class="num">0.3</span>)
+<span class="lib">plt</span>.<span class="fn">show</span>()</pre>
+      </div>
+      <div class="eq-box" style="text-align:center;">
+        $$y = x^2 - 3x + 2 \qquad (a=1,\; b=-3,\; c=2)$$
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — drag a, b, c and watch the parabola move</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>a — curvature (×x²)</label><input type="range" min="-2" max="2" value="1" step="0.1" id="q-a" oninput="drawQuad()"><span class="cval" id="q-av">1.0</span></div>
+          <div class="ctrl"><label>b — tilt (×x)</label><input type="range" min="-6" max="6" value="-3" step="0.5" id="q-b" oninput="drawQuad()"><span class="cval" id="q-bv">-3.0</span></div>
+          <div class="ctrl"><label>c — intercept</label><input type="range" min="-6" max="8" value="2" step="0.5" id="q-c" oninput="drawQuad()"><span class="cval" id="q-cv">2.0</span></div>
+        </div>
+        <div class="demo-out" id="out-quad"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-quad" height="300"></canvas></div>
+      </div>
+      <div class="callout green">
+        💡 The <strong>one bend</strong> is the whole idea: because the highest power is x², the curve turns exactly once. That single turn is what lets a quadratic follow the U-shaped running data the straight line couldn't.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(2)">← Degrees</button>
+        <div class="pnav-dots" id="dots-3"></div>
+        <button class="pnav-btn next" onclick="goTo(4)">PolynomialFeatures →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 4: PolynomialFeatures ══ -->
+    <div class="panel" id="panel-4">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1518186285589-2f7649de83e0?w=900&q=75&fit=crop&h=200" alt="Feature engineering" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Polynomial Regression 04 / 07 · The sklearn Way</div>
+          <div class="m-name">PolynomialFeatures</div>
+          <div class="m-tagline">Add x², x³ columns — then it's just LinearRegression</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">from sklearn.preprocessing import PolynomialFeatures</span>
+        <span class="pill pill-param" style="background:rgba(6,182,212,.1);color:var(--cyan);border:1px solid rgba(6,182,212,.28);">degree
+          <span class="balloon"><span class="balloon-title">degree=2</span><span class="balloon-body">How many powers to generate. degree=2 turns one column x into <code>[1, x, x²]</code>.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(16,185,129,.1);color:var(--green);border:1px solid rgba(16,185,129,.28);">fit_transform
+          <span class="balloon"><span class="balloon-title">fit_transform(X)</span><span class="balloon-body">Builds the expanded feature table — the extra x², x³ columns — from your original X.</span></span>
+        </span>
+        <span class="pill pill-ret">→ back to LinearRegression</span>
+      </div>
+      <p class="m-desc"><strong>The key insight:</strong> polynomial regression is <em>still linear regression</em> — just on new columns. If we hand the model <code>x²</code> as an extra feature, then <code>ŷ = β₀ + β₁x + β₂x²</code> is <strong>linear in its weights</strong>. <code>PolynomialFeatures</code> builds those extra columns for us:</p>
+      <div class="demo-box" style="margin-top:0;">
+        <div class="demo-lbl">Live Demo ① — <span style="color:var(--blue)">ONE feature</span>: pick a degree and watch one column x expand into its powers</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>degree</label><input type="range" min="2" max="5" value="2" step="1" id="pf-deg" oninput="drawPF()"><span class="cval" id="pf-degv">2</span></div>
+        </div>
+        <div class="demo-out" id="out-pf"></div>
+        <div class="demo-canvas-wrap" style="padding:18px 14px;"><div id="pf-render"></div></div>
+      </div>
+
+      <p class="m-desc"><strong>With more than one feature it also adds the <span style="color:var(--orange)">interaction terms</span>.</strong> Two features <code>x₁, x₂</code> at degree 2 become <code>[1, x₁, x₂, x₁², x₁x₂, x₂²]</code> — the model gets each feature's square <em>and</em> the product <code>x₁x₂</code>, which lets it learn how the features work <em>together</em>. Slide the count from 1 to 3 and watch the columns multiply:</p>
+      <div class="demo-box" style="margin-top:0;">
+        <div class="demo-lbl">Live Demo ② — <span style="color:var(--orange)">many features</span> (degree 2): how 1–3 columns expand, with interaction terms</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>number of features</label><input type="range" min="1" max="3" value="2" step="1" id="pf2-feat" oninput="drawPF2()"><span class="cval" id="pf2-featv">2</span></div>
+        </div>
+        <div class="demo-out" id="out-pf2"></div>
+        <div class="demo-canvas-wrap" style="padding:18px 14px;"><div id="pf2-render"></div></div>
+      </div>
+
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — PolynomialFeatures + LinearRegression</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> numpy <span class="kw">as</span> <span class="lib">np</span>
+<span class="kw">from</span> sklearn.preprocessing <span class="kw">import</span> <span class="cls">PolynomialFeatures</span>
+<span class="kw">from</span> sklearn.linear_model <span class="kw">import</span> <span class="cls">LinearRegression</span>
+<span class="kw">from</span> sklearn.metrics <span class="kw">import</span> <span class="fn">r2_score</span>
+
+x = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">2</span>, <span class="num">3</span>, <span class="num">5</span>, <span class="num">7</span>, <span class="num">9</span>, <span class="num">12</span>, <span class="num">16</span>, <span class="num">20</span>, <span class="num">25</span>, <span class="num">30</span>]).<span class="fn">reshape</span>(-<span class="num">1</span>, <span class="num">1</span>)
+y = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">95</span>, <span class="num">85</span>, <span class="num">70</span>, <span class="num">65</span>, <span class="num">60</span>, <span class="num">55</span>, <span class="num">50</span>, <span class="num">53</span>, <span class="num">58</span>, <span class="num">70</span>])
+
+<span class="cm"># 1. build the x² (and x⁰, x¹) columns</span>
+poly = <span class="cls">PolynomialFeatures</span>(degree=<span class="num">2</span>)
+X_poly = poly.<span class="fn">fit_transform</span>(x)         <span class="cm"># each row → [1, x, x²]</span>
+
+<span class="cm"># 2. ordinary LinearRegression on the expanded columns</span>
+model = <span class="cls">LinearRegression</span>()
+model.<span class="fn">fit</span>(X_poly, y)
+
+y_pred = model.<span class="fn">predict</span>(X_poly)
+<span class="fn">print</span>(<span class="str">'R² ='</span>, <span class="fn">r2_score</span>(y, y_pred))   <span class="cm"># 0.9510 — identical to polyfit</span>
+
+<span class="cm"># predict a NEW x — transform it the same way first</span>
+<span class="fn">print</span>(model.<span class="fn">predict</span>(poly.<span class="fn">transform</span>([[<span class="num">18</span>]])))   <span class="cm"># [48.88]</span></pre>
+      </div>
+      <table class="dt">
+        <thead><tr><th>Approach</th><th>Best for</th><th>Note</th></tr></thead>
+        <tbody>
+          <tr class="show"><td><code>PolynomialFeatures</code></td><td>The ML pipeline</td><td>Plugs into sklearn — cross-validation, multiple features, scaling</td></tr>
+          <tr class="show"><td><code>np.polyfit</code></td><td>Quick, one feature</td><td>Returns coefficients directly — great for plotting</td></tr>
+        </tbody>
+      </table>
+      <div class="callout purple">
+        🧠 <strong>Big idea:</strong> "polynomial regression" is not a new algorithm — it's <strong>linear regression on engineered features</strong>. Add the right columns and the same <code>fit</code> / <code>predict</code> / <code>coef_</code> you already know draws curves. That is why <code>PolynomialFeatures + LinearRegression</code> can match <code>np.polyfit</code> on a one-variable curve.
+      </div>
+      <div class="callout orange">
+        ⚠️ <strong>Transform new data too.</strong> Before predicting a fresh x you must run it through the same <code>poly.transform(...)</code> — the model expects the <code>[1, x, x²]</code> shape, not a bare number.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(3)">← Plot a quadratic</button>
+        <div class="pnav-dots" id="dots-4"></div>
+        <button class="pnav-btn next" onclick="goTo(5)">np.polyfit →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 5: np.polyfit ══ -->
+    <div class="panel" id="panel-5">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1543286386-2e659306cd6c?w=900&q=75&fit=crop&h=200" alt="Fitting a curve" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Polynomial Regression 05 / 07 · NumPy's Built-in Fit</div>
+          <div class="m-name">np.polyfit</div>
+          <div class="m-tagline">NumPy finds the best-fit curve for you — no sklearn needed</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">coeffs = np.polyfit(x, y, deg)</span>
+        <span class="pill pill-note">brand-new function</span>
+        <span class="pill pill-ret">→ the curve's coefficients</span>
+      </div>
+      <div style="border:2px solid var(--accent);border-radius:14px;background:linear-gradient(120deg,rgba(250,204,21,.18) 0%,rgba(250,204,21,.05) 100%);box-shadow:0 0 0 1px rgba(250,204,21,.25),0 10px 30px rgba(250,204,21,.14);padding:18px 22px;margin:6px 0 22px;display:flex;gap:14px;align-items:flex-start;">
+        <div style="font-size:1.9rem;line-height:1;flex-shrink:0;">🥇</div>
+        <div>
+          <div style="color:var(--accent);font-weight:900;font-size:1.15rem;letter-spacing:.01em;margin-bottom:4px;">np.polyfit works for ONE feature only</div>
+          <div style="color:var(--text);font-size:.92rem;line-height:1.75;">It fits a curve in a <strong>single</strong> input variable <code>x</code> → <code>y</code>:&nbsp; one column in, one column out<br>
+          If your data has <strong>several</strong> features (area, rooms, age, …), <code>polyfit</code> <strong>cannot</strong> do it<br>
+          For many features use <code>PolynomialFeatures&nbsp;+&nbsp;LinearRegression</code> <br>
+          instead Remember this: <strong style="color:var(--accent);">polyfit = one feature</strong></div>
+        </div>
+      </div>
+      <p class="m-desc"><strong>Here is the new tool.</strong> Until now, finding the best line meant calling <code>LinearRegression</code>. But NumPy ships its <em>own</em> one-function way to fit a curve: <code>np.polyfit</code>. You hand it your points and the degree you want, and it hands back the coefficients of the best-fitting polynomial. That is the entire idea — one line, no model object, no <code>fit</code> / <code>predict</code>.</p>
+
+      <p class="m-desc">"Best-fit" means the same thing it did for the line: NumPy chooses the coefficients that make the curve pass as close as possible to <strong>all</strong> the points (it minimises the squared errors — <em>least squares</em>). The only new knob is <code>deg</code>, which tells it how bendy the curve is allowed to be.</p>
+
+      <div class="eq-box big" style="text-align:center;">
+        $$\texttt{np.polyfit}(x,\; y,\; \underbrace{\texttt{deg}}_{\text{how bendy}}) \;\longrightarrow\; [\,a_n,\; \dots,\; a_1,\; a_0\,]$$
+      </div>
+
+      <p class="m-desc">Read the three inputs one at a time — nothing here is hidden:</p>
+      <table class="dt">
+        <thead><tr><th>Argument</th><th>What you pass</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr class="show"><td><code>x</code></td><td>a 1-D array of inputs</td><td>The feature — e.g. training hours. Just a flat list, no <code>reshape</code> needed</td></tr>
+          <tr class="show"><td><code>y</code></td><td>a 1-D array of outputs</td><td>The target — e.g. running times. Same length as <code>x</code></td></tr>
+          <tr class="show"><td style="color:var(--orange)"><code>deg</code></td><td>a whole number</td><td>The <strong>degree</strong>: 1 = line, 2 = parabola, 3 = cubic. This is the new choice you make</td></tr>
+        </tbody>
+      </table>
+
+      <p class="m-desc"><strong>What comes back</strong> is a plain NumPy array of numbers — the <strong>coefficients</strong>, listed <span style="color:var(--orange)">highest power first</span>. Ask for degree 2 and you get three numbers, which are exactly the <code>a, b, c</code> in <code>y = a·x² + b·x + c</code>:</p>
+      <div class="eq-box" style="text-align:center;">
+        $$\texttt{np.polyfit}(x, y, 2) = [\,\underbrace{0.159}_{a},\; \underbrace{-5.712}_{b},\; \underbrace{100.05}_{c}\,] \;\Rightarrow \\[6pt] y = 0.159x^2 - 5.712x + 100.05$$
+      </div>
+
+      <p class="m-desc"><strong>How to actually use those numbers.</strong> You could plug them into the formula by hand, but NumPy gives you a helper: <code>np.poly1d(coeffs)</code> turns the coefficient array into a ready-made curve you can <em>call like a function</em>. Feed it any x and it returns the predicted y:</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — np.polyfit from zero, step by step</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> numpy <span class="kw">as</span> <span class="lib">np</span>
+<span class="kw">from</span> sklearn.metrics <span class="kw">import</span> <span class="fn">r2_score</span>
+
+<span class="cm"># 1. the data — plain 1-D arrays, same length</span>
+x = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">2</span>, <span class="num">3</span>, <span class="num">5</span>, <span class="num">7</span>, <span class="num">9</span>, <span class="num">12</span>, <span class="num">16</span>, <span class="num">20</span>, <span class="num">25</span>, <span class="num">30</span>])       <span class="cm"># training hours</span>
+y = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">95</span>, <span class="num">85</span>, <span class="num">70</span>, <span class="num">65</span>, <span class="num">60</span>, <span class="num">55</span>, <span class="num">50</span>, <span class="num">53</span>, <span class="num">58</span>, <span class="num">70</span>])   <span class="cm"># running times</span>
+
+<span class="cm"># 2. FIT: ask NumPy for the best degree-2 curve</span>
+coeffs = <span class="lib">np</span>.<span class="fn">polyfit</span>(x, y, <span class="num">2</span>)      <span class="cm"># → array([  0.1594,  -5.7118, 100.0485])</span>
+<span class="fn">print</span>(coeffs)                        <span class="cm"># [a, b, c], highest power first</span>
+
+<span class="cm"># 3. BUILD the curve you can call like a function</span>
+p = <span class="lib">np</span>.<span class="fn">poly1d</span>(coeffs)          <span class="cm"># p(x) = 0.1594 x² - 5.7118 x + 100.05</span>
+<span class="fn">print</span>(p)                             <span class="cm"># NumPy even prints it as a nice equation</span>
+
+<span class="cm"># 4. PREDICT — just call p( ) with any x, old or new</span>
+<span class="fn">print</span>(p(<span class="num">18</span>))                       <span class="cm"># 48.88   → a runner training 18 h</span>
+y_pred = p(x)                       <span class="cm"># predictions for every original x</span>
+
+<span class="cm"># 5. SCORE it, exactly like before</span>
+<span class="fn">print</span>(<span class="str">'R² ='</span>, <span class="fn">r2_score</span>(y, y_pred))   <span class="cm"># 0.9510  — the curve fits well!</span></pre>
+      </div>
+
+      <ol class="steps">
+        <li class="show"><strong>polyfit fits</strong><span class="sub"><code>np.polyfit(x, y, deg)</code> returns the coefficients of the best curve of that degree.</span></li>
+        <li class="show"><strong>poly1d builds</strong><span class="sub"><code>p = np.poly1d(coeffs)</code> turns those numbers into a curve <code>p</code> you can call.</span></li>
+        <li class="show"><strong>p(x) predicts</strong><span class="sub"><code>p(18)</code> gives one prediction; <code>p(x)</code> gives one for every point. No powers typed by hand.</span></li>
+      </ol>
+
+      <div class="demo-box">
+        <div class="demo-lbl">The curve np.polyfit found — the parabola that beats the line</div>
+        <div class="demo-out" id="out-fit"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-fit" height="270"></canvas></div>
+      </div>
+      <p class="m-desc">Change one number — the <code>deg</code> — and you get a different curve. Here is the same data fitted at three degrees:</p>
+      <table class="dt">
+        <thead><tr><th>Call</th><th>Degree</th><th>R²</th><th>Verdict</th></tr></thead>
+        <tbody>
+          <tr class="show"><td><code>np.polyfit(x, y, 1)</code></td><td>1</td><td>0.285</td><td>Underfit — a line can't bend</td></tr>
+          <tr class="show"><td style="color:var(--green)"><code>np.polyfit(x, y, 2)</code></td><td>2</td><td>0.951</td><td>Great — one bend matches the U</td></tr>
+          <tr class="show"><td><code>np.polyfit(x, y, 3)</code></td><td>3</td><td>0.979</td><td>A hair better, but is it worth it?</td></tr>
+        </tbody>
+      </table>
+      <div class="callout orange">
+        ⚠️ <strong>Watch the order:</strong> <code>polyfit</code> lists coefficients <strong>highest power first</strong>. For degree 2 that is <code>[a, b, c]</code> in <code>y = a·x² + b·x + c</code> — the constant <code>c</code> is <em>last</em>, not first.
+      </div>
+      <div class="callout green">
+        💡 <strong>The whole recipe in three words:</strong> <code>polyfit</code> → <code>poly1d</code> → call it. Fit the curve, wrap the coefficients, then use <code>p(x)</code> to predict. That's polynomial regression with nothing but NumPy.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(4)">← PolynomialFeatures</button>
+        <div class="pnav-dots" id="dots-5"></div>
+        <button class="pnav-btn next" onclick="goTo(6)">Choosing degree →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 6: Choosing degree ══ -->
+    <div class="panel" id="panel-6">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1518133910546-b6c2fb7d79e3?w=900&q=75&fit=crop&h=200" alt="Goldilocks — not too much, not too little" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Polynomial Regression 06 / 07 · The Trade-off</div>
+          <div class="m-name">Choosing degree</div>
+          <div class="m-tagline">Too low underfits, too high overfits — find the Goldilocks degree</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-note">degree too low → underfit</span>
+        <span class="pill pill-note">degree too high → overfit</span>
+        <span class="pill pill-ret">→ just right</span>
+      </div>
+      <p class="m-desc">A higher degree can always squeeze training R² closer to 1 — but past a point it stops learning the <em>pattern</em> and starts memorising the <em>noise</em>. That's <strong style="color:var(--red)">overfitting</strong>: brilliant on the training points, wild everywhere between them.</p>
+      <div class="demo-box">
+        <div class="demo-lbl">The same 10 points at three degrees — slide to compare</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>degree (1 · 2 · 3 · 8)</label><input type="range" min="1" max="4" value="2" step="1" id="d-deg" oninput="drawDegree()"><span class="cval" id="d-degv">2</span></div>
+        </div>
+        <div class="demo-out" id="out-degree"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-degree" height="280"></canvas></div>
+      </div>
+      <table class="dt">
+        <thead><tr><th>Degree</th><th>Training R²</th><th>Diagnosis</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>1 (line)</td><td>0.285</td><td><strong style="color:var(--orange)">Underfit</strong> — too simple, misses the curve</td></tr>
+          <tr class="show"><td style="color:var(--green)">2 (parabola)</td><td>0.951</td><td><strong style="color:var(--green)">Just right</strong> — matches the U with one bend</td></tr>
+          <tr class="show"><td>3 (cubic)</td><td>0.979</td><td>Fine — barely better, still sensible</td></tr>
+          <tr class="show"><td>8</td><td>0.999</td><td><strong style="color:var(--red)">Overfit</strong> — hits every point, wiggles insanely between them</td></tr>
+        </tbody>
+      </table>
+      <div class="callout blue">
+        🔎 <strong>How to choose in practice:</strong> don't trust training R² alone — it only ever goes up. Use a <strong>train/test split</strong> (Lesson 12 / Deck 06) and pick the degree with the best score on the <em>test</em> set. Prefer the simplest degree that does well — usually 2 or 3.
+      </div>
+      <div class="callout orange">
+        ⚠️ <strong>The overfitting echo:</strong> raising the degree is exactly like adding features. Training R² climbs toward 1, but the model gets worse on new data — the very trap <strong>Adjusted R²</strong> and the <strong>test set</strong> were built to catch.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(5)">← PolynomialFeatures</button>
+        <div class="pnav-dots" id="dots-6"></div>
+        <button class="pnav-btn next" onclick="goTo(7)">Exercises →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 7: Exercises ══ -->
+    <div class="panel" id="panel-7">
+      <div class="exercise-header">
+        <div class="exercise-badge">✏️</div>
+        <div>
+          <div class="m-breadcrumb" style="color:var(--muted)">Polynomial Regression 07 / 07 · Practice</div>
+          <div style="font-size:1.4rem;font-weight:900;font-family:'Courier New',monospace;">Exercises — Targil</div>
+          <div style="font-size:.85rem;color:var(--muted);margin-top:4px;">Draw a curve, fit a parabola, read R², and pick a degree.</div>
+        </div>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q1</span><strong>Read the shape</strong></div>
+        <div class="ex-task">
+          For each equation, name the polynomial (linear / quadratic / cubic / quartic) and say how many times its curve bends:
+          <div class="eq-box" style="margin-top:12px;text-align:center;">
+            $$y = 2x + 1 \qquad y = x^2 - 4 \qquad y = x^3 - 3x \qquad y = x^4 - 5x^2$$
+          </div>
+        </div>
+        <details class="hint"><summary>Hint</summary>
+          <div class="ex-task" style="margin-top:8px;">Look at the highest power: 1 → linear (0 bends), 2 → quadratic (1 bend), 3 → cubic (2 bends), 4 → quartic (3 bends).</div>
+        </details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q2</span><strong>Draw a parabola</strong></div>
+        <div class="ex-task">
+          With <code>np.linspace(-5, 5, 400)</code> plot <code>y = 2x² - 3x - 5</code>. Add <code>axhline(0)</code>, <code>axvline(0)</code>, a grid and a title. Does the parabola open up or down, and why?
+        </div>
+        <details class="hint"><summary>Hint</summary>
+          <div class="ex-task" style="margin-top:8px;">a = 2 &gt; 0 → opens <strong>up</strong> (a valley). <code>y = 2*x**2 - 3*x - 5</code> is vectorised over the whole linspace.</div>
+        </details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q3</span><strong>Fit with np.polyfit</strong></div>
+        <div class="ex-task">
+          Fit a <strong>quadratic</strong> to this curved data with <code>np.polyfit(x, y, 2)</code>, wrap it in <code>np.poly1d</code>, and print the R² with <code>r2_score</code>. Then predict y at x = 6.
+          <div class="code-wrap" style="margin-top:10px;"><pre><span class="lib">x</span> = np.array([1, 2, 3, 4, 5, 7, 8, 9])
+<span class="lib">y</span> = np.array([10, 5, 2, 1, 2, 10, 17, 26])   <span class="cm"># roughly y = (x-4)² + 1</span></pre></div>
+        </div>
+        <details class="hint"><summary>Hint</summary>
+          <div class="ex-task" style="margin-top:8px;"><code>coeffs = np.polyfit(x, y, 2)</code> → <code>p = np.poly1d(coeffs)</code> → <code>r2_score(y, p(x))</code>. R² should be very close to 1; <code>p(6)</code> ≈ 5.</div>
+        </details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q4</span><strong>Line vs parabola</strong></div>
+        <div class="ex-task">
+          Using the Q3 data, also fit a straight line (<code>np.polyfit(x, y, 1)</code>) and print its R². Which model wins, and why can't the line compete?
+        </div>
+        <details class="hint"><summary>Hint</summary>
+          <div class="ex-task" style="margin-top:8px;">The data is a U — a line can't be low in the middle and high on both ends, so its R² is far below the parabola's.</div>
+        </details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q5</span><strong>Pick a degree honestly</strong></div>
+        <div class="ex-task">
+          Take the running-times data from this deck. Split it with <code>train_test_split(..., test_size=0.3, random_state=0)</code>, then fit <code>PolynomialFeatures</code> degrees 1, 2, 3 and 8 and print the R² on <strong>train</strong> and <strong>test</strong> for each. Which degree generalises best? What happens to the degree-8 test score?
+        </div>
+        <details class="hint"><summary>Hint</summary>
+          <div class="ex-task" style="margin-top:8px;">Training R² keeps climbing with degree, but the test R² peaks around degree 2–3 and then collapses for degree 8 — classic overfitting.</div>
+        </details>
+      </div>
+
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(6)">← Choosing degree</button>
+        <div class="pnav-dots" id="dots-7"></div>
+        <button class="pnav-btn next" onclick="goTo(0)" style="background:rgba(139,92,246,.1);border-color:rgba(139,92,246,.4);color:var(--purple);">&#8635; Back to Overview</button>
+      </div>
+    </div>
+
+  </div><!-- /panel-viewport -->
+</div><!-- /page-layout -->
+
+<script>
+const $ = id => document.getElementById(id);
+const TOTAL = 8;
+const LABELS = ['Overview','When a line fails','Degrees','Plot a quadratic','PolynomialFeatures','np.polyfit','Choosing degree','Exercises'];
+
+let current = 0;
+
+function goTo(idx) {
+  if (idx === current) return;
+  const oldP = $('panel-' + current), newP = $('panel-' + idx);
+  if (current > 0) document.querySelector(`[data-panel="${current}"]`).classList.add('done');
+  oldP.classList.remove('active'); oldP.classList.add('exit');
+  setTimeout(() => oldP.classList.remove('exit'), 280);
+  current = idx;
+  newP.classList.add('active');
+  $('viewport').scrollTop = 0;
+  document.querySelectorAll('.s-item').forEach(b => b.classList.toggle('active', +b.dataset.panel === idx));
+  updateDots();
+  const draws = [drawOverview, drawFail, drawDeg, drawQuad, drawPF, drawFit, drawDegree, null];
+  if (draws[idx]) setTimeout(draws[idx], 60);
+}
+
+function updateDots() {
+  for (let i = 0; i < TOTAL; i++) {
+    const cont = $('dots-' + i); if (!cont) continue;
+    cont.innerHTML = '';
+    for (let d = 0; d < TOTAL; d++) {
+      const btn = document.createElement('button');
+      btn.className = 'pnav-dot' + (d === current ? ' active' : '');
+      btn.title = LABELS[d]; btn.onclick = () => goTo(d);
+      cont.appendChild(btn);
+    }
+  }
+}
+
+$('viewport').addEventListener('scroll', () => {
+  const el = $('viewport');
+  $('progress').style.width = (el.scrollTop / (el.scrollHeight - el.clientHeight) * 100) + '%';
+});
+
+function cp(btn) {
+  navigator.clipboard.writeText(btn.closest('.code-wrap').querySelector('pre').innerText.trim()).then(() => {
+    btn.textContent = '✓ copied'; setTimeout(() => btn.textContent = 'copy', 1600);
+  });
+}
+
+/* ══════════ shared cartesian plot helper ══════════ */
+const COL = { grid:'rgba(230,237,243,.07)', axis:'rgba(230,237,243,.45)', tick:'rgba(230,237,243,.4)',
+              accent:'#facc15', blue:'#3b82f6', green:'#10b981', red:'#f43f5e', cyan:'#06b6d4', orange:'#f97316', purple:'#8b5cf6', surface:'#020509' };
+
+function plotSetup(cvId, XMIN, XMAX, YMIN, YMAX, xstep=2, ystep) {
+  const cv = $(cvId), ctx = cv.getContext('2d');
+  const wrap = cv.parentElement;
+  cv.width = Math.min(wrap.clientWidth - 28 || 560, 640);
+  const W = cv.width, H = cv.height;
+  const sx = x => (x - XMIN) / (XMAX - XMIN) * W;
+  const sy = y => H - (y - YMIN) / (YMAX - YMIN) * H;
+  if (!ystep) ystep = xstep;
+  ctx.clearRect(0, 0, W, H);
+  ctx.strokeStyle = COL.grid; ctx.lineWidth = 1;
+  for (let gx = Math.ceil(XMIN / xstep) * xstep; gx <= XMAX; gx += xstep) { ctx.beginPath(); ctx.moveTo(sx(gx), 0); ctx.lineTo(sx(gx), H); ctx.stroke(); }
+  for (let gy = Math.ceil(YMIN / ystep) * ystep; gy <= YMAX; gy += ystep) { ctx.beginPath(); ctx.moveTo(0, sy(gy)); ctx.lineTo(W, sy(gy)); ctx.stroke(); }
+  ctx.strokeStyle = COL.axis; ctx.setLineDash([5, 4]); ctx.lineWidth = 1;
+  if (YMIN <= 0 && YMAX >= 0) { ctx.beginPath(); ctx.moveTo(0, sy(0)); ctx.lineTo(W, sy(0)); ctx.stroke(); }
+  if (XMIN <= 0 && XMAX >= 0) { ctx.beginPath(); ctx.moveTo(sx(0), 0); ctx.lineTo(sx(0), H); ctx.stroke(); }
+  ctx.setLineDash([]);
+  ctx.fillStyle = COL.tick; ctx.font = '10px Courier New'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  const yb = (YMIN <= 0 && YMAX >= 0) ? 0 : YMIN;
+  for (let gx = Math.ceil(XMIN / xstep) * xstep; gx <= XMAX; gx += xstep) if (Math.abs(gx) > 1e-9 && sx(gx) > 14 && sx(gx) < W - 14) ctx.fillText(gx, sx(gx), sy(yb) + 4);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  const xb = (XMIN <= 0 && XMAX >= 0) ? 0 : XMIN;
+  for (let gy = Math.ceil(YMIN / ystep) * ystep; gy <= YMAX; gy += ystep) if (Math.abs(gy) > 1e-9 && sy(gy) > 10 && sy(gy) < H - 10) ctx.fillText(gy, sx(xb) + 5, sy(gy));
+  return { ctx, sx, sy, W, H, XMIN, XMAX, YMIN, YMAX };
+}
+
+function haloText(ctx, txt, x, y, color) {
+  ctx.lineWidth = 4; ctx.lineJoin = 'round'; ctx.strokeStyle = COL.surface;
+  ctx.strokeText(txt, x, y);
+  ctx.fillStyle = color; ctx.fillText(txt, x, y);
+}
+
+function plotPoint(p, x, y, color, label, r = 5) {
+  const { ctx, sx, sy } = p;
+  ctx.beginPath(); ctx.arc(sx(x), sy(y), r, 0, Math.PI * 2);
+  ctx.fillStyle = color; ctx.fill();
+  ctx.lineWidth = 2; ctx.strokeStyle = COL.surface; ctx.stroke();
+  if (label) { ctx.font = 'bold 11px Courier New'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; haloText(ctx, label, sx(x) + 9, sy(y) - 7, color); }
+}
+
+// evaluate a polynomial: coeffs highest-power first (like np.polyfit / np.polyval)
+function polyval(coeffs, x) { let v = 0; for (let i = 0; i < coeffs.length; i++) v = v * x + coeffs[i]; return v; }
+
+// plot a polynomial curve from its coefficients, clipped to the box
+function plotPoly(p, coeffs, color, label, width = 2.5) {
+  const { ctx, sx, sy, XMIN, XMAX } = p;
+  ctx.save();
+  ctx.beginPath(); ctx.rect(0, 0, p.W, p.H); ctx.clip();
+  ctx.strokeStyle = color; ctx.lineWidth = width;
+  ctx.beginPath();
+  const N = 240;
+  for (let i = 0; i <= N; i++) {
+    const x = XMIN + (XMAX - XMIN) * i / N;
+    const y = polyval(coeffs, x);
+    const px = sx(x), py = sy(y);
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+  ctx.restore();
+  if (label) {
+    ctx.font = 'bold 11px Courier New'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+    const lx = XMIN + (XMAX - XMIN) * 0.06;
+    haloText(ctx, label, sx(lx), 18, color);
+  }
+}
+
+const fmt = v => (Math.round(v * 100) / 100).toString();
+const fmt3 = v => v.toFixed(3);
+
+/* ══════════ the running-times dataset (curved) ══════════ */
+const HX = [2, 3, 5, 7, 9, 12, 16, 20, 25, 30];
+const HY = [95, 85, 70, 65, 60, 55, 50, 53, 58, 70];
+
+// pre-computed np.polyfit coefficients (highest power first) — real numbers from numpy
+const FIT = {
+  1: [-0.80456, 76.4788],
+  2: [0.159381, -5.71178, 100.048],
+  3: [-0.00441674, 0.367721, -8.32997, 107.36],
+  8: [-9.57744e-08, 1.15344e-05, -0.000567089, 0.0145961, -0.208771, 1.60323, -5.36201, -3.1796, 112.983]
+};
+const R2 = { 1: 0.285, 2: 0.951, 3: 0.979, 8: 0.999 };
+
+function drawRunData(p) { for (let i = 0; i < HX.length; i++) plotPoint(p, HX[i], HY[i], COL.blue, null, 5); }
+
+/* ═══ PANEL 0: overview — the curve that wins ═══ */
+function drawOverview() {
+  const p = plotSetup('cv-overview', 0, 32, 40, 100, 5, 10);
+  plotPoly(p, FIT[2], COL.green, 'a curve fits the U', 3);
+  drawRunData(p);
+}
+
+/* ═══ PANEL 1: the line that fails ═══ */
+function drawFail() {
+  const p = plotSetup('cv-fail', 0, 32, 40, 100, 5, 10);
+  plotPoly(p, FIT[1], COL.red, 'straight line — R² = 0.285', 2.5);
+  drawRunData(p);
+  $('out-fail').textContent =
+`blue dots = training hours (x) vs running time (y) — a U shape
+red line  = LinearRegression's best straight line
+to stay near the low middle it must miss BOTH raised ends → R² = 0.285`;
+}
+
+/* ═══ PANEL 2: degrees — four shapes ═══ */
+function drawDeg() {
+  const p = plotSetup('cv-deg', -3, 3, -6, 6, 1, 2);
+  // simple representative polynomials, coeffs highest-power first
+  plotPoly(p, [1, 0],            COL.cyan,   'linear  x',        2);   // y = x
+  plotPoly(p, [1, 0, -3],        COL.green,  'quadratic  x²−3',  2);   // y = x²-3
+  plotPoly(p, [1, 0, -3, 0],     COL.orange, 'cubic  x³−3x',     2);   // y = x³-3x
+  plotPoly(p, [1, 0, -4, 0, 2],  COL.red,    'quartic  x⁴−4x²+2',2);   // y = x⁴-4x²+2
+  $('out-deg').textContent =
+`linear (cyan)   → 0 bends, a straight line
+quadratic (green) → 1 bend,  a parabola
+cubic (orange)   → 2 bends, an S-curve
+quartic (red)    → 3 bends, a W shape`;
+}
+
+/* ═══ PANEL 3: plot a quadratic (interactive) ═══ */
+function drawQuad() {
+  const a = +$('q-a').value, b = +$('q-b').value, c = +$('q-c').value;
+  $('q-av').textContent = a.toFixed(1); $('q-bv').textContent = b.toFixed(1); $('q-cv').textContent = c.toFixed(1);
+  const p = plotSetup('cv-quad', -6, 7, -8, 20, 2, 4);
+  plotPoly(p, [a, b, c], COL.accent, `y = ${fmt(a)}x² + ${fmt(b)}x + ${fmt(c)}`, 2.5);
+  // vertex
+  if (Math.abs(a) > 1e-9) {
+    const vx = -b / (2 * a), vy = a * vx * vx + b * vx + c;
+    plotPoint(p, vx, vy, COL.red, `vertex (${fmt(vx)}, ${fmt(vy)})`, 5);
+  }
+  // y-intercept at x=0 is c
+  plotPoint(p, 0, c, COL.green, `c = ${fmt(c)}`, 4);
+  $('out-quad').textContent =
+`y = ${fmt(a)}·x² + ${fmt(b)}·x + ${fmt(c)}
+a = ${fmt(a)} → ${a >= 0 ? 'opens UP (valley)' : 'opens DOWN (hill)'}
+the green dot is c, the y-intercept; the red dot is the single bend (vertex)`;
+}
+
+/* ═══ PANEL 5: np.polyfit — the parabola fit ═══ */
+function drawFit() {
+  const p = plotSetup('cv-fit', 0, 32, 40, 100, 5, 10);
+  plotPoly(p, FIT[1], COL.red,   'line  R²=0.285', 1.8);
+  plotPoly(p, FIT[2], COL.green, 'parabola  R²=0.951', 3);
+  drawRunData(p);
+  const yq = polyval(FIT[2], 18);
+  plotPoint(p, 18, yq, COL.accent, `p(18) ≈ ${yq.toFixed(1)}`, 6);
+  $('out-fit').textContent =
+`green curve = np.polyfit(x, y, 2)  →  0.1594x² − 5.7118x + 100.05
+the one bend follows the U — R² jumps from 0.285 (line) to 0.951 (parabola)
+yellow dot = p(18) ≈ ${yq.toFixed(1)}, a prediction for an x with no data point`;
+}
+
+/* ═══ PANEL 4: PolynomialFeatures — expand x into its powers ═══ */
+function drawPF() {
+  const d = +$('pf-deg').value;
+  $('pf-degv').textContent = d;
+  const labels = ['1', 'x', 'x²', 'x³', 'x⁴', 'x⁵'];
+  const colors = ['#8a99ad', COL.blue, COL.green, COL.orange, COL.purple, COL.cyan];
+  const names  = ['bias', 'x', 'x²', 'x³', 'x⁴', 'x⁵'];
+  const samples = [3, 5];
+  const featList = labels.slice(0, d + 1).join(', ');
+
+  let html = `<div style="text-align:center;color:#e6edf3;font-family:'Courier New',monospace;font-size:.82rem;margin-bottom:4px;">PolynomialFeatures(degree=<b style="color:${COL.cyan}">${d}</b>)</div>`;
+  html += `<div style="text-align:center;color:#8a99ad;font-family:'Courier New',monospace;font-size:.75rem;margin-bottom:16px;">each row&nbsp; x &nbsp;→&nbsp; [ ${featList} ]&nbsp; — ${d + 1} columns</div>`;
+
+  for (const xv of samples) {
+    html += `<div style="display:flex;align-items:center;gap:8px;justify-content:center;margin:12px 0;flex-wrap:wrap;">`;
+    // original single feature
+    html += `<div style="text-align:center;">
+      <div style="font-size:.6rem;color:${COL.blue};margin-bottom:4px;font-family:'Courier New',monospace;">x</div>
+      <div style="width:44px;height:44px;border-radius:8px;border:2px solid ${COL.blue};background:#0d2036;display:grid;place-items:center;color:#e6edf3;font-weight:800;font-size:1.05rem;">${xv}</div></div>`;
+    html += `<div style="color:${COL.accent};font-size:1.5rem;font-weight:800;padding:0 4px;">→</div>`;
+    // expanded features
+    for (let k = 0; k <= d; k++) {
+      const val = Math.pow(xv, k);
+      const c = colors[k];
+      html += `<div style="text-align:center;">
+        <div style="font-size:.6rem;color:${c};margin-bottom:4px;font-family:'Courier New',monospace;">${names[k]}</div>
+        <div style="min-width:44px;height:44px;padding:0 9px;border-radius:8px;border:2px solid ${c};background:#0d2036;display:grid;place-items:center;color:#e6edf3;font-weight:800;font-size:1.05rem;">${val}</div></div>`;
+    }
+    html += `</div>`;
+  }
+  $('pf-render').innerHTML = html;
+
+  const row = xv => Array.from({ length: d + 1 }, (_, k) => Math.pow(xv, k)).join(', ');
+  $('out-pf').textContent =
+`ONE feature x, degree=${d}  →  each row becomes ${d + 1} columns: [ ${featList} ]
+x = 3  →  [ ${row(3)} ]
+x = 5  →  [ ${row(5)} ]
+LinearRegression then fits ONE weight per column (β for 1, x, x², …)`;
+  if ($('pf2-feat')) drawPF2();   // keep the multi-feature demo in sync on panel entry
+}
+
+/* a small labelled value box used by the multi-feature demo */
+function pfChip(name, val, color) {
+  return `<div style="text-align:center;">
+    <div style="font-size:.62rem;color:${color};margin-bottom:3px;font-family:'Courier New',monospace;white-space:nowrap;">${name}</div>
+    <div style="min-width:42px;height:40px;padding:0 8px;border-radius:8px;border:2px solid ${color};background:#0d2036;display:grid;place-items:center;color:#e6edf3;font-weight:800;font-size:.98rem;">${val}</div></div>`;
+}
+
+/* ═══ PANEL 4 (demo ②): PolynomialFeatures on 1–3 features, degree 2 ═══ */
+function drawPF2() {
+  const n = +$('pf2-feat').value;
+  $('pf2-featv').textContent = n;
+  const sample = [2, 3, 4];       // x₁=2, x₂=3, x₃=4
+  const sub = ['₁', '₂', '₃'];
+  const catColor = { bias: '#8a99ad', lin: COL.blue, sq: COL.green, int: COL.orange };
+  // build the degree-2 term list in sklearn's order: bias, linear, then squares & interactions
+  const terms = [{ name: '1', cat: 'bias', val: 1 }];
+  for (let i = 0; i < n; i++) terms.push({ name: 'x' + sub[i], cat: 'lin', val: sample[i] });
+  for (let i = 0; i < n; i++) for (let j = i; j < n; j++)
+    terms.push({ name: i === j ? 'x' + sub[i] + '²' : 'x' + sub[i] + 'x' + sub[j], cat: i === j ? 'sq' : 'int', val: sample[i] * sample[j] });
+
+  let html = `<div style="text-align:center;color:#e6edf3;font-family:'Courier New',monospace;font-size:.82rem;margin-bottom:2px;">PolynomialFeatures(degree=<b style="color:${COL.cyan}">2</b>) on <b style="color:${COL.blue}">${n}</b> feature${n > 1 ? 's' : ''}</div>`;
+  html += `<div style="text-align:center;color:#8a99ad;font-family:'Courier New',monospace;font-size:.75rem;margin-bottom:14px;">${n} column${n > 1 ? 's' : ''}  →  ${terms.length} columns</div>`;
+  html += `<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:6px;">`;
+  for (let i = 0; i < n; i++) html += pfChip('x' + sub[i], sample[i], COL.blue);
+  html += `</div><div style="text-align:center;color:${COL.accent};font-size:1.4rem;font-weight:800;margin:2px 0 8px;">↓</div>`;
+  html += `<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">`;
+  for (const t of terms) html += pfChip(t.name, t.val, catColor[t.cat]);
+  html += `</div>`;
+  html += `<div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:12px;font-size:.66rem;font-family:'Courier New',monospace;">
+    <span style="color:${COL.blue}">■ x — feature</span>
+    <span style="color:${COL.green}">■ x² — square (curve)</span>
+    <span style="color:${COL.orange}">■ xᵢxⱼ — interaction</span></div>`;
+  $('pf2-render').innerHTML = html;
+
+  const names = terms.map(t => t.name).join(', ');
+  const inputs = Array.from({ length: n }, (_, i) => 'x' + sub[i]).join(', ');
+  const meanings = ['size', 'number of rooms', 'floor'];
+  const meaningLine = (n === 1 ? 'this feature could be' : `these ${n} features could be`) + ':  ' + meanings.slice(0, n).join('  +  ');
+  $('out-pf2').textContent =
+`${n} feature${n > 1 ? 's' : ''} [ ${inputs} ]  →  ${terms.length} columns:
+[ ${names} ]
+${meaningLine}`;
+}
+
+/* ═══ PANEL 6: choosing degree (interactive) ═══ */
+function drawDegree() {
+  // 4 discrete stops: slider 1..4 maps to the degrees we fit with numpy
+  const have = [1, 2, 3, 8];
+  let idx = Math.round(+$('d-deg').value);
+  idx = Math.min(Math.max(idx, 1), have.length);
+  const d = have[idx - 1];
+  $('d-degv').textContent = d;
+  const p = plotSetup('cv-degree', 0, 32, 30, 110, 5, 20);
+  const color = d === 1 ? COL.orange : d === 2 ? COL.green : d === 3 ? COL.cyan : COL.red;
+  plotPoly(p, FIT[d], color, `degree ${d} — R² = ${R2[d]}`, 2.8);
+  drawRunData(p);
+  const verdict = d === 1 ? 'UNDERFIT — too simple, a line cannot bend'
+                : d === 2 ? 'JUST RIGHT — one bend matches the U perfectly'
+                : d === 3 ? 'still sensible — barely better than degree 2'
+                :           'OVERFIT — hits the points but wiggles wildly between them';
+  $('out-degree').textContent =
+`degree ${d}   training R² = ${R2[d]}
+${verdict}
+
+(the slider has 4 stops: 1 · 2 · 3 · 8 — the degrees we fit with numpy)`;
+}
+
+/* keyboard navigation */
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' && current < TOTAL - 1) goTo(current + 1);
+  if (e.key === 'ArrowLeft' && current > 0) goTo(current - 1);
+});
+
+window.addEventListener('resize', () => {
+  const draws = { 0: drawOverview, 1: drawFail, 2: drawDeg, 3: drawQuad, 4: drawPF, 5: drawFit, 6: drawDegree };
+  if (draws[current]) draws[current]();
+});
+
+updateDots();
+drawOverview();
+</script>
+</body>
+</html>

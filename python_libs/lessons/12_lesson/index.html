@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 12 - Train/Test Split, Adjusted R² and Polynomials</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      renderMathInElement(document.body, {
+        delimiters: [
+          { left: '$$', right: '$$', display: true },
+          { left: '\\(', right: '\\)', display: false }
+        ],
+        throwOnError: false
+      });
+    });
+  </script>
+  <style>
+    :root {
+      --bg: #f8fbff;
+      --surface: #ffffff;
+      --ink: #142033;
+      --muted: #52657d;
+      --blue: #2563eb;
+      --blue-dark: #143b73;
+      --cyan: #e7fbff;
+      --green: #0f9f6e;
+      --orange: #f97316;
+      --red: #dc2626;
+      --border: #bfd0ea;
+      --code-bg: #101a2c;
+      --code-text: #dceaff;
+      --soft-blue: #eef6ff;
+      --soft-green: #effbf5;
+      --soft-orange: #fff7ed;
+      --soft-red: #fef2f2;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Trebuchet MS", "Lucida Sans", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 10%, #e9f7ff 0%, transparent 34%),
+        radial-gradient(circle at 88% 18%, #effbf5 0%, transparent 32%),
+        linear-gradient(180deg, var(--bg) 0%, #ffffff 56%, #f1f8ff 100%);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 28px 20px 60px; }
+    .layout { display: grid; grid-template-columns: 250px 1fr; gap: 22px; align-items: start; }
+
+    .side-nav {
+      position: sticky; top: 20px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 18px 14px;
+      box-shadow: 0 4px 16px rgba(37,99,235,.08);
+    }
+    .side-title { font-size: .8rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--blue); margin: 0 0 10px; }
+    .part-label { display: block; padding: 8px 4px 4px; font-size: .7rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--green); }
+    .topic-link {
+      display: block; width: 100%; border: 1px solid transparent; border-radius: 9px;
+      padding: 7px 10px; background: transparent; color: var(--muted); cursor: pointer;
+      text-align: left; font: inherit; margin: 2px 0; transition: .16s ease;
+    }
+    .topic-link:hover { background: #f0f7ff; color: var(--blue-dark); border-color: var(--border); }
+    .topic-link.active { background: #e9f1ff; color: var(--blue-dark); border-color: var(--blue); font-weight: 700; }
+    .side-divider { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+
+    .nav-back {
+      display: inline-block; margin-top: 8px; padding: 10px 16px; border-radius: 10px;
+      border: 1px solid var(--border); background: var(--soft-blue); color: var(--blue-dark);
+      text-decoration: none; font-weight: 700;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, var(--surface) 0%, var(--soft-blue) 54%, var(--soft-green) 100%);
+      border: 1px solid var(--border); border-radius: 16px; padding: 28px;
+      box-shadow: 0 12px 30px rgba(37,99,235,.12); margin-bottom: 22px;
+    }
+    .tag { display: inline-block; padding: 5px 12px; border-radius: 999px; background: #e7fbff; color: #0f766e; font-weight: 800; font-size: .82rem; border: 1px solid #99e6ef; }
+    h1 { margin: 14px 0 10px; color: var(--blue-dark); font-size: clamp(2rem, 5vw, 3.2rem); line-height: 1.05; }
+    .hero p { max-width: 820px; color: var(--muted); font-size: 1.06rem; }
+    .hero-chips { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .hero-chip { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: .78rem; font-weight: 700; background: rgba(20,184,166,.1); color: #0f766e; border: 1px solid rgba(20,184,166,.3); }
+
+    .card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      padding: 22px; margin-bottom: 16px; box-shadow: 0 7px 22px rgba(37,99,235,.08);
+    }
+    .topic-panel { display: none; }
+    .topic-panel.active { display: block; }
+    .step-title { margin: 0 0 12px; color: var(--blue-dark); font-size: 1.25rem; }
+
+    .formula-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 16px 0; }
+    .formula { border: 1px solid var(--border); border-radius: 10px; padding: 14px; background: #fbfdff; }
+    .formula.wide { grid-column: 1 / -1; }
+    .formula strong { color: var(--blue-dark); display: block; margin-bottom: 4px; }
+    code { font-family: Consolas, "Courier New", monospace; }
+
+    .math-card {
+      border: 1px solid #b7c8e4; border-radius: 12px;
+      background: linear-gradient(135deg, #ffffff 0%, #f1f7ff 100%);
+      padding: 18px; margin: 18px 0; text-align: center;
+    }
+    .math-formula { display: block; color: var(--blue-dark); font-family: "Cambria Math", "Times New Roman", serif; font-size: clamp(1.25rem, 3vw, 2rem); line-height: 1.7; overflow-x: auto; padding: 2px 0; }
+    .math-caption { color: var(--muted); margin: 8px 0 0; font-size: .95rem; }
+    .math-formula.compact { font-size: clamp(.88rem, 1.8vw, 1.2rem); }
+    .math-formula.no-scroll, .math-formula.no-scroll .katex-display { overflow-x: hidden; }
+    .math-formula.no-scroll { font-size: clamp(.7rem, 1.45vw, 1rem); }
+
+    .katex { color: var(--blue-dark); }
+    .katex-display { margin: 6px 0; overflow-x: auto; overflow-y: hidden; padding: 3px 0; }
+    .data-table .katex, .math-caption .katex, p .katex { font-size: 1em; }
+
+    .resource-link { display: inline-block; color: var(--blue-dark); font-weight: 800; text-decoration: none; border-bottom: 2px solid rgba(37,99,235,.35); }
+    .resource-link:hover { color: var(--blue); border-bottom-color: var(--blue); }
+    .resource-links { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 4px; }
+
+    .code {
+      background: var(--code-bg); color: var(--code-text); border-radius: 10px;
+      border: 1px solid #304563; padding: 16px 18px; overflow-x: auto; margin: 12px 0;
+      font-size: .95rem; line-height: 1.5; white-space: pre;
+    }
+    .output {
+      background: #f7fbff; color: #1a2d49; border: 1px solid var(--border);
+      border-left: 5px solid var(--blue); border-radius: 10px; padding: 12px 14px;
+      overflow-x: auto; margin: 8px 0 16px; font-family: Consolas, "Courier New", monospace; white-space: pre-wrap;
+    }
+    .output.warn { border-left-color: var(--red); background: var(--soft-red); }
+
+    .graph-preview {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #fbfdff;
+      padding: 14px;
+      margin: 18px 0;
+    }
+
+    .graph-preview svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      max-height: 360px;
+    }
+
+    .graph-title {
+      font-weight: 800;
+      color: var(--blue-dark);
+      margin: 0 0 8px;
+    }
+
+    .note { background: var(--soft-orange); border: 1px solid #fed7aa; border-left: 5px solid var(--orange); border-radius: 10px; padding: 12px 14px; margin: 12px 0; }
+    .note.blue { background: var(--soft-blue); border-color: #bcd4f6; border-left-color: var(--blue); }
+    .note.red { background: var(--soft-red); border-color: #fecaca; border-left-color: var(--red); }
+    .note.green { background: var(--soft-green); border-color: #b6ebd4; border-left-color: var(--green); }
+
+    .task-box { border: 1px solid var(--border); border-left: 5px solid var(--blue); border-radius: 10px; padding: 14px 16px; margin: 12px 0; background: #fbfdff; }
+    .task-num { font-weight: 900; color: var(--blue); text-transform: uppercase; letter-spacing: .08em; font-size: .78rem; }
+    .big-result { font-weight: 900; color: var(--blue-dark); font-size: 1.1rem; letter-spacing: .04em; text-transform: uppercase; margin-bottom: 8px; }
+
+    .data-table { width: 100%; border-collapse: collapse; margin: 16px 0; background: #fbfdff; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .data-table th { background: var(--soft-blue); color: var(--blue-dark); text-align: left; padding: 10px 14px; font-size: .9rem; border-bottom: 2px solid var(--border); }
+    .data-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); font-family: Consolas, "Courier New", monospace; }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table td.term { font-family: inherit; font-weight: 700; color: var(--blue-dark); }
+
+    .split-cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0; }
+    .split-cmp .box { border-radius: 12px; padding: 16px; text-align: center; }
+    .split-cmp .box.good { background: var(--soft-green); border: 1px solid #b6ebd4; }
+    .split-cmp .box.bad { background: var(--soft-red); border: 1px solid #fecaca; }
+    .split-cmp .box .label { font-size: .8rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+    .split-cmp .box .num { font-size: 2rem; font-weight: 900; margin: 6px 0; font-family: Consolas, monospace; }
+    .split-cmp .box.good .num { color: var(--green); }
+    .split-cmp .box.bad .num { color: var(--red); }
+    .split-cmp .box .sub { font-size: .82rem; color: var(--muted); }
+
+    .footer { text-align: center; color: var(--muted); font-size: .9rem; margin-top: 18px; }
+    .task-list { margin: 6px 0 0; padding-left: 20px; }
+    .task-list li { margin: 4px 0; }
+
+    @media (max-width: 820px) {
+      .layout { grid-template-columns: 1fr; }
+      .side-nav { position: static; }
+      .wrap { padding: 18px 12px 44px; }
+      .formula-strip, .split-cmp { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="layout">
+    <aside class="side-nav">
+      <p class="side-title">Lesson 12</p>
+      <span class="part-label">Validation</span>
+      <button class="topic-link active" data-target="topic-github">1. GitHub Repo</button>
+      <button class="topic-link" data-target="topic-1">2. The 4-feature data</button>
+      <button class="topic-link" data-target="topic-2">3. Fit on all the data</button>
+      <button class="topic-link" data-target="topic-3">4. train_test_split</button>
+      <button class="topic-link" data-target="topic-4">5. Overfitting revealed</button>
+      <span class="part-label">Adjusted R²</span>
+      <button class="topic-link" data-target="topic-5">6. Why adjust R²?</button>
+      <button class="topic-link" data-target="topic-6">7. The formula</button>
+      <button class="topic-link" data-target="topic-7">8. Adjusted R² in code</button>
+      <span class="part-label">Polynomials</span>
+      <button class="topic-link" data-target="topic-8">9. When a line fails</button>
+      <button class="topic-link" data-target="topic-9">10. Degrees of a polynomial</button>
+      <button class="topic-link" data-target="topic-10">11. Plotting a quadratic</button>
+      <span class="part-label">Practice</span>
+      <button class="topic-link" data-target="topic-11">12. Homework</button>
+      <hr class="side-divider">
+      <a class="nav-back" href="../../index.html">Back to Python libs</a>
+    </aside>
+
+    <main>
+      <section class="hero">
+        <span class="tag">Today - July 15, 2026</span>
+        <h1>Train / Test Split, Adjusted R² &amp; Polynomials</h1>
+        <p>Today we learned why a model that scores <strong>R² = 0.99 on its own training data can be worthless</strong>. We split the data with <code>train_test_split</code>, watched the test score collapse to a <strong>negative</strong> number (overfitting!), met <strong>Adjusted R²</strong> which punishes useless features, and finally saw that some data is simply <strong>too curved for a straight line</strong> - the doorway to polynomial regression.</p>
+        <div class="hero-chips">
+          <span class="hero-chip">train_test_split</span>
+          <span class="hero-chip">overfitting</span>
+          <span class="hero-chip">R² train vs test</span>
+          <span class="hero-chip">Adjusted R²</span>
+          <span class="hero-chip">dmba</span>
+          <span class="hero-chip">polynomials</span>
+        </div>
+      </section>
+
+      <!-- ═══ 1. GITHUB ═══ -->
+      <section class="card topic-panel active" id="topic-github">
+        <h2 class="step-title">Open Class Code</h2>
+        <p>Open the original notebooks from today's class on GitHub. Today there are two: <code>linear4_15_07_2026</code> (train/test split + adjusted R²) and <code>poly1_15_07_2026</code> (polynomials).</p>
+        <div class="resource-links">
+          <a class="resource-link" href="https://github.com/pythonai211225-rgb/15.07.2026" target="_blank" rel="noopener">
+            pythonai211225-rgb/15.07.2026
+          </a>
+        </div>
+        <div class="note blue">This repository contains the class code for July 15, 2026.</div>
+      </section>
+
+      <!-- ═══ 2. THE DATA ═══ -->
+      <section class="card topic-panel" id="topic-1">
+        <h2 class="step-title">The 4-feature apartment data</h2>
+        <p>We predict an apartment <strong>price</strong> from <strong>four features</strong>: area (m²), number of rooms, age (years) and distance from the center (km). Ten apartments, no random code - everyone gets the same numbers.</p>
+        <pre class="code"><code>import numpy as np
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.model_selection import train_test_split
+
+#              area  rooms  age  dist
+X = np.array([[ 70,   3,    15,   5],
+              [ 90,   4,    10,   7],
+              [ 60,   2,    20,   3],
+              [120,   5,     5,  10],
+              [ 80,   3,    12,   6],
+              [110,   4,     8,   8],
+              [100,   4,     7,   5],
+              [ 75,   3,    18,   4],
+              [ 95,   4,     9,   6],
+              [130,   5,     3,  12]])
+
+Y = np.array([1200, 1500, 1100, 1800, 1300, 1650, 1750, 1250, 1550, 1900])</code></pre>
+        <div class="note">Four features means the model learns <strong>four weights</strong> (β₁, β₂, β₃, β₄) plus the bias β₀ - one number per column, exactly like the 3-feature case from Lesson 11.</div>
+      </section>
+
+      <!-- ═══ 3. FIT ON ALL ═══ -->
+      <section class="card topic-panel" id="topic-2">
+        <h2 class="step-title">First attempt - fit on ALL the data</h2>
+        <p>The naive approach: train on every row, then score on those same rows.</p>
+        <pre class="code"><code>model = LinearRegression()
+model.fit(X, Y)          # train on all 10 apartments
+y_pred = model.predict(X)
+
+print('model.intercept_ =', model.intercept_)
+print('model.coef_      =', model.coef_)
+print('R² =', r2_score(Y, y_pred))
+print('mse=', mean_squared_error(Y, y_pred))</code></pre>
+        <div class="output">model.intercept_ = 740.6555403097074
+model.coef_      = [ 11.31108062  40.10949007 -15.69124359 -41.37800678]
+R² = 0.9878377506382762
+mse= 839.1952059589473</div>
+
+        <div class="math-card">
+          <span class="math-formula compact">
+            $$\hat{y} = 740.66 + 11.31\,\text{area} + 40.11\,\text{rooms} - 15.69\,\text{age} - 41.38\,\text{dist}$$
+          </span>
+          <p class="math-caption">R² = 0.988 looks fantastic... but we tested on the very data we trained on.</p>
+        </div>
+        <div class="note red"><strong>The trap:</strong> a model always looks good on the data it memorized. Scoring on the training set is like grading students on the exact questions they already saw. We need to test on <strong>data the model has never seen</strong>.</div>
+      </section>
+
+      <!-- ═══ 4. TRAIN TEST SPLIT ═══ -->
+      <section class="card topic-panel" id="topic-3">
+        <h2 class="step-title">train_test_split - hide some data</h2>
+        <p><code>train_test_split</code> from <code>sklearn.model_selection</code> randomly cuts the data into a <strong>training set</strong> (the model learns from it) and a <strong>test set</strong> (kept secret, used only to grade).</p>
+        <pre class="code"><code>X_train, X_test, Y_train, Y_test = train_test_split(
+    X, Y,
+    test_size=0.2,      # 20% goes to the test set (2 of 10 apartments)
+    random_state=42)    # a fixed seed → the same split every run
+
+model = LinearRegression()
+model.fit(X_train, Y_train)      # ← learn ONLY from the training rows
+
+print(model.intercept_)          # 728.62
+print(model.coef_)               # [12.17  32.18  -16.03  -46.50]</code></pre>
+
+        <table class="data-table">
+          <thead><tr><th>Argument</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td class="term">X, Y</td><td>The full features and target to be split</td></tr>
+            <tr><td class="term">test_size=0.2</td><td>Fraction kept for testing - here 20% → 8 train rows, 2 test rows</td></tr>
+            <tr><td class="term">random_state=42</td><td>Seed for the random shuffle - a fixed number means a reproducible split</td></tr>
+          </tbody>
+        </table>
+        <div class="note blue">The function returns <strong>four</strong> things in this exact order: <code>X_train, X_test, Y_train, Y_test</code>. Mix up the order and everything downstream breaks.</div>
+      </section>
+
+      <!-- ═══ 5. OVERFITTING ═══ -->
+      <section class="card topic-panel" id="topic-4">
+        <h2 class="step-title">Overfitting revealed</h2>
+        <p>Now score the model <strong>twice</strong> - once on the training rows it learned from, once on the hidden test rows.</p>
+        <pre class="code"><code># predict on both sets
+y_pred_train = model.predict(X_train)
+y_pred_test  = model.predict(X_test)
+
+# R²
+r2_train = r2_score(Y_train, y_pred_train)
+r2_test  = r2_score(Y_test,  y_pred_test)
+
+# mse
+mse_train = mean_squared_error(Y_train, y_pred_train)
+mse_test  = mean_squared_error(Y_test,  y_pred_test)
+
+print('R² train =', r2_train)
+print('R² test  =', r2_test)
+print('mse train', mse_train)
+print('mse test' , mse_test)</code></pre>
+        <div class="output warn">R² train = 0.9912232864474665
+R² test  = -1.16822476119001
+mse train 753.9059805476991
+mse test  1355.1404757437563</div>
+
+        <div class="split-cmp">
+          <div class="box good">
+            <div class="label">R² on train</div>
+            <div class="num">0.991</div>
+            <div class="sub">near-perfect on data it memorized</div>
+          </div>
+          <div class="box bad">
+            <div class="label">R² on test</div>
+            <div class="num">−1.168</div>
+            <div class="sub">worse than guessing the average!</div>
+          </div>
+        </div>
+
+        <p><strong>A negative R² is a red alarm.</strong> Remember \(R^2 = 1 - \frac{SSE}{SST}\). If our model's error <code>SSE</code> is <em>larger</em> than the error of simply always guessing the mean <code>SST</code>, the fraction exceeds 1 and R² drops below 0.</p>
+        <div class="note red"><strong>This is overfitting.</strong> With only 8 training rows and 4 features, the model has almost enough freedom to memorize the training set perfectly - so it fits the noise, not the pattern. It shines on training data (0.99) and falls apart on anything new (−1.17).</div>
+        <div class="note green"><strong>The lesson:</strong> never trust a score measured on the training data. Always keep a test set the model never sees, and judge it there.</div>
+      </section>
+
+      <!-- ═══ 6. WHY ADJUST ═══ -->
+      <section class="card topic-panel" id="topic-5">
+        <h2 class="step-title">Why we need Adjusted R²</h2>
+        <p>Plain R² has a dangerous flaw: <strong>it can never go down when you add a feature.</strong></p>
+        <p>Add a completely useless feature - say, using a person's <em>shoe size</em> to predict their <em>annual income</em> - and R² will either stay the same or creep up by pure chance. It will <strong>never</strong> decrease. So a naive reading of R² tempts you to keep piling on random columns, making the model look mathematically better on paper while it becomes useless on real, future data.</p>
+        <div class="note">This is exactly the <strong>overfitting</strong> we just saw. More features → higher training R² → but worse predictions on unseen data.</div>
+        <p><strong>Adjusted R²</strong> acts as an honest referee. It balances two competing forces:</p>
+        <div class="formula-strip">
+          <div class="formula"><strong>Reward ↑</strong> It rises if a new feature genuinely improves the predictions.</div>
+          <div class="formula"><strong>Penalty ↓</strong> It falls if a new feature adds no real value - you pay a fee just for adding complexity.</div>
+          <div class="formula"><strong>Net effect</strong> Only features that pull their own weight survive.</div>
+        </div>
+      </section>
+
+      <!-- ═══ 7. THE FORMULA ═══ -->
+      <section class="card topic-panel" id="topic-6">
+        <h2 class="step-title">The Adjusted R² formula</h2>
+        <div class="math-card">
+          <span class="math-formula no-scroll">
+            $$R^2_{adj} = 1 - \left[\frac{(1 - R^2)(n - 1)}{n - p - 1}\right]$$
+          </span>
+          <p class="math-caption">The variance explained by the model, <strong>penalized</strong> for every extra predictor.</p>
+        </div>
+        <p>Every symbol:</p>
+        <table class="data-table">
+          <thead><tr><th>Symbol</th><th>Name</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td class="term">\(R^2\)</td><td>R-squared</td><td>The standard coefficient of determination - the proportion of variance the model explains</td></tr>
+            <tr><td class="term">\(n\)</td><td>samples</td><td>The number of observations (rows) in the dataset</td></tr>
+            <tr><td class="term">\(p\)</td><td>predictors</td><td>The number of independent variables (features) in the model</td></tr>
+            <tr><td class="term">\(1\)</td><td>constant</td><td>Adjusts for degrees of freedom in the sample statistics</td></tr>
+          </tbody>
+        </table>
+        <p><strong>Reading the fraction:</strong> as \(p\) grows, the denominator \(n - p - 1\) shrinks, which <em>inflates</em> the penalty term and drags Adjusted R² down. A new feature only pays off if it raises \(R^2\) enough to overcome that shrinking denominator.</p>
+        <div class="note blue">Adjusted R² is always <strong>≤ R²</strong>. The gap between them grows with the number of features - a big gap warns that some of your features may be dead weight.</div>
+      </section>
+
+      <!-- ═══ 8. ADJUSTED R2 CODE ═══ -->
+      <section class="card topic-panel" id="topic-7">
+        <h2 class="step-title">Adjusted R² in code</h2>
+        <p><strong>Way 1 - write the formula ourselves.</strong> <code>X.shape</code> hands us <code>(n, p)</code> in one line - here the training set has 8 rows and 4 features.</p>
+        <pre class="code"><code>def adjusted_r2(y_train, y_pred, X):
+    r2 = r2_score(y_train, y_pred)
+    n, p = X.shape          # of train: 8 rows, 4 features
+    return 1 - (1 - r2) * (n - 1) / (n - p - 1)
+
+print(adjusted_r2(Y_train, y_pred_train, X_train))</code></pre>
+        <div class="output">0.9795210017107552</div>
+
+        <p><strong>Way 2 - use the <code>dmba</code> library.</strong> Same result, one import. Note it takes the fitted <code>model</code> (it reads the feature count from it).</p>
+        <pre class="code"><code># !pip install dmba
+from dmba import adjusted_r2_score
+
+adj_r2 = adjusted_r2_score(Y_train, y_pred_train, model)
+print('adjusted R2 score', adj_r2)</code></pre>
+        <div class="output">adjusted R2 score 0.9795210017107552</div>
+
+        <div class="math-card">
+          <span class="math-formula compact no-scroll">
+            $$R^2_{adj} = 1 - \frac{(1 - 0.99122)(8 - 1)}{8 - 4 - 1} = 1 - \frac{0.00878 \times 7}{3} = \boxed{0.97952}$$
+          </span>
+        </div>
+        <div class="note green">Both ways give the identical <strong>0.97952</strong> - proof that <code>dmba</code>'s function is just the formula. It sits a little below the raw training R² of 0.99122, the penalty for using 4 features on only 8 rows.</div>
+      </section>
+
+      <!-- ═══ 9. WHEN A LINE FAILS ═══ -->
+      <section class="card topic-panel" id="topic-8">
+        <h2 class="step-title">When a straight line simply fails</h2>
+        <p>Switch notebooks to <code>poly1_15_07_2026</code>. New data: how many hours an athlete <strong>trains</strong> vs their <strong>running time</strong>. Too little training is slow, and so is <em>too much</em> (over-training) - the relationship is <strong>U-shaped</strong>, not a line.</p>
+        <pre class="code"><code>from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error, r2_score
+
+training_hours = np.array([2, 3, 5, 7, 9, 12, 16, 20, 25, 30]).reshape(-1, 1)
+running_times  = np.array([95, 85, 70, 65, 60, 55, 50, 53, 58, 70])
+
+model = LinearRegression()
+model.fit(training_hours, running_times)
+y_pred = model.predict(training_hours)
+
+r2  = r2_score(running_times, y_pred)
+mse = mean_squared_error(running_times, y_pred)
+print(f"MSE: {mse:.7f}")
+print(f"R²:  {r2:.7f}")</code></pre>
+        <div class="output warn">MSE: 134.4338762
+R²:  0.2852683</div>
+
+        <div class="split-cmp">
+          <div class="box bad">
+            <div class="label">Straight-line R²</div>
+            <div class="num">0.285</div>
+            <div class="sub">the line explains only 29% of the variance</div>
+          </div>
+          <div class="box good">
+            <div class="label">Fix (next lesson)</div>
+            <div class="num">curve</div>
+            <div class="sub">a polynomial bends to follow the U</div>
+          </div>
+        </div>
+        <div class="graph-preview">
+          <p class="graph-title">A straight line misses the real pattern</p>
+          <svg viewBox="0 0 720 360" role="img" aria-label="Scatter plot of training hours and running times with a poor regression line">
+            <rect x="44" y="26" width="620" height="288" fill="#ffffff" stroke="#bfd0ea"/>
+            <g stroke="#e1e9f5" stroke-width="1">
+              <line x1="44" y1="278" x2="664" y2="278"/><line x1="44" y1="242" x2="664" y2="242"/>
+              <line x1="44" y1="206" x2="664" y2="206"/><line x1="44" y1="170" x2="664" y2="170"/>
+              <line x1="44" y1="134" x2="664" y2="134"/><line x1="44" y1="98" x2="664" y2="98"/>
+              <line x1="44" y1="62" x2="664" y2="62"/>
+              <line x1="113" y1="26" x2="113" y2="314"/><line x1="182" y1="26" x2="182" y2="314"/>
+              <line x1="251" y1="26" x2="251" y2="314"/><line x1="320" y1="26" x2="320" y2="314"/>
+              <line x1="389" y1="26" x2="389" y2="314"/><line x1="458" y1="26" x2="458" y2="314"/>
+              <line x1="527" y1="26" x2="527" y2="314"/><line x1="596" y1="26" x2="596" y2="314"/>
+            </g>
+            <line x1="44" y1="278" x2="664" y2="278" stroke="#1f2937" stroke-width="2" stroke-dasharray="5 5"/>
+            <line x1="44" y1="314" x2="44" y2="26" stroke="#1f2937" stroke-width="2" stroke-dasharray="5 5"/>
+            <line x1="72" y1="100" x2="644" y2="302" stroke="#ef4444" stroke-width="4"/>
+            <g fill="#1d4ed8" stroke="#ffffff" stroke-width="3">
+              <circle cx="86" cy="44" r="8"/><circle cx="113" cy="80" r="8"/>
+              <circle cx="182" cy="134" r="8"/><circle cx="224" cy="152" r="8"/>
+              <circle cx="278" cy="170" r="8"/><circle cx="347" cy="188" r="8"/>
+              <circle cx="415" cy="206" r="8"/><circle cx="484" cy="196" r="8"/>
+              <circle cx="555" cy="181" r="8"/><circle cx="596" cy="134" r="8"/>
+            </g>
+            <rect x="454" y="42" width="184" height="70" fill="#f7fbff" stroke="#bfd0ea"/>
+            <line x1="474" y1="64" x2="512" y2="64" stroke="#1d4ed8" stroke-width="5"/>
+            <text x="522" y="69" fill="#132033" font-size="14">observed points</text>
+            <line x1="474" y1="89" x2="512" y2="89" stroke="#ef4444" stroke-width="5"/>
+            <text x="522" y="94" fill="#132033" font-size="14">regression line</text>
+          </svg>
+        </div>
+        <div class="note red">An R² of <strong>0.285</strong> is a failing grade - not because sklearn is broken, but because we forced a <strong>straight line</strong> through data that <strong>curves</strong>. No line can be low in the middle and high on both ends.</div>
+        <div class="note blue">The cure is <strong>polynomial regression</strong> - letting the model use <code>x²</code>, <code>x³</code>, … so the fitted shape can <em>bend</em>. That is the whole subject of the new <a class="resource-link" href="../../07_poly_regression/01-poly-regression.html">Polynomial Regression deck</a>.</div>
+      </section>
+
+      <!-- ═══ 10. DEGREES ═══ -->
+      <section class="card topic-panel" id="topic-9">
+        <h2 class="step-title">Degrees of a polynomial</h2>
+        <p>A <strong>polynomial</strong> is an equation where the variable <code>x</code> is raised to whole-number powers. The <strong>degree</strong> is the <em>highest power</em> that appears - and it decides how many times the curve can bend.</p>
+        <table class="data-table">
+          <thead><tr><th>Name</th><th>Highest power</th><th>Shape</th><th>Bends</th></tr></thead>
+          <tbody>
+            <tr><td class="term">Linear</td><td>\(x^1\)</td><td>A straight line</td><td>0</td></tr>
+            <tr><td class="term">Quadratic</td><td>\(x^2\)</td><td>A parabola (single U or ∩)</td><td>1</td></tr>
+            <tr><td class="term">Cubic</td><td>\(x^3\)</td><td>An S-shaped curve</td><td>2</td></tr>
+            <tr><td class="term">Quartic</td><td>\(x^4\)</td><td>A W / M-shaped curve</td><td>3</td></tr>
+          </tbody>
+        </table>
+        <div class="math-card">
+          <span class="math-formula compact">
+            $$y = a_n x^n + \dots + a_2 x^2 + a_1 x + a_0$$
+          </span>
+          <p class="math-caption">The general polynomial of degree \(n\). Set every coefficient above \(a_1\) to zero and it collapses back into a straight line.</p>
+        </div>
+        <div class="note">The naming is Latin: <em>quadratic</em> comes from <em>quadratus</em> = "square" (because \(x^2\) is x-squared), and <em>cubic</em> from <em>cubus</em> = "cube" (\(x^3\) is x-cubed). A <strong>quartic</strong> is the one whose highest power is genuinely <strong>4</strong>.</div>
+      </section>
+
+      <!-- ═══ 11. PLOT QUADRATIC ═══ -->
+      <section class="card topic-panel" id="topic-10">
+        <h2 class="step-title">Plotting a quadratic</h2>
+        <p>Before fitting one, let's just <em>draw</em> a quadratic so its shape is familiar. Pick coefficients, sweep <code>x</code> with <code>np.linspace</code>, and plot.</p>
+        <pre class="code"><code>import numpy as np
+import matplotlib.pyplot as plt
+
+# Coefficients
+a, b, c = 1.0, -3.0, 2.0        # y = x² - 3x + 2
+x = np.linspace(-10, 10, 400)
+y = a * x**2 + b * x + c
+
+plt.figure()
+plt.plot(x, y)
+plt.axhline(0, linewidth=1)
+plt.axvline(0, linewidth=1)
+plt.xlabel('x')
+plt.ylabel('y')
+plt.title('y = x² - 3x + 2')
+plt.grid(True, which='both', linestyle='--', alpha=0.3)
+plt.show()</code></pre>
+
+        <div class="math-card">
+          <span class="math-formula">
+            $$y = x^2 - 3x + 2 \qquad (a = 1,\; b = -3,\; c = 2)$$
+          </span>
+        </div>
+
+        <div class="graph-preview">
+          <p class="graph-title">A parabola is a single bend</p>
+          <svg viewBox="0 0 720 360" role="img" aria-label="Parabola for y equals x squared minus 3x plus 2 drawn on axes">
+            <rect x="44" y="26" width="620" height="288" fill="#ffffff" stroke="#bfd0ea"/>
+            <g stroke="#e1e9f5" stroke-width="1">
+              <line x1="44" y1="278" x2="664" y2="278"/><line x1="44" y1="242" x2="664" y2="242"/>
+              <line x1="44" y1="206" x2="664" y2="206"/><line x1="44" y1="170" x2="664" y2="170"/>
+              <line x1="44" y1="134" x2="664" y2="134"/><line x1="44" y1="98" x2="664" y2="98"/>
+              <line x1="44" y1="62" x2="664" y2="62"/>
+              <line x1="113" y1="26" x2="113" y2="314"/><line x1="182" y1="26" x2="182" y2="314"/>
+              <line x1="251" y1="26" x2="251" y2="314"/><line x1="320" y1="26" x2="320" y2="314"/>
+              <line x1="389" y1="26" x2="389" y2="314"/><line x1="458" y1="26" x2="458" y2="314"/>
+              <line x1="527" y1="26" x2="527" y2="314"/><line x1="596" y1="26" x2="596" y2="314"/>
+            </g>
+            <line x1="44" y1="278" x2="664" y2="278" stroke="#1f2937" stroke-width="2"/>
+            <line x1="44" y1="314" x2="44" y2="26" stroke="#1f2937" stroke-width="2"/>
+            <path d="M 76 83 C 122 61, 167 80, 212 123 S 313 227, 358 242 S 460 196, 505 135 S 598 43, 644 43" fill="none" stroke="#ef4444" stroke-width="5"/>
+            <g fill="#1d4ed8" stroke="#ffffff" stroke-width="3">
+              <circle cx="92" cy="78" r="7"/><circle cx="156" cy="110" r="7"/>
+              <circle cx="224" cy="166" r="7"/><circle cx="292" cy="219" r="7"/>
+              <circle cx="360" cy="242" r="7"/><circle cx="428" cy="221" r="7"/>
+              <circle cx="496" cy="162" r="7"/><circle cx="564" cy="100" r="7"/>
+            </g>
+            <text x="68" y="42" fill="#52657d" font-size="12">y</text>
+            <text x="644" y="337" text-anchor="end" fill="#52657d" font-size="12">x</text>
+            <rect x="452" y="42" width="184" height="70" fill="#f7fbff" stroke="#bfd0ea"/>
+            <line x1="472" y1="64" x2="510" y2="64" stroke="#ef4444" stroke-width="5"/>
+            <text x="520" y="69" fill="#132033" font-size="14">quadratic curve</text>
+            <circle cx="491" cy="89" r="7" fill="#1d4ed8"/>
+            <text x="504" y="94" fill="#132033" font-size="14">sample points</text>
+          </svg>
+        </div>
+
+        <div class="note blue"><strong>The single bend is the whole point.</strong> Because the highest power is <code>x²</code>, the curve turns exactly once - a valley here. That one bend is what lets a quadratic follow the U-shaped running-times data that defeated the straight line.</div>
+        <div class="note"><code>np.linspace(-10, 10, 400)</code> makes 400 evenly-spaced x-values so the plotted curve looks smooth; <code>a * x**2 + b * x + c</code> is <strong>vectorised</strong> - it computes all 400 y-values at once.</div>
+      </section>
+
+      <!-- ═══ 12. HOMEWORK ═══ -->
+      <section class="card topic-panel" id="topic-11">
+        <h2 class="step-title">Homework - Targil</h2>
+        <p>Use two datasets and decide for each one whether a linear model or a quadratic polynomial model fits better. Write everything in a Jupyter notebook.</p>
+
+        <div class="task-box">
+          <div class="task-num">Dataset 1 - gym hours vs muscle gain</div>
+          <p><strong>X:</strong> hours in gym per week. <strong>Y:</strong> muscle mass gain (kg).</p>
+          <table class="data-table">
+            <thead><tr><th>X (hours/week)</th><th>Y (gain kg)</th></tr></thead>
+            <tbody>
+              <tr><td>0</td><td>3.1</td></tr>
+              <tr><td>1</td><td>5.0</td></tr>
+              <tr><td>2</td><td>7.2</td></tr>
+              <tr><td>3</td><td>8.9</td></tr>
+              <tr><td>4</td><td>11.2</td></tr>
+              <tr><td>5</td><td>12.8</td></tr>
+              <tr><td>6</td><td>15.2</td></tr>
+              <tr><td>7</td><td>17.1</td></tr>
+              <tr><td>8</td><td>19.2</td></tr>
+              <tr><td>9</td><td>21.0</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="task-box">
+          <div class="task-num">Dataset 2 - load vs strength score</div>
+          <p><strong>X:</strong> daily weightlifting load (kg). <strong>Y:</strong> muscle strength score.</p>
+          <table class="data-table">
+            <thead><tr><th>X (load kg)</th><th>Y (strength score)</th></tr></thead>
+            <tbody>
+              <tr><td>-5</td><td>-20.5</td></tr>
+              <tr><td>-4</td><td>-15.2</td></tr>
+              <tr><td>-3</td><td>-7.6</td></tr>
+              <tr><td>-2</td><td>-0.8</td></tr>
+              <tr><td>-1</td><td>3.2</td></tr>
+              <tr><td>0</td><td>2.1</td></tr>
+              <tr><td>1</td><td>4.7</td></tr>
+              <tr><td>2</td><td>6.0</td></tr>
+              <tr><td>3</td><td>4.9</td></tr>
+              <tr><td>4</td><td>1.6</td></tr>
+              <tr><td>5</td><td>-3.8</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="task-box">
+          <div class="task-num">Question 1 - visual decision</div>
+          <p>Plot the data (scatter plot) for each dataset and decide visually what kind of pattern it shows</p>
+        </div>
+
+        <div class="task-box">
+          <div class="task-num">Question 2 - choose model type</div>
+          <p>If the pattern looks linear, fit <code>LinearRegression</code>. If it looks curved, fit <strong>Polynomial Regression</strong> with degree <code>2</code></p>
+        </div>
+
+        <div class="task-box">
+          <div class="task-num">Question 3 - metrics for both models</div>
+          <p>For both models, calculate and print <code>MSE</code> and <code>R²</code></p>
+        </div>
+
+        <div class="task-box">
+          <div class="task-num">Question 4 - adjusted R² (polynomial only)</div>
+          <p>For the polynomial regression model only, calculate and print <strong>Adjusted R²</strong> for degree=2, 5, 8, 10</p>
+        </div>
+
+        <div class="task-box">
+          <div class="task-num">Question 5 - predictions</div>
+          <p>Using <code>model.predict</code>, predict the value of <code>4.5</code> hours in the first model and <code>0.5</code> load-kg in the second model</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="footer">Lesson 12 - Today, July 15, 2026 - Train/Test Split, Adjusted R² &amp; Polynomials</div>
+</div>
+
+<script>
+  const links = document.querySelectorAll('.topic-link');
+  const panels = document.querySelectorAll('.topic-panel');
+
+  function showTopic(id) {
+    panels.forEach(panel => panel.classList.toggle('active', panel.id === id));
+    links.forEach(link => link.classList.toggle('active', link.dataset.target === id));
+  }
+
+  links.forEach(link => {
+    if (link.dataset.target) {
+      link.addEventListener('click', () => {
+        showTopic(link.dataset.target);
+        location.hash = link.dataset.target;
+      });
+    }
+  });
+
+  const hash = location.hash.replace('#', '');
+  if (hash && document.getElementById(hash)) showTopic(hash);
+</script>
+</body>
+</html>
