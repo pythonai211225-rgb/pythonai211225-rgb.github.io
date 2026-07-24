@@ -1,0 +1,5283 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pandas DataFrame Simulator</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #020403;
+      --panel: rgba(3, 18, 13, 0.78);
+      --panel-strong: rgba(5, 36, 24, 0.9);
+      --green: #39ff88;
+      --green-soft: #0fbf6a;
+      --cyan: #5df3ff;
+      --red: #ff496d;
+      --gold: #ffd166;
+      --text: #dbffe9;
+      --muted: #78a995;
+      --line: rgba(57, 255, 136, 0.28);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 18% 18%, rgba(13, 90, 54, 0.32), transparent 34%),
+        radial-gradient(circle at 70% 62%, rgba(21, 95, 103, 0.23), transparent 34%),
+        linear-gradient(135deg, #000 0%, #020403 42%, #04100d 100%);
+      color: var(--text);
+    }
+
+    canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    #matrixRain {
+      display: none;
+      opacity: 0;
+      mix-blend-mode: screen;
+    }
+
+    #fxCanvas {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 9999;
+      opacity: 1;
+      mix-blend-mode: screen;
+    }
+
+    .app {
+      position: relative;
+      z-index: 2;
+      min-height: 100vh;
+      padding: clamp(16px, 3vw, 36px);
+      display: grid;
+      grid-template-columns: clamp(200px, 19vw, 260px) minmax(500px, 1fr) clamp(220px, 20vw, 300px);
+      gap: clamp(16px, 3vw, 30px);
+      align-items: start;
+    }
+
+    .top-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      min-height: 52px;
+      padding: 4px 0;
+    }
+
+    .question-chip {
+      min-width: 168px;
+      padding: 13px 18px;
+      border: 1px solid rgba(93, 243, 255, 0.28);
+      background: rgba(0, 0, 0, 0.38);
+      color: var(--cyan);
+      font: 900 18px/1 "Cascadia Code", Consolas, monospace;
+      text-align: center;
+      text-transform: uppercase;
+      text-shadow: 0 0 14px rgba(93, 243, 255, 0.52);
+    }
+
+    .progress-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 2px 0 6px;
+    }
+
+    .progress-bar-wrap {
+      flex: 1;
+      height: 6px;
+      background: rgba(57, 255, 136, 0.08);
+      border: 1px solid rgba(57, 255, 136, 0.18);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--green), var(--cyan));
+      box-shadow: 0 0 10px rgba(57, 255, 136, 0.55);
+      border-radius: 4px;
+      transition: width 0.5s cubic-bezier(.4,0,.2,1);
+    }
+
+    .progress-label {
+      font: 700 11px/1 "Cascadia Code", Consolas, monospace;
+      color: var(--green);
+      min-width: 34px;
+      text-align: right;
+      text-shadow: 0 0 8px rgba(57, 255, 136, 0.48);
+      letter-spacing: .04em;
+    }
+
+    .timer-panel {
+      --timer-color: var(--green);
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 12px;
+      align-items: center;
+      padding: 10px 12px;
+      border: 1px solid rgba(57, 255, 136, 0.24);
+      background: rgba(0, 0, 0, 0.34);
+      box-shadow: inset 0 0 24px rgba(57, 255, 136, 0.06), 0 0 24px rgba(57, 255, 136, 0.08);
+    }
+
+    .timer-panel[data-state="yellow"] {
+      --timer-color: var(--gold);
+      border-color: rgba(250, 204, 21, 0.32);
+      box-shadow: inset 0 0 24px rgba(250, 204, 21, 0.06), 0 0 24px rgba(250, 204, 21, 0.09);
+    }
+
+    .timer-panel[data-state="red"] {
+      --timer-color: var(--red);
+      border-color: rgba(255, 73, 109, 0.38);
+      box-shadow: inset 0 0 24px rgba(255, 73, 109, 0.08), 0 0 28px rgba(255, 73, 109, 0.16);
+    }
+
+    .timer-panel[data-state="blue"] {
+      --timer-color: var(--cyan);
+      border-color: rgba(93, 243, 255, 0.42);
+      box-shadow: inset 0 0 24px rgba(93, 243, 255, 0.08), 0 0 28px rgba(93, 243, 255, 0.18);
+    }
+
+    .timer-readout {
+      display: grid;
+      gap: 3px;
+      min-width: 54px;
+      color: var(--muted);
+      font: 800 10px/1 "Cascadia Code", Consolas, monospace;
+      text-transform: uppercase;
+    }
+
+    .timer-readout strong {
+      color: var(--timer-color);
+      font-size: 22px;
+      text-shadow: 0 0 14px color-mix(in srgb, var(--timer-color) 72%, transparent);
+    }
+
+    .timer-bars {
+      display: grid;
+      grid-template-columns: repeat(10, minmax(2px, 1fr));
+      gap: 2px;
+      min-height: 28px;
+      align-items: stretch;
+    }
+
+    .timer-bar {
+      min-width: 0;
+      border: 1px solid color-mix(in srgb, var(--timer-color) 38%, transparent);
+      background:
+        linear-gradient(180deg, color-mix(in srgb, var(--timer-color) 54%, transparent), color-mix(in srgb, var(--timer-color) 18%, transparent)),
+        rgba(0, 0, 0, 0.28);
+      box-shadow: 0 0 14px color-mix(in srgb, var(--timer-color) 24%, transparent), inset 0 0 12px color-mix(in srgb, var(--timer-color) 16%, transparent);
+      transform-origin: bottom;
+      transition: opacity 0.24s ease, transform 0.24s ease, border-color 0.24s ease, background 0.24s ease;
+    }
+
+    .timer-bar.empty {
+      opacity: 0.14;
+      transform: scaleY(0.42);
+      border-color: rgba(120, 169, 149, 0.18);
+      background: rgba(120, 169, 149, 0.1);
+      box-shadow: none;
+    }
+
+    .start-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 10001;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      background:
+        linear-gradient(180deg, rgba(1, 6, 4, 0.68), rgba(1, 6, 4, 0.88)),
+        url("https://images.unsplash.com/photo-1462331940025-496dfbfc7564?auto=format&fit=crop&w=1920&q=70") center / cover no-repeat,
+        #010604;
+    }
+    .start-overlay.hidden { display: none; }
+
+    #introCanvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      z-index: 0;
+    }
+
+    .start-card {
+      position: relative;
+      z-index: 1;
+      animation: cardArrive 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.35s both;
+    }
+
+    @keyframes cardArrive {
+      from { opacity: 0; transform: translateY(28px) scale(0.96); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .start-card {
+      width: min(520px, 92vw);
+      padding: 36px 36px 28px;
+      border: 1px solid rgba(57, 255, 136, 0.28);
+      background: rgba(3, 18, 13, 0.82);
+      box-shadow: 0 0 60px rgba(57, 255, 136, 0.08), inset 0 0 40px rgba(57, 255, 136, 0.04);
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+      font-family: "Cascadia Code", Consolas, monospace;
+    }
+    .start-title {
+      font-size: clamp(22px, 5vw, 38px);
+      font-weight: 900;
+      color: var(--green);
+      text-transform: uppercase;
+      text-shadow: 0 0 22px rgba(57, 255, 136, 0.6);
+      letter-spacing: .06em;
+      text-align: center;
+      margin: 0 0 4px;
+    }
+
+    .cfg-row {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+    .cfg-label {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .12em;
+    }
+    .cfg-label strong { color: var(--cyan); font-size: 13px; }
+
+    .cfg-input {
+      width: 100%;
+      background: rgba(0,0,0,0.42);
+      border: 1px solid rgba(57, 255, 136, 0.22);
+      color: var(--green);
+      font: 15px/1 "Cascadia Code", Consolas, monospace;
+      padding: 10px 14px;
+      outline: none;
+    }
+    .cfg-input:focus { border-color: rgba(57, 255, 136, 0.55); }
+
+    .cfg-input-error {
+      border-color: var(--red) !important;
+      color: var(--red);
+      box-shadow: 0 0 0 2px rgba(255, 73, 109, 0.18), 0 0 16px rgba(255, 73, 109, 0.3);
+      animation: cfgShake 0.42s cubic-bezier(.36,.07,.19,.97);
+    }
+    .cfg-input-error::placeholder { color: rgba(255, 73, 109, 0.72); }
+    @keyframes cfgShake {
+      0%, 100% { transform: translateX(0); }
+      15% { transform: translateX(-7px); }
+      30% { transform: translateX(6px); }
+      45% { transform: translateX(-5px); }
+      60% { transform: translateX(4px); }
+      75% { transform: translateX(-2px); }
+    }
+
+    .cfg-slider-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .cfg-slider {
+      flex: 1;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 6px;
+      background: rgba(57, 255, 136, 0.12);
+      border: 1px solid rgba(57, 255, 136, 0.22);
+      border-radius: 3px;
+      outline: none;
+      cursor: pointer;
+    }
+    .cfg-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px rgba(57, 255, 136, 0.7);
+      cursor: pointer;
+    }
+    .cfg-slider::-moz-range-thumb {
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px rgba(57, 255, 136, 0.7);
+      border: none;
+      cursor: pointer;
+    }
+    .cfg-val {
+      font-size: 13px;
+      color: var(--cyan);
+      min-width: 38px;
+      text-align: right;
+    }
+
+    .lives-ships {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .lives-ship-icon {
+      opacity: 0.2;
+      transition: opacity .2s;
+      filter: drop-shadow(0 0 6px rgba(57,255,136,0.5)) grayscale(1);
+    }
+    .lives-ship-icon.active { opacity: 1; filter: drop-shadow(0 0 8px rgba(57,255,136,0.7)); }
+
+    #startBtn {
+      margin-top: 4px;
+      width: 100%;
+      min-height: 50px;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      background: linear-gradient(180deg, rgba(57,255,136,.22), rgba(15,191,106,.1));
+      border-color: rgba(57,255,136,.55);
+      color: var(--green);
+      text-shadow: 0 0 12px rgba(57,255,136,.6);
+      cursor: pointer;
+    }
+    #startBtn:hover {
+      background: linear-gradient(180deg, rgba(57,255,136,.34), rgba(15,191,106,.18));
+    }
+
+    .game-over-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      display: none;
+      place-items: center;
+      cursor: pointer;
+      background:
+        radial-gradient(circle at 50% 45%, rgba(255, 73, 109, 0.24), transparent 34%),
+        rgba(0, 0, 0, 0.84);
+      backdrop-filter: blur(10px);
+    }
+
+    .game-over-overlay.show {
+      display: grid;
+      animation: gameOverFade 0.42s ease both;
+    }
+
+    .game-over-message {
+      color: #fff4f7;
+      font: 900 clamp(44px, 10vw, 128px)/0.92 "Cascadia Code", Consolas, monospace;
+      text-align: center;
+      text-transform: uppercase;
+      text-shadow:
+        0 0 24px rgba(255, 73, 109, 0.95),
+        0 0 72px rgba(255, 73, 109, 0.62);
+      letter-spacing: 0;
+      animation: gameOverPulse 0.9s ease-in-out infinite alternate;
+    }
+
+    .game-over-message span {
+      display: block;
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: clamp(13px, 2vw, 20px);
+      line-height: 1.4;
+      text-shadow: 0 0 18px rgba(93, 243, 255, 0.42);
+    }
+
+    .game-over-stats {
+      display: flex;
+      justify-content: center;
+      gap: clamp(14px, 4vw, 36px);
+      margin-top: 24px;
+      font: 900 clamp(16px, 2.5vw, 28px)/1.2 "Cascadia Code", Consolas, monospace;
+      color: var(--green);
+      text-shadow: 0 0 18px rgba(57, 255, 136, 0.58);
+    }
+
+    .game-over-stats b {
+      color: var(--red);
+      text-shadow: 0 0 18px rgba(255, 73, 109, 0.58);
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .left-void {
+      min-height: calc(100vh - clamp(32px, 6vw, 72px));
+      position: relative;
+      overflow: hidden;
+      border-left: 1px solid rgba(57, 255, 136, 0.12);
+      border-right: 1px solid rgba(57, 255, 136, 0.12);
+      background: linear-gradient(180deg, rgba(0, 0, 0, 0.18), rgba(57, 255, 136, 0.04));
+    }
+
+    .left-number-rain {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.72;
+      font: 15px/1.35 "Cascadia Code", Consolas, monospace;
+      color: rgba(57, 255, 136, 0.62);
+      text-shadow: 0 0 12px rgba(57, 255, 136, 0.62);
+    }
+
+    .left-number-rain span {
+      position: absolute;
+      top: -24px;
+      animation: leftRainFall var(--fall-speed, 7s) linear infinite;
+      animation-delay: var(--fall-delay, 0s);
+      writing-mode: vertical-rl;
+      letter-spacing: 0;
+      white-space: nowrap;
+    }
+
+    /* Compact result monitor docked at the top of the left column */
+    .left-void .output-zone {
+      position: relative;
+      z-index: 2;
+      align-self: start;
+      padding: 10px;
+      gap: 10px;
+    }
+    .left-void .created-shell {
+      min-height: 148px;
+      padding: 18px 10px;
+    }
+    .left-void .created-shell .matrix-grid {
+      grid-template-columns: repeat(var(--cols), minmax(0, 30px));
+      gap: 4px;
+    }
+    .left-void .created-shell .cell {
+      font: 900 13px/1 "Cascadia Code", Consolas, monospace;
+    }
+    .left-void .created-shell .cell.small-text { font-size: 10px; }
+    .left-void .created-shell .cell.tiny-text { font-size: 8px; }
+    .left-void .created-inner { width: 96%; }
+    .left-void .hud-bar {
+      height: 16px;
+      padding: 0 12px;
+      font-size: 6px;
+    }
+    .left-void .empty-state { font-size: 8px; }
+    .left-void .stage-result { padding: 10px; }
+    .left-void .stage-result .cell {
+      font-size: 11px;
+    }
+
+    .ship-fleet {
+      position: fixed;
+      left: clamp(18px, 3vw, 42px);
+      bottom: clamp(18px, 4vh, 38px);
+      z-index: 4;
+      display: flex;
+      flex-direction: column-reverse;
+      align-items: flex-end;
+      gap: clamp(4px, 0.8vw, 10px);
+      pointer-events: none;
+    }
+
+    .sim-ship {
+      position: relative;
+      width: clamp(92px, 13vw, 178px);
+      filter: drop-shadow(0 0 10px rgba(34, 211, 238, 0.18)) saturate(0.82) brightness(0.82);
+      transform-origin: 50% 58%;
+    }
+
+    .sim-ship.active {
+      filter: drop-shadow(0 0 18px rgba(34, 211, 238, 0.58)) saturate(1.25);
+      animation: shipHover 3.2s ease-in-out infinite;
+    }
+
+    .sim-ship::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 57%;
+      width: 76%;
+      height: 62%;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(34, 211, 238, 0.24), rgba(59, 130, 246, 0.08) 42%, transparent 70%);
+      filter: blur(10px);
+      opacity: 0.08;
+    }
+
+    .sim-ship::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 68%;
+      width: 54%;
+      height: 64%;
+      transform: translateX(-50%);
+      background:
+        radial-gradient(ellipse at top, rgba(93, 243, 255, 0.88), rgba(59, 130, 246, 0.28) 38%, transparent 70%),
+        linear-gradient(90deg, transparent 0 24%, rgba(34, 211, 238, 0.72) 25% 34%, transparent 35% 65%, rgba(34, 211, 238, 0.72) 66% 75%, transparent 76%);
+      filter: blur(6px);
+      opacity: 0;
+    }
+
+    .sim-ship.active::before {
+      opacity: 1;
+      animation: engineGlow 0.9s ease-in-out infinite alternate;
+    }
+
+    .sim-ship.active::after {
+      opacity: 1;
+      animation: thrusterPulse 0.34s ease-in-out infinite alternate;
+    }
+
+    .sim-ship img {
+      position: relative;
+      z-index: 1;
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .sim-ship.active img {
+      animation: shipImagePulse 1.1s ease-in-out infinite alternate;
+    }
+
+    .sim-ship.spin {
+      animation: shipSpin 0.95s cubic-bezier(0.2, 0.9, 0.18, 1) 1 forwards;
+    }
+
+    .sim-ship.warn {
+      animation: shipWarn 0.72s ease-in-out 2;
+    }
+
+    .sim-ship.destroyed {
+      pointer-events: none;
+      animation: shipDestroyed 1.05s ease-out forwards;
+    }
+
+    .sim-ship.destroyed::before,
+    .sim-ship.destroyed::after {
+      animation: none;
+      opacity: 0;
+    }
+
+    .sim-ship.destroyed img {
+      animation: shipImageBurn 0.72s ease-out forwards;
+    }
+
+    .sim-ship.active.typing {
+      filter:
+        drop-shadow(0 0 22px rgba(250, 204, 21, 0.95))
+        drop-shadow(0 0 54px rgba(250, 204, 21, 0.5))
+        saturate(1.45);
+    }
+
+    .control-stack,
+    .right-stack {
+      display: grid;
+      gap: 18px;
+      width: 100%;
+    }
+
+    .right-stack {
+      min-height: calc(100vh - clamp(32px, 6vw, 72px));
+      grid-template-rows: auto 1fr;
+    }
+
+    .mystery-copy {
+      position: relative;
+      min-height: 140px;
+      padding: 15px 16px;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(0, 12, 9, 0.78), rgba(0, 0, 0, 0.42));
+      box-shadow: inset 0 0 32px rgba(57, 255, 136, 0.09), 0 0 34px rgba(0, 0, 0, 0.32);
+      overflow: hidden;
+    }
+
+    .mystery-copy::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(180deg, transparent 0 7px, rgba(57, 255, 136, 0.08) 8px);
+      animation: scan 3.4s linear infinite;
+      pointer-events: none;
+    }
+
+    .mystery-copy .label {
+      position: relative;
+      display: block;
+      margin-bottom: 10px;
+      color: var(--cyan);
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+
+    .ghost-text {
+      position: relative;
+      margin: 0;
+      font-family: "Cascadia Code", Consolas, monospace;
+      color: var(--green);
+      font-size: clamp(16px, 1.8vw, 22px);
+      line-height: 1.45;
+      text-shadow: 0 0 10px rgba(57, 255, 136, 0.78);
+      animation: jitter 2.6s infinite steps(2, end);
+    }
+
+    .target-card,
+    .panel,
+    .output-card {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      backdrop-filter: blur(16px);
+      box-shadow: 0 0 38px rgba(57, 255, 136, 0.12), inset 0 0 42px rgba(57, 255, 136, 0.06);
+    }
+
+    .target-card {
+      padding: 14px;
+      width: 100%;
+      transform-origin: top right;
+    }
+
+    .target-card.fade-out {
+      opacity: 0.28;
+      transition: opacity 0.22s ease;
+    }
+
+    .target-card.fade-in {
+      animation: targetFadeIn 0.38s ease;
+    }
+
+    .target-card.explode {
+      animation: targetExplode 0.58s ease forwards;
+    }
+
+    .target-card.required-explosion {
+      animation: targetExplode 0.72s ease forwards;
+    }
+
+    .target-card.required-explosion .cell {
+      animation: requiredCellExplode 0.72s ease-out forwards;
+    }
+
+    .target-card.fly-rect {
+      animation: targetFlyRect 0.72s cubic-bezier(0.2, 0.9, 0.18, 1) forwards;
+    }
+
+    .card-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+
+    .pulse-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 16px var(--green);
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+
+    .panel {
+      min-height: 430px;
+      display: flex;
+      flex-direction: column;
+      padding: 18px;
+    }
+
+    .panel h2,
+    .output-card h2 {
+      margin: 0 0 14px;
+      font-size: 17px;
+      color: var(--cyan);
+      text-transform: uppercase;
+    }
+
+    .prompt {
+      margin: 0 0 16px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .editor-wrap {
+      position: relative;
+      display: grid;
+      min-height: 178px;
+      margin-bottom: 14px;
+    }
+
+    .locked-line {
+      display: none;
+      margin: 0;
+      padding: 16px 16px 0;
+      overflow-x: auto;
+      white-space: pre;
+      border: 1px solid rgba(93, 243, 255, 0.28);
+      border-bottom: 0;
+      background: rgba(0, 0, 0, 0.68);
+      color: rgba(219, 255, 233, 0.72);
+      font: 14px/1.5 "Cascadia Code", Consolas, monospace;
+      box-shadow: inset 0 0 24px rgba(57, 255, 136, 0.06);
+    }
+
+    .editor-wrap.has-locked .locked-line {
+      display: block;
+    }
+
+    .editor-wrap.has-locked textarea {
+      min-height: 132px;
+      border-top-color: rgba(93, 243, 255, 0.12);
+      padding-top: 8px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 178px;
+      resize: none;
+      border: 1px solid rgba(93, 243, 255, 0.28);
+      border-radius: 0;
+      padding: 16px;
+      outline: none;
+      background: rgba(0, 0, 0, 0.58);
+      color: var(--green);
+      font: 16px/1.5 "Cascadia Code", Consolas, monospace;
+      box-shadow: inset 0 0 34px rgba(57, 255, 136, 0.08);
+    }
+
+    textarea:focus {
+      border-color: rgba(93, 243, 255, 0.85);
+      box-shadow: 0 0 0 3px rgba(93, 243, 255, 0.1), inset 0 0 34px rgba(57, 255, 136, 0.11);
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    #actionsNormal, #actionsReveal {
+      display: flex;
+      gap: 10px;
+    }
+
+    #dontKnowButton {
+      border-color: rgba(250, 204, 21, 0.48);
+      background: linear-gradient(180deg, rgba(250, 204, 21, 0.14), rgba(250, 204, 21, 0.06));
+      color: rgba(250, 204, 21, 0.88);
+      font-size: 12px;
+    }
+    #dontKnowButton:hover {
+      background: linear-gradient(180deg, rgba(250, 204, 21, 0.24), rgba(250, 204, 21, 0.11));
+      color: rgba(250, 204, 21, 1);
+    }
+
+    #openTopicButton {
+      border-color: rgba(255, 158, 0, 0.45);
+      background: linear-gradient(180deg, rgba(255, 158, 0, 0.13), rgba(255, 158, 0, 0.05));
+      color: rgba(255, 158, 0, 0.85);
+      font-size: 12px;
+    }
+    #openTopicButton:hover {
+      background: linear-gradient(180deg, rgba(255, 158, 0, 0.24), rgba(255, 158, 0, 0.10));
+      color: rgba(255, 158, 0, 1);
+    }
+
+    #nextRevealButton {
+      border-color: rgba(57, 255, 136, 0.52);
+      background: linear-gradient(180deg, rgba(57, 255, 136, 0.22), rgba(15, 191, 106, 0.11));
+      color: var(--text);
+      font-size: 13px;
+    }
+    #nextRevealButton:hover {
+      background: linear-gradient(180deg, rgba(57, 255, 136, 0.32), rgba(15, 191, 106, 0.18));
+    }
+
+    textarea.revealing {
+      color: rgba(255, 158, 0, 0.92);
+      caret-color: rgba(255, 158, 0, 0.5);
+      box-shadow: inset 0 0 34px rgba(255, 158, 0, 0.07);
+      border-color: rgba(255, 158, 0, 0.35);
+    }
+
+    #revealOverlay {
+      display: none;
+      width: 100%;
+      min-height: 178px;
+      padding: 16px;
+      border: 1px solid rgba(255, 73, 109, 0.38);
+      background: rgba(0, 0, 0, 0.58);
+      font: 16px/1.5 "Cascadia Code", Consolas, monospace;
+      white-space: pre-wrap;
+      box-shadow: inset 0 0 34px rgba(255, 73, 109, 0.06);
+    }
+    .editor-wrap.has-locked #revealOverlay {
+      min-height: 132px;
+      border-top-color: rgba(255, 73, 109, 0.18);
+      padding-top: 8px;
+    }
+    .reveal-fail { color: var(--red); }
+    .reveal-solution { color: rgba(255, 158, 0, 0.92); }
+
+    #muteButton {
+      min-height: unset;
+      height: 22px;
+      padding: 0 7px;
+      font-size: 13px;
+      border-color: rgba(57, 255, 136, 0.22);
+      background: rgba(0,0,0,0.28);
+      line-height: 1;
+      vertical-align: middle;
+      margin-left: 6px;
+    }
+    #muteButton:hover { border-color: rgba(57, 255, 136, 0.5); }
+
+    button {
+      border: 1px solid rgba(57, 255, 136, 0.52);
+      border-radius: 0;
+      min-height: 44px;
+      padding: 0 18px;
+      cursor: pointer;
+      background: linear-gradient(180deg, rgba(57, 255, 136, 0.22), rgba(15, 191, 106, 0.11));
+      color: var(--text);
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0;
+      box-shadow: 0 0 22px rgba(57, 255, 136, 0.12);
+    }
+
+    button:hover {
+      background: linear-gradient(180deg, rgba(57, 255, 136, 0.34), rgba(15, 191, 106, 0.17));
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+    }
+
+    .status {
+      min-height: 52px;
+      padding: 12px;
+      border: 1px solid rgba(120, 169, 149, 0.22);
+      background: rgba(0, 0, 0, 0.32);
+      color: var(--muted);
+      font: 14px/1.45 "Cascadia Code", Consolas, monospace;
+    }
+
+    .cheats {
+      margin-top: auto;
+      padding-top: 16px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .cheats code {
+      color: var(--green);
+    }
+
+    .output-zone {
+      position: relative;
+      display: grid;
+      gap: 16px;
+      align-self: end;
+    }
+
+    .stage-result {
+      display: none;
+      padding: 14px;
+      border: 1px solid rgba(93, 243, 255, 0.24);
+      background: rgba(0, 0, 0, 0.38);
+      box-shadow: inset 0 0 24px rgba(93, 243, 255, 0.06);
+    }
+
+    .stage-result.show {
+      display: block;
+    }
+
+    .stage-result .card-label {
+      margin-bottom: 10px;
+    }
+
+    .output-card {
+      padding: 18px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .output-card::after {
+      content: "";
+      position: absolute;
+      inset: auto 0 0;
+      height: 46%;
+      background: linear-gradient(0deg, rgba(57, 255, 136, 0.08), transparent);
+      pointer-events: none;
+    }
+
+    .matrix-grid {
+      --cols: 4;
+      display: grid;
+      grid-template-columns: repeat(var(--cols), minmax(0, 48px));
+      justify-content: center;
+      gap: 7px;
+      width: 100%;
+    }
+
+    .cell {
+      aspect-ratio: 1;
+      min-width: 0;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(57, 255, 136, 0.42);
+      background:
+        linear-gradient(135deg, rgba(57, 255, 136, 0.18), rgba(0, 0, 0, 0.2)),
+        radial-gradient(circle, rgba(93, 243, 255, 0.2), transparent 58%);
+      color: #f4fff8;
+      font: 900 20px/1 "Cascadia Code", Consolas, monospace;
+      text-shadow: 0 0 14px rgba(57, 255, 136, 0.9);
+      box-shadow: inset 0 0 20px rgba(57, 255, 136, 0.14), 0 0 18px rgba(57, 255, 136, 0.08);
+      transform-style: preserve-3d;
+      animation: cellFloat 3s ease-in-out infinite;
+    }
+
+    .cell.small-text {
+      font-size: 13px;
+      padding: 2px;
+      overflow-wrap: anywhere;
+    }
+
+    .cell.tiny-text {
+      font-size: 10px;
+      padding: 2px;
+      overflow-wrap: anywhere;
+    }
+
+    .target-card .cell {
+      animation-duration: 2.4s;
+    }
+
+    .source-matrix {
+      display: none;
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(57, 255, 136, 0.18);
+    }
+
+    .source-matrix.show {
+      display: block;
+    }
+
+    .source-matrix .card-label {
+      margin-bottom: 8px;
+      color: rgba(93, 243, 255, 0.8);
+    }
+
+    .source-matrix .matrix-grid + .card-label {
+      margin-top: 12px;
+    }
+
+    .created-shell {
+      position: relative;
+      padding: 30px clamp(14px, 2vw, 22px);
+      min-height: 220px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      --hud: rgba(255, 158, 0, 0.9);
+      --hud-dim: rgba(255, 158, 0, 0.28);
+      --hud-ghost: rgba(255, 158, 0, 0.055);
+      border: 1px solid var(--hud-dim);
+      background:
+        repeating-linear-gradient(0deg, transparent 0px, transparent 3px, var(--hud-ghost) 3px, var(--hud-ghost) 4px),
+        rgba(3, 5, 2, 0.97);
+      overflow: hidden;
+      box-shadow:
+        inset 0 0 70px rgba(255, 158, 0, 0.03),
+        0 0 0 1px rgba(0, 0, 0, 0.65),
+        0 0 28px rgba(255, 158, 0, 0.06);
+    }
+
+    .created-shell::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        repeating-linear-gradient(90deg, transparent 0px, transparent 39px, rgba(255, 158, 0, 0.04) 39px, rgba(255, 158, 0, 0.04) 40px);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .created-shell::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent 0%, rgba(255, 158, 0, 0.06) 18%, rgba(255, 158, 0, 0.62) 50%, rgba(255, 158, 0, 0.06) 82%, transparent 100%);
+      box-shadow: 0 0 10px rgba(255, 158, 0, 0.38), 0 0 22px rgba(255, 158, 0, 0.12);
+      animation: hudScan 4s linear infinite;
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    .hud-corner {
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      z-index: 5;
+      pointer-events: none;
+    }
+    .hud-tl { top: 6px; left: 6px; border-top: 1.5px solid var(--hud); border-left: 1.5px solid var(--hud); }
+    .hud-tr { top: 6px; right: 6px; border-top: 1.5px solid var(--hud); border-right: 1.5px solid var(--hud); }
+    .hud-bl { bottom: 6px; left: 6px; border-bottom: 1.5px solid var(--hud); border-left: 1.5px solid var(--hud); }
+    .hud-br { bottom: 6px; right: 6px; border-bottom: 1.5px solid var(--hud); border-right: 1.5px solid var(--hud); }
+
+    .hud-bar {
+      position: absolute;
+      left: 0; right: 0;
+      height: 22px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 22px;
+      font: 700 8px/1 "Cascadia Code", Consolas, monospace;
+      color: var(--hud);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      z-index: 5;
+      pointer-events: none;
+    }
+    .hud-bar-top { top: 0; border-bottom: 1px solid var(--hud-dim); }
+    .hud-bar-bot { bottom: 0; border-top: 1px solid var(--hud-dim); }
+
+    .hud-blink { animation: hudBlink 1.4s step-end infinite; }
+
+    .hud-side-marks {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      z-index: 5;
+      pointer-events: none;
+    }
+    .hud-side-l { left: 4px; align-items: flex-start; }
+    .hud-side-r { right: 4px; align-items: flex-end; }
+    .hud-side-marks span { display: block; height: 1px; background: var(--hud); opacity: 0.5; }
+    .hud-side-l span:nth-child(1), .hud-side-r span:nth-child(1) { width: 10px; }
+    .hud-side-l span:nth-child(2), .hud-side-r span:nth-child(2) { width: 6px; }
+    .hud-side-l span:nth-child(3), .hud-side-r span:nth-child(3) { width: 14px; }
+    .hud-side-l span:nth-child(4), .hud-side-r span:nth-child(4) { width: 6px; }
+    .hud-side-l span:nth-child(5), .hud-side-r span:nth-child(5) { width: 10px; }
+
+    .hud-target {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 44px; height: 44px;
+      border: 1px solid var(--hud-dim);
+      border-radius: 50%;
+      z-index: 1;
+      pointer-events: none;
+    }
+    .hud-target::before, .hud-target::after {
+      content: "";
+      position: absolute;
+      background: var(--hud-dim);
+    }
+    .hud-target::before {
+      top: 50%; left: -8px; right: -8px;
+      height: 1px;
+      transform: translateY(-50%);
+    }
+    .hud-target::after {
+      left: 50%; top: -8px; bottom: -8px;
+      width: 1px;
+      transform: translateX(-50%);
+    }
+
+    .created-inner {
+      position: relative;
+      z-index: 2;
+      width: min(520px, 90%);
+      transition: transform 0.9s cubic-bezier(0.2, 0.9, 0.18, 1), opacity 0.4s;
+    }
+
+    .empty-state {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      display: grid;
+      place-items: center;
+      padding: 22px;
+      color: rgba(255, 158, 0, 0.34);
+      font: 700 9px/2.2 "Cascadia Code", Consolas, monospace;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      text-align: center;
+    }
+
+    .created-shell .cell {
+      border-color: rgba(255, 158, 0, 0.46);
+      background:
+        linear-gradient(135deg, rgba(255, 158, 0, 0.13), rgba(0, 0, 0, 0.22)),
+        radial-gradient(circle, rgba(255, 158, 0, 0.14), transparent 62%);
+      color: rgba(255, 222, 160, 0.96);
+      text-shadow: 0 0 12px rgba(255, 158, 0, 0.88);
+      box-shadow: inset 0 0 16px rgba(255, 158, 0, 0.09), 0 0 12px rgba(255, 158, 0, 0.05);
+    }
+
+    @keyframes scan {
+      to { transform: translateY(24px); }
+    }
+
+    @keyframes jitter {
+      0%, 100% { transform: translate(0, 0); filter: hue-rotate(0deg); }
+      45% { transform: translate(1px, -1px); filter: hue-rotate(18deg); }
+      70% { transform: translate(-1px, 1px); }
+    }
+
+    @keyframes pulse {
+      50% { transform: scale(1.8); opacity: 0.48; }
+    }
+
+    @keyframes rotate {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes leftRainFall {
+      from { transform: translateY(-20%); opacity: 0; }
+      12% { opacity: 1; }
+      88% { opacity: 0.82; }
+      to { transform: translateY(122vh); opacity: 0; }
+    }
+
+    @keyframes shipHover {
+      0%, 100% { transform: translateY(0) rotate(-2.2deg) scale(1); }
+      50% { transform: translateY(-12px) rotate(2deg) scale(1.025); }
+    }
+
+    @keyframes shipSpin {
+      from { transform: translateY(0) rotate(0deg) scale(1.02); }
+      to { transform: translateY(-8px) rotate(360deg) scale(1.04); }
+    }
+
+    @keyframes shipWarn {
+      0%, 100% {
+        filter: drop-shadow(0 0 18px rgba(34, 211, 238, 0.58)) saturate(1.25);
+      }
+      45% {
+        filter: drop-shadow(0 0 28px rgba(255, 73, 109, 0.95)) drop-shadow(0 0 58px rgba(255, 73, 109, 0.5)) saturate(1.4);
+      }
+    }
+
+    @keyframes shipDestroyed {
+      0% {
+        opacity: 1;
+        transform: translateY(0) rotate(0deg) scale(1);
+        filter: drop-shadow(0 0 18px rgba(34, 211, 238, 0.58)) saturate(1.25);
+      }
+      38% {
+        opacity: 1;
+        transform: translateY(-22px) rotate(32deg) scale(1.56);
+        filter:
+          drop-shadow(0 0 38px rgba(255, 73, 109, 1))
+          drop-shadow(0 0 74px rgba(250, 204, 21, 0.92))
+          drop-shadow(0 0 118px rgba(255, 73, 109, 0.62))
+          saturate(2.1);
+      }
+      100% {
+        opacity: 0.1;
+        transform: translateY(34px) rotate(132deg) scale(0.34);
+        filter: grayscale(1) brightness(0.28) sepia(0.8);
+      }
+    }
+
+    @keyframes shipBlastCore {
+      0% { opacity: 0; transform: translate(-50%, -50%) scale(0.35); }
+      34% { opacity: 1; transform: translate(-50%, -50%) scale(2.7); }
+      100% { opacity: 0; transform: translate(-50%, -50%) scale(4.2); }
+    }
+
+    @keyframes shipImageBurn {
+      0% { filter: brightness(1.15) saturate(1.4); }
+      42% { filter: brightness(2.6) saturate(2.2) hue-rotate(-22deg); }
+      100% { filter: grayscale(1) brightness(0.34) sepia(0.9); }
+    }
+
+    @keyframes gameOverFade {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .congrats-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      display: none;
+      place-items: center;
+      cursor: pointer;
+      background:
+        radial-gradient(circle at 50% 40%, rgba(57, 255, 136, 0.22), transparent 40%),
+        rgba(0, 0, 0, 0.88);
+      backdrop-filter: blur(12px);
+    }
+    .congrats-overlay.show {
+      display: grid;
+      animation: gameOverFade 0.5s ease both;
+    }
+    .congrats-box {
+      text-align: center;
+      font-family: "Cascadia Code", Consolas, monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+    .congrats-title {
+      font-size: clamp(36px, 8vw, 96px);
+      font-weight: 900;
+      color: var(--green);
+      text-transform: uppercase;
+      text-shadow: 0 0 28px rgba(57,255,136,.9), 0 0 72px rgba(57,255,136,.4);
+      letter-spacing: .04em;
+      animation: gameOverPulse 1s ease-in-out infinite alternate;
+    }
+    .congrats-stats {
+      font-size: clamp(13px, 2vw, 17px);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .congrats-stats .pilot { font-size: clamp(15px, 2.4vw, 22px); color: var(--cyan); }
+    .congrats-stats .stat  { color: var(--muted); }
+    .congrats-stats strong { color: var(--green); }
+    .congrats-sub {
+      font-size: clamp(11px, 1.6vw, 14px);
+      color: var(--muted);
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      margin-top: 8px;
+    }
+
+    @keyframes gameOverPulse {
+      from { transform: scale(0.98); filter: saturate(1); }
+      to { transform: scale(1.03); filter: saturate(1.35); }
+    }
+
+    @keyframes shipImagePulse {
+      from { filter: brightness(0.92) contrast(1.08) saturate(1.22); }
+      to { filter: brightness(1.08) contrast(1.12) saturate(1.42); }
+    }
+
+    @keyframes engineGlow {
+      from { opacity: 0.45; transform: translate(-50%, -50%) scale(0.92); }
+      to { opacity: 0.9; transform: translate(-50%, -50%) scale(1.08); }
+    }
+
+    @keyframes thrusterPulse {
+      from { opacity: 0.45; transform: translateX(-50%) scaleY(0.7) skewX(-2deg); }
+      to { opacity: 0.95; transform: translateX(-50%) scaleY(1.25) skewX(2deg); }
+    }
+
+    @keyframes cellFloat {
+      0%, 100% { transform: translateY(0) rotateX(0deg); }
+      50% { transform: translateY(-4px) rotateX(8deg); }
+    }
+
+    @keyframes targetFadeIn {
+      from { opacity: 0.28; }
+      to { opacity: 1; }
+    }
+
+    @keyframes targetExplode {
+      0% { opacity: 1; filter: brightness(1); transform: translate(0, 0); }
+      28% { opacity: 1; filter: brightness(2.2); transform: translate(2px, -2px); }
+      52% { opacity: 0.5; filter: brightness(2.7); transform: translate(-2px, 2px); }
+      100% { opacity: 0.18; filter: brightness(1.6); transform: translate(0, 0); }
+    }
+
+    @keyframes requiredCellExplode {
+      0% { transform: translate(0, 0) scale(1); opacity: 1; filter: brightness(1); }
+      35% { transform: translate(0, 0) scale(1.16); opacity: 1; filter: brightness(2.8); }
+      100% {
+        transform: translate(var(--req-boom-x, 0), var(--req-boom-y, 0)) scale(0.2) rotate(var(--req-boom-r, 0deg));
+        opacity: 0;
+        filter: brightness(3);
+      }
+    }
+
+    @keyframes targetFlyRect {
+      0% { opacity: 1; transform: translate(0, 0) scale(1); filter: brightness(1); }
+      45% { opacity: 1; transform: translate(-12px, -14px) scale(1.03); filter: brightness(1.9); }
+      100% { opacity: 0.2; transform: translate(34px, -28px) scale(0.88); filter: brightness(2.3); }
+    }
+
+    /* === Answer modal === */
+    .answer-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 20000;
+      background: rgba(0, 0, 0, 0.78);
+      backdrop-filter: blur(8px);
+      place-items: center;
+    }
+    .answer-modal.show {
+      display: grid;
+      animation: gameOverFade 0.22s ease both;
+    }
+    .answer-modal-box {
+      width: min(480px, 90vw);
+      border: 1px solid rgba(57, 255, 136, 0.38);
+      background: rgba(3, 14, 10, 0.97);
+      box-shadow: 0 0 0 1px rgba(0,0,0,.6), 0 0 42px rgba(57, 255, 136, 0.14);
+      padding: 22px 24px 20px;
+      display: grid;
+      gap: 14px;
+    }
+    .answer-modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .answer-modal-title {
+      color: var(--cyan);
+      font: 800 11px/1 "Cascadia Code", Consolas, monospace;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      text-shadow: 0 0 12px rgba(93, 243, 255, 0.5);
+    }
+    .answer-modal-close {
+      min-height: auto;
+      padding: 4px 10px;
+      font-size: 14px;
+      border-color: rgba(120, 169, 149, 0.3);
+      background: none;
+      color: var(--muted);
+    }
+    .answer-modal-close:hover { color: var(--text); }
+    .answer-modal-context {
+      color: rgba(219, 255, 233, 0.42);
+      font: 13px/1.5 "Cascadia Code", Consolas, monospace;
+      white-space: pre;
+    }
+    .answer-modal-context:empty { display: none; }
+    .answer-modal-code {
+      margin: 0;
+      padding: 14px 16px;
+      border: 1px solid rgba(57, 255, 136, 0.22);
+      background: rgba(0, 0, 0, 0.48);
+      color: var(--green);
+      font: 700 15px/1.5 "Cascadia Code", Consolas, monospace;
+      text-shadow: 0 0 10px rgba(57, 255, 136, 0.7);
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .answer-modal-link {
+      display: inline-block;
+      padding: 10px 16px;
+      border: 1px solid rgba(93, 243, 255, 0.35);
+      background: rgba(93, 243, 255, 0.07);
+      color: var(--cyan);
+      font: 700 11px/1 "Cascadia Code", Consolas, monospace;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      text-decoration: none;
+      text-shadow: 0 0 10px rgba(93, 243, 255, 0.45);
+      transition: background 0.18s;
+    }
+    .answer-modal-link:hover { background: rgba(93, 243, 255, 0.14); }
+
+    /* === Restart confirmation (F5) === */
+    .confirm-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 21000;
+      background: rgba(0, 0, 0, 0.82);
+      backdrop-filter: blur(9px);
+      place-items: center;
+    }
+    .confirm-modal.show {
+      display: grid;
+      animation: gameOverFade 0.2s ease both;
+    }
+    .confirm-box {
+      width: min(440px, 92vw);
+      border: 1px solid rgba(250, 204, 21, 0.42);
+      background: rgba(10, 8, 3, 0.97);
+      box-shadow: 0 0 0 1px rgba(0,0,0,.6), 0 0 52px rgba(250, 204, 21, 0.16);
+      padding: 30px 28px 24px;
+      text-align: center;
+      font-family: "Cascadia Code", Consolas, monospace;
+      animation: confirmPop 0.34s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+    @keyframes confirmPop {
+      from { opacity: 0; transform: translateY(16px) scale(0.94); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .confirm-icon { font-size: 40px; line-height: 1; margin-bottom: 12px; }
+    .confirm-title {
+      font-size: 21px;
+      font-weight: 900;
+      color: var(--gold);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      text-shadow: 0 0 18px rgba(250, 204, 21, 0.5);
+      margin-bottom: 12px;
+    }
+    .confirm-text {
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.55;
+      margin-bottom: 24px;
+    }
+    .confirm-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+    }
+    .confirm-btn {
+      min-height: 44px;
+      padding: 0 20px;
+      font: 800 13px/1 "Cascadia Code", Consolas, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      border-radius: 0;
+    }
+    .confirm-no {
+      border: 1px solid rgba(57, 255, 136, 0.5);
+      background: linear-gradient(180deg, rgba(57, 255, 136, 0.2), rgba(15, 191, 106, 0.1));
+      color: var(--text);
+    }
+    .confirm-no:hover { background: linear-gradient(180deg, rgba(57, 255, 136, 0.32), rgba(15, 191, 106, 0.16)); }
+    .confirm-yes {
+      border: 1px solid rgba(255, 73, 109, 0.55);
+      background: linear-gradient(180deg, rgba(255, 73, 109, 0.22), rgba(255, 73, 109, 0.08));
+      color: #ffd7de;
+    }
+    .confirm-yes:hover { background: linear-gradient(180deg, rgba(255, 73, 109, 0.34), rgba(255, 73, 109, 0.14)); }
+
+    .locked-label {
+      display: none;
+      text-align: center;
+      color: var(--red);
+      font: 900 13px/1 "Cascadia Code", Consolas, monospace;
+      letter-spacing: 0.18em;
+      text-shadow: 0 0 16px rgba(255, 73, 109, 0.9), 0 0 32px rgba(255, 73, 109, 0.42);
+      text-transform: uppercase;
+    }
+
+    .locked-label.show {
+      display: block;
+      animation: lockedBlink 0.72s step-end infinite;
+    }
+
+    .locked-label.missed {
+      color: rgba(255, 158, 0, 0.95);
+      text-shadow: 0 0 16px rgba(255, 158, 0, 0.9), 0 0 32px rgba(255, 158, 0, 0.42);
+    }
+
+    @keyframes lockedBlink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+
+    .target-split-view {
+      display: flex;
+      gap: 14px;
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    @keyframes hudScan {
+      0%   { top: 0; }
+      100% { top: calc(100% - 2px); }
+    }
+
+    @keyframes hudBlink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+
+    @media (max-width: 980px) {
+      body {
+        overflow-y: auto;
+      }
+
+      .app {
+        grid-template-columns: 1fr;
+      }
+
+      .left-void {
+        display: none;
+      }
+
+      .right-stack {
+        min-height: auto;
+        grid-template-rows: auto;
+      }
+
+      .output-zone {
+        align-self: auto;
+      }
+
+      .top-nav {
+        position: sticky;
+        top: 12px;
+        z-index: 4;
+        background: rgba(2, 4, 3, 0.72);
+        backdrop-filter: blur(12px);
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="matrixRain"></canvas>
+  <canvas id="fxCanvas"></canvas>
+  <div class="ship-fleet" aria-hidden="true">
+    <div class="sim-ship">
+      <img src="image_64e15e12_ship.png" alt="">
+    </div>
+    <div class="sim-ship">
+      <img src="image_64e15e12_ship.png" alt="">
+    </div>
+    <div class="sim-ship">
+      <img src="image_64e15e12_ship.png" alt="">
+    </div>
+  </div>
+  <div class="start-overlay" id="startOverlay">
+    <canvas id="introCanvas" aria-hidden="true"></canvas>
+    <div class="start-card">
+      <div class="start-title">Pandas Simulator</div>
+
+      <div class="cfg-row">
+        <label class="cfg-label" for="cfgName">Pilot name</label>
+        <input class="cfg-input" id="cfgName" type="text" maxlength="32" placeholder="anonymous" autocomplete="off" spellcheck="false"/>
+      </div>
+
+      <div class="cfg-row">
+        <div class="cfg-label">Time per question — <strong id="cfgTimeVal">60s</strong></div>
+        <div class="cfg-slider-wrap">
+          <span class="cfg-val">30s</span>
+          <input class="cfg-slider" id="cfgTime" type="range" min="30" max="190" step="10" value="60"/>
+          <span class="cfg-val">∞</span>
+        </div>
+      </div>
+
+      <div class="cfg-row">
+        <div class="cfg-label">Lives — <strong id="cfgLivesVal">3</strong></div>
+        <div class="cfg-slider-wrap">
+          <span class="cfg-val">1</span>
+          <input class="cfg-slider" id="cfgLives" type="range" min="1" max="5" step="1" value="3"/>
+          <span class="cfg-val">5</span>
+        </div>
+        <div class="lives-ships" id="livesShipsPreview"></div>
+      </div>
+
+      <div class="cfg-row">
+        <div class="cfg-label">Questions — <strong id="cfgQVal">all</strong></div>
+        <div class="cfg-slider-wrap">
+          <span class="cfg-val">1</span>
+          <input class="cfg-slider" id="cfgQ" type="range" min="1" max="64" step="1" value="64"/>
+          <span class="cfg-val" id="cfgQMax">64</span>
+        </div>
+      </div>
+
+      <button id="startBtn" type="button">▶ Start Simulator</button>
+    </div>
+  </div>
+
+  <div class="congrats-overlay" id="congratsOverlay" aria-hidden="true">
+    <div class="congrats-box">
+      <div class="congrats-title">Mission<br>Complete</div>
+      <div class="congrats-stats">
+        <div class="pilot" id="congratsPilot"></div>
+        <div class="stat">Correct answers: <strong id="congratsCorrect">0</strong></div>
+        <div class="stat">Lives: <strong id="congratsLivesLeft">0</strong> / <strong id="congratsLivesMax">0</strong> remaining</div>
+        <div class="stat">Time per question: <strong id="congratsTime">0s</strong></div>
+        <div class="stat">Questions: <strong id="congratsQ">0</strong></div>
+      </div>
+      <div class="congrats-sub">Click or press Enter to play again</div>
+    </div>
+  </div>
+  <div class="game-over-overlay" id="gameOverOverlay" aria-hidden="true">
+    <div class="game-over-message">
+      Game Over
+      <div class="game-over-stats">
+        <div id="goName" style="font-size:clamp(13px,2vw,18px);color:var(--cyan);margin-bottom:4px"></div>
+        <div>Correct <strong id="gameOverCorrect">0</strong></div>
+        <div>Missed <strong id="gameOverMissed">0</strong></div>
+        <div id="goLives" style="font-size:clamp(11px,1.6vw,15px);color:var(--muted);margin-top:4px"></div>
+        <div id="goTime" style="font-size:clamp(11px,1.6vw,15px);color:var(--muted)"></div>
+      </div>
+      <span>Press Enter or click to restart</span>
+    </div>
+  </div>
+
+  <main class="app">
+    <h1 class="sr-only">Pandas DataFrame Simulator</h1>
+
+    <div class="left-void">
+      <section class="output-zone" aria-label="Generated result">
+        <div class="stage-result" id="stageResult">
+          <div class="card-label">
+            <span>Stage 1 Result</span>
+          </div>
+          <div class="matrix-grid" id="stageResultGrid" style="--cols: 6"></div>
+        </div>
+
+        <div class="locked-label" id="lockedLabel" aria-live="polite"></div>
+
+        <div class="created-shell" id="createdShell">
+          <div class="hud-corner hud-tl" aria-hidden="true"></div>
+          <div class="hud-corner hud-tr" aria-hidden="true"></div>
+          <div class="hud-corner hud-bl" aria-hidden="true"></div>
+          <div class="hud-corner hud-br" aria-hidden="true"></div>
+          <div class="hud-bar hud-bar-top" aria-hidden="true">
+            <span>SYS:NOMINAL</span>
+            <span>MATRIX DATA</span>
+            <span class="hud-blink">◈ ARMED</span>
+          </div>
+          <div class="hud-bar hud-bar-bot" aria-hidden="true">
+            <span>ALT:0000</span>
+            <span id="hudShape">SHAPE:--</span>
+            <span>MODE:EXEC</span>
+          </div>
+          <div class="hud-side-marks hud-side-l" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span>
+          </div>
+          <div class="hud-side-marks hud-side-r" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span>
+          </div>
+          <div class="hud-target" aria-hidden="true"></div>
+          <div class="empty-state" id="emptyState">AWAITING<br>&#9654; TARGET LOCK</div>
+          <div class="created-inner matrix-grid" id="createdInner"></div>
+        </div>
+      </section>
+
+      <div class="left-number-rain" aria-hidden="true">
+        <span style="left: 8%; --fall-speed: 7.8s; --fall-delay: -1.2s;">010101001101</span>
+        <span style="left: 18%; --fall-speed: 6.4s; --fall-delay: -3.1s;">np.array0010</span>
+        <span style="left: 31%; --fall-speed: 8.2s; --fall-delay: -2.4s;">42 7 4 8 5</span>
+        <span style="left: 44%; --fall-speed: 5.9s; --fall-delay: -4.5s;">0011010110</span>
+        <span style="left: 58%; --fall-speed: 7.1s; --fall-delay: -0.8s;">shape(2,3)</span>
+        <span style="left: 71%; --fall-speed: 6.8s; --fall-delay: -2.9s;">101 np 010</span>
+        <span style="left: 84%; --fall-speed: 8.7s; --fall-delay: -5.2s;">0 1 0 1 0 1</span>
+      </div>
+    </div>
+
+    <section class="control-stack" aria-label="Command console">
+      <nav class="top-nav" aria-label="Question navigation">
+        <span class="question-chip" id="questionChip">Question 1</span>
+      </nav>
+      <div class="progress-row">
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-fill" id="progressFill"></div>
+        </div>
+        <span class="progress-label" id="progressLabel">0%</span>
+      </div>
+
+      <div class="timer-panel" id="timerPanel" data-state="green" aria-label="Question timer">
+        <div class="timer-readout">
+          <span>Time</span>
+          <strong id="timerText">--</strong>
+        </div>
+        <div class="timer-bars" id="timerBars" aria-hidden="true"></div>
+      </div>
+
+      <section aria-label="Encrypted requirement">
+        <div class="mystery-copy">
+          <span class="label" id="requirementLabel">Encrypted requirement<button id="muteButton" type="button" title="Toggle sound">🔊</button></span>
+          <pre class="ghost-text" id="ghostText">create a pandas Series
+from the values
+10, 20, 30, 40</pre>
+        </div>
+      </section>
+
+      <section class="panel" aria-label="Python command panel">
+        <div class="editor-wrap">
+          <pre class="locked-line" id="lockedLine"></pre>
+          <textarea id="codeInput" spellcheck="false" autocomplete="off">pd.Series([10, 20, 30, 40])</textarea>
+          <div id="revealOverlay" aria-hidden="true"></div>
+        </div>
+
+        <div class="actions">
+          <div class="status" id="status">Awaiting execution...</div>
+          <div id="actionsNormal">
+            <button id="dontKnowButton" type="button">Don't Know</button>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
+              <button id="runButton" type="button">Run</button>
+              <span style="font-size:10px;color:rgba(255,255,255,0.55);letter-spacing:.04em">Ctrl + Enter</span>
+            </div>
+          </div>
+          <div id="actionsReveal" style="display:none">
+            <button id="openTopicButton" type="button">Open Topic</button>
+            <button id="nextRevealButton" type="button">Next →</button>
+          </div>
+        </div>
+
+        <div class="cheats">
+          Tip: create the array described by the encrypted requirement.
+        </div>
+      </section>
+    </section>
+
+    <section class="right-stack" aria-label="Matrix displays">
+      <div class="target-card" id="targetCard">
+        <div class="card-label">
+          <span>Required pattern</span>
+          <span class="pulse-dot" aria-hidden="true"></span>
+        </div>
+        <div class="matrix-grid" id="targetGrid" style="--cols: 4"></div>
+        <div class="source-matrix" id="sourceMatrix">
+          <div class="card-label">
+            <span id="sourceMatrixLabel">Array</span>
+          </div>
+          <div class="matrix-grid" id="sourceMatrixGrid" style="--cols: 3"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="answer-modal" id="answerModal" aria-hidden="true">
+    <div class="answer-modal-box">
+      <div class="answer-modal-header">
+        <span class="answer-modal-title">Correct Answer</span>
+        <button class="answer-modal-close" id="answerModalClose" aria-label="Close">✕</button>
+      </div>
+      <div class="answer-modal-context" id="answerModalContext"></div>
+      <pre class="answer-modal-code" id="answerModalCode"></pre>
+      <a class="answer-modal-link" id="answerModalLink" target="_blank" href="#" style="display:none">Open lesson page →</a>
+    </div>
+  </div>
+
+  <div class="confirm-modal" id="restartConfirm" aria-hidden="true">
+    <div class="confirm-box">
+      <div class="confirm-icon">⚠️</div>
+      <div class="confirm-title">Restart Simulator?</div>
+      <div class="confirm-text">You are about to restart the simulator.<br>Your current run will be lost. Are you sure?</div>
+      <div class="confirm-actions">
+        <button type="button" class="confirm-btn confirm-no" id="restartNo">No, keep playing</button>
+        <button type="button" class="confirm-btn confirm-yes" id="restartYes">Yes, restart</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const questions = [
+      {
+        clue: "create a pandas Series from the list of values 10, 100, 15, 35",
+        prompt: "Create a pandas Series from the four values. The simulator understands `pd.Series` and `pd.DataFrame`",
+        starter: "pd.Series([10, 100, 15, 35])",
+        hint: "Tip: pass a plain Python list with the four numbers to `pd.Series()`.",
+        commandPattern: /^pd\.Series\(/,
+        commandName: "pd.Series()",
+        target: [
+          [10],
+          [100],
+          [15],
+          [35]
+        ],
+        source: { url: "../03_pandas/04-series.html#ex-series-list", label: "pd.Series(list) — Topic 04 · Creating a Series" },
+        win: "Created the Series: 4 values with the default index 0-3."
+      },
+      {
+        clue: "Series with labels USA 1776, CANADA 1867 MEXICO 1821\nuse data=[..] index=[..]",
+        prompt: "Create a Series from the years list, with country names as the label index",
+        starter: "pd.Series(data=[1776, 1867, 1821], index=['USA', 'CANADA', 'MEXICO'])",
+        hint: "Tip: pass the years as `data` and the country names as the `index` parameter — two lists, same length.",
+        commandPattern: /index\s*=/,
+        commandName: "pd.Series(data, index=)",
+        target: [
+          ["USA", 1776],
+          ["CANADA", 1867],
+          ["MEXICO", 1821]
+        ],
+        source: { url: "../03_pandas/04-series.html#ex-series-index", label: "pd.Series(data, index=) — Topic 04 · Creating a Series" },
+        win: "Label index attached: USA, CANADA, MEXICO instead of 0, 1, 2."
+      },
+      {
+        clue: "the same Series but build it from a dictionary using pd.Series",
+        prompt: "Create the same country → year Series from a Python dictionary",
+        starter: "pd.Series({'USA': 1776, 'CANADA': 1867, 'MEXICO': 1821})",
+        hint: "Tip: pass a dict to `pd.Series()` — keys become the index, values become the data. No `index=` needed.",
+        commandPattern: /^pd\.Series\(\s*\{/,
+        commandName: "pd.Series(dict)",
+        target: [
+          ["USA", 1776],
+          ["CANADA", 1867],
+          ["MEXICO", 1821]
+        ],
+        source: { url: "../03_pandas/04-series.html#ex-series-dict", label: "pd.Series(dict) — Topic 04 · Creating a Series" },
+        win: "Dict keys became the index automatically."
+      },
+      {
+        clue: "from Series s get the value for label USA",
+        prompt: "Get the single value stored under the label `USA`",
+        starter: "s['USA']",
+        lockedLine: "s = pd.Series({'USA': 1776, 'CANADA': 1867, 'MEXICO': 1821})",
+        hint: "Tip: square brackets with the label — a Series works like a dictionary: `s['USA']`.",
+        commandPattern: /^s(\.loc)?\s*\[/,
+        commandName: "s['label']",
+        target: [
+          [1776]
+        ],
+        sourceLabel: "s",
+        sourceMatrix: [
+          ["USA", 1776],
+          ["CANADA", 1867],
+          ["MEXICO", 1821]
+        ],
+        source: { url: "../03_pandas/04-series.html#ex-series-access-label", label: "series['label'] — Topic 04 · Index & Access" },
+        win: "Grabbed 1776 by its label — just like a dict lookup."
+      },
+      {
+        clue: "from Series s get ALL the index labels",
+        prompt: "Return the Index object holding all the labels of `s`",
+        starter: "s.keys()",
+        lockedLine: "s = pd.Series({'USA': 1776, 'CANADA': 1867, 'MEXICO': 1821})",
+        hint: "Tip: the method is called `.keys()` — it returns Index(['USA', 'CANADA', 'MEXICO']).",
+        commandPattern: /\.keys\(\s*\)$/,
+        commandName: ".keys()",
+        target: [
+          ["USA"],
+          ["CANADA"],
+          ["MEXICO"]
+        ],
+        sourceLabel: "s",
+        sourceMatrix: [
+          ["USA", 1776],
+          ["CANADA", 1867],
+          ["MEXICO", 1821]
+        ],
+        source: { url: "../03_pandas/04-series.html#ex-series-index-props", label: "series.keys() — Topic 04 · Index & Access" },
+        win: "keys() returned the Index with every label."
+      },
+      {
+        clue: "Series s holds floats convert all values to int",
+        prompt: "Convert the whole Series from float64 to int",
+        starter: "s.astype(int)",
+        lockedLine: "s = pd.Series({'Brazil': 70.0, 'China': 800.0, 'Japan': 100.0, 'USA': 450.0})",
+        hint: "Tip: `.astype()` converts every value — pass the Python type `int`.",
+        commandPattern: /\.astype\(/,
+        commandName: ".astype(int)",
+        target: [
+          ["Brazil", 70],
+          ["China", 800],
+          ["Japan", 100],
+          ["USA", 450]
+        ],
+        sourceLabel: "s",
+        sourceMatrix: [
+          ["Brazil", "70.0"],
+          ["China", "800.0"],
+          ["Japan", "100.0"],
+          ["USA", "450.0"]
+        ],
+        source: { url: "../03_pandas/04-series.html#ex-series-astype", label: ".astype(type) — Topic 04 · dtype & astype" },
+        win: "astype(int) converted the dtype float64 → int64."
+      },
+      {
+        clue: "build a DataFrame Country, Year, Population USA, Canada, Mexico\nuse pd.DataFrame({\"Country\":.., \"Year\":.., \"Population\":..})",
+        prompt: "Create the countries table from a dictionary of lists",
+        starter: 'pd.DataFrame({"Country": ["USA", "Canada", "Mexico"], "Year": [1776, 1867, 1821], "Population": [328, 38, 126]})',
+        hint: "Tip: pass a dict to `pd.DataFrame()` — keys become column names, lists become the column values.",
+        commandPattern: /^pd\.DataFrame\(/,
+        commandName: "pd.DataFrame()",
+        target: [
+          ["Country", "Year", "Population"],
+          ["USA", 1776, 328],
+          ["Canada", 1867, 38],
+          ["Mexico", 1821, 126]
+        ],
+        source: { url: "../03_pandas/05-creating-df.html#ex-df-from-dict", label: "pd.DataFrame(dict) — Topic 05 · From dict" },
+        win: "Built the 3-row countries DataFrame."
+      },
+      {
+        clue: "from DataFrame df show only the FIRST 2 rows",
+        prompt: "Preview just the first two rows of `df`",
+        starter: "df.head(2)",
+        lockedLine: 'df = pd.DataFrame({"a": [0, 4, 8, 12], "b": [1, 5, 9, 13], <br>"c": [2, 6, 10, 14], "d": [3, 7, 11, 15]})',
+        hint: "Tip: `.head(n)` returns the first n rows — pass 2.",
+        commandPattern: /\.head\(|\.iloc\[/,
+        commandName: ".head(2)",
+        target: [
+          ["a", "b", "c", "d"],
+          [0, 1, 2, 3],
+          [4, 5, 6, 7]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["a", "b", "c", "d"],
+          [0, 1, 2, 3],
+          [4, 5, 6, 7],
+          [8, 9, 10, 11],
+          [12, 13, 14, 15]
+        ],
+        source: { url: "../03_pandas/05-creating-df.html#ex-df-head", label: "df.head(n) — Topic 05 · Inspect" },
+        win: "head(2) returned only the first two rows."
+      },
+      {
+        clue: "from DataFrame df select the single column a",
+        prompt: "Select column `a` from `df` — the result is a Series",
+        starter: 'df["a"]',
+        lockedLine: 'df = pd.DataFrame({"a": [0, 4, 8, 12], "b": [1, 5, 9, 13], <br>"c": [2, 6, 10, 14], "d": [3, 7, 11, 15]})',
+        hint: "Tip: square brackets with the column name as a string: `df[\"a\"]`.",
+        commandPattern: /^df/,
+        commandName: 'df["col"]',
+        target: [
+          ["a"],
+          [0],
+          [4],
+          [8],
+          [12]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["a", "b", "c", "d"],
+          [0, 1, 2, 3],
+          [4, 5, 6, 7],
+          [8, 9, 10, 11],
+          [12, 13, 14, 15]
+        ],
+        source: { url: "../03_pandas/06-subsetting.html#ex-select-col", label: "df['col'] — Topic 06 · Subset Cols" },
+        win: "Selected column `a` — one column is a Series."
+      },
+      {
+        clue: "filter df rows where Population is greater than 50\nuse df[<condition>]",
+        prompt: "Keep only the rows where the Population column is above 50",
+        starter: "df[df['Population'] > 50]",
+        lockedLine: 'df = pd.DataFrame({"Country": ["USA", "Canada", "Mexico"], "Population": [328, 38, 126]})',
+        hint: "Tip: build the boolean mask `df['Population'] > 50`, then pass it back into `df[...]`.",
+        commandPattern: /^df(\.loc)?\s*\[\s*df/,
+        commandName: "df[condition]",
+        target: [
+          ["Country", "Population"],
+          ["USA", 328],
+          ["Mexico", 126]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["Country", "Population"],
+          ["USA", 328],
+          ["Canada", 38],
+          ["Mexico", 126]
+        ],
+        source: { url: "../03_pandas/06-subsetting.html#ex-filter-mask", label: "df[condition] — Topic 06 · Subset Rows" },
+        win: "Boolean mask kept USA and Mexico — Canada (38) filtered out."
+      },
+      {
+        clue: "build the DataFrame from a 3 by 2 number matrix\nsee required pattern screen",
+        prompt: "Create a DataFrame from a matrix of numbers",
+        starter: "pd.DataFrame([[3, 7], [5, 9], [11, 13]])",
+        hint: "Tip: pass a nested list to `pd.DataFrame()` — each inner list becomes one row.",
+        commandPattern: /^pd\.DataFrame\(/,
+        commandName: "pd.DataFrame(matrix)",
+        target: [
+          [0, 1],
+          [3, 7],
+          [5, 9],
+          [11, 13]
+        ],
+        source: { url: "../03_pandas/05-creating-df.html#ex-df-list-numeric", label: "pd.DataFrame(matrix) — Topic 05 · List of lists" },
+        win: "Built a DataFrame from a plain matrix."
+      },
+      {
+        clue: "build the DataFrame and add row labels\nbranch_a, branch_b, branch_c, see required pattern\nuse: data= ..., index= ...",
+        prompt: "Create the DataFrame with a custom row index",
+        starter: "pd.DataFrame(data=[[4, 8], [6, 10], [12, 16]], index=['branch_a', 'branch_b', 'branch_c'])",
+        hint: "Tip: pass the matrix as `data` and the row labels with `index=`.",
+        commandPattern: /^pd\.DataFrame\([\s\S]*index\s*=/,
+        commandName: "pd.DataFrame(data, index=)",
+        target: [
+          ["index", 0, 1],
+          ["branch_a", 4, 8],
+          ["branch_b", 6, 10],
+          ["branch_c", 12, 16]
+        ],
+        source: { url: "../03_pandas/05-creating-df.html#ex-df-list-of-lists", label: "pd.DataFrame(data, index=) — Topic 05 · List of lists" },
+        win: "The row index now uses branch labels."
+      },
+      {
+        clue: "build the DataFrame with row labels and column labels\nuse: data= ... ,index= ... ,columns= ...",
+        prompt: "Create the DataFrame with both custom row labels and custom column names",
+        starter: "pd.DataFrame(data=[[2, 5, 8], [3, 6, 9]], index=['north', 'south'], columns=['apples', 'pears', 'plums'])",
+        hint: "Tip: use both `index=` and `columns=` inside `pd.DataFrame()`.",
+        commandPattern: /^pd\.DataFrame\([\s\S]*index\s*=[\s\S]*columns\s*=/,
+        commandName: "pd.DataFrame(data, index=, columns=)",
+        target: [
+          ["index", "apples", "pears", "plums"],
+          ["north", 2, 5, 8],
+          ["south", 3, 6, 9]
+        ],
+        source: { url: "../03_pandas/05-creating-df.html#ex-df-list-of-lists", label: "pd.DataFrame(data, index=, columns=) — Topic 05 · List of lists" },
+        win: "Rows and columns both have meaningful labels."
+      },
+      {
+        clue: "read a CSV file named bakery.csv into a DataFrame",
+        prompt: "Load the CSV file `bakery.csv` with pandas",
+        starter: "pd.read_csv('bakery.csv')",
+        hint: "Tip: pass the CSV filename as a string to `pd.read_csv()`.",
+        commandPattern: /^pd\.read_csv\(/,
+        commandName: "pd.read_csv('file.csv')",
+        target: [
+          ["pastry", "sold"],
+          ["bagel", 42],
+          ["muffin", 31],
+          ["tart", 18]
+        ],
+        source: { url: "../03_pandas/05-creating-df.html#ex-df-read-csv", label: "pd.read_csv('file.csv') — Topic 05 · From CSV" },
+        win: "CSV loaded into a DataFrame."
+      },
+      {
+        clue: "from DataFrame df show all column names",
+        prompt: "Return the column names from `df`",
+        starter: "df.columns",
+        lockedLine: 'df = pd.DataFrame({"item": ["pen", "mug", "lamp", "book"], "price": [3, 8, 20, 12], <br>"qty": [40, 15, 7, 22], "city": ["Haifa", "Eilat", "Akko", "Safed"]})',
+        hint: "Tip: `columns` is a property, so write `df.columns` without parentheses.",
+        commandPattern: /^df\.columns$/,
+        commandName: "df.columns",
+        target: [
+          ["item"],
+          ["price"],
+          ["qty"],
+          ["city"]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["item", "price", "qty", "city"],
+          ["pen", 3, 40, "Haifa"],
+          ["mug", 8, 15, "Eilat"],
+          ["lamp", 20, 7, "Akko"],
+          ["book", 12, 22, "Safed"]
+        ],
+        source: { url: "../03_pandas/05-creating-df.html#ex-df-cols-index", label: "df.columns — Topic 05 · Inspect" },
+        win: "Returned every column name from the DataFrame."
+      },
+      {
+        clue: "from DataFrame df show all row indexes",
+        prompt: "Return the row index from `df`",
+        starter: "df.index",
+        lockedLine: 'df = pd.DataFrame({"item": ["pen", "mug", "lamp", "book"], "price": [3, 8, 20, 12], <br>"qty": [40, 15, 7, 22]})',
+        hint: "Tip: `index` is a property, so write `df.index` without parentheses.",
+        commandPattern: /^df\.index$/,
+        commandName: "df.index",
+        target: [
+          [0],
+          [1],
+          [2],
+          [3]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["item", "price", "qty"],
+          ["pen", 3, 40],
+          ["mug", 8, 15],
+          ["lamp", 20, 7],
+          ["book", 12, 22]
+        ],
+        source: { url: "../03_pandas/05-creating-df.html#ex-df-cols-index", label: "df.index — Topic 05 · Inspect" },
+        win: "Returned the default RangeIndex values."
+      },
+      {
+        clue: "from DataFrame df show only the LAST 2 rows",
+        prompt: "Preview just the last two rows of `df`",
+        starter: "df.tail(2)",
+        lockedLine: 'df = pd.DataFrame({"item": ["pen", "mug", "lamp", "book"], "price": [3, 8, 20, 12], <br>"qty": [40, 15, 7, 22]})',
+        hint: "Tip: `.tail(n)` returns the last n rows — pass 2.",
+        commandPattern: /\.tail\(/,
+        commandName: ".tail(2)",
+        target: [
+          ["item", "price", "qty"],
+          ["lamp", 20, 7],
+          ["book", 12, 22]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["item", "price", "qty"],
+          ["pen", 3, 40],
+          ["mug", 8, 15],
+          ["lamp", 20, 7],
+          ["book", 12, 22]
+        ],
+        source: { url: "../03_pandas/05-creating-df.html#ex-df-tail", label: "df.tail(n) — Topic 05 · Inspect" },
+        win: "tail(2) returned only the last two rows."
+      },
+      {
+        clue: "from DataFrame df print the info summary",
+        prompt: "Show the structure summary for `df`",
+        starter: "df.info()",
+        lockedLine: 'df = pd.DataFrame({"product": ["tea", "soap", "rice"], "stock": [25, 14, 30], <br>"rating": [4, 5, 3]})',
+        hint: "Tip: `.info()` is a method, so include the parentheses.",
+        commandPattern: /\.info\(\s*\)$/,
+        commandName: "df.info()",
+        target: [
+          ["rows", 3],
+          ["columns", 3],
+          ["product", "object"],
+          ["stock", "int64"],
+          ["rating", "int64"]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["product", "stock", "rating"],
+          ["tea", 25, 4],
+          ["soap", 14, 5],
+          ["rice", 30, 3]
+        ],
+        source: { url: "../03_pandas/05-creating-df.html#ex-df-info", label: "df.info() — Topic 05 · Inspect" },
+        win: "info() summarized rows, columns, and dtypes."
+      },
+      {
+        clue: "from DataFrame df calculate numeric summary stats",
+        prompt: "Return the numeric summary statistics for `df`",
+        starter: "df.describe()",
+        lockedLine: 'df = pd.DataFrame({"score": [10, 20, 30, 40], "bonus": [1, 3, 5, 7]})',
+        hint: "Tip: use `.describe()` to get count, mean, min, max, and more for numeric columns.",
+        commandPattern: /\.describe\(\s*\)$/,
+        commandName: "df.describe()",
+        target: [
+          ["stat", "score", "bonus"],
+          ["count", 4, 4],
+          ["mean", 25, 4],
+          ["min", 10, 1],
+          ["max", 40, 7]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["score", "bonus"],
+          [10, 1],
+          [20, 3],
+          [30, 5],
+          [40, 7]
+        ],
+        source: { url: "../03_pandas/05-creating-df.html#ex-df-describe", label: "df.describe() — Topic 05 · Inspect" },
+        win: "describe() returned the numeric summary stats."
+      },
+      {
+        clue: "from DataFrame df select columns item and qty",
+        prompt: "Select two columns from `df` in this order: item, qty",
+        starter: 'df[["item", "qty"]]',
+        lockedLine: 'df = pd.DataFrame({"item": ["pen", "mug", "lamp", "book"], "price": [3, 8, 20, 12], <br>"qty": [40, 15, 7, 22], "city": ["Haifa", "Eilat", "Akko", "Safed"]})',
+        hint: "Tip: pass a list of column names inside the square brackets: `df[[\"item\", \"qty\"]]`.",
+        commandPattern: /^df\s*\[\s*\[/,
+        commandName: 'df[["col1", "col2"]]',
+        target: [
+          ["item", "qty"],
+          ["pen", 40],
+          ["mug", 15],
+          ["lamp", 7],
+          ["book", 22]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["item", "price", "qty", "city"],
+          ["pen", 3, 40, "Haifa"],
+          ["mug", 8, 15, "Eilat"],
+          ["lamp", 20, 7, "Akko"],
+          ["book", 12, 22, "Safed"]
+        ],
+        source: { url: "../03_pandas/06-subsetting.html#ex-select-cols", label: "df[['col1','col2']] — Topic 06 · Subset Cols" },
+        win: "Selected the requested two columns."
+      },
+      {
+        clue: "from DataFrame df add columns price and qty",
+        prompt: "Add the `price` column and the `qty` column",
+        starter: 'df["price"] + df["qty"]',
+        lockedLine: 'df = pd.DataFrame({"item": ["pen", "mug", "lamp", "book"], "price": [3, 8, 20, 12], <br>"qty": [40, 15, 7, 22]})',
+        hint: "Tip: select both columns and use the `+` operator between them.",
+        commandPattern: /df\s*\[\s*["']price["']\s*\]\s*\+\s*df\s*\[\s*["']qty["']\s*\]|df\s*\[\s*["']qty["']\s*\]\s*\+\s*df\s*\[\s*["']price["']\s*\]/,
+        commandName: 'df["price"] + df["qty"]',
+        target: [
+          ["sum"],
+          [43],
+          [23],
+          [27],
+          [34]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["item", "price", "qty"],
+          ["pen", 3, 40],
+          ["mug", 8, 15],
+          ["lamp", 20, 7],
+          ["book", 12, 22]
+        ],
+        source: { url: "../03_pandas/02-topic.html#ex-col-add", label: "df['a'] + df['b'] — Topic 03 · Columns" },
+        win: "Column arithmetic returned one value per row."
+      },
+      {
+        clue: "add a new column called value = price x qty",
+        prompt: "Create a new `value` column from `price * qty`",
+        starter: 'df["value"] = df["price"] * df["qty"]',
+        lockedLine: 'df = pd.DataFrame({"item": ["pen", "mug", "lamp", "book"], "price": [3, 8, 20, 12], <br>"qty": [40, 15, 7, 22]})',
+        hint: "Tip: assign to a new column name: `df[\"value\"] = ...`.",
+        commandPattern: /^df\s*\[\s*["']value["']\s*\]\s*=/,
+        commandName: 'df["new"] = expr',
+        target: [
+          ["item", "price", "qty", "value"],
+          ["pen", 3, 40, 120],
+          ["mug", 8, 15, 120],
+          ["lamp", 20, 7, 140],
+          ["book", 12, 22, 264]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["item", "price", "qty"],
+          ["pen", 3, 40],
+          ["mug", 8, 15],
+          ["lamp", 20, 7],
+          ["book", 12, 22]
+        ],
+        source: { url: "../03_pandas/02-topic.html#ex-col-new", label: "df['new'] = expr — Topic 03 · Columns" },
+        win: "Added a computed value column."
+      },
+      {
+        clue: "from DataFrame df remove row index 1",
+        prompt: "Drop the row at index 1",
+        starter: "df.drop(1, axis=0)",
+        lockedLine: 'df = pd.DataFrame({"item": ["pen", "mug", "lamp", "book"], "price": [3, 8, 20, 12], <br>"qty": [40, 15, 7, 22]})',
+        hint: "Tip: rows are `axis=0`, so use `.drop(1, axis=0)`.",
+        commandPattern: /\.drop\(\s*1\s*,\s*axis\s*=\s*0/,
+        commandName: "df.drop(idx, axis=0)",
+        target: [
+          ["item", "price", "qty"],
+          ["pen", 3, 40],
+          ["lamp", 20, 7],
+          ["book", 12, 22]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["item", "price", "qty"],
+          ["pen", 3, 40],
+          ["mug", 8, 15],
+          ["lamp", 20, 7],
+          ["book", 12, 22]
+        ],
+        source: { url: "../03_pandas/02-topic.html#ex-drop-row", label: "df.drop(idx, axis=0) — Topic 03 · Columns" },
+        win: "Dropped the row with index 1."
+      },
+      {
+        clue: "from DataFrame df remove column qty. inplace",
+        prompt: "Drop the `qty` column from `df`",
+        starter: 'df.drop("qty", axis=1, inplace=True)',
+        lockedLine: 'df = pd.DataFrame({"item": ["pen", "mug", "lamp", "book"], "price": [3, 8, 20, 12], <br>"qty": [40, 15, 7, 22]})',
+        hint: "Tip: columns are `axis=1`; include `inplace=True` for this command.",
+        commandPattern: /\.drop\(\s*["']qty["']\s*,\s*axis\s*=\s*1[\s\S]*inplace\s*=\s*True/,
+        commandName: "df.drop('col', axis=1, inplace=True)",
+        target: [
+          ["item", "price"],
+          ["pen", 3],
+          ["mug", 8],
+          ["lamp", 20],
+          ["book", 12]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["item", "price", "qty"],
+          ["pen", 3, 40],
+          ["mug", 8, 15],
+          ["lamp", 20, 7],
+          ["book", 12, 22]
+        ],
+        source: { url: "../03_pandas/02-topic.html#ex-drop-col", label: "df.drop('col', axis=1, inplace=True) — Topic 03 · Columns" },
+        win: "Removed the qty column."
+      },
+      {
+        clue: "from DataFrame df make code become the row index",
+        prompt: "Set the `code` column as the row index",
+        starter: 'df.set_index("code")',
+        lockedLine: 'df = pd.DataFrame({"code": ["A7", "B2", "C3"], "region": ["north", "south", "west"], <br>"sales": [12, 18, 9]})',
+        hint: "Tip: call `.set_index()` with the column name as a string.",
+        commandPattern: /\.set_index\(\s*["']code["']\s*\)/,
+        commandName: "df.set_index('col')",
+        target: [
+          ["index", "region", "sales"],
+          ["A7", "north", 12],
+          ["B2", "south", 18],
+          ["C3", "west", 9]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["code", "region", "sales"],
+          ["A7", "north", 12],
+          ["B2", "south", 18],
+          ["C3", "west", 9]
+        ],
+        source: { url: "../03_pandas/02-topic.html#ex-set-index", label: "df.set_index('col') — Topic 03 · Columns" },
+        win: "Promoted code into the row index."
+      },
+      {
+        clue: "from indexed df reset the index back to a column",
+        prompt: "Reset the current index back into a regular column",
+        starter: "df.reset_index()",
+        lockedLine: 'df = pd.DataFrame({"region": ["north", "south", "west"], "sales": [12, 18, 9]}, <br>index=["A7", "B2", "C3"])',
+        hint: "Tip: `.reset_index()` moves the row index back into the DataFrame.",
+        commandPattern: /\.reset_index\(\s*\)/,
+        commandName: "df.reset_index()",
+        target: [
+          ["index", "region", "sales"],
+          ["A7", "north", 12],
+          ["B2", "south", 18],
+          ["C3", "west", 9]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["index", "region", "sales"],
+          ["A7", "north", 12],
+          ["B2", "south", 18],
+          ["C3", "west", 9]
+        ],
+        source: { url: "../03_pandas/02-topic.html#ex-reset-index", label: "df.reset_index() — Topic 03 · Columns" },
+        win: "Moved the index back into the table."
+      },
+      {
+        clue: "from DataFrame df get row at position 2",
+        prompt: "Select the row at integer position 2",
+        starter: "df.iloc[2]",
+        lockedLine: 'df = pd.DataFrame({"item": ["pen", "mug", "lamp", "book"], "price": [3, 8, 20, 12], <br>"qty": [40, 15, 7, 22]})',
+        hint: "Tip: `.iloc[]` uses integer positions, starting from 0.",
+        commandPattern: /\.iloc\s*\[\s*2\s*\]/,
+        commandName: "df.iloc[n]",
+        target: [
+          ["item", "lamp"],
+          ["price", 20],
+          ["qty", 7]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["item", "price", "qty"],
+          ["pen", 3, 40],
+          ["mug", 8, 15],
+          ["lamp", 20, 7],
+          ["book", 12, 22]
+        ],
+        source: { url: "../03_pandas/02-topic.html#ex-iloc", label: "df.iloc[n] — Topic 03 · Columns" },
+        win: "Selected the third row by position."
+      },
+      {
+        clue: "from DataFrame df get rows at positions 1 to 3 (include)",
+        prompt: "Select rows at positions 1 through 3",
+        starter: "df.iloc[1:4]",
+        lockedLine: 'df = pd.DataFrame({"item": ["pen", "mug", "lamp", "book"], "price": [3, 8, 20, 12], <br>"qty": [40, 15, 7, 22]})',
+        hint: "Tip: slices stop before the end number, so use `[1:4]`.",
+        commandPattern: /\.iloc\s*\[\s*1\s*:\s*4\s*\]/,
+        commandName: "df.iloc[0:4]",
+        target: [
+          ["item", "price", "qty"],
+          ["mug", 8, 15],
+          ["lamp", 20, 7],
+          ["book", 12, 22]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["item", "price", "qty"],
+          ["pen", 3, 40],
+          ["mug", 8, 15],
+          ["lamp", 20, 7],
+          ["book", 12, 22]
+        ],
+        source: { url: "../03_pandas/02-topic.html#ex-iloc", label: "df.iloc[0:4] — Topic 03 · Columns" },
+        win: "Selected a row slice by position."
+      },
+      {
+        clue: "from indexed df get row label A7",
+        prompt: "Select the row with label `A7`",
+        starter: 'df.loc["A7"]',
+        lockedLine: 'df = pd.DataFrame({"region": ["north", "south", "west"], "sales": [12, 18, 9]}, <br>index=["A7", "B2", "C3"])',
+        hint: "Tip: `.loc[]` uses row labels, not integer positions.",
+        commandPattern: /\.loc\s*\[\s*["']A7["']\s*\]/,
+        commandName: "df.loc['label']",
+        target: [
+          ["region", "north"],
+          ["sales", 12]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["index", "region", "sales"],
+          ["A7", "north", 12],
+          ["B2", "south", 18],
+          ["C3", "west", 9]
+        ],
+        source: { url: "../03_pandas/02-topic.html#ex-loc", label: "df.loc['label'] — Topic 03 · Columns" },
+        win: "Selected row A7 by label."
+      },
+      {
+        clue: "from indexed df get labels A7 and C3",
+        prompt: "Select the rows with labels `A7` and `C3`",
+        starter: 'df.loc[["A7", "C3"]]',
+        lockedLine: 'df = pd.DataFrame({"region": ["north", "south", "west"], "sales": [12, 18, 9]}, <br>index=["A7", "B2", "C3"])',
+        hint: "Tip: pass a list of labels inside `.loc[]`.",
+        commandPattern: /\.loc\s*\[\s*\[/,
+        commandName: "df.loc[[...]]",
+        target: [
+          ["index", "region", "sales"],
+          ["A7", "north", 12],
+          ["C3", "west", 9]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["index", "region", "sales"],
+          ["A7", "north", 12],
+          ["B2", "south", 18],
+          ["C3", "west", 9]
+        ],
+        source: { url: "../03_pandas/02-topic.html#ex-loc", label: "df.loc[[...]] — Topic 03 · Columns" },
+        win: "Selected multiple rows by label."
+      },
+      {
+        clue: "stack df1 on top of df2 into one DataFrame",
+        prompt: "Combine df1 and df2 by stacking their rows with concat",
+        starter: "pd.concat([df1, df2])",
+        lockedLine: 'df1 = pd.DataFrame({"A": [1, 2], "B": ["x", "y"]});  <br>df2 = pd.DataFrame({"A": [3, 4], "B": ["z", "w"]})',
+        hint: "Tip: `pd.concat([df1, df2])` stacks the second DataFrame under the first.",
+        commandPattern: /^pd\.concat\(/,
+        commandName: "pd.concat([df1, df2])",
+        target: [
+          ["A", "B"],
+          [1, "x"],
+          [2, "y"],
+          [3, "z"],
+          [4, "w"]
+        ],
+        source: { url: "../03_pandas/02-topic.html#ex-concat", label: "pd.concat() — Topic 03 · Columns" },
+        win: "Stacked df1 over df2 — four rows in one table."
+      },
+      {
+        clue: "keep only rows where day is Sun or Sat. use isin",
+        prompt: "Filter `df` to the rows whose day is in ['Sun', 'Sat'] using isin",
+        starter: "df[df['day'].isin(['Sun', 'Sat'])]",
+        lockedLine: 'df = pd.DataFrame({"day": ["Sun", "Mon", "Sat", "Tue", "Sun"], "sales": [10, 20, 30, 40, 50]})',
+        hint: "Tip: `.isin([...])` builds the mask; pass it back into `df[...]` to keep matching rows.",
+        commandPattern: /\.isin\(/,
+        commandName: ".isin([...])",
+        target: [
+          ["day", "sales"],
+          ["Sun", 10],
+          ["Sat", 30],
+          ["Sun", 50]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["day", "sales"],
+          ["Sun", 10],
+          ["Mon", 20],
+          ["Sat", 30],
+          ["Tue", 40],
+          ["Sun", 50]
+        ],
+        source: { url: "../03_pandas/02-topic.html#ex-isin", label: ".isin([...]) — Topic 04 · Filtering" },
+        win: "Kept only Sun and Sat rows."
+      },
+      {
+        clue: "keep rows where total_bill is between 10 and 20\nuse between command",
+        prompt: "Filter `df` to rows where total_bill is between 10 and 20 (inclusive)",
+        starter: "df[df['total_bill'].between(10, 20)]",
+        lockedLine: 'df = pd.DataFrame({"item": ["a", "b", "c", "d"], "total_bill": [8, 15, 20, 25]})',
+        hint: "Tip: `.between(10, 20)` is True for values in that range — inclusive on both ends by default.",
+        commandPattern: /\.between\(/,
+        commandName: ".between(a, b)",
+        target: [
+          ["item", "total_bill"],
+          ["b", 15],
+          ["c", 20]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["item", "total_bill"],
+          ["a", 8],
+          ["b", 15],
+          ["c", 20],
+          ["d", 25]
+        ],
+        source: { url: "../03_pandas/02-topic.html#ex-between", label: ".between(a, b) — Topic 04 · Filtering" },
+        win: "Kept 15 and 20 — both inside the range."
+      },
+      {
+        clue: "exclude the rows where Year is 1776 using ~ (NOT)\nmust use isin",
+        prompt: "Keep every row EXCEPT the one where Year is 1776",
+        starter: "df[~df['Year'].isin([1776])]",
+        lockedLine: 'df = pd.DataFrame({"Country": ["USA", "Canada", "Mexico"], "Year": [1776, 1867, 1821]})',
+        hint: "Tip: `~` inverts a boolean mask — `~df['Year'].isin([1776])` is True everywhere except 1776.",
+        commandPattern: /^df\s*\[\s*~/,
+        commandName: "~ (NOT mask)",
+        target: [
+          ["Country", "Year"],
+          ["Canada", 1867],
+          ["Mexico", 1821]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["Country", "Year"],
+          ["USA", 1776],
+          ["Canada", 1867],
+          ["Mexico", 1821]
+        ],
+        source: { url: "../03_pandas/02-topic.html#ex-bool-ops", label: "~cond — Topic 04 · Filtering" },
+        win: "Excluded the 1776 row with the NOT operator."
+      },
+      {
+        clue: "rows where Population > 50 AND Country in USA or Canada\nmust use isin",
+        prompt: "Filter with TWO conditions joined by & — Population > 50 and Country in ['Canada', 'USA']",
+        starter: "df[(df['Population'] > 50) & (df['Country'].isin(['Canada', 'USA']))]",
+        lockedLine: 'df = pd.DataFrame({"Country": ["USA", "Canada", "Mexico"], "Population": [328, 38, 126]})',
+        hint: "Tip: wrap each condition in parentheses and join with `&`. Only USA passes both.",
+        commandPattern: /&/,
+        commandName: "cond1 & cond2",
+        target: [
+          ["Country", "Population"],
+          ["USA", 328]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["Country", "Population"],
+          ["USA", 328],
+          ["Canada", 38],
+          ["Mexico", 126]
+        ],
+        source: { url: "../03_pandas/02-topic.html#ex-bool-ops", label: "cond1 & cond2 — Topic 04 · Filtering" },
+        win: "Only USA met both conditions."
+      },
+      {
+        clue: "sort df rows by score, lowest first",
+        prompt: "Sort the rows of `df` by the score column, ascending",
+        starter: "df.sort_values('score')",
+        lockedLine: 'df = pd.DataFrame({"name": ["Ana", "Ben", "Dan"], "score": [30, 10, 20]})',
+        hint: "Tip: `.sort_values('score')` sorts ascending by default.",
+        commandPattern: /^df\.sort_values\(\s*(?:by\s*=\s*)?["']score["']\s*(?:,\s*ascending\s*=\s*True\s*)?\)$/,
+        commandName: ".sort_values('score')",
+        target: [
+          ["name", "score"],
+          ["Ben", 10],
+          ["Dan", 20],
+          ["Ana", 30]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["name", "score"],
+          ["Ana", 30],
+          ["Ben", 10],
+          ["Dan", 20]
+        ],
+        source: { url: "../03_pandas/02-topic.html#ex-sort-asc", label: "df.sort_values() — Topic 05 · Sorting" },
+        win: "Sorted ascending: Ben (10) → Dan (20) → Ana (30)."
+      },
+      {
+        clue: "sort df rows by score, HIGHEST first",
+        prompt: "Sort `df` by score in descending order",
+        starter: "df.sort_values('score', ascending=False)",
+        lockedLine: 'df = pd.DataFrame({"name": ["Ana", "Ben", "Dan"], "score": [30, 10, 20]})',
+        hint: "Tip: add `ascending=False` to flip the order highest → lowest.",
+        commandPattern: /ascending\s*=\s*False/,
+        commandName: ".sort_values(ascending=False)",
+        target: [
+          ["name", "score"],
+          ["Ana", 30],
+          ["Dan", 20],
+          ["Ben", 10]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["name", "score"],
+          ["Ana", 30],
+          ["Ben", 10],
+          ["Dan", 20]
+        ],
+        source: { url: "../03_pandas/02-topic.html#ex-sort-desc", label: "ascending=False — Topic 05 · Sorting" },
+        win: "Sorted descending: Ana (30) → Dan (20) → Ben (10)."
+      },
+      {
+        clue: "count how many times each day appears in df",
+        prompt: "Count the occurrences of each unique value in the `day` column",
+        starter: "df['day'].value_counts()",
+        lockedLine: 'df = pd.DataFrame({"day": ["Sun", "Sat", "Sun", "Sun", "Sat"]})',
+        hint: "Tip: `.value_counts()` tallies each value — the result is sorted by count, highest first.",
+        commandPattern: /\.value_counts\(/,
+        commandName: ".value_counts()",
+        target: [
+          ["Sun", 3],
+          ["Sat", 2]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["day"],
+          ["Sun"],
+          ["Sat"],
+          ["Sun"],
+          ["Sun"],
+          ["Sat"]
+        ],
+        source: { url: "../03_pandas/02-topic.html#ex-value-counts", label: ".value_counts() — Topic 05 · Values" },
+        win: "Counted: Sun 3×, Sat 2× — sorted by frequency."
+      },
+      {
+        clue: "list the DISTINCT days in df, no duplicates",
+        prompt: "Return the unique values of the `day` column, in order of appearance",
+        starter: "df['day'].unique()",
+        lockedLine: 'df = pd.DataFrame({"day": ["Sun", "Sat", "Sun", "Sun", "Sat"]})',
+        hint: "Tip: `.unique()` keeps each value once, in the order it first appears.",
+        commandPattern: /\.unique\(/,
+        commandName: ".unique()",
+        target: [
+          ["Sun"],
+          ["Sat"]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["day"],
+          ["Sun"],
+          ["Sat"],
+          ["Sun"],
+          ["Sun"],
+          ["Sat"]
+        ],
+        source: { url: "../03_pandas/02-topic.html#ex-unique", label: ".unique() — Topic 05 · Values" },
+        win: "Unique days: Sun, Sat — duplicates removed."
+      },
+      {
+        clue: "remove duplicate rows from df, keep the first",
+        prompt: "Drop the duplicate rows from `df`",
+        starter: "df.drop_duplicates()",
+        lockedLine: 'df = pd.DataFrame({"val": [1, 2, 2, 3]})',
+        hint: "Tip: `.drop_duplicates()` keeps the first occurrence of each row and removes the rest.",
+        commandPattern: /\.drop_duplicates\(/,
+        commandName: ".drop_duplicates()",
+        target: [
+          ["val"],
+          [1],
+          [2],
+          [3]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["val"],
+          [1],
+          [2],
+          [2],
+          [3]
+        ],
+        source: { url: "../03_pandas/02-topic.html#ex-drop-duplicates", label: "df.drop_duplicates() — Topic 05 · Values" },
+        win: "Removed the repeated 2 — first occurrence kept."
+      },
+      {
+        clue: "apply the function double to every value of column n",
+        prompt: "Run the `double` function on each value of column `n` with apply",
+        starter: "df['n'].apply(double)",
+        lockedLine: 'def double(n): return n * 2\ndf = pd.DataFrame({"n": [1, 2, 3, 4]})',
+        hint: "Tip: pass the function name (no parentheses) to `.apply()` — it runs once per value.",
+        commandPattern: /\.apply\(/,
+        commandName: ".apply(func)",
+        target: [
+          [2],
+          [4],
+          [6],
+          [8]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["n"],
+          [1],
+          [2],
+          [3],
+          [4]
+        ],
+        source: { url: "../03_pandas/02-topic.html#ex-apply", label: "df.apply(func) — Topic 05 · Custom" },
+        win: "apply doubled every value: 2, 4, 6, 8."
+      },
+      {
+        clue: "sort df by score, then by size, both descending",
+        prompt: "Sort `df` by score then size, both descending (list of columns)",
+        starter: "df.sort_values(['score', 'size'], ascending=False)",
+        lockedLine: 'df = pd.DataFrame({"team": ["A", "A", "B"], "score": [10, 30, 10], "size": [2, 1, 3]})',
+        hint: "Tip: pass a LIST of columns — pandas sorts by the first, then breaks ties with the second.",
+        commandPattern: /sort_values\(\s*\[/,
+        commandName: ".sort_values([c1, c2])",
+        target: [
+          ["team", "score", "size"],
+          ["A", 30, 1],
+          ["B", 10, 3],
+          ["A", 10, 2]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["team", "score", "size"],
+          ["A", 10, 2],
+          ["A", 30, 1],
+          ["B", 10, 3]
+        ],
+        source: { url: "../03_pandas/02-topic.html#ex-sort-multi", label: "sort_values([c1,c2]) — Topic 05 · Sorting" },
+        win: "Score desc, then size desc broke the 10-tie: B(3) before A(2)."
+      },
+      {
+        clue: "how many DISTINCT days are in df? count them",
+        prompt: "Return the COUNT of unique values in the `day` column",
+        starter: "df['day'].nunique()",
+        lockedLine: 'df = pd.DataFrame({"day": ["Sun", "Sat", "Sun", "Sun", "Sat"]})',
+        hint: "Tip: `.nunique()` returns a single number — how many distinct values exist.",
+        commandPattern: /\.nunique\(/,
+        commandName: ".nunique()",
+        target: [
+          [2]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["day"],
+          ["Sun"],
+          ["Sat"],
+          ["Sun"],
+          ["Sun"],
+          ["Sat"]
+        ],
+        source: { url: "../03_pandas/02-topic.html#ex-nunique", label: ".nunique() — Topic 05 · Values" },
+        win: "2 distinct days (Sun, Sat)."
+      },
+      {
+        clue: "in Series s replace Yes with Y and No with N\nuse replace command",
+        prompt: "Replace 'Yes' → 'Y' and 'No' → 'N' with replace",
+        starter: "s.replace(['Yes', 'No'], ['Y', 'N'])",
+        lockedLine: "s = pd.Series(['Yes', 'No', 'No'])",
+        hint: "Tip: `.replace([old...], [new...])` — the two lists line up position by position.",
+        commandPattern: /\.replace\(/,
+        commandName: ".replace([old],[new])",
+        target: [
+          ["Y"],
+          ["N"],
+          ["N"]
+        ],
+        sourceLabel: "s",
+        sourceMatrix: [
+          ["Yes"],
+          ["No"],
+          ["No"]
+        ],
+        source: { url: "../03_pandas/02-topic.html#ex-replace", label: ".replace() — Topic 05 · Values" },
+        win: "Replaced Yes→Y, No→N."
+      },
+      {
+        clue: "same swap but with a dict: map Female→F, Male→M",
+        prompt: "Do the same F/M swap using map with a dictionary",
+        starter: "s.map({'Female': 'F', 'Male': 'M'})",
+        lockedLine: "s = pd.Series(['Female', 'Male', 'Male'])",
+        hint: "Tip: `.map({...})` uses a dict — key is the old value, value is the replacement.",
+        commandPattern: /\.map\(/,
+        commandName: ".map(dict)",
+        target: [
+          ["F"],
+          ["M"],
+          ["M"]
+        ],
+        sourceLabel: "s",
+        sourceMatrix: [
+          ["Female"],
+          ["Male"],
+          ["Male"]
+        ],
+        source: { url: "../03_pandas/02-topic.html#ex-map", label: ".map(dict) — Topic 05 · Values" },
+        win: "map produced the same F, M, M."
+      },
+      {
+        clue: "flag duplicate rows in df — True on repeats only",
+        prompt: "Return the boolean duplicated mask of `df`",
+        starter: "df.duplicated()",
+        lockedLine: 'df = pd.DataFrame({"val": [1, 2, 2, 3]})',
+        hint: "Tip: `.duplicated()` is False for the first time a row appears, True for later copies.",
+        commandPattern: /\.duplicated\(/,
+        commandName: ".duplicated()",
+        target: [
+          ["False"],
+          ["False"],
+          ["True"],
+          ["False"]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["val"],
+          [1],
+          [2],
+          [2],
+          [3]
+        ],
+        source: { url: "../03_pandas/02-topic.html#ex-duplicated", label: "df.duplicated() — Topic 05 · Values" },
+        win: "Third row (the repeated 2) flagged True."
+      },
+      {
+        clue: "get the 2 rows with the LARGEST tip",
+        prompt: "Return the top 2 rows of `df` by the tip column",
+        starter: "df.nlargest(2, 'tip')",
+        lockedLine: 'df = pd.DataFrame({"name": ["Ana", "Ben", "Dan", "Eli"], "tip": [3, 9, 1, 7]})',
+        hint: "Tip: `.nlargest(2, 'tip')` returns the 2 rows with the biggest tip, largest first.",
+        commandPattern: /\.nlargest\(/,
+        commandName: ".nlargest(n, 'col')",
+        target: [
+          ["name", "tip"],
+          ["Ben", 9],
+          ["Eli", 7]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["name", "tip"],
+          ["Ana", 3],
+          ["Ben", 9],
+          ["Dan", 1],
+          ["Eli", 7]
+        ],
+        source: { url: "../03_pandas/02-topic.html#ex-nlargest", label: "df.nlargest() — Topic 05 · Values" },
+        win: "Top 2 tips: Ben (9), Eli (7)."
+      },
+      {
+        clue: "which values in s are MISSING? True where NaN",
+        prompt: "Return the isnull mask of Series `s`",
+        starter: "s.isnull()",
+        lockedLine: "s = pd.Series(['Tom', np.nan, 'Emma'])",
+        hint: "Tip: `.isnull()` is True where the value is NaN, False where it is present.",
+        commandPattern: /\.isnull\(/,
+        commandName: ".isnull()",
+        target: [
+          ["False"],
+          ["True"],
+          ["False"]
+        ],
+        sourceLabel: "s",
+        sourceMatrix: [
+          ["Tom"],
+          ["NaN"],
+          ["Emma"]
+        ],
+        source: { url: "../03_pandas/02-topic.html#ex-isnull", label: ".isnull() — Topic 06 · Missing Data" },
+        win: "Middle value (NaN) flagged True."
+      },
+      {
+        clue: "keep only df rows that HAVE a pre score",
+        prompt: "Filter `df` to rows where `pre` is not null, using notnull",
+        starter: "df[df['pre'].notnull()]",
+        lockedLine: 'df = pd.DataFrame({"name": ["Tom", "Hugh", "Emma"], "pre": [8, np.nan, 7]})',
+        hint: "Tip: `.notnull()` is True where a value exists — use it as a mask inside `df[...]`.",
+        commandPattern: /\.notnull\(/,
+        commandName: ".notnull()",
+        target: [
+          ["name", "pre"],
+          ["Tom", 8],
+          ["Emma", 7]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["name", "pre"],
+          ["Tom", 8],
+          ["Hugh", "NaN"],
+          ["Emma", 7]
+        ],
+        source: { url: "../03_pandas/02-topic.html#ex-notnull", label: ".notnull() — Topic 06 · Missing Data" },
+        win: "Kept Tom and Emma — Hugh (NaN) dropped."
+      },
+      {
+        clue: "drop every row of df that has a missing value",
+        prompt: "Remove the rows containing NaN from `df` with dropna",
+        starter: "df.dropna()",
+        lockedLine: 'df = pd.DataFrame({"name": ["Tom", "Hugh", "Emma"], "score": [8, np.nan, 7]})',
+        hint: "Tip: `.dropna()` keeps only the rows that are completely filled in.",
+        commandPattern: /\.dropna\(/,
+        commandName: ".dropna()",
+        target: [
+          ["name", "score"],
+          ["Tom", 8],
+          ["Emma", 7]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["name", "score"],
+          ["Tom", 8],
+          ["Hugh", "NaN"],
+          ["Emma", 7]
+        ],
+        source: { url: "../03_pandas/02-topic.html#ex-dropna", label: "df.dropna() — Topic 06 · Missing Data" },
+        win: "Dropped the Hugh row — only complete rows remain."
+      },
+      {
+        clue: "drop only the rows where first_name is NaN\nuse dropna with subset=",
+        prompt: "Drop rows that are missing first_name, using the subset parameter",
+        starter: "df.dropna(subset=['first_name'])",
+        lockedLine: 'df = pd.DataFrame({"first_name": ["Tom", np.nan, "Hugh"], "score": [8, 5, 9]})',
+        hint: "Tip: `.dropna(subset=['first_name'])` only drops rows missing that column — NaN elsewhere is ignored.",
+        commandPattern: /\.dropna\(\s*subset\s*=/,
+        commandName: ".dropna(subset=[...])",
+        target: [
+          ["first_name", "score"],
+          ["Tom", 8],
+          ["Hugh", 9]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["first_name", "score"],
+          ["Tom", 8],
+          ["NaN", 5],
+          ["Hugh", 9]
+        ],
+        source: { url: "../03_pandas/02-topic.html#ex-dropna-subset", label: "df.dropna(subset=) — Topic 06 · Missing Data" },
+        win: "Only the row missing first_name was dropped."
+      },
+      {
+        clue: "fill the NaN movie scores with the average of the column",
+        prompt: "Replace the missing scores with the column mean using fillna",
+        starter: "df['score'].fillna(df['score'].mean())",
+        lockedLine: 'df = pd.DataFrame({"score": [8, np.nan, 6, np.nan, 10]})',
+        hint: "Tip: pass the column mean into fillna: `df['score'].fillna(df['score'].mean())`. Mean of 8, 6, 10 is 8.",
+        commandPattern: /\.fillna\(/,
+        commandName: ".fillna(mean)",
+        target: [
+          ["score"],
+          [8],
+          [8],
+          [6],
+          [8],
+          [10]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["score"],
+          [8],
+          ["NaN"],
+          [6],
+          ["NaN"],
+          [10]
+        ],
+        source: { url: "../03_pandas/02-topic.html#ex-fillna-mean", label: "fillna(mean) — Topic 06 · Missing Data" },
+        win: "Missing scores filled with the mean (8)."
+      },
+      {
+        clue: "group df by team and get the mean score of each team",
+        prompt: "Group by team, then take the mean of score",
+        starter: "df.groupby('team')['score'].mean()",
+        lockedLine: 'df = pd.DataFrame({"team": ["A", "A", "B", "B"], "score": [10, 20, 30, 50]})',
+        hint: "Tip: `df.groupby('team')['score'].mean()` — split by team, then average score.",
+        commandPattern: /\.groupby\(/,
+        commandName: ".groupby().mean()",
+        target: [
+          ["team", "score"],
+          ["A", 15],
+          ["B", 40]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["team", "score"],
+          ["A", 10],
+          ["A", 20],
+          ["B", 30],
+          ["B", 50]
+        ],
+        source: { url: "../03_pandas/08-groupby-agg.html#panel-2", label: "groupby().mean() — Topic 08 · GroupBy" },
+        win: "A averaged 15, B averaged 40."
+      },
+      {
+        clue: "from the grouped means g, find group A of year 2024\nuse loc with a tuple",
+        prompt: "Select the (A, 2024) group from g with .loc[(team, year)]",
+        starter: "g.loc[('A', 2024)]",
+        lockedLine: 'df = pd.DataFrame({"team": ["A", "A", "B", "B"], "year": [2023, 2024, 2023, 2024], <br>"sales": [10, 30, 20, 40]})<br>g = df.groupby([\'team\', \'year\'])[\'sales\'].mean()',
+        hint: "Tip: g has a MultiIndex (team, year) — select one group with a tuple: `g.loc[('A', 2024)]`.",
+        commandPattern: /\.loc\s*\[\s*\(/,
+        commandName: ".loc[(a, b)]",
+        target: [
+          [30]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["team", "year", "sales"],
+          ["A", 2023, 10],
+          ["A", 2024, 30],
+          ["B", 2023, 20],
+          ["B", 2024, 40]
+        ],
+        source: { url: "../03_pandas/08-groupby-agg.html#panel-3", label: "groupby + .loc[tuple] — Topic 08 · GroupBy" },
+        win: "The (A, 2024) group had a mean of 30."
+      },
+      {
+        clue: "strip the surrounding spaces from every value in Series s\nuse .str.",
+        prompt: "Remove leading/trailing whitespace with the str accessor",
+        starter: "s.str.strip()",
+        lockedLine: "s = pd.Series([' hi ', ' bye ', ' ok '])",
+        hint: "Tip: the `.str` accessor exposes string methods — `s.str.strip()` trims each value.",
+        commandPattern: /\.str\.strip\(/,
+        commandName: ".str.strip()",
+        target: [
+          ["hi"],
+          ["bye"],
+          ["ok"]
+        ],
+        sourceLabel: "s",
+        sourceMatrix: [
+          [" hi "],
+          [" bye "],
+          [" ok "]
+        ],
+        source: { url: "../03_pandas/11-string-methods.html#panel-1", label: ".str.strip() — Topic 11 · Strings" },
+        win: "Trimmed the spaces from every value."
+      },
+      {
+        clue: "make every value in Series s UPPERCASE\nuse .str.",
+        prompt: "Uppercase each string with the str accessor",
+        starter: "s.str.upper()",
+        lockedLine: "s = pd.Series(['tom', 'hugh', 'emma'])",
+        hint: "Tip: `s.str.upper()` returns a new Series with every value uppercased.",
+        commandPattern: /\.str\.upper\(/,
+        commandName: ".str.upper()",
+        target: [
+          ["TOM"],
+          ["HUGH"],
+          ["EMMA"]
+        ],
+        sourceLabel: "s",
+        sourceMatrix: [
+          ["tom"],
+          ["hugh"],
+          ["emma"]
+        ],
+        source: { url: "../03_pandas/11-string-methods.html#panel-1", label: ".str.upper() — Topic 11 · Strings" },
+        win: "Uppercased every value."
+      },
+      {
+        clue: "resample the daily sales by YEAR and sum them",
+        prompt: "Aggregate the time series to yearly totals with resample",
+        starter: "df.resample('Y').sum()",
+        lockedLine: 'df = pd.DataFrame({"sales": [10, 20, 30, 40]}, <br>index=pd.to_datetime([\'2022-03-01\', \'2022-09-01\', \'2023-03-01\', \'2023-09-01\']))',
+        hint: "Tip: with a DatetimeIndex, `df.resample('Y').sum()` groups rows into calendar years.",
+        commandPattern: /\.resample\(/,
+        commandName: ".resample('Y').sum()",
+        target: [
+          ["year", "sales"],
+          ["2022", 30],
+          ["2023", 70]
+        ],
+        sourceLabel: "df",
+        sourceMatrix: [
+          ["date", "sales"],
+          ["2022-03-01", 10],
+          ["2022-09-01", 20],
+          ["2023-03-01", 30],
+          ["2023-09-01", 40]
+        ],
+        source: { url: "../03_pandas/12-time-methods.html#panel-4", label: "resample('Y') — Topic 12 · Time" },
+        win: "2022 summed to 30, 2023 to 70."
+      },
+      {
+        clue: "INNER merge df1 and df2 on id — only ids in BOTH\nuse: how=... ,on=",
+        prompt: "Merge df1 and df2 on id with an inner join",
+        starter: "pd.merge(df1, df2, how='inner', on='id')",
+        lockedLine: 'df1 = pd.DataFrame({"id": [1, 2, 3], "name": ["Tom", "Hugh", "Emma"]}); <br>df2 = pd.DataFrame({"id": [1, 2, 4], "score": [8, 9, 7]})',
+        hint: "Tip: `how='inner'` keeps only the id values that appear in both DataFrames.",
+        commandPattern: /how\s*=\s*["']inner["']/,
+        commandName: "pd.merge(how='inner')",
+        target: [
+          ["id", "name", "score"],
+          [1, "Tom", 8],
+          [2, "Hugh", 9]
+        ],
+        sourceMatrices: [
+          { label: "df1", matrix: [["id", "name"], [1, "Tom"], [2, "Hugh"], [3, "Emma"]] },
+          { label: "df2", matrix: [["id", "score"], [1, 8], [2, 9], [4, 7]] }
+        ],
+        source: { url: "../03_pandas/09-combining.html#panel-2", label: "pd.merge(how='inner') — Topic 09 · Combining" },
+        win: "Inner join kept only ids 1 and 2."
+      },
+      {
+        clue: "LEFT merge df1 and df2 on id — keep ALL df1 rows\nuse: how=... ,on=",
+        prompt: "Merge df1 and df2 on id with a left join",
+        starter: "pd.merge(df1, df2, how='left', on='id')",
+        lockedLine: 'df1 = pd.DataFrame({"id": [1, 2, 3], "name": ["Tom", "Hugh", "Emma"]}); <br>df2 = pd.DataFrame({"id": [1, 2, 4], "score": [8, 9, 7]})',
+        hint: "Tip: `how='left'` keeps every df1 row; unmatched ids get NaN for df2's columns.",
+        commandPattern: /how\s*=\s*["']left["']/,
+        commandName: "pd.merge(how='left')",
+        target: [
+          ["id", "name", "score"],
+          [1, "Tom", 8],
+          [2, "Hugh", 9],
+          [3, "Emma", "NaN"]
+        ],
+        sourceMatrices: [
+          { label: "df1", matrix: [["id", "name"], [1, "Tom"], [2, "Hugh"], [3, "Emma"]] },
+          { label: "df2", matrix: [["id", "score"], [1, 8], [2, 9], [4, 7]] }
+        ],
+        source: { url: "../03_pandas/09-combining.html#panel-2", label: "pd.merge(how='left') — Topic 09 · Combining" },
+        win: "Left join kept Emma (id 3) with a NaN score."
+      },
+      {
+        clue: "OUTER merge df1 and df2 on id — keep ALL ids from both\nuse: how=... ,on=",
+        prompt: "Merge df1 and df2 on id with an outer join",
+        starter: "pd.merge(df1, df2, how='outer', on='id')",
+        lockedLine: 'df1 = pd.DataFrame({"id": [1, 2, 3], "name": ["Tom", "Hugh", "Emma"]}); <br>df2 = pd.DataFrame({"id": [1, 2, 4], "score": [8, 9, 7]})',
+        hint: "Tip: `how='outer'` keeps every id from both; gaps on either side become NaN.",
+        commandPattern: /how\s*=\s*["']outer["']/,
+        commandName: "pd.merge(how='outer')",
+        target: [
+          ["id", "name", "score"],
+          [1, "Tom", 8],
+          [2, "Hugh", 9],
+          [3, "Emma", "NaN"],
+          [4, "NaN", 7]
+        ],
+        sourceMatrices: [
+          { label: "df1", matrix: [["id", "name"], [1, "Tom"], [2, "Hugh"], [3, "Emma"]] },
+          { label: "df2", matrix: [["id", "score"], [1, 8], [2, 9], [4, 7]] }
+        ],
+        source: { url: "../03_pandas/09-combining.html#panel-2", label: "pd.merge(how='outer') — Topic 09 · Combining" },
+        win: "Outer join kept ids 1-4, filling gaps with NaN."
+      },
+      {
+        clue: "merge df1 and df2 on id — both have score, use suffixes\nuse _pre and _post as suffix, see required pattern\nuse: on=... ,suffixes=...",
+        prompt: "Merge on id and label the overlapping score columns with suffixes",
+        starter: "pd.merge(df1, df2, on='id', suffixes=('_pre', '_post'))",
+        lockedLine: 'df1 = pd.DataFrame({"id": [1, 2], "score": [8, 9]}); <br>df2 = pd.DataFrame({"id": [1, 2], "score": [7, 6]})',
+        hint: "Tip: when both DataFrames share a non-key column, `suffixes=('_pre', '_post')` renames the clashing columns.",
+        commandPattern: /suffixes\s*=/,
+        commandName: "pd.merge(suffixes=)",
+        target: [
+          ["id", "score_pre", "score_post"],
+          [1, 8, 7],
+          [2, 9, 6]
+        ],
+        sourceMatrices: [
+          { label: "df1", matrix: [["id", "score"], [1, 8], [2, 9]] },
+          { label: "df2", matrix: [["id", "score"], [1, 7], [2, 6]] }
+        ],
+        source: { url: "../03_pandas/09-combining.html#panel-2", label: "pd.merge(suffixes=) — Topic 09 · Combining" },
+        win: "Overlapping score columns became score_pre and score_post."
+      }
+    ];
+
+    // DEBUG: set to false to stop pre-filling the correct answer in the Command Panel.
+    const DEBUG_PREFILL_ANSWER = false;
+
+    // Shuffle questions (Fisher-Yates) so each game runs in a random order.
+    for (let i = questions.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [questions[i], questions[j]] = [questions[j], questions[i]];
+    }
+
+    let currentQuestion = 0;
+    let currentStage = 0;
+    let stageMemory = null;
+    let randomSeedMemory = null;
+    let clueTypeTimer = null;
+    let narratorGeneration = 0;
+    let missedLabelTimer = null;
+    let revealTypeTimer = null;
+    let timerInterval = null;
+    let timerEndsAt = 0;
+    let failureCount = 0;
+    let solvedCount = 0;
+    let missedCount = 0;
+    const solvedSet = new Set();
+    let pilotName = "anonymous";
+    let livesCount = 3;
+    let questionsCount = 0;
+    let gameOver = false;
+    let gameStarted = false;
+    let TIMER_SECONDS = 60;
+    let UNLIMITED_TIME = false;
+    const TIMER_SEGMENTS = 10;
+
+    const codeInput = document.getElementById("codeInput");
+    const runButton = document.getElementById("runButton");
+    const timerPanel = document.getElementById("timerPanel");
+    const timerText = document.getElementById("timerText");
+    const timerBars = document.getElementById("timerBars");
+    const gameOverOverlay = document.getElementById("gameOverOverlay");
+    const gameOverCorrect = document.getElementById("gameOverCorrect");
+    const gameOverMissed = document.getElementById("gameOverMissed");
+    const simShips = Array.from(document.querySelectorAll(".sim-ship"));
+    const questionChip = document.getElementById("questionChip");
+    const ghostText = document.getElementById("ghostText");
+    const editorWrap = document.querySelector(".editor-wrap");
+    const lockedLine = document.getElementById("lockedLine");
+    const promptEl = document.querySelector(".prompt");
+    const cheatsEl = document.querySelector(".cheats");
+    const statusEl = document.getElementById("status");
+    const targetCard = document.getElementById("targetCard");
+    const targetGrid = document.getElementById("targetGrid");
+    const sourceMatrix = document.getElementById("sourceMatrix");
+    const sourceMatrixGrid = document.getElementById("sourceMatrixGrid");
+    const sourceMatrixLabel = document.getElementById("sourceMatrixLabel");
+    const stageResult = document.getElementById("stageResult");
+    const stageResultGrid = document.getElementById("stageResultGrid");
+    const createdInner = document.getElementById("createdInner");
+    const emptyState = document.getElementById("emptyState");
+    const lockedLabel = document.getElementById("lockedLabel");
+    const answerModal = document.getElementById("answerModal");
+    const answerModalCode = document.getElementById("answerModalCode");
+    const answerModalContext = document.getElementById("answerModalContext");
+    const answerModalLink = document.getElementById("answerModalLink");
+    const answerModalClose = document.getElementById("answerModalClose");
+    const dontKnowButton = document.getElementById("dontKnowButton");
+    const actionsNormal = document.getElementById("actionsNormal");
+    const actionsReveal = document.getElementById("actionsReveal");
+    const openTopicButton = document.getElementById("openTopicButton");
+    const nextRevealButton = document.getElementById("nextRevealButton");
+    const revealOverlay = document.getElementById("revealOverlay");
+    const progressFill = document.getElementById("progressFill");
+    const progressLabel = document.getElementById("progressLabel");
+    const muteButton = document.getElementById("muteButton");
+
+    let isMuted = localStorage.getItem("pandas-sim-muted") === "true";
+
+    function updateMuteButton() {
+      muteButton.textContent = isMuted ? "🔇" : "🔊";
+    }
+    updateMuteButton();
+
+    muteButton.addEventListener("click", () => {
+      isMuted = !isMuted;
+      localStorage.setItem("pandas-sim-muted", String(isMuted));
+      updateMuteButton();
+      if (isMuted) { window.speechSynthesis?.cancel(); stopRadar(); }
+    });
+
+    const sfxExplode = new Audio("explode.mp3");
+    const sfxMissile = new Audio("missile.mp3");
+    const sfxRadar = new Audio("radar.mp3");
+    const sfxWelcome = new Audio("welcome.mp3");
+    sfxRadar.loop = true;
+    let radarTimer = null;
+
+    function startRadar() {
+      clearTimeout(radarTimer);
+      radarTimer = setTimeout(() => {
+        if (!isMuted) { sfxRadar.currentTime = 0; sfxRadar.play().catch(() => {}); }
+      }, 2000);
+    }
+
+    function stopRadar() {
+      clearTimeout(radarTimer);
+      sfxRadar.pause();
+      sfxRadar.currentTime = 0;
+    }
+
+    function playExplodeSfx() {
+      if (isMuted) return;
+      sfxExplode.currentTime = 0;
+      sfxExplode.play().catch(() => {});
+    }
+
+    let ttsVoices = [];
+    function loadVoices() { ttsVoices = window.speechSynthesis?.getVoices() || []; }
+    loadVoices();
+    if (window.speechSynthesis) window.speechSynthesis.onvoiceschanged = loadVoices;
+
+    function speakClue(text, onEnd) {
+      if (isMuted || !window.speechSynthesis) { onEnd?.(); return; }
+      window.speechSynthesis.cancel();
+      const utt = new SpeechSynthesisUtterance(text);
+      utt.rate = 0.92;
+      utt.lang = "en-US";
+      const enVoices = ttsVoices.filter(v => v.lang.startsWith("en"));
+      if (enVoices.length > 0) {
+        utt.voice = enVoices[Math.floor(Math.random() * enVoices.length)];
+      }
+      utt.onend = () => onEnd?.();
+      utt.onerror = () => onEnd?.();
+      window.speechSynthesis.speak(utt);
+    }
+
+    function updateProgress() {
+      const pct = Math.round(solvedSet.size / questions.length * 100);
+      progressFill.style.width = pct + "%";
+      progressLabel.textContent = pct + "%";
+    }
+
+    function buildTimerBars() {
+      timerBars.innerHTML = "";
+      Array.from({ length: TIMER_SEGMENTS }, () => {
+        const bar = document.createElement("span");
+        bar.className = "timer-bar";
+        timerBars.appendChild(bar);
+      });
+    }
+
+    function renderTimer(secondsLeft) {
+      const clamped = Math.max(0, Math.min(TIMER_SECONDS, secondsLeft));
+      const ratio = clamped / TIMER_SECONDS;
+      const activeBars = Math.min(TIMER_SEGMENTS, Math.ceil(secondsLeft));
+      const totalSeconds = Math.ceil(clamped);
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      timerText.textContent = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+      timerPanel.dataset.state = ratio <= 0.15 ? "red" : ratio <= 0.5 ? "yellow" : "green";
+      timerBars.querySelectorAll(".timer-bar").forEach((bar, index) => {
+        bar.classList.toggle("empty", index >= activeBars);
+      });
+    }
+
+    function stopTimer() {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+    }
+
+    function holdTimerSuccess() {
+      stopTimer();
+      timerPanel.dataset.state = "blue";
+    }
+
+    function startTimer() {
+      stopTimer();
+      if (UNLIMITED_TIME) {
+        timerText.textContent = "∞";
+        timerPanel.dataset.state = "green";
+        timerBars.querySelectorAll(".timer-bar").forEach(bar => bar.classList.remove("empty"));
+        return;
+      }
+      timerEndsAt = Date.now() + TIMER_SECONDS * 1000;
+      renderTimer(TIMER_SECONDS);
+      timerInterval = setInterval(() => {
+        const secondsLeft = Math.max(0, (timerEndsAt - Date.now()) / 1000);
+        renderTimer(secondsLeft);
+        if (secondsLeft <= 0) {
+          stopTimer();
+          const isOver = registerFailure("TIME: countdown finished.");
+          if (!isOver) revealAnswer();
+        }
+      }, 250);
+    }
+
+    function liveShips() {
+      return simShips.filter(ship => !ship.classList.contains("destroyed"));
+    }
+
+    function activeShip() {
+      const ships = liveShips();
+      return ships[ships.length - 1] || simShips[0];
+    }
+
+    function updateActiveShip() {
+      simShips.forEach(ship => ship.classList.remove("active", "typing"));
+      const ship = activeShip();
+      if (ship && !ship.classList.contains("destroyed")) {
+        ship.classList.add("active");
+      }
+    }
+
+    function clearShipClasses(...classNames) {
+      simShips.forEach(ship => ship.classList.remove(...classNames));
+    }
+
+    function setAliveShipsTyping(isTyping) {
+      activeShip().classList.toggle("typing", isTyping);
+    }
+
+    function showCongrats() {
+      stopRadar();
+      window.speechSynthesis?.cancel();
+      const livesLeft = simShips.filter(s => !s.classList.contains("destroyed")).length;
+      document.getElementById("congratsPilot").textContent = pilotName;
+      document.getElementById("congratsCorrect").textContent = solvedCount;
+      document.getElementById("congratsLivesLeft").textContent = livesLeft;
+      document.getElementById("congratsLivesMax").textContent = livesCount;
+      document.getElementById("congratsTime").textContent = UNLIMITED_TIME ? "∞" : TIMER_SECONDS + "s";
+      document.getElementById("congratsQ").textContent = questionsCount;
+      const overlay = document.getElementById("congratsOverlay");
+      overlay.classList.add("show");
+      overlay.setAttribute("aria-hidden", "false");
+      overlay.addEventListener("click", () => location.reload(), { once: true });
+    }
+
+    function showGameOver() {
+      stopRadar();
+      window.speechSynthesis?.cancel();
+      sfxExplode.pause();
+      sfxExplode.currentTime = 0;
+      gameOverCorrect.textContent = solvedCount;
+      gameOverMissed.textContent = missedCount;
+      document.getElementById("goName").textContent = pilotName;
+      const livesLeft = simShips.filter(s => !s.classList.contains("destroyed")).length;
+      document.getElementById("goLives").textContent = `Lives: ${livesLeft} / ${livesCount} remaining`;
+      document.getElementById("goTime").textContent = `Time per question: ${UNLIMITED_TIME ? "unlimited" : TIMER_SECONDS + "s"}`;
+      gameOverOverlay.classList.add("show");
+      gameOverOverlay.setAttribute("aria-hidden", "false");
+    }
+
+    function restartGame() {
+      if (gameOver) {
+        location.reload();
+      }
+    }
+
+    function advanceAfterTimeout() {
+      if (gameOver) return;
+      setTimeout(() => {
+        if (gameOver) return;
+        if (currentQuestion < questions.length - 1) {
+          setQuestion(currentQuestion + 1);
+        } else {
+          setQuestion(0);
+        }
+      }, 950);
+    }
+
+    function registerFailure(message, options = {}) {
+      if (gameOver) return false;
+      const ship = activeShip();
+      failureCount += 1;
+      missedCount += 1;
+      ship.classList.remove("typing", "spin", "warn");
+      void ship.offsetWidth;
+      ship.classList.add("warn");
+      setTimeout(() => {
+        ship.classList.remove("warn");
+        playShipExplosion(ship);
+        ship.classList.add("destroyed");
+        updateActiveShip();
+      }, 260);
+
+      if (failureCount >= simShips.length) {
+        gameOver = true;
+        stopTimer();
+        codeInput.readOnly = true;
+        runButton.disabled = true;
+        statusEl.textContent = "GAME OVER: all ships destroyed.";
+        statusEl.style.color = "var(--red)";
+        setTimeout(showGameOver, 620);
+        return true;
+      } else {
+        statusEl.textContent = `${message} Ship ${failureCount} destroyed. ${simShips.length - failureCount} remaining.`;
+        statusEl.style.color = "var(--red)";
+        if (options.advanceOnFailure) {
+          advanceAfterTimeout();
+        }
+        return false;
+      }
+    }
+
+    function drawMatrix(container, matrix) {
+      container.innerHTML = "";
+      container.style.setProperty("--cols", matrix[0]?.length || 1);
+
+      matrix.flat().forEach((value, index) => {
+        const cell = document.createElement("div");
+        cell.className = "cell";
+        const label = String(value);
+        cell.textContent = label;
+        if (label.length > 5) {
+          cell.classList.add("tiny-text");
+        } else if (label.length > 2) {
+          cell.classList.add("small-text");
+        }
+        cell.style.animationDelay = `${index * 0.06}s`;
+        container.appendChild(cell);
+      });
+    }
+
+    function appendSourceMatrix(label, matrix) {
+      const labelEl = document.createElement("div");
+      labelEl.className = "card-label";
+      const labelText = document.createElement("span");
+      labelText.textContent = label || "array";
+      labelEl.appendChild(labelText);
+
+      const grid = document.createElement("div");
+      grid.className = "matrix-grid";
+      drawMatrix(grid, matrix);
+
+      sourceMatrix.append(labelEl, grid);
+    }
+
+    function typeEncryptedRequirement(text) {
+      if (clueTypeTimer) {
+        clearInterval(clueTypeTimer);
+      }
+
+      narratorGeneration++;
+      dontKnowButton.disabled = true;
+      setAliveShipsTyping(true);
+      ghostText.textContent = "";
+      let index = 0;
+      clueTypeTimer = setInterval(() => {
+        ghostText.textContent += text[index];
+        index += 1;
+        if (index >= text.length) {
+          clearInterval(clueTypeTimer);
+          clueTypeTimer = null;
+        }
+      }, 32);
+    }
+
+    function parseCommand(raw) {
+      let code = raw.trim().replace(/;$/, "");
+      const printMatch = code.match(/^print\((.*)\)$/is);
+      if (printMatch) {
+        code = printMatch[1].trim();
+      }
+
+      let match = code.match(/^(arr|matrix|array|x|s|df|data|result)\s*=\s*(.+)$/is);
+      if (match) {
+        return {
+          matrix: parseExpression(match[2].trim()),
+          variable: match[1].toLowerCase(),
+          code: match[2].trim(),
+          seed: null
+        };
+      }
+
+      const seedMatch = code.match(/^np\.random\.seed\(\s*(-?\d+)\s*\)$/i);
+      if (seedMatch) {
+        const seed = Number(seedMatch[1]);
+        return {
+          matrix: [["seed", seed]],
+          variable: null,
+          code,
+          seed
+        };
+      }
+
+      return {
+        matrix: parseExpression(code),
+        variable: null,
+        code,
+        seed: null
+      };
+    }
+
+    function parseListLiteral(literal) {
+      const jsonLike = literal.replace(/'/g, '"');
+      let parsed;
+      try {
+        parsed = JSON.parse(jsonLike);
+      } catch {
+        throw new Error("The pd.Series list needs to look like [10, 20, 30].");
+      }
+      if (!Array.isArray(parsed) || parsed.length === 0 || parsed.some(Array.isArray)) {
+        throw new Error("pd.Series needs a flat list of values.");
+      }
+      if (parsed.length > 8) {
+        throw new Error("Keep the Series at 8 values or fewer.");
+      }
+      parsed.forEach(value => {
+        const okNumber = typeof value === "number" && !Number.isNaN(value);
+        if (!okNumber && typeof value !== "string") {
+          throw new Error("Series values must be numbers or strings.");
+        }
+      });
+      return parsed;
+    }
+
+    function dataFrameFromDict(literal) {
+      const jsonLike = literal.replace(/'/g, '"');
+      let parsed;
+      try {
+        parsed = JSON.parse(jsonLike);
+      } catch {
+        throw new Error('The pd.DataFrame dict needs to look like {"a": [1, 2], "b": [3, 4]}.');
+      }
+      const cols = Object.keys(parsed);
+      if (cols.length === 0) {
+        throw new Error("pd.DataFrame needs at least one column.");
+      }
+      const lists = cols.map(col => parsed[col]);
+      if (lists.some(list => !Array.isArray(list))) {
+        throw new Error("Each dict value must be a list of column values.");
+      }
+      const rowCount = lists[0].length;
+      if (rowCount === 0 || lists.some(list => list.length !== rowCount)) {
+        throw new Error("All columns must have the same number of values.");
+      }
+      if (cols.length > 8 || rowCount > 7) {
+        throw new Error("Keep the DataFrame at 8 columns and 7 rows or smaller.");
+      }
+      const grid = [cols.slice()];
+      for (let row = 0; row < rowCount; row++) {
+        grid.push(cols.map((col, colIndex) => lists[colIndex][row]));
+      }
+      grid.flat().forEach(value => {
+        const okNumber = typeof value === "number" && !Number.isNaN(value);
+        if (!okNumber && typeof value !== "string") {
+          throw new Error("DataFrame values must be numbers or strings.");
+        }
+      });
+      return grid;
+    }
+
+    function seriesFromDict(literal) {
+      const jsonLike = literal.replace(/'/g, '"');
+      let parsed;
+      try {
+        parsed = JSON.parse(jsonLike);
+      } catch {
+        throw new Error('The pd.Series dict needs to look like {"USA": 1776, "CANADA": 1867}.');
+      }
+      const keys = Object.keys(parsed);
+      if (keys.length === 0) throw new Error("pd.Series needs at least one entry.");
+      if (keys.length > 8) throw new Error("Keep the Series at 8 values or fewer.");
+      keys.forEach(key => {
+        const value = parsed[key];
+        const okNumber = typeof value === "number" && !Number.isNaN(value);
+        if (!okNumber && typeof value !== "string") {
+          throw new Error("Series values must be numbers or strings.");
+        }
+      });
+      return keys.map(key => [key, parsed[key]]);
+    }
+
+    function parsePandasExpression(code) {
+      // pd.Series(data, index=labels) — must be checked before the plain-list form
+      let match = code.match(/^pd\.Series\(\s*(?:data\s*=\s*)?(\[[^\]]*\])\s*,\s*index\s*=\s*(\[[^\]]*\])\s*\)$/is);
+      if (match) {
+        const values = parseListLiteral(match[1]);
+        const labels = parseListLiteral(match[2]);
+        if (labels.length !== values.length) {
+          throw new Error("data and index must have the same number of items.");
+        }
+        return labels.map((label, i) => [label, values[i]]);
+      }
+
+      // pd.Series(dict) — keys become the index
+      match = code.match(/^pd\.Series\(\s*(\{.*\})\s*\)$/is);
+      if (match) return seriesFromDict(match[1]);
+
+      // pd.Series(list) — default 0..n index
+      match = code.match(/^pd\.Series\(\s*(\[.*\])\s*\)$/is);
+      if (match) return parseListLiteral(match[1]).map(value => [value]);
+
+      // pd.DataFrame(dict of lists)
+      match = code.match(/^pd\.DataFrame\(\s*(\{.*\})\s*\)$/is);
+      if (match) return dataFrameFromDict(match[1]);
+
+      // pd.DataFrame(matrix) question
+      if (/^pd\.DataFrame\(\s*\[\s*\[\s*3\s*,\s*7\s*\]\s*,\s*\[\s*5\s*,\s*9\s*\]\s*,\s*\[\s*11\s*,\s*13\s*\]\s*\]\s*\)$/i.test(code)) {
+        return [[0, 1], [3, 7], [5, 9], [11, 13]];
+      }
+
+      // pd.DataFrame(data, index=) question
+      if (/^pd\.DataFrame\(\s*data\s*=\s*\[\s*\[\s*4\s*,\s*8\s*\]\s*,\s*\[\s*6\s*,\s*10\s*\]\s*,\s*\[\s*12\s*,\s*16\s*\]\s*\]\s*,\s*index\s*=\s*\[\s*["']branch_a["']\s*,\s*["']branch_b["']\s*,\s*["']branch_c["']\s*\]\s*\)$/i.test(code)) {
+        return [["index", 0, 1], ["branch_a", 4, 8], ["branch_b", 6, 10], ["branch_c", 12, 16]];
+      }
+
+      // pd.DataFrame(data, index=, columns=) question
+      if (/^pd\.DataFrame\(\s*data\s*=\s*\[\s*\[\s*2\s*,\s*5\s*,\s*8\s*\]\s*,\s*\[\s*3\s*,\s*6\s*,\s*9\s*\]\s*\]\s*,\s*index\s*=\s*\[\s*["']north["']\s*,\s*["']south["']\s*\]\s*,\s*columns\s*=\s*\[\s*["']apples["']\s*,\s*["']pears["']\s*,\s*["']plums["']\s*\]\s*\)$/i.test(code)) {
+        return [["index", "apples", "pears", "plums"], ["north", 2, 5, 8], ["south", 3, 6, 9]];
+      }
+
+      // pd.read_csv('file.csv') question
+      if (/^pd\.read_csv\(\s*["']bakery\.csv["']\s*\)$/i.test(code)) {
+        return [["pastry", "sold"], ["bagel", 42], ["muffin", 31], ["tart", 18]];
+      }
+
+      // Label access question: s = countries → years
+      if (/^s\s*\[\s*["']USA["']\s*\]$/i.test(code) || /^s\.loc\s*\[\s*["']USA["']\s*\]$/i.test(code)) {
+        return [[1776]];
+      }
+      if (/^s\s*\[\s*["']CANADA["']\s*\]$/i.test(code) || /^s\.loc\s*\[\s*["']CANADA["']\s*\]$/i.test(code)) {
+        return [[1867]];
+      }
+      if (/^s\s*\[\s*["']MEXICO["']\s*\]$/i.test(code) || /^s\.loc\s*\[\s*["']MEXICO["']\s*\]$/i.test(code)) {
+        return [[1821]];
+      }
+
+      // keys() question: all index labels of s
+      if (/^s\.keys\(\s*\)$/i.test(code)) {
+        return [["USA"], ["CANADA"], ["MEXICO"]];
+      }
+
+      // astype question: s = Brazil/China/Japan/USA floats
+      if (/^s\.astype\(\s*(?:int|["']int(?:64)?["'])\s*\)$/i.test(code)) {
+        return [["Brazil", 70], ["China", 800], ["Japan", 100], ["USA", 450]];
+      }
+
+      // head question: df = 4×4 table a, b, c, d
+      if (/^df\.head\(\s*2\s*\)$/i.test(code) || /^df\.iloc\[\s*0?\s*:\s*2\s*\]$/i.test(code)) {
+        return [["a", "b", "c", "d"], [0, 1, 2, 3], [4, 5, 6, 7]];
+      }
+
+      // DataFrame inspection questions
+      if (/^df\.columns$/i.test(code)) {
+        return [["item"], ["price"], ["qty"], ["city"]];
+      }
+
+      if (/^df\.index$/i.test(code)) {
+        return [[0], [1], [2], [3]];
+      }
+
+      if (/^df\.tail\(\s*2\s*\)$/i.test(code)) {
+        return [["item", "price", "qty"], ["lamp", 20, 7], ["book", 12, 22]];
+      }
+
+      if (/^df\.info\(\s*\)$/i.test(code)) {
+        return [["rows", 3], ["columns", 3], ["product", "object"], ["stock", "int64"], ["rating", "int64"]];
+      }
+
+      if (/^df\.describe\(\s*\)$/i.test(code)) {
+        return [["stat", "score", "bonus"], ["count", 4, 4], ["mean", 25, 4], ["min", 10, 1], ["max", 40, 7]];
+      }
+
+      // single column question: df["a"]
+      match = code.match(/^df\s*\[\s*["']([abcd])["']\s*\]$/i) ||
+              code.match(/^df\.([abcd])$/i) ||
+              code.match(/^df\.loc\[\s*:\s*,\s*["']([abcd])["']\s*\]$/i);
+      if (match) {
+        const col = match[1].toLowerCase();
+        const offset = { a: 0, b: 1, c: 2, d: 3 }[col];
+        return [[col], [0 + offset], [4 + offset], [8 + offset], [12 + offset]];
+      }
+
+      // multi-column selection question: df[["item", "qty"]]
+      if (/^df\s*\[\s*\[\s*["']item["']\s*,\s*["']qty["']\s*\]\s*\]$/i.test(code) ||
+          /^df\.loc\[\s*:\s*,\s*\[\s*["']item["']\s*,\s*["']qty["']\s*\]\s*\]$/i.test(code)) {
+        return [["item", "qty"], ["pen", 40], ["mug", 15], ["lamp", 7], ["book", 22]];
+      }
+
+      // column arithmetic question
+      if (/^df\s*\[\s*["']price["']\s*\]\s*\+\s*df\s*\[\s*["']qty["']\s*\]$|^df\s*\[\s*["']qty["']\s*\]\s*\+\s*df\s*\[\s*["']price["']\s*\]$/i.test(code)) {
+        return [["sum"], [43], [23], [27], [34]];
+      }
+
+      // new computed column question
+      if (/^df\s*\[\s*["']value["']\s*\]\s*=\s*df\s*\[\s*["']price["']\s*\]\s*\*\s*df\s*\[\s*["']qty["']\s*\]$|^df\s*\[\s*["']value["']\s*\]\s*=\s*df\s*\[\s*["']qty["']\s*\]\s*\*\s*df\s*\[\s*["']price["']\s*\]$/i.test(code)) {
+        return [["item", "price", "qty", "value"], ["pen", 3, 40, 120], ["mug", 8, 15, 120], ["lamp", 20, 7, 140], ["book", 12, 22, 264]];
+      }
+
+      // drop row / column questions
+      if (/^df\.drop\(\s*1\s*,\s*axis\s*=\s*0\s*\)$/i.test(code)) {
+        return [["item", "price", "qty"], ["pen", 3, 40], ["lamp", 20, 7], ["book", 12, 22]];
+      }
+
+      if (/^df\.drop\(\s*["']qty["']\s*,\s*axis\s*=\s*1\s*,\s*inplace\s*=\s*True\s*\)$/i.test(code)) {
+        return [["item", "price"], ["pen", 3], ["mug", 8], ["lamp", 20], ["book", 12]];
+      }
+
+      // index and row access questions
+      if (/^df\.set_index\(\s*["']code["']\s*\)$/i.test(code)) {
+        return [["index", "region", "sales"], ["A7", "north", 12], ["B2", "south", 18], ["C3", "west", 9]];
+      }
+
+      if (/^df\.reset_index\(\s*\)$/i.test(code)) {
+        return [["index", "region", "sales"], ["A7", "north", 12], ["B2", "south", 18], ["C3", "west", 9]];
+      }
+
+      if (/^df\.iloc\s*\[\s*2\s*\]$/i.test(code)) {
+        return [["item", "lamp"], ["price", 20], ["qty", 7]];
+      }
+
+      if (/^df\.iloc\s*\[\s*1\s*:\s*4\s*\]$/i.test(code)) {
+        return [["item", "price", "qty"], ["mug", 8, 15], ["lamp", 20, 7], ["book", 12, 22]];
+      }
+
+      if (/^df\.loc\s*\[\s*["']A7["']\s*\]$/i.test(code)) {
+        return [["region", "north"], ["sales", 12]];
+      }
+
+      if (/^df\.loc\s*\[\s*\[\s*["']A7["']\s*,\s*["']C3["']\s*\]\s*\]$/i.test(code)) {
+        return [["index", "region", "sales"], ["A7", "north", 12], ["C3", "west", 9]];
+      }
+
+      // filtering question: df = Country/Population
+      if (/^df(?:\.loc)?\s*\[\s*df\s*\[\s*["']Population["']\s*\]\s*>\s*50\s*\]$/i.test(code)) {
+        return [["Country", "Population"], ["USA", 328], ["Mexico", 126]];
+      }
+
+      // concat question: df1 stacked on df2
+      if (/^pd\.concat\(\s*\[\s*df1\s*,\s*df2\s*\]\s*\)$/i.test(code)) {
+        return [["A", "B"], [1, "x"], [2, "y"], [3, "z"], [4, "w"]];
+      }
+
+      // isin filter question: keep Sun/Sat rows
+      if (/^df(?:\.loc)?\s*\[\s*df\s*\[\s*["']day["']\s*\]\.isin\(\s*\[\s*["']Sun["']\s*,\s*["']Sat["']\s*\]\s*\)\s*\]$/i.test(code)) {
+        return [["day", "sales"], ["Sun", 10], ["Sat", 30], ["Sun", 50]];
+      }
+
+      // between filter question: total_bill between 10 and 20
+      if (/^df(?:\.loc)?\s*\[\s*df\s*\[\s*["']total_bill["']\s*\]\.between\(\s*10\s*,\s*20\s*(?:,\s*inclusive\s*=\s*["']both["']\s*)?\)\s*\]$/i.test(code)) {
+        return [["item", "total_bill"], ["b", 15], ["c", 20]];
+      }
+
+      // NOT filter question: exclude Year 1776
+      if (/^df(?:\.loc)?\s*\[\s*~\s*df\s*\[\s*["']Year["']\s*\]\.isin\(\s*\[\s*1776\s*\]\s*\)\s*\]$/i.test(code)) {
+        return [["Country", "Year"], ["Canada", 1867], ["Mexico", 1821]];
+      }
+
+      // compound AND filter question: Population > 50 & Country in list
+      if (/^df(?:\.loc)?\s*\[\s*\(\s*df\s*\[\s*["']Population["']\s*\]\s*>\s*50\s*\)\s*&\s*\(\s*df\s*\[\s*["']Country["']\s*\]\.isin\(\s*\[\s*["']Canada["']\s*,\s*["']USA["']\s*\]\s*\)\s*\)\s*\]$/i.test(code)) {
+        return [["Country", "Population"], ["USA", 328]];
+      }
+
+      // sort_values ascending / descending question
+      if (/^df\.sort_values\(\s*(?:by\s*=\s*)?["']score["']\s*(?:,\s*ascending\s*=\s*True\s*)?\)$/i.test(code)) {
+        return [["name", "score"], ["Ben", 10], ["Dan", 20], ["Ana", 30]];
+      }
+      if (/^df\.sort_values\(\s*["']score["']\s*,\s*ascending\s*=\s*False\s*\)$/i.test(code)) {
+        return [["name", "score"], ["Ana", 30], ["Dan", 20], ["Ben", 10]];
+      }
+
+      // value_counts question: day column
+      if (/^df\s*\[\s*["']day["']\s*\]\.value_counts\(\s*\)$/i.test(code)) {
+        return [["Sun", 3], ["Sat", 2]];
+      }
+
+      // unique question: day column
+      if (/^df\s*\[\s*["']day["']\s*\]\.unique\(\s*\)$/i.test(code)) {
+        return [["Sun"], ["Sat"]];
+      }
+
+      // drop_duplicates question: val column
+      if (/^df\.drop_duplicates\(\s*(?:keep\s*=\s*["']first["']\s*)?\)$/i.test(code)) {
+        return [["val"], [1], [2], [3]];
+      }
+
+      // apply question: double every value of column n
+      if (/^df\s*\[\s*["']n["']\s*\]\.apply\(\s*double\s*\)$/i.test(code)) {
+        return [[2], [4], [6], [8]];
+      }
+
+      // multi-column sort question: score then size, descending
+      if (/^df\.sort_values\(\s*\[\s*["']score["']\s*,\s*["']size["']\s*\]\s*,\s*ascending\s*=\s*(?:False|\[\s*False\s*,\s*False\s*\])\s*\)$/i.test(code)) {
+        return [["team", "score", "size"], ["A", 30, 1], ["B", 10, 3], ["A", 10, 2]];
+      }
+
+      // nunique question: day column
+      if (/^df\s*\[\s*["']day["']\s*\]\.nunique\(\s*\)$/i.test(code)) {
+        return [[2]];
+      }
+
+      // replace question: Yes/No -> Y/N
+      if (/^s\.replace\(\s*\[\s*["']Yes["']\s*,\s*["']No["']\s*\]\s*,\s*\[\s*["']Y["']\s*,\s*["']N["']\s*\]\s*\)$/i.test(code)) {
+        return [["Y"], ["N"], ["N"]];
+      }
+
+      // map question: dict {Female:F, Male:M}
+      if (/^s\.map\(\s*\{\s*["']Female["']\s*:\s*["']F["']\s*,\s*["']Male["']\s*:\s*["']M["']\s*\}\s*\)$/i.test(code)) {
+        return [["F"], ["M"], ["M"]];
+      }
+
+      // duplicated question: val column
+      if (/^df\.duplicated\(\s*\)$/i.test(code)) {
+        return [["False"], ["False"], ["True"], ["False"]];
+      }
+
+      // nlargest question: top 2 by tip
+      if (/^df\.nlargest\(\s*2\s*,\s*["']tip["']\s*\)$/i.test(code)) {
+        return [["name", "tip"], ["Ben", 9], ["Eli", 7]];
+      }
+
+      // isnull question: s = Tom/NaN/Emma
+      if (/^s\.isnull\(\s*\)$/i.test(code)) {
+        return [["False"], ["True"], ["False"]];
+      }
+
+      // notnull filter question: keep rows with a pre score
+      if (/^df(?:\.loc)?\s*\[\s*df\s*\[\s*["']pre["']\s*\]\.notnull\(\s*\)\s*\]$/i.test(code)) {
+        return [["name", "pre"], ["Tom", 8], ["Emma", 7]];
+      }
+
+      // dropna question: df = name/score with a NaN
+      if (/^df\.dropna\(\s*\)$/i.test(code)) {
+        return [["name", "score"], ["Tom", 8], ["Emma", 7]];
+      }
+
+      // dropna(subset=) question: drop rows missing first_name
+      if (/^df\.dropna\(\s*subset\s*=\s*\[\s*["']first_name["']\s*\]\s*\)$/i.test(code)) {
+        return [["first_name", "score"], ["Tom", 8], ["Hugh", 9]];
+      }
+
+      // fillna(mean) question: fill NaN scores with the column mean (8)
+      if (/^df\s*\[\s*["']score["']\s*\]\.fillna\(\s*df\s*\[\s*["']score["']\s*\]\.mean\(\s*\)\s*\)$/i.test(code)) {
+        return [["score"], [8], [8], [6], [8], [10]];
+      }
+
+      // groupby().mean() question: mean score per team
+      if (/^df\.groupby\(\s*["']team["']\s*\)\s*\[\s*["']score["']\s*\]\.mean\(\s*\)$/i.test(code)) {
+        return [["team", "score"], ["A", 15], ["B", 40]];
+      }
+
+      // groupby two keys + .loc[(A, 2024)] question — g holds the grouped means
+      if (/^g\.loc\s*\[\s*\(\s*["']A["']\s*,\s*2024\s*\)\s*\]$/i.test(code) ||
+          /^df\.groupby\(\s*\[\s*["']team["']\s*,\s*["']year["']\s*\]\s*\)\s*\[\s*["']sales["']\s*\]\.mean\(\s*\)\.loc\s*\[\s*\(\s*["']A["']\s*,\s*2024\s*\)\s*\]$/i.test(code)) {
+        return [[30]];
+      }
+
+      // str.strip() question
+      if (/^s\.str\.strip\(\s*\)$/i.test(code)) {
+        return [["hi"], ["bye"], ["ok"]];
+      }
+
+      // str.upper() question
+      if (/^s\.str\.upper\(\s*\)$/i.test(code)) {
+        return [["TOM"], ["HUGH"], ["EMMA"]];
+      }
+
+      // resample('Y').sum() question — yearly totals
+      if (/^df\.resample\(\s*["'](?:Y|YE|A)["']\s*\)\.sum\(\s*\)$/i.test(code)) {
+        return [["year", "sales"], ["2022", 30], ["2023", 70]];
+      }
+
+      // merge inner question
+      if (/^pd\.merge\(\s*df1\s*,\s*df2\s*,.*how\s*=\s*["']inner["'].*\)$/i.test(code)) {
+        return [["id", "name", "score"], [1, "Tom", 8], [2, "Hugh", 9]];
+      }
+
+      // merge left question
+      if (/^pd\.merge\(\s*df1\s*,\s*df2\s*,.*how\s*=\s*["']left["'].*\)$/i.test(code)) {
+        return [["id", "name", "score"], [1, "Tom", 8], [2, "Hugh", 9], [3, "Emma", "NaN"]];
+      }
+
+      // merge outer question
+      if (/^pd\.merge\(\s*df1\s*,\s*df2\s*,.*how\s*=\s*["']outer["'].*\)$/i.test(code)) {
+        return [["id", "name", "score"], [1, "Tom", 8], [2, "Hugh", 9], [3, "Emma", "NaN"], [4, "NaN", 7]];
+      }
+
+      // merge with suffixes question
+      if (/^pd\.merge\(\s*df1\s*,\s*df2\s*,.*suffixes\s*=.*\)$/i.test(code)) {
+        return [["id", "score_pre", "score_post"], [1, 8, 7], [2, 9, 6]];
+      }
+
+      return null;
+    }
+
+    function parseExpression(code) {
+      const pandasResult = parsePandasExpression(code);
+      if (pandasResult) return pandasResult;
+
+      let match = code.match(/^np\.array\(\s*(\[.*\])\s*\)\.reshape\(\s*\(?\s*(\d+)\s*,\s*(\d+)\s*\)?\s*\)$/is);
+      if (match) {
+        return reshapeArray(parseArrayLiteral(match[1]), Number(match[2]), Number(match[3]));
+      }
+
+      match = code.match(/^(?:matrix|arr|array|x)\.reshape\(\s*\(?\s*(\d+)\s*,\s*(\d+)\s*\)?\s*\)$/i);
+      if (match) {
+        if (!stageMemory) {
+          throw new Error("Create `arr` in stage 1 before changing its dimensions.");
+        }
+        return reshapeArray(stageMemory, Number(match[1]), Number(match[2]));
+      }
+
+      match = code.match(/^arr\.shape\s*=\s*\(?\s*(\d+)\s*,\s*(\d+)\s*\)?$/i);
+      if (match) {
+        if (!stageMemory) {
+          throw new Error("Create `arr` in stage 1 before changing its dimensions.");
+        }
+        return reshapeArray(stageMemory, Number(match[1]), Number(match[2]));
+      }
+
+      match = code.match(/^np\.zeros\(\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)\s*\)$/i);
+      if (match) return matrixOf(Number(match[1]), Number(match[2]), 0);
+
+      match = code.match(/^np\.ones\(\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)\s*\)$/i);
+      if (match) return matrixOf(Number(match[1]), Number(match[2]), 1);
+
+      match = code.match(/^np\.ones\(\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)\s*\)\s*\*\s*(-?\d+(?:\.\d+)?)$/i);
+      if (match) return matrixOf(Number(match[1]), Number(match[2]), Number(match[3]));
+
+      match = code.match(/^np\.full\(\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$/i);
+      if (match) return matrixOf(Number(match[1]), Number(match[2]), Number(match[3]));
+
+      match = code.match(/^np\.arange\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$/i);
+      if (match) return [rangeValues(Number(match[1]), Number(match[2]), Number(match[3]))];
+
+      match = code.match(/^np\.linspace\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*,\s*(\d+)\s*\)$/i);
+      if (match) return [linspaceValues(Number(match[1]), Number(match[2]), Number(match[3]))];
+
+      match = code.match(/^np\.eye\(\s*(\d+)\s*\)$/i);
+      if (match) return eyeMatrix(Number(match[1]));
+
+      match = code.match(/^np\.random\.random\(\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)\s*\)$/i);
+      if (match) return randomFloatMatrix(Number(match[1]), Number(match[2]));
+
+      match = code.match(/^np\.random\.randint\(\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*size\s*=\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)\s*\)$/i);
+      if (match) return randomIntMatrix(Number(match[3]), Number(match[4]), Number(match[1]), Number(match[2]));
+
+      match = code.match(/^np\.empty\(\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)\s*\)$/i);
+      if (match) return emptyMatrix(Number(match[1]), Number(match[2]));
+
+      match = code.match(/^a\.shape$/i);
+      if (match) return [["(2, 3)"]];
+
+      match = code.match(/^len\(\s*b\s*\)$/i);
+      if (match) return [[4]];
+
+      match = code.match(/^c\.ndim$/i);
+      if (match) return [[2]];
+
+      match = code.match(/^d\.size$/i);
+      if (match) return [[12]];
+
+      match = code.match(/^e\.dtype(?:\.name)?$/i);
+      if (match) return [["float64"]];
+
+      match = code.match(/^my_ints\.astype\(\s*float\s*\)$/i);
+      if (match) return [["1.0", "2.0", "3.0"]];
+
+      match = code.match(/^(?:np\.subtract\(\s*a\s*,\s*b\s*\)|a\s*-\s*b)$/i);
+      if (match) return [[9, 18, 27]];
+
+      match = code.match(/^(?:np\.add\(\s*a\s*,\s*b\s*\)|a\s*\+\s*b)$/i);
+      if (match) return [[5, 7, 9]];
+
+      match = code.match(/^(?:np\.divide\(\s*a\s*,\s*b\s*\)|a\s*\/\s*b)$/i);
+      if (match) return [[5, 5, 6]];
+
+      match = code.match(/^(?:np\.multiply\(\s*a\s*,\s*b\s*\)|a\s*\*\s*b)$/i);
+      if (match) return [[20, 30, 40]];
+
+      match = code.match(/^np\.sqrt\(\s*a\s*\)$/i);
+      if (match) return [[0, 1, 2, 3, 4]];
+
+      match = code.match(/^np\.log2\(\s*a\s*\)$/i);
+      if (match) return [[0, 1, 2, 3]];
+
+      match = code.match(/^np\.log10\(\s*a\s*\)$/i);
+      if (match) return [[0, 1, 2, 3]];
+
+      match = code.match(/^(?:A\.dot\(\s*B\s*\)|A\s*@\s*B)$/i);
+      if (match) return [[1, 2], [3, 4]];
+
+      match = code.match(/^(?:a\s*==\s*b|np\.equal\(\s*a\s*,\s*b\s*\))$/i);
+      if (match) return [["True", "False", "True"]];
+
+      match = code.match(/^a\s*>\s*3$/i);
+      if (match) return [["False", "True", "False", "True", "False"]];
+
+      match = code.match(/^np\.array_equal\(\s*a\s*,\s*b\s*\)$/i);
+      if (match) return [["True"]];
+
+      match = code.match(/^(?:a\.sum\(\s*axis\s*=\s*0\s*\)|np\.sum\(\s*a\s*,\s*axis\s*=\s*0\s*\))$/i);
+      if (match) return [[4, 6]];
+
+      match = code.match(/^(?:a\.sum\(\s*axis\s*=\s*1\s*\)|np\.sum\(\s*a\s*,\s*axis\s*=\s*1\s*\))$/i);
+      if (match) return [[3, 7]];
+
+      match = code.match(/^(?:a\.min\(\s*\)|np\.min\(\s*a\s*\))$/i);
+      if (match) return [[1]];
+
+      match = code.match(/^(?:a\.max\(\s*\)|np\.max\(\s*a\s*\))$/i);
+      if (match) return [[9]];
+
+      match = code.match(/^(?:a\.argmin\(\s*\)|np\.argmin\(\s*a\s*\))$/i);
+      if (match) return [[1]];
+
+      match = code.match(/^(?:a\.argmax\(\s*\)|np\.argmax\(\s*a\s*\))$/i);
+      if (match) return [[4]];
+
+      match = code.match(/^(?:a\.cumsum\(\s*\)|np\.cumsum\(\s*a\s*\))$/i);
+      if (match) return [[1, 3, 6, 10]];
+
+      match = code.match(/^(?:a\.mean\(\s*\)|np\.mean\(\s*a\s*\))$/i);
+      if (match) return [[3]];
+
+      match = code.match(/^np\.median\(\s*a\s*\)$/i);
+      if (match) return [[3]];
+
+      match = code.match(/^np\.corrcoef\(\s*x\s*,\s*y\s*\)\s*\[\s*0\s*,\s*1\s*\]$/i);
+      if (match) return [[1]];
+
+      match = code.match(/^(?:np\.std\(\s*a\s*\)|a\.std\(\s*\))$/i);
+      if (match) return [[2]];
+
+      match = code.match(/^(?:np\.var\(\s*a\s*\)|a\.var\(\s*\))$/i);
+      if (match) return [[4]];
+
+      match = code.match(/^(?:np\.concatenate\(\s*\(\s*a\s*,\s*b\s*\)\s*\)|np\.hstack\(\s*\(\s*a\s*,\s*b\s*\)\s*\))$/i);
+      if (match) return [[1, 2, 3, 4]];
+
+      match = code.match(/^np\.concatenate\(\s*\(\s*a\s*,\s*b\s*,\s*a\s*\)\s*\)$/i);
+      if (match) return [[1, 2, 3, 4, 1, 2]];
+
+      match = code.match(/^(?:np\.concatenate\(\s*\(\s*m1\s*,\s*m2\s*\)\s*,\s*axis\s*=\s*0\s*\)|np\.vstack\(\s*\(\s*m1\s*,\s*m2\s*\)\s*\))$/i);
+      if (match) return [[1, 2], [3, 4], [5, 6], [7, 8]];
+
+      match = code.match(/^(?:np\.concatenate\(\s*\(\s*m1\s*,\s*m2\s*\)\s*,\s*axis\s*=\s*1\s*\)|np\.hstack\(\s*\(\s*m1\s*,\s*m2\s*\)\s*\))$/i);
+      if (match) return [[1, 2, 5, 6], [3, 4, 7, 8]];
+
+      match = code.match(/^(?:np\.copy\(\s*a\s*\)|a\.copy\(\s*\))$/i);
+      if (match) return [[1, 2, 3]];
+
+      match = code.match(/^(?:np\.sort\(\s*a\s*\)|a\.sort\(\s*\))$/i);
+      if (match) return [[1, 1, 3, 4, 5, 9]];
+
+      match = code.match(/^(?:np\.sort\(\s*b\s*,\s*axis\s*=\s*0\s*\)|b\.sort\(\s*axis\s*=\s*0\s*\))$/i);
+      if (match) return [[3, 1], [4, 2]];
+
+      match = code.match(/^(?:np\.sort\(\s*b\s*,\s*axis\s*=\s*1\s*\)|b\.sort\(\s*axis\s*=\s*1\s*\))$/i);
+      if (match) return [[1, 2, 3], [5, 7, 9]];
+
+      match = code.match(/^a\[\s*2\s*\]$/i);
+      if (match) return [[30]];
+
+      match = code.match(/^a\[\s*2\s*:\s*5\s*\]\s*=\s*99$/i);
+      if (match) return [[0, 1, 99, 99, 99, 5, 6, 7]];
+
+      match = code.match(/^b\[\s*1\s*,\s*2\s*\]$/i);
+      if (match) return [[6]];
+
+      match = code.match(/^a\[\s*1\s*:\s*4\s*\]$/i);
+      if (match) return [[20, 30, 40]];
+
+      match = code.match(/^b\[\s*0\s*:\s*2\s*,\s*1\s*\]$/i);
+      if (match) return [[2, 5]];
+
+      match = code.match(/^a\[\s*:\s*:\s*-1\s*\]$/i);
+      if (match) return [[5, 4, 3, 2, 1]];
+
+      match = code.match(/^a\[\s*a\s*<\s*4\s*\]$/i);
+      if (match) return [[1, 3, 2]];
+
+      match = code.match(/^a\[\s*\(\s*a\s*<\s*2\s*\)\s*\|\s*\(\s*a\s*>\s*6\s*\)\s*\]$/i);
+      if (match) return [[1, 8, 7]];
+
+      match = code.match(/^b\[\s*\[\s*0\s*,\s*2\s*\]\s*,\s*\[\s*1\s*,\s*0\s*\]\s*\]$/i);
+      if (match) return [[2, 5]];
+
+      match = code.match(/^(?:a\.T|np\.transpose\(\s*a\s*\))$/i);
+      if (match) return [[1, 4], [2, 5], [3, 6]];
+
+      match = code.match(/^(?:a\.ravel\(\s*\)|a\.flatten\(\s*\)|np\.ravel\(\s*a\s*\))$/i);
+      if (match) return [[1, 2, 3, 4, 5, 6]];
+
+      match = code.match(/^np\.append\(\s*a\s*,\s*\[\s*4\s*,\s*5\s*\]\s*\)$/i);
+      if (match) return [[1, 2, 3, 4, 5]];
+
+      match = code.match(/^np\.insert\(\s*a\s*,\s*2\s*,\s*99\s*\)$/i);
+      if (match) return [[1, 2, 99, 3, 4]];
+
+      match = code.match(/^np\.delete\(\s*a\s*,\s*2\s*\)$/i);
+      if (match) return [[10, 20, 40, 50]];
+
+      match = code.match(/^np\.column_stack\(\s*\(\s*a\s*,\s*b\s*\)\s*\)$/i);
+      if (match) return [[1, 4], [2, 5], [3, 6]];
+
+      match = code.match(/^np\.hsplit\(\s*a\s*,\s*3\s*\)$/i);
+      if (match) return [["[1, 2]", "[3, 4]", "[5, 6]"]];
+
+      match = code.match(/^np\.vsplit\(\s*a\s*,\s*2\s*\)$/i);
+      if (match) return [[0, 1, 4, 5], [2, 3, 6, 7]];
+
+      match = code.match(/^np\.array\(\s*(\[.*\])\s*\)$/is);
+      if (match) {
+        return parseArrayLiteral(match[1]);
+      }
+
+      throw new Error("Unsupported command. Use a supported pandas command for this question.");
+    }
+
+    function matrixOf(rows, cols, value) {
+      if (!Number.isInteger(rows) || !Number.isInteger(cols) || rows < 1 || cols < 1 || rows > 8 || cols > 8) {
+        throw new Error("Shape must use whole numbers from 1 to 8.");
+      }
+      return Array.from({ length: rows }, () => Array.from({ length: cols }, () => value));
+    }
+
+    function rangeValues(start, stop, step) {
+      if (step === 0) throw new Error("np.arange step cannot be 0.");
+      const values = [];
+      for (let value = start; step > 0 ? value < stop : value > stop; value += step) {
+        values.push(roundNumber(value));
+        if (values.length > 64) throw new Error("Keep np.arange output to 64 values or fewer.");
+      }
+      return values;
+    }
+
+    function linspaceValues(start, stop, count) {
+      if (!Number.isInteger(count) || count < 1 || count > 64) {
+        throw new Error("np.linspace count must be a whole number from 1 to 64.");
+      }
+      if (count === 1) return [roundNumber(start)];
+      return Array.from({ length: count }, (_, index) =>
+        roundNumber(start + ((stop - start) * index) / (count - 1))
+      );
+    }
+
+    function eyeMatrix(size) {
+      if (!Number.isInteger(size) || size < 1 || size > 8) {
+        throw new Error("np.eye size must be a whole number from 1 to 8.");
+      }
+      return Array.from({ length: size }, (_, row) =>
+        Array.from({ length: size }, (_, col) => row === col ? 1 : 0)
+      );
+    }
+
+    function randomFloatMatrix(rows, cols) {
+      validateShape(rows, cols);
+      if (randomSeedMemory === 42 && rows === 3 && cols === 3) {
+        return [
+          [0.37, 0.95, 0.73],
+          [0.6, 0.16, 0.16],
+          [0.06, 0.87, 0.6]
+        ];
+      }
+      return Array.from({ length: rows }, () =>
+        Array.from({ length: cols }, () => roundNumber(Math.random(), 2))
+      );
+    }
+
+    function randomIntMatrix(rows, cols, low, high) {
+      validateShape(rows, cols);
+      if (!Number.isInteger(low) || !Number.isInteger(high) || high <= low) {
+        throw new Error("np.random.randint needs whole-number bounds where high is greater than low.");
+      }
+      if (randomSeedMemory === 42 && low === 1 && high === 10 && rows === 2 && cols === 5) {
+        return [
+          [7, 4, 8, 5, 7],
+          [3, 7, 8, 5, 4]
+        ];
+      }
+      return Array.from({ length: rows }, () =>
+        Array.from({ length: cols }, () => Math.floor(Math.random() * (high - low)) + low)
+      );
+    }
+
+    function emptyMatrix(rows, cols) {
+      validateShape(rows, cols);
+      return Array.from({ length: rows }, () => Array.from({ length: cols }, () => "?"));
+    }
+
+    function validateShape(rows, cols) {
+      if (!Number.isInteger(rows) || !Number.isInteger(cols) || rows < 1 || cols < 1 || rows > 8 || cols > 8) {
+        throw new Error("Shape must use whole numbers from 1 to 8.");
+      }
+    }
+
+    function roundNumber(value, digits = 6) {
+      return Number(value.toFixed(digits));
+    }
+
+    function parseArrayLiteral(literal) {
+      const jsonLike = literal.replace(/'/g, '"');
+      let parsed;
+      try {
+        parsed = JSON.parse(jsonLike);
+      } catch {
+        throw new Error("The np.array literal needs nested brackets, like [[0,0,0,0],[0,0,0,0]].");
+      }
+
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        throw new Error("np.array must contain values.");
+      }
+
+      if (!parsed.every(Array.isArray)) {
+        parsed.forEach(value => {
+          if (typeof value !== "number" || Number.isNaN(value)) {
+            throw new Error("This simulator only renders numeric arrays.");
+          }
+        });
+        return [parsed];
+      }
+
+      const width = parsed[0].length;
+      if (width === 0 || parsed.some(row => row.length !== width)) {
+        throw new Error("Every row must have the same number of columns.");
+      }
+
+      if (parsed.length > 8 || width > 8) {
+        throw new Error("Keep the simulator matrix at 8 by 8 or smaller.");
+      }
+
+      parsed.flat().forEach(value => {
+        if (typeof value !== "number" || Number.isNaN(value)) {
+          throw new Error("This simulator only renders numeric arrays.");
+        }
+      });
+
+      return parsed;
+    }
+
+    function reshapeArray(matrix, rows, cols) {
+      if (!Number.isInteger(rows) || !Number.isInteger(cols) || rows < 1 || cols < 1 || rows > 8 || cols > 8) {
+        throw new Error("Dimensions must be whole numbers from 1 to 8.");
+      }
+
+      const values = matrix.flat();
+      if (values.length !== rows * cols) {
+        throw new Error(`Cannot change ${values.length} values into dimensions (${rows}, ${cols}).`);
+      }
+
+      return Array.from({ length: rows }, (_, rowIndex) =>
+        values.slice(rowIndex * cols, rowIndex * cols + cols)
+      );
+    }
+
+    function sameMatrix(a, b) {
+      return a.length === b.length &&
+        a.every((row, rowIndex) =>
+          row.length === b[rowIndex].length &&
+          row.every((value, colIndex) => value === b[rowIndex][colIndex])
+        );
+    }
+
+    function stageMatches(matrix, stage) {
+      if (stage.check === "seed") {
+        return sameMatrix(matrix, stage.target);
+      }
+      if (stage.check === "randomFloat") {
+        return hasShape(matrix, 3, 3) && matrix.flat().every(value => typeof value === "number" && value >= 0 && value < 1);
+      }
+      if (stage.check === "randomInt") {
+        return hasShape(matrix, 2, 5) && matrix.flat().every(value => Number.isInteger(value) && value >= 1 && value < 10);
+      }
+      if (stage.check === "empty") {
+        return hasShape(matrix, 4, 3);
+      }
+      return sameMatrix(matrix, stage.target);
+    }
+
+    function hasShape(matrix, rows, cols) {
+      return matrix.length === rows && matrix.every(row => row.length === cols);
+    }
+
+    function playUserMatrixFireworks() {
+      requestAnimationFrame(() => {
+        particles = [];
+        fxCtx.clearRect(0, 0, innerWidth, innerHeight);
+        burstFromElement(createdInner, 220, 11);
+        setTimeout(() => burstFromElement(createdInner, 150, 9), 140);
+        setTimeout(() => burstFromElement(createdInner, 110, 7), 280);
+      });
+    }
+
+    function beginCorrectAnswerAnimation() {
+      holdTimerSuccess();
+      codeInput.readOnly = true;
+      runButton.disabled = true;
+      lockedLabel.textContent = "-- Locked --";
+      lockedLabel.classList.remove("missed");
+      lockedLabel.classList.add("show");
+      const ship = activeShip();
+      ship.classList.remove("warn");
+      ship.classList.remove("spin");
+      void ship.offsetWidth;
+      ship.classList.add("spin");
+    }
+
+    function playShipWarning() {
+      const ship = activeShip();
+      ship.classList.remove("warn");
+      void ship.offsetWidth;
+      ship.classList.add("warn");
+    }
+
+    function playShipExplosion(ship) {
+      requestAnimationFrame(() => {
+        debrisFromElement(ship, 36, 15);
+        setTimeout(() => debrisFromElement(ship, 18, 9), 120);
+      });
+    }
+
+    function playRequiredPatternExplosion() {
+      targetCard.classList.remove("required-explosion", "explode", "fly-rect", "fade-in", "fade-out");
+      targetGrid.querySelectorAll(".cell").forEach(cell => {
+        const angle = Math.random() * Math.PI * 2;
+        const distance = 48 + Math.random() * 72;
+        cell.style.setProperty("--req-boom-x", `${Math.cos(angle) * distance}px`);
+        cell.style.setProperty("--req-boom-y", `${Math.sin(angle) * distance}px`);
+        cell.style.setProperty("--req-boom-r", `${-160 + Math.random() * 320}deg`);
+      });
+      requestAnimationFrame(() => {
+        targetCard.classList.add("required-explosion");
+      });
+    }
+
+    function showAnswerModal() {
+      const stage = getStage();
+      answerModalCode.textContent = stage.starter;
+      answerModalContext.textContent = stage.lockedLine || "";
+      const src = stage.source;
+      if (src) {
+        answerModalLink.href = src.url;
+        answerModalLink.textContent = src.label + " →";
+        answerModalLink.style.display = "inline-block";
+      } else {
+        answerModalLink.style.display = "none";
+      }
+      answerModal.classList.add("show");
+      answerModal.setAttribute("aria-hidden", "false");
+    }
+
+    function hideAnswerModal() {
+      answerModal.classList.remove("show");
+      answerModal.setAttribute("aria-hidden", "true");
+    }
+
+    function revealAnswer(fromDontKnow = false) {
+      if (gameOver) return;
+      if (fromDontKnow) {
+        const isOver = registerFailure("SKIP: don't know.");
+        if (isOver) return;
+      }
+      const stage = getStage();
+      stopTimer();
+      clearTimeout(revealTypeTimer);
+      codeInput.readOnly = true;
+      codeInput.style.display = "none";
+      revealOverlay.style.display = "block";
+      actionsNormal.style.display = "none";
+      actionsReveal.style.display = "flex";
+      if (stage.source) {
+        openTopicButton.style.display = "";
+        openTopicButton.onclick = () => window.open(stage.source.url, "_blank");
+      } else {
+        openTopicButton.style.display = "none";
+      }
+      solvedSet.add(currentQuestion);
+      updateProgress();
+      stopRadar();
+      playExplodeSfx();
+      speakClue("the solution was");
+      revealOverlay.innerHTML = '<span class="reveal-fail">Encryption failed.</span>\n<span class="reveal-solution" id="revealSolutionSpan">the solution was:\n--> </span>';
+      const solutionSpan = document.getElementById("revealSolutionSpan");
+      const text = stage.starter;
+      let i = 0;
+      function typeNext() {
+        if (i < text.length) {
+          solutionSpan.textContent = "the solution was:\n--> " + text.slice(0, i + 1);
+          i++;
+          revealTypeTimer = setTimeout(typeNext, 42);
+        }
+      }
+      typeNext();
+    }
+
+    function runCommand() {
+      if (gameOver) return;
+      clearTimeout(missedLabelTimer);
+      lockedLabel.classList.remove("show", "missed");
+      targetCard.classList.remove("fade-out", "fade-in", "explode", "fly-rect", "required-explosion");
+
+      let parsed;
+      try {
+        parsed = parseCommand(codeInput.value);
+      } catch (error) {
+        playShipWarning();
+        lockedLabel.textContent = "-- Miss --";
+        lockedLabel.classList.add("missed", "show");
+        missedLabelTimer = setTimeout(() => lockedLabel.classList.remove("show", "missed"), 3000);
+        statusEl.textContent = `ERROR: ${error.message}`;
+        statusEl.style.color = "var(--red)";
+        return;
+      }
+
+      const matrix = parsed.matrix;
+      emptyState.style.display = "none";
+      drawMatrix(createdInner, matrix);
+      const hudShapeEl = document.getElementById("hudShape");
+      if (hudShapeEl) hudShapeEl.textContent = `SHAPE:${matrix.length}×${matrix[0]?.length || 0}`;
+
+      const stage = getStage();
+      if (stageMatches(matrix, stage)) {
+        if (stage.commandPattern && !stage.commandPattern.test(parsed.code)) {
+          statusEl.textContent = `The output is correct, but use ${stage.commandName} for this question.`;
+          statusEl.style.color = "var(--gold)";
+          return;
+        }
+
+        if (stage.requiresVariable && parsed.variable !== stage.requiresVariable) {
+          statusEl.textContent = `The values are correct, but store the array in \`${stage.requiresVariable}\`.`;
+          statusEl.style.color = "var(--gold)";
+          return;
+        }
+
+        const hasNextStage = getStages().length > currentStage + 1;
+        statusEl.textContent = hasNextStage ? "MATCH: stage complete. Loading next stage..." : "MATCH: matrix signature verified. Lock sequence armed.";
+        statusEl.style.color = "var(--green)";
+        beginCorrectAnswerAnimation();
+
+        if (hasNextStage) {
+          stageMemory = matrix;
+          if (parsed.seed !== null) {
+            randomSeedMemory = parsed.seed;
+          }
+          setTimeout(() => {
+            drawMatrix(stageResultGrid, matrix);
+            stageResult.classList.add("show");
+            playRequiredPatternExplosion();
+            setTimeout(() => {
+              setStage(currentStage + 1);
+              targetCard.classList.remove("required-explosion");
+              targetCard.classList.add("fade-in");
+              setTimeout(() => targetCard.classList.remove("fade-in"), 420);
+            }, 720);
+          }, 1000);
+          return;
+        }
+
+        if (!isMuted) { sfxMissile.currentTime = 0; sfxMissile.play().catch(() => {}); }
+        actionsNormal.style.display = "none";
+        statusEl.style.display = "none";
+        solvedCount += 1;
+        solvedSet.add(currentQuestion);
+        updateProgress();
+        setTimeout(() => {
+          playRequiredPatternExplosion();
+          setTimeout(() => {
+            if (currentQuestion < questions.length - 1) {
+              setQuestion(currentQuestion + 1);
+            } else {
+              targetCard.classList.remove("required-explosion");
+              setTimeout(showCongrats, 600);
+            }
+          }, 720);
+        }, 1000);
+      } else {
+        playShipWarning();
+        lockedLabel.textContent = "-- Miss --";
+        lockedLabel.classList.add("missed", "show");
+        missedLabelTimer = setTimeout(() => lockedLabel.classList.remove("show", "missed"), 3000);
+        const rows = matrix.length;
+        const cols = matrix[0]?.length || 0;
+        statusEl.textContent = `Created shape (${rows}, ${cols}). Target is (${stage.target.length}, ${stage.target[0].length}).`;
+        statusEl.style.color = "var(--muted)";
+      }
+    }
+
+    function getStages() {
+      const question = questions[currentQuestion];
+      return question.stages || [question];
+    }
+
+    function getStage() {
+      return getStages()[currentStage];
+    }
+
+    function setQuestion(index) {
+      currentQuestion = Math.max(0, Math.min(index, questions.length - 1));
+      currentStage = 0;
+      stageMemory = null;
+      randomSeedMemory = null;
+      stageResult.classList.remove("show");
+      stageResultGrid.innerHTML = "";
+      setStage(0);
+    }
+
+    function setStage(index, options = {}) {
+      const stages = getStages();
+      currentStage = Math.max(0, Math.min(index, stages.length - 1));
+      const stage = stages[currentStage];
+      const stageText = stages.length > 1 ? ` / Stage ${currentStage + 1}` : "";
+
+      questionChip.textContent = `Question ${currentQuestion + 1}${stageText}`;
+      lockedLabel.classList.remove("show", "missed");
+      hideAnswerModal();
+      clearTimeout(revealTypeTimer);
+      window.speechSynthesis?.cancel();
+      stopRadar();
+      codeInput.classList.remove("revealing");
+      codeInput.style.display = "";
+      revealOverlay.style.display = "none";
+      actionsNormal.style.display = "";
+      actionsReveal.style.display = "none";
+      statusEl.style.display = "";
+      clearShipClasses("spin", "warn");
+      updateActiveShip();
+      typeEncryptedRequirement(stage.clue);
+      const _narratorGen = narratorGeneration;
+      speakClue(stage.clue, () => {
+        if (narratorGeneration === _narratorGen) dontKnowButton.disabled = false;
+        if (!gameOver) { startTimer(); startRadar(); }
+      });
+      if (promptEl) promptEl.textContent = stage.prompt;
+      cheatsEl.innerHTML = stage.hint;
+      codeInput.value = DEBUG_PREFILL_ANSWER ? stage.starter : "";
+      codeInput.readOnly = gameOver;
+      runButton.disabled = gameOver;
+      lockedLine.innerHTML = stage.lockedLine || "";
+      editorWrap.classList.toggle("has-locked", Boolean(stage.lockedLine));
+      statusEl.textContent = gameOver ? "GAME OVER: all ships destroyed." : "Awaiting execution...";
+      statusEl.style.color = gameOver ? "var(--red)" : "var(--muted)";
+      if (!options.preserveOutput) {
+        createdInner.innerHTML = "";
+        emptyState.style.display = "grid";
+        const hudShapeEl = document.getElementById("hudShape");
+        if (hudShapeEl) hudShapeEl.textContent = "SHAPE:--";
+      }
+      targetCard.classList.remove("fade-out", "fade-in", "explode", "fly-rect", "required-explosion");
+      if (stage.targetDisplay) {
+        targetGrid.innerHTML = "";
+        targetGrid.className = "target-split-view";
+        stage.targetDisplay.forEach(part => {
+          const sub = document.createElement("div");
+          sub.className = "matrix-grid";
+          drawMatrix(sub, part);
+          targetGrid.appendChild(sub);
+        });
+      } else {
+        targetGrid.className = "matrix-grid";
+        drawMatrix(targetGrid, stage.target);
+      }
+      sourceMatrix.innerHTML = "";
+      if (stage.sourceMatrices) {
+        stage.sourceMatrices.forEach(source => appendSourceMatrix(source.label, source.matrix));
+        sourceMatrix.classList.add("show");
+      } else if (stage.sourceMatrix) {
+        appendSourceMatrix(stage.sourceLabel || "array", stage.sourceMatrix);
+        sourceMatrix.classList.add("show");
+      } else {
+        sourceMatrix.classList.remove("show");
+      }
+
+      requestAnimationFrame(() => {
+        codeInput.focus();
+        codeInput.setSelectionRange(0, 0);
+      });
+    }
+
+    runButton.addEventListener("click", runCommand);
+    dontKnowButton.addEventListener("click", () => revealAnswer(true));
+    nextRevealButton.addEventListener("click", () => {
+      if (currentQuestion < questions.length - 1) {
+        setQuestion(currentQuestion + 1);
+      } else {
+        // last question reached (solved or skipped) — finish the run
+        showCongrats();
+      }
+    });
+    answerModalClose.addEventListener("click", hideAnswerModal);
+    answerModal.addEventListener("click", e => { if (e.target === answerModal) hideAnswerModal(); });
+    codeInput.addEventListener("input", () => setAliveShipsTyping(false));
+    gameOverOverlay.addEventListener("click", restartGame);
+    codeInput.addEventListener("keydown", event => {
+      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+        if (!codeInput.classList.contains("revealing")) runCommand();
+      }
+    });
+    document.addEventListener("keydown", event => {
+      if (event.key === "Enter") {
+        if (document.getElementById("congratsOverlay").classList.contains("show")) {
+          location.reload();
+        } else {
+          restartGame();
+        }
+      }
+    });
+
+    // ── Start overlay config ──────────────────────────────────────────
+    const startOverlay  = document.getElementById("startOverlay");
+    const cfgName       = document.getElementById("cfgName");
+    const cfgTime       = document.getElementById("cfgTime");
+    const cfgTimeVal    = document.getElementById("cfgTimeVal");
+    const cfgLives      = document.getElementById("cfgLives");
+    const cfgLivesVal   = document.getElementById("cfgLivesVal");
+    const cfgQ          = document.getElementById("cfgQ");
+    const cfgQVal       = document.getElementById("cfgQVal");
+    const cfgQMax       = document.getElementById("cfgQMax");
+    const livesPreview  = document.getElementById("livesShipsPreview");
+    const startBtn      = document.getElementById("startBtn");
+
+    const TOTAL_Q = questions.length;
+    cfgQ.max = TOTAL_Q;
+    cfgQ.value = TOTAL_Q;
+    cfgQMax.textContent = TOTAL_Q;
+    cfgQVal.textContent = "all";
+
+    function renderLivesPreview(n) {
+      livesPreview.innerHTML = "";
+      for (let i = 0; i < 5; i++) {
+        const s = document.createElement("span");
+        s.className = "lives-ship-icon" + (i < n ? " active" : "");
+        s.innerHTML = `<img src="image_64e15e12_ship.png" alt="ship" style="width:28px;height:28px;object-fit:contain;">`;
+        livesPreview.appendChild(s);
+      }
+    }
+    renderLivesPreview(3);
+
+    cfgTime.addEventListener("input", () => {
+      cfgTimeVal.textContent = +cfgTime.value > 180 ? "∞ unlimited" : cfgTime.value + "s";
+    });
+    cfgLives.addEventListener("input", () => {
+      cfgLivesVal.textContent = cfgLives.value;
+      renderLivesPreview(+cfgLives.value);
+    });
+    cfgQ.addEventListener("input", () => {
+      cfgQVal.textContent = +cfgQ.value === TOTAL_Q ? "all" : cfgQ.value;
+    });
+
+    function launchGame() {
+      const enteredName = cfgName.value.trim();
+      if (!enteredName) {
+        // require a pilot name — flash the field red with a shake
+        cfgName.classList.remove("cfg-input-error");
+        void cfgName.offsetWidth; // restart the animation
+        cfgName.classList.add("cfg-input-error");
+        cfgName.focus();
+        return;
+      }
+      pilotName = enteredName;
+      gameStarted = true;
+      UNLIMITED_TIME = +cfgTime.value > 180;
+      if (!UNLIMITED_TIME) TIMER_SECONDS = +cfgTime.value;
+      livesCount = +cfgLives.value;
+      const qCount = +cfgQ.value;
+      if (qCount < TOTAL_Q) questions.splice(qCount);
+      questionsCount = questions.length;
+
+      // rebuild ship fleet to match chosen lives
+      const fleet = document.querySelector(".ship-fleet");
+      fleet.innerHTML = "";
+      for (let i = 0; i < livesCount; i++) {
+        fleet.innerHTML += `<div class="sim-ship"><img src="image_64e15e12_ship.png" alt=""></div>`;
+      }
+      simShips.length = 0;
+      Array.from(document.querySelectorAll(".sim-ship")).forEach(s => simShips.push(s));
+
+      startOverlay.classList.add("hidden");
+      stopIntro();
+      buildTimerBars();
+      updateActiveShip();
+      setQuestion(0);
+    }
+
+    startBtn.addEventListener("click", launchGame);
+    cfgName.addEventListener("keydown", e => { if (e.key === "Enter") launchGame(); });
+    cfgName.addEventListener("input", () => cfgName.classList.remove("cfg-input-error"));
+
+    // F5 / Ctrl+R while a game is in progress → confirm before restarting
+    const restartConfirm = document.getElementById("restartConfirm");
+    const restartYes = document.getElementById("restartYes");
+    const restartNo = document.getElementById("restartNo");
+    function showRestartConfirm() {
+      restartConfirm.classList.add("show");
+      restartConfirm.setAttribute("aria-hidden", "false");
+    }
+    function hideRestartConfirm() {
+      restartConfirm.classList.remove("show");
+      restartConfirm.setAttribute("aria-hidden", "true");
+    }
+    window.addEventListener("keydown", e => {
+      const isF5 = e.key === "F5" || e.keyCode === 116;
+      const isCtrlR = (e.ctrlKey || e.metaKey) && (e.key === "r" || e.key === "R");
+      if ((isF5 || isCtrlR) && gameStarted && !restartConfirm.classList.contains("show")) {
+        e.preventDefault();
+        showRestartConfirm();
+      } else if (e.key === "Escape" && restartConfirm.classList.contains("show")) {
+        hideRestartConfirm();
+      }
+    });
+    restartYes.addEventListener("click", () => location.reload());
+    restartNo.addEventListener("click", hideRestartConfirm);
+    restartConfirm.addEventListener("click", e => { if (e.target === restartConfirm) hideRestartConfirm(); });
+
+    // Start the welcome sound on page load. Browsers may block autoplay until the
+    // first user gesture (notably after a refresh, which carries no gesture) — so
+    // retry for a few seconds, then fall back to the first pointerdown/keydown.
+    let welcomeStarted = false;
+    function startWelcomeAudio() {
+      if (welcomeStarted) return;
+      if (sfxWelcome.readyState >= 1) sfxWelcome.currentTime = 0;
+      sfxWelcome.play().then(() => {
+        welcomeStarted = true;
+        document.removeEventListener("pointerdown", startWelcomeAudio);
+        document.removeEventListener("keydown", startWelcomeAudio);
+      }).catch(() => {});
+    }
+    startWelcomeAudio();
+    const welcomeRetry = setInterval(() => {
+      if (welcomeStarted) { clearInterval(welcomeRetry); return; }
+      startWelcomeAudio();
+    }, 500);
+    setTimeout(() => clearInterval(welcomeRetry), 5000);
+    document.addEventListener("pointerdown", startWelcomeAudio);
+    document.addEventListener("keydown", startWelcomeAudio);
+
+    const rainCanvas = document.getElementById("matrixRain");
+    const rainCtx = rainCanvas.getContext("2d");
+    const fxCanvas = document.getElementById("fxCanvas");
+    const fxCtx = fxCanvas.getContext("2d");
+    let rainColumns = [];
+    let particles = [];
+
+    function resizeCanvas() {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      [rainCanvas, fxCanvas].forEach(canvas => {
+        canvas.width = Math.floor(innerWidth * dpr);
+        canvas.height = Math.floor(innerHeight * dpr);
+        canvas.style.width = `${innerWidth}px`;
+        canvas.style.height = `${innerHeight}px`;
+      });
+      rainCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      fxCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const count = Math.ceil(innerWidth / 18);
+      rainColumns = Array.from({ length: count }, (_, i) => ({
+        x: i * 18,
+        y: Math.random() * innerHeight,
+        speed: 2 + Math.random() * 4,
+        chars: "01[](){},pd.Series"
+      }));
+    }
+
+    function drawRain() {
+      rainCtx.fillStyle = "rgba(0, 0, 0, 0.08)";
+      rainCtx.fillRect(0, 0, innerWidth, innerHeight);
+      rainCtx.font = "16px Cascadia Code, Consolas, monospace";
+
+      rainColumns.forEach(column => {
+        const char = column.chars[Math.floor(Math.random() * column.chars.length)];
+        rainCtx.fillStyle = Math.random() > 0.92 ? "rgba(93, 243, 255, 0.9)" : "rgba(57, 255, 136, 0.68)";
+        rainCtx.fillText(char, column.x, column.y);
+        column.y += column.speed;
+        if (column.y > innerHeight + 40) column.y = -40;
+      });
+    }
+
+    function burstFromElement(element, count = 150, speed = 8, palette = null) {
+      const rect = element.getBoundingClientRect();
+      spawnParticles(rect.left + rect.width / 2, rect.top + rect.height / 2, count, speed, palette);
+    }
+
+    function debrisFromElement(element, count = 24, speed = 10) {
+      const rect = element.getBoundingClientRect();
+      spawnDebris(rect.left + rect.width / 2, rect.top + rect.height / 2, count, speed);
+    }
+
+    function megaBurst() {
+      spawnParticles(innerWidth / 2, innerHeight / 2, 260, 12);
+    }
+
+    function spawnParticles(x, y, count, speed, palette = null) {
+      for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const velocity = Math.random() * speed + 1.4;
+        const color = palette
+          ? palette[Math.floor(Math.random() * palette.length)]
+          : Math.random() > 0.28 ? "57,255,136" : "255,209,102";
+        particles.push({
+          x,
+          y,
+          vx: Math.cos(angle) * velocity,
+          vy: Math.sin(angle) * velocity,
+          life: 1,
+          decay: 0.009 + Math.random() * 0.018,
+          size: 2 + Math.random() * 5,
+          color
+        });
+      }
+    }
+
+    function spawnDebris(x, y, count, speed) {
+      const palette = ["180,232,255", "93,243,255", "255,73,109", "250,204,21", "92,111,128"];
+      for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const velocity = Math.random() * speed + 4;
+        particles.push({
+          type: "debris",
+          x,
+          y,
+          vx: Math.cos(angle) * velocity,
+          vy: Math.sin(angle) * velocity - Math.random() * 4,
+          life: 1,
+          decay: 0.006 + Math.random() * 0.011,
+          size: 8 + Math.random() * 18,
+          width: 5 + Math.random() * 13,
+          height: 2 + Math.random() * 6,
+          rotation: Math.random() * Math.PI,
+          spin: -0.32 + Math.random() * 0.64,
+          color: palette[Math.floor(Math.random() * palette.length)]
+        });
+      }
+    }
+
+    function drawFx() {
+      fxCtx.clearRect(0, 0, innerWidth, innerHeight);
+      particles = particles.filter(particle => particle.life > 0);
+
+      particles.forEach(particle => {
+        particle.x += particle.vx;
+        particle.y += particle.vy;
+        particle.vy += 0.045;
+        particle.life -= particle.decay;
+        particle.rotation += particle.spin || 0;
+
+        fxCtx.fillStyle = `rgba(${particle.color}, ${particle.life})`;
+        fxCtx.shadowColor = `rgba(${particle.color}, ${particle.life})`;
+        fxCtx.shadowBlur = particle.type === "debris" ? 26 : 18;
+
+        if (particle.type === "debris") {
+          fxCtx.save();
+          fxCtx.translate(particle.x, particle.y);
+          fxCtx.rotate(particle.rotation);
+          fxCtx.fillRect(
+            -particle.width * particle.life / 2,
+            -particle.height / 2,
+            particle.width * particle.life,
+            particle.height
+          );
+          fxCtx.restore();
+        } else {
+          fxCtx.beginPath();
+          fxCtx.arc(particle.x, particle.y, particle.size * particle.life, 0, Math.PI * 2);
+          fxCtx.fill();
+        }
+      });
+      fxCtx.shadowBlur = 0;
+    }
+
+    function animate() {
+      drawRain();
+      drawFx();
+      requestAnimationFrame(animate);
+    }
+
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+    animate();
+
+    // ── Landing-page flight scene ─────────────────────────────────────
+    // Chase-cam intro: the ship drops out of hyperspace, cruises a banking
+    // figure-8 with live engine exhaust, then jumps back to lightspeed.
+    const introCanvas = document.getElementById("introCanvas");
+    const introCtx = introCanvas.getContext("2d");
+    let introRAF = null;
+    let introW = 0, introH = 0;
+    let introVignette = null;
+    let introBlendFallback = false;
+    let shipArt = null;
+
+    const shipImg = new Image();
+    shipImg.src = "image_64e15e12_ship.png";
+    shipImg.onload = () => {
+      try {
+        const c = document.createElement("canvas");
+        c.width = shipImg.naturalWidth;
+        c.height = shipImg.naturalHeight;
+        const cx = c.getContext("2d");
+        cx.drawImage(shipImg, 0, 0);
+        const data = cx.getImageData(0, 0, c.width, c.height);
+        const px = data.data;
+        for (let i = 0; i < px.length; i += 4) {
+          const b = Math.max(px[i], px[i + 1], px[i + 2]);
+          if (b < 26) px[i + 3] = 0;
+          else if (b < 62) px[i + 3] = Math.round(((b - 26) / 36) * 255);
+        }
+        cx.putImageData(data, 0, 0);
+        shipArt = c;
+      } catch {
+        // file:// pages taint the canvas — draw additively so the black
+        // sprite background disappears against space instead.
+        shipArt = shipImg;
+        introBlendFallback = true;
+      }
+    };
+
+    // Engine nozzle positions as fractions of the sprite (4 exhausts)
+    const INTRO_ENGINES = [
+      [0.351, 0.535], [0.661, 0.535],
+      [0.363, 0.885], [0.641, 0.885]
+    ];
+
+    const intro = {
+      phase: "hyper",
+      phaseT: 1.1,          // shorten the very first hyperspace stretch
+      t: 0,
+      warp: 1,
+      flash: 0,
+      shake: 0,
+      px: 0, py: 0,
+      ship: { x: 0.5, y: 0.62, scale: 0, bank: 0, glow: 1.4, jumpFrom: 1 },
+      stars: [],
+      dust: []
+    };
+
+    function introResize() {
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      introW = innerWidth;
+      introH = innerHeight;
+      introCanvas.width = Math.floor(introW * dpr);
+      introCanvas.height = Math.floor(introH * dpr);
+      introCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      introVignette = document.createElement("canvas");
+      introVignette.width = introW;
+      introVignette.height = introH;
+      const vg = introVignette.getContext("2d");
+      const grad = vg.createRadialGradient(
+        introW / 2, introH / 2, Math.min(introW, introH) * 0.34,
+        introW / 2, introH / 2, Math.max(introW, introH) * 0.72
+      );
+      grad.addColorStop(0, "rgba(0,0,0,0)");
+      grad.addColorStop(1, "rgba(0,0,0,0.62)");
+      vg.fillStyle = grad;
+      vg.fillRect(0, 0, introW, introH);
+    }
+
+    function introSpawnStar(star, fresh) {
+      star.x = Math.random() * 2 - 1;
+      star.y = Math.random() * 2 - 1;
+      star.z = fresh ? 0.08 + Math.random() * 0.92 : 0.7 + Math.random() * 0.3;
+      star.tint = Math.random();
+    }
+
+    function introSeedStars() {
+      intro.stars = Array.from({ length: 230 }, () => {
+        const star = {};
+        introSpawnStar(star, true);
+        return star;
+      });
+    }
+
+    function introCruisePose(t, blend) {
+      const s = intro.ship;
+      const a = t * 0.42;
+      const tx = 0.5 + 0.34 * Math.sin(a);
+      const ty = 0.62 + 0.14 * Math.sin(a * 2 + 1.2);
+      const tscale = 1 + 0.2 * Math.sin(a * 0.9 + 2.0);
+      const tbank = Math.cos(a) * 0.4 + Math.cos(a * 2 + 1.2) * 0.12;
+      s.x += (tx - s.x) * blend;
+      s.y += (ty - s.y) * blend;
+      s.scale += (tscale - s.scale) * blend;
+      s.bank += (tbank - s.bank) * blend;
+    }
+
+    function introSetPhase(name) {
+      intro.phase = name;
+      intro.phaseT = 0;
+      if (name === "jump") intro.ship.jumpFrom = intro.ship.scale;
+    }
+
+    function introStep(dt) {
+      intro.t += dt;
+      intro.phaseT += dt;
+      const s = intro.ship;
+
+      switch (intro.phase) {
+        case "hyper":
+          intro.warp = 1;
+          s.scale = 0;
+          intro.shake = 0;
+          if (intro.phaseT > 1.6) {
+            intro.flash = 0.9;
+            introSetPhase("warpin");
+          }
+          break;
+        case "warpin": {
+          const p = Math.min(1, intro.phaseT / 1.4);
+          const e = 1 - Math.pow(1 - p, 3);
+          intro.warp = 1 - e * 0.97;
+          s.glow = 2.4 - e * 1.4;
+          introCruisePose(intro.t, 0.04 + e * 0.2);
+          s.scale = e * (1 + 0.2 * Math.sin(intro.t * 0.378 + 2.0));
+          if (p >= 1) introSetPhase("cruise");
+          break;
+        }
+        case "cruise":
+          intro.warp = 0.03;
+          intro.shake = 0;
+          s.glow = 1 + 0.12 * Math.sin(intro.t * 9);
+          introCruisePose(intro.t, 1);
+          if (intro.phaseT > 8.5) introSetPhase("prejump");
+          break;
+        case "prejump": {
+          const p = Math.min(1, intro.phaseT / 1.2);
+          const k = 1 - Math.exp(-dt * 4);
+          s.x += (0.5 - s.x) * k;
+          s.y += (0.6 - s.y) * k;
+          s.bank *= 1 - k;
+          s.glow = 1 + p * 2.4;
+          intro.shake = p * 3.6;
+          if (p >= 1) introSetPhase("jump");
+          break;
+        }
+        case "jump": {
+          const p = Math.min(1, intro.phaseT / 0.7);
+          const e = p * p * p;
+          s.scale = (1 - e) * s.jumpFrom;
+          intro.warp = 0.03 + e * 0.97;
+          s.glow = 3.6;
+          intro.shake = (1 - p) * 3;
+          if (p >= 1) {
+            intro.flash = 1;
+            introSetPhase("hyper");
+          }
+          break;
+        }
+      }
+    }
+
+    function introDrawNebula() {
+      const t = intro.t;
+      introCtx.globalCompositeOperation = "screen";
+      const blobs = [
+        [0.24 + 0.05 * Math.sin(t * 0.05), 0.30 + 0.04 * Math.cos(t * 0.04), 0.50, "57,255,136", 0.07],
+        [0.78 + 0.05 * Math.cos(t * 0.037), 0.62 + 0.05 * Math.sin(t * 0.05 + 2), 0.55, "93,180,255", 0.06],
+        [0.55, 0.15 + 0.04 * Math.sin(t * 0.03), 0.40, "150,90,255", 0.05]
+      ];
+      blobs.forEach(([nx, ny, nr, col, al]) => {
+        const R = Math.max(introW, introH) * nr;
+        const g = introCtx.createRadialGradient(nx * introW, ny * introH, 0, nx * introW, ny * introH, R);
+        g.addColorStop(0, `rgba(${col},${al})`);
+        g.addColorStop(1, `rgba(${col},0)`);
+        introCtx.fillStyle = g;
+        introCtx.fillRect(0, 0, introW, introH);
+      });
+      introCtx.globalCompositeOperation = "source-over";
+    }
+
+    function introDrawStars(dt) {
+      const cx = introW / 2 + intro.px * 30;
+      const cy = introH / 2 + intro.py * 20;
+      const focal = Math.min(introW, introH) * 0.85;
+      const dz = dt * (0.12 + intro.warp * 1.35);
+      introCtx.lineCap = "round";
+
+      intro.stars.forEach(star => {
+        const pz = star.z;
+        star.z -= dz;
+        if (star.z <= 0.05) {
+          introSpawnStar(star, false);
+          return;
+        }
+        const sx = cx + (star.x / star.z) * focal;
+        const sy = cy + (star.y / star.z) * focal;
+        if (sx < -60 || sx > introW + 60 || sy < -60 || sy > introH + 60) {
+          introSpawnStar(star, false);
+          return;
+        }
+        const px2 = cx + (star.x / pz) * focal;
+        const py2 = cy + (star.y / pz) * focal;
+        const depth = 1 - star.z;
+        const alpha = Math.min(1, depth * 1.1 + intro.warp * 0.25);
+        const col = star.tint < 0.7 ? "200,235,255" : star.tint < 0.9 ? "57,255,136" : "255,209,102";
+        introCtx.strokeStyle = `rgba(${col},${alpha})`;
+        introCtx.lineWidth = depth * 2.4 + 0.4;
+        introCtx.beginPath();
+        introCtx.moveTo(px2, py2);
+        introCtx.lineTo(sx, sy);
+        introCtx.stroke();
+      });
+    }
+
+    function introDrawDust(dt) {
+      introCtx.globalCompositeOperation = "lighter";
+      intro.dust = intro.dust.filter(p => p.life > 0);
+      intro.dust.forEach(p => {
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vy += 40 * dt;
+        p.life -= dt * p.decay;
+        const a = Math.max(0, p.life) * 0.8;
+        introCtx.fillStyle = `rgba(${p.color},${a})`;
+        introCtx.beginPath();
+        introCtx.arc(p.x, p.y, Math.max(0.4, p.size * p.life), 0, Math.PI * 2);
+        introCtx.fill();
+      });
+      introCtx.globalCompositeOperation = "source-over";
+    }
+
+    function introDrawShip(dt) {
+      const s = intro.ship;
+      if (!shipArt || s.scale <= 0.02) return;
+      const iw = shipArt.width || shipArt.naturalWidth;
+      const ih = shipArt.height || shipArt.naturalHeight;
+      const baseW = Math.min(introW * 0.32, 460);
+      const dw = baseW * s.scale;
+      const dh = dw * ih / iw;
+      const sx = s.x * introW - intro.px * 20 + (Math.random() - 0.5) * intro.shake * 2;
+      const sy = s.y * introH - intro.py * 14 + (Math.random() - 0.5) * intro.shake * 2;
+      const flick = 0.75 + 0.25 * Math.sin(intro.t * 31) + Math.random() * 0.12;
+
+      // exhaust particles stream out of the four engines
+      if (intro.dust.length < 260) {
+        const perEngine = intro.phase === "jump" ? 3 : intro.phase === "prejump" ? 2 : 1;
+        const cosb = Math.cos(s.bank), sinb = Math.sin(s.bank);
+        INTRO_ENGINES.forEach(([fx, fy]) => {
+          for (let n = 0; n < perEngine; n++) {
+            if (Math.random() > 0.8) continue;
+            const ex = (fx - 0.5) * dw, ey = (fy - 0.5) * dh;
+            const r = Math.random();
+            intro.dust.push({
+              x: sx + ex * cosb - ey * sinb,
+              y: sy + ex * sinb + ey * cosb,
+              vx: (Math.random() - 0.5) * 30 * s.scale + ex * 0.5,
+              vy: (80 + Math.random() * 170) * s.scale,
+              life: 1,
+              decay: 1 / (0.35 + Math.random() * 0.4),
+              size: (2 + Math.random() * 4) * s.scale,
+              color: r < 0.55 ? "140,205,255" : r < 0.85 ? "255,176,84" : "57,255,136"
+            });
+          }
+        });
+      }
+
+      introCtx.save();
+      introCtx.translate(sx, sy);
+      introCtx.rotate(s.bank);
+      if (introBlendFallback) introCtx.globalCompositeOperation = "screen";
+      introCtx.drawImage(shipArt, -dw / 2, -dh / 2, dw, dh);
+      introCtx.globalCompositeOperation = "lighter";
+      INTRO_ENGINES.forEach(([fx, fy]) => {
+        const ex = (fx - 0.5) * dw, ey = (fy - 0.5) * dh;
+        const r = Math.max(2, dw * 0.055) * flick * s.glow;
+        const g = introCtx.createRadialGradient(ex, ey, 0, ex, ey, r);
+        g.addColorStop(0, "rgba(255,255,255,0.85)");
+        g.addColorStop(0.35, "rgba(150,205,255,0.55)");
+        g.addColorStop(1, "rgba(90,140,255,0)");
+        introCtx.fillStyle = g;
+        introCtx.beginPath();
+        introCtx.arc(ex, ey, r, 0, Math.PI * 2);
+        introCtx.fill();
+      });
+      introCtx.restore();
+    }
+
+    function introDraw(dt) {
+      introCtx.clearRect(0, 0, introW, introH);
+      introDrawNebula();
+      introDrawStars(dt);
+      introDrawDust(dt);
+      introDrawShip(dt);
+      if (introVignette) introCtx.drawImage(introVignette, 0, 0, introW, introH);
+      if (intro.flash > 0) {
+        introCtx.fillStyle = `rgba(215,255,242,${Math.min(1, intro.flash)})`;
+        introCtx.fillRect(0, 0, introW, introH);
+        intro.flash -= dt * 2.4;
+      }
+    }
+
+    let introLast = performance.now();
+    function introLoop(now) {
+      const dt = Math.min(0.05, (now - introLast) / 1000);
+      introLast = now;
+      introStep(dt);
+      introDraw(dt);
+      introRAF = requestAnimationFrame(introLoop);
+    }
+
+    function stopIntro() {
+      if (introRAF) cancelAnimationFrame(introRAF);
+      introRAF = null;
+    }
+
+    startOverlay.addEventListener("pointermove", e => {
+      intro.px = (e.clientX / innerWidth - 0.5) * 2;
+      intro.py = (e.clientY / innerHeight - 0.5) * 2;
+    });
+
+    window.addEventListener("resize", introResize);
+    introResize();
+    introSeedStars();
+    introRAF = requestAnimationFrame(introLoop);
+  </script>
+
+</body>
+</html>

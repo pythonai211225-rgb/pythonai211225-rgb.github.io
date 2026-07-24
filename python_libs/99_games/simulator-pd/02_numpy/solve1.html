@@ -1,0 +1,818 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NumPy Level 1 Quiz — Full Reference</title>
+  <link rel="stylesheet" href="style.css"/>
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script>
+  <style>
+    /* ── animated background ── */
+    .bg-grid{position:fixed;inset:0;pointer-events:none;z-index:0;
+      background-image:linear-gradient(rgba(139,92,246,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(139,92,246,.04) 1px,transparent 1px);
+      background-size:52px 52px;}
+    .bg-orb{position:fixed;border-radius:50%;pointer-events:none;z-index:0;filter:blur(90px);animation:orbDrift 9s ease-in-out infinite;}
+    .bg-orb-1{width:520px;height:520px;background:rgba(139,92,246,.13);top:-120px;left:-80px;}
+    .bg-orb-2{width:420px;height:420px;background:rgba(59,130,246,.09);bottom:80px;right:-60px;animation-delay:-4.5s;}
+    .bg-orb-3{width:320px;height:320px;background:rgba(16,185,129,.07);top:45%;left:45%;animation-delay:-2s;}
+    @keyframes orbDrift{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(28px,-22px) scale(1.04)}66%{transform:translate(-18px,26px) scale(.96)}}
+
+    /* ── layout ── */
+    .quiz-outer{position:relative;z-index:1;min-height:calc(100vh - 54px);display:flex;flex-direction:column;align-items:center;padding:0 20px 100px;}
+    .quiz-inner{width:100%;max-width:800px;}
+
+    /* ── hero ── */
+    .qh-wrap{text-align:center;padding:48px 0 36px;}
+    .qh-eyebrow{font-size:.6rem;font-weight:800;letter-spacing:.3em;text-transform:uppercase;color:#8b5cf6;margin-bottom:16px;display:flex;align-items:center;justify-content:center;gap:12px;}
+    .qh-eyebrow em{display:inline-block;width:24px;height:1px;background:#8b5cf6;opacity:.55;font-style:normal;}
+    .qh-level{display:inline-flex;align-items:center;gap:8px;padding:5px 14px;border-radius:999px;
+      background:linear-gradient(135deg,rgba(250,204,21,.18),rgba(139,92,246,.18));
+      border:1px solid rgba(250,204,21,.3);font-size:.68rem;font-weight:800;letter-spacing:.12em;
+      text-transform:uppercase;color:#fde68a;margin-bottom:16px;}
+    .qh-title{font-size:clamp(2rem,5.5vw,3.4rem);font-weight:900;letter-spacing:-.04em;line-height:1.0;margin:0 0 12px;
+      background:linear-gradient(130deg,#e879f9 0%,#a855f7 22%,#818cf8 50%,#38bdf8 75%,#34d399 100%);
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+      filter:drop-shadow(0 0 32px rgba(139,92,246,.38));}
+    .qh-sub{font-size:.92rem;color:var(--muted);max-width:520px;margin:0 auto 24px;line-height:1.75;}
+
+    /* ── section legend ── */
+    .legend{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:36px;}
+    .leg-item{display:inline-flex;align-items:center;gap:7px;font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
+    .leg-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+
+    /* ── progress bar (quiz) ── */
+    .q-progress-wrap{margin-bottom:28px;}
+    .q-progress-track{height:5px;background:rgba(255,255,255,.07);border-radius:99px;overflow:hidden;margin-bottom:10px;}
+    .q-progress-fill{height:100%;background:linear-gradient(90deg,#a855f7,#38bdf8);border-radius:99px;transition:width .5s cubic-bezier(.4,0,.2,1);}
+    .q-progress-meta{display:flex;align-items:center;justify-content:space-between;}
+    .q-counter{font-size:.72rem;font-weight:800;color:var(--muted);letter-spacing:.06em;}
+    .q-section-pill{font-size:.6rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;padding:3px 10px;border-radius:999px;}
+
+    /* ── question card ── */
+    .q-card{background:rgba(10,14,22,.78);border:1px solid rgba(139,92,246,.22);border-radius:22px;
+      padding:36px 42px 32px;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+      box-shadow:0 12px 60px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.04);
+      animation:cardSlide .4s cubic-bezier(.2,.8,.4,1);position:relative;overflow:hidden;}
+    .q-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;
+      background:linear-gradient(90deg,transparent 0%,var(--card-accent,#a855f7) 40%,#38bdf8 70%,transparent 100%);}
+    @keyframes cardSlide{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
+
+    /* ── meta ── */
+    .q-meta{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:20px;}
+    .badge{font-size:.56rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;padding:4px 11px;border-radius:6px;}
+    .badge-n{background:rgba(168,85,247,.15);border:1px solid rgba(168,85,247,.3);color:#c084fc;}
+    .badge-topic{background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.25);color:#60a5fa;}
+
+    /* ── scenario ── */
+    .q-scenario{font-size:1rem;font-weight:600;color:var(--text);line-height:1.72;margin:0 0 20px;}
+
+    /* ── setup code ── */
+    .block-label{font-size:.55rem;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:7px;}
+    .setup-code{background:#060a12;border:1px solid rgba(255,255,255,.07);border-radius:11px;
+      padding:14px 18px;font-family:'Courier New',monospace;font-size:.82rem;color:#a78bfa;
+      overflow-x:auto;white-space:pre;line-height:1.65;margin-bottom:18px;}
+    .sc-kw{color:#818cf8;} .sc-lib{color:#38bdf8;} .sc-fn{color:#34d399;}
+    .sc-num{color:#fb923c;} .sc-cm{color:#475569;font-style:italic;}
+
+    /* ── task ── */
+    .q-task{background:rgba(139,92,246,.06);border:1px solid rgba(139,92,246,.18);
+      border-left:3px solid var(--card-accent,#a855f7);border-radius:0 10px 10px 0;
+      padding:12px 16px;font-size:.88rem;color:var(--muted);line-height:1.65;margin-bottom:20px;}
+    .q-task strong{color:var(--text);}
+
+    /* ── hint + cheat row ── */
+    .hint-row{display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap;}
+    .btn-hint{display:inline-flex;align-items:center;gap:7px;padding:7px 15px;border-radius:8px;
+      border:1px solid rgba(250,204,21,.28);background:rgba(250,204,21,.06);
+      color:#fbbf24;font-size:.76rem;font-weight:700;cursor:pointer;transition:all .2s;}
+    .btn-hint:hover{background:rgba(250,204,21,.12);border-color:rgba(250,204,21,.5);}
+    .hint-reveal{display:none;font-family:'Courier New',monospace;font-size:.84rem;font-weight:700;
+      padding:6px 13px;border-radius:7px;background:rgba(250,204,21,.09);
+      border:1px solid rgba(250,204,21,.22);color:#fde68a;animation:popIn .3s cubic-bezier(.34,1.56,.64,1);}
+    .hint-reveal.show{display:inline-block;}
+    @keyframes popIn{from{opacity:0;transform:scale(.85) translateX(-8px)}to{opacity:1;transform:scale(1) translateX(0)}}
+    .btn-cheat{display:inline-flex;align-items:center;gap:7px;padding:7px 15px;border-radius:8px;
+      border:1px solid rgba(248,113,113,.28);background:rgba(248,113,113,.06);
+      color:#f87171;font-size:.76rem;font-weight:700;cursor:pointer;transition:all .2s;margin-left:auto;}
+    .btn-cheat:hover{background:rgba(248,113,113,.13);border-color:rgba(248,113,113,.5);}
+
+    /* ── editor ── */
+    .editor-chrome{background:#060a12;border:1px solid rgba(139,92,246,.28);border-radius:12px;overflow:hidden;transition:border-color .2s,box-shadow .2s;margin-bottom:14px;}
+    .editor-chrome:focus-within{border-color:rgba(139,92,246,.6);box-shadow:0 0 0 3px rgba(139,92,246,.12);}
+    .editor-bar{display:flex;align-items:center;gap:7px;padding:8px 14px;background:rgba(0,0,0,.35);border-bottom:1px solid rgba(255,255,255,.06);}
+    .editor-dot{width:9px;height:9px;border-radius:50%;}
+    .editor-lang{margin-left:auto;font-size:.6rem;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;}
+    .code-area{width:100%;min-height:56px;background:transparent;border:none;outline:none;
+      padding:14px 18px;font-family:'Courier New',monospace;font-size:.9rem;color:#e2e8f0;
+      resize:vertical;line-height:1.65;box-sizing:border-box;}
+
+    /* ── output ── */
+    .output-wrap{display:none;margin-bottom:16px;}
+    .output-wrap.show{display:block;animation:fadeUp .3s ease;}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+    .output-box{background:#060a12;border:1px solid rgba(255,255,255,.07);border-radius:11px;
+      padding:13px 17px;font-family:'Courier New',monospace;font-size:.84rem;
+      color:#a3e635;white-space:pre-wrap;line-height:1.65;}
+    .output-box.err{color:#f87171;}
+
+    /* ── feedback ── */
+    .feedback{display:none;padding:12px 17px;border-radius:10px;font-size:.88rem;font-weight:700;margin-bottom:16px;}
+    .feedback.show{display:block;animation:feedPop .4s cubic-bezier(.34,1.56,.64,1);}
+    @keyframes feedPop{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
+    .feedback.ok{background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);color:#34d399;}
+    .feedback.bad{background:rgba(248,113,113,.07);border:1px solid rgba(248,113,113,.22);color:#f87171;}
+
+    /* ── nav prev/next buttons (progress bar area) ── */
+    .q-nav-btn{width:30px;height:30px;border-radius:8px;border:1px solid var(--border);
+      background:rgba(255,255,255,.05);color:var(--muted);font-size:1rem;line-height:1;
+      cursor:pointer;display:inline-flex;align-items:center;justify-content:center;
+      transition:all .18s;flex-shrink:0;}
+    .q-nav-btn:hover:not(:disabled){background:rgba(168,85,247,.15);border-color:rgba(168,85,247,.4);color:#c084fc;}
+    .q-nav-btn:disabled{opacity:.25;cursor:not-allowed;}
+    .btn-mute{width:32px;height:32px;border-radius:8px;border:1px solid var(--border);
+      background:rgba(255,255,255,.05);font-size:1rem;cursor:pointer;display:inline-flex;
+      align-items:center;justify-content:center;transition:all .18s;margin-left:4px;}
+    .btn-mute:hover{background:rgba(168,85,247,.15);border-color:rgba(168,85,247,.4);}
+
+    /* ── buttons ── */
+    .btn-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px;}
+    .btn-run{display:inline-flex;align-items:center;gap:8px;padding:11px 28px;border-radius:10px;border:none;
+      background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;font-size:.86rem;font-weight:800;
+      cursor:pointer;box-shadow:0 4px 22px rgba(124,58,237,.4);transition:all .25s;letter-spacing:.02em;}
+    .btn-run:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 8px 32px rgba(124,58,237,.55);}
+    .btn-run:disabled{opacity:.38;cursor:not-allowed;transform:none;box-shadow:none;}
+    .btn-run.running{background:linear-gradient(135deg,#d97706,#b45309);box-shadow:0 4px 22px rgba(217,119,6,.4);}
+    .btn-next{display:none;align-items:center;gap:8px;padding:11px 28px;border-radius:10px;
+      border:1px solid rgba(16,185,129,.4);background:rgba(16,185,129,.1);color:#34d399;
+      font-size:.86rem;font-weight:800;cursor:pointer;transition:all .2s;}
+    .btn-next.show{display:inline-flex;animation:fadeUp .35s ease;}
+    .btn-next:hover{background:rgba(16,185,129,.2);border-color:rgba(16,185,129,.6);}
+    /* remove old margin from feedback since output now sits above it */
+    .feedback{margin-top:0;}
+
+    /* ── pyodide loader ── */
+    .py-loader{position:fixed;inset:0;background:rgba(4,7,14,.94);backdrop-filter:blur(10px);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1000;transition:opacity .5s;}
+    .py-loader.out{opacity:0;pointer-events:none;}
+    .py-ring{width:52px;height:52px;border-radius:50%;border:3px solid rgba(139,92,246,.2);
+      border-top-color:#a855f7;animation:spin 1s linear infinite;margin-bottom:22px;}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .py-msg{font-size:.9rem;font-weight:700;color:var(--muted);letter-spacing:.05em;}
+    .py-sub{font-size:.72rem;color:rgba(255,255,255,.28);margin-top:7px;}
+    .py-err{color:#f87171;font-size:.8rem;margin-top:12px;display:none;}
+
+    /* ── completion ── */
+    .completion{display:none;text-align:center;padding:64px 24px 40px;}
+    .completion.show{display:block;animation:cardSlide .6s ease;}
+    .c-trophy{font-size:5rem;margin-bottom:26px;animation:trophyBounce 1s cubic-bezier(.34,1.56,.64,1);}
+    @keyframes trophyBounce{from{transform:scale(0) rotate(-20deg)}to{transform:scale(1) rotate(0)}}
+    .c-title{font-size:2.4rem;font-weight:900;background:linear-gradient(135deg,#34d399,#38bdf8);
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:12px;}
+    .c-sub{font-size:.96rem;color:var(--muted);line-height:1.75;max-width:440px;margin:0 auto 32px;}
+    .c-stats{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-bottom:32px;}
+    .c-stat{background:rgba(13,19,33,.8);border:1px solid rgba(139,92,246,.2);border-radius:14px;padding:16px 26px;}
+    .c-stat-n{font-size:2rem;font-weight:900;color:#a855f7;}
+    .c-stat-l{font-size:.64rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-top:4px;}
+    .btn-restart{padding:13px 38px;border-radius:12px;border:none;background:linear-gradient(135deg,#7c3aed,#4f46e5);
+      color:#fff;font-size:.92rem;font-weight:800;cursor:pointer;
+      box-shadow:0 4px 26px rgba(124,58,237,.45);transition:all .2s;}
+    .btn-restart:hover{transform:translateY(-2px);box-shadow:0 8px 36px rgba(124,58,237,.6);}
+
+    /* ── auto-advance countdown ── */
+    .countdown-bar{height:3px;background:rgba(52,211,153,.25);border-radius:99px;overflow:hidden;margin-top:10px;}
+    .countdown-fill{height:100%;background:#34d399;border-radius:99px;width:100%;animation:countdownShrink 2s linear forwards;}
+    @keyframes countdownShrink{from{width:100%}to{width:0%}}
+
+    /* ── particles ── */
+    .ptcl{position:fixed;border-radius:50%;pointer-events:none;z-index:999;animation:ptclFly 1.3s ease-out forwards;}
+    @keyframes ptclFly{0%{opacity:1;transform:translate(0,0) scale(1)}100%{opacity:0;transform:translate(var(--tx),var(--ty)) scale(0)}}
+
+    @media(max-width:640px){.q-card{padding:22px 18px;}.btn-run,.btn-next{width:100%;justify-content:center;}}
+  </style>
+</head>
+<body>
+
+<!-- ── Pyodide loader ── -->
+<div class="py-loader" id="py-loader">
+  <div class="py-ring"></div>
+  <div class="py-msg">Loading Python environment…</div>
+  <div class="py-sub">Initialising NumPy — one moment</div>
+  <div class="py-err" id="py-err">Failed to load. Check your connection and refresh.</div>
+</div>
+
+<!-- ── background ── -->
+<div class="bg-grid"></div>
+<div class="bg-orb bg-orb-1"></div>
+<div class="bg-orb bg-orb-2"></div>
+<div class="bg-orb bg-orb-3"></div>
+
+<div class="progress-bar" id="progress"></div>
+
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">← Python Libs</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item" href="01-intro-numpy.html">01</a>
+    <a class="nav-item" href="02-topics.html">02</a>
+    <a class="nav-item" href="03-cheat-sheet.html">03</a>
+    <a class="nav-item" href="04-placeholder.html">04</a>
+    <a class="nav-item" href="05-arrays-prop-info.html">05</a>
+    <a class="nav-item" href="06-arith-opt.html">06</a>
+    <a class="nav-item" href="07-comp-stat-agg.html">07</a>
+    <a class="nav-item" href="08-copy-sort-access.html">08</a>
+    <a class="nav-item" href="09-resh-com.html">09</a>
+    <a class="nav-item" href="10-investigations.html">🔍</a>
+    <a class="nav-item active" href="solve1.html">★</a>
+    <a class="nav-item" href="solve2.html">★★</a>
+  </div>
+</nav>
+
+<div class="quiz-outer">
+<div class="quiz-inner">
+
+  <!-- ══ HERO ══ -->
+  <div class="qh-wrap" id="qh-wrap">
+    <div class="qh-eyebrow"><em></em>NumPy Quiz<em></em></div>
+    <div class="qh-level">⚡ Level 1 — Full Reference</div>
+    <h1 class="qh-title">NumPy Core Skills</h1>
+    <p class="qh-sub">Every command from the NumPy reference guide — one question per command. Write it, run it, move on.</p>
+    <div class="legend">
+      <span class="leg-item"><span class="leg-dot" style="background:#facc15"></span>Array Creation (7)</span>
+      <span class="leg-item"><span class="leg-dot" style="background:#3b82f6"></span>Array Methods (7)</span>
+      <span class="leg-item"><span class="leg-dot" style="background:#10b981"></span>Indexing &amp; Slicing (5)</span>
+      <span class="leg-item"><span class="leg-dot" style="background:#f97316"></span>Arithmetic &amp; Stats (3)</span>
+    </div>
+  </div>
+
+  <!-- ══ QUIZ PROGRESS ══ -->
+  <div class="q-progress-wrap">
+    <div class="q-progress-track"><div class="q-progress-fill" id="q-fill" style="width:0%"></div></div>
+    <div class="q-progress-meta">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button class="q-nav-btn" id="btn-prev-nav" onclick="prevQ()" disabled title="Previous question">‹</button>
+        <span class="q-counter" id="q-counter">Q 1 / 22</span>
+        <button class="q-nav-btn" id="btn-fwd-nav" onclick="fwdQ()" title="Next question">›</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="q-section-pill" id="q-pill"></span>
+        <button class="btn-mute" id="btn-mute" onclick="toggleMute()" title="Mute / unmute sounds">🔔</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ QUESTION AREA ══ -->
+  <div id="quiz-area"></div>
+  <div id="quiz-label" style="display:none;text-align:center;padding:22px 0 0;">
+    <span style="font-size:.6rem;font-weight:800;letter-spacing:.3em;text-transform:uppercase;color:rgba(255,255,255,.18);display:inline-flex;align-items:center;gap:10px;"><em style="display:inline-block;width:24px;height:1px;background:currentColor;font-style:normal;"></em>NumPy Quiz<em style="display:inline-block;width:24px;height:1px;background:currentColor;font-style:normal;"></em></span>
+  </div>
+
+  <!-- ══ COMPLETION ══ -->
+  <div class="completion" id="completion">
+    <div class="c-trophy">🏆</div>
+    <div class="c-title">Level 1 Complete!</div>
+    <p class="c-sub">You've practised all 22 NumPy commands from the reference guide. Solid foundations!</p>
+    <div class="c-stats">
+      <div class="c-stat"><div class="c-stat-n">22</div><div class="c-stat-l">Commands covered</div></div>
+      <div class="c-stat"><div class="c-stat-n" id="c-attempts">—</div><div class="c-stat-l">Total runs</div></div>
+    </div>
+    <button class="btn-restart" onclick="restart()">↺ Try Again</button>
+  </div>
+
+</div>
+</div>
+
+<script src="app.js"></script>
+<script>
+// ════════════════════════════════════════════════════════
+//  SECTION COLOURS
+// ════════════════════════════════════════════════════════
+const SECTION_STYLE = {
+  'Array Creation':    { color:'#facc15', bg:'rgba(250,204,21,.12)',  border:'rgba(250,204,21,.3)'  },
+  'Array Methods':     { color:'#3b82f6', bg:'rgba(59,130,246,.12)',  border:'rgba(59,130,246,.3)'  },
+  'Indexing & Slicing':{ color:'#10b981', bg:'rgba(16,185,129,.12)',  border:'rgba(16,185,129,.3)'  },
+  'Arithmetic & Stats':{ color:'#f97316', bg:'rgba(249,115,22,.12)',  border:'rgba(249,115,22,.3)'  },
+};
+
+// ════════════════════════════════════════════════════════
+//  QUESTIONS  (22 total)
+// ════════════════════════════════════════════════════════
+const QUESTIONS = [
+
+  // ─────────── SECTION 1: ARRAY CREATION ───────────
+  {
+    id:1, section:'Array Creation', topic:'np.array()',
+    scenario:'A nutritionist tracked calories burned in 5 workouts: <strong>320, 450, 280, 510, 390</strong>.',
+    task:'Create a NumPy array named <code>calories</code> from these values.',
+    setupPy:null,
+    setupHTML:`<span class="sc-kw">import</span> <span class="sc-lib">numpy</span> <span class="sc-kw">as</span> <span class="sc-lib">np</span>\n<span class="sc-cm"># no pre-existing array — you create it</span>`,
+    hint:'np.array([...])',
+    isAssign:true, reprExpr:'calories',
+    checkExpr:'list(calories) == [320, 450, 280, 510, 390]',
+    answer:'calories = np.array([320, 450, 280, 510, 390])'
+  },
+  {
+    id:2, section:'Array Creation', topic:'np.arange()',
+    scenario:'A bus has seats numbered <strong>1 through 10</strong>. You need an array of those seat numbers.',
+    task:'Create an array named <code>seats</code> containing integers 1 to 10 using a range function.',
+    setupPy:null,
+    setupHTML:`<span class="sc-kw">import</span> <span class="sc-lib">numpy</span> <span class="sc-kw">as</span> <span class="sc-lib">np</span>`,
+    hint:'np.arange(start, stop)',
+    isAssign:true, reprExpr:'seats',
+    checkExpr:'list(seats) == list(range(1, 11))',
+    answer:'seats = np.arange(1, 11)'
+  },
+  {
+    id:3, section:'Array Creation', topic:'np.zeros()',
+    scenario:'A scoreboard tracks results for <strong>2 teams</strong> across <strong>4 rounds</strong>. It starts as all integer zeros.',
+    task:'Create a 2×4 matrix of integer zeros named <code>board</code>.',
+    setupPy:null,
+    setupHTML:`<span class="sc-kw">import</span> <span class="sc-lib">numpy</span> <span class="sc-kw">as</span> <span class="sc-lib">np</span>`,
+    hint:'np.zeros((rows, cols), dtype=int)',
+    isAssign:true, reprExpr:'board',
+    checkExpr:'board.shape == (2, 4) and int(board.sum()) == 0',
+    answer:'board = np.zeros((2, 4), dtype=int)'
+  },
+  {
+    id:4, section:'Array Creation', topic:'np.linspace()',
+    scenario:'A chemistry lab needs exactly <strong>5 evenly spaced temperature checkpoints</strong> between 0°C and 100°C.',
+    task:'Create the array named <code>checkpoints</code> with 5 values from 0 to 100 inclusive.',
+    setupPy:null,
+    setupHTML:`<span class="sc-kw">import</span> <span class="sc-lib">numpy</span> <span class="sc-kw">as</span> <span class="sc-lib">np</span>`,
+    hint:'np.linspace(start, stop, num)',
+    isAssign:true, reprExpr:'checkpoints',
+    checkExpr:'bool(np.allclose(checkpoints, [0.0, 25.0, 50.0, 75.0, 100.0]))',
+    answer:'checkpoints = np.linspace(0, 100, 5)'
+  },
+  {
+    id:5, section:'Array Creation', topic:'np.random.rand()',
+    scenario:'A physics simulation needs a <strong>3×4 matrix</strong> of random float values between 0 and 1.',
+    task:'Create it named <code>sim</code>.',
+    setupPy:null,
+    setupHTML:`<span class="sc-kw">import</span> <span class="sc-lib">numpy</span> <span class="sc-kw">as</span> <span class="sc-lib">np</span>`,
+    hint:'np.random.rand(rows, cols)',
+    isAssign:true, reprExpr:'sim',
+    checkExpr:'sim.shape == (3, 4) and bool((sim >= 0).all()) and bool((sim < 1).all())',
+    answer:'sim = np.random.rand(3, 4)'
+  },
+  {
+    id:6, section:'Array Creation', topic:'np.random.randint()',
+    scenario:'A board game rolls an <strong>8-sided die 6 times</strong> (values 1–8 inclusive).',
+    task:'Create an array named <code>rolls</code> with 6 random integers between 1 and 8.',
+    setupPy:null,
+    setupHTML:`<span class="sc-kw">import</span> <span class="sc-lib">numpy</span> <span class="sc-kw">as</span> <span class="sc-lib">np</span>`,
+    hint:'np.random.randint(low, high+1, size)',
+    isAssign:true, reprExpr:'rolls',
+    checkExpr:'rolls.shape == (6,) and bool((rolls >= 1).all()) and bool((rolls <= 8).all())',
+    answer:'rolls = np.random.randint(1, 9, 6)'
+  },
+  {
+    id:7, section:'Array Creation', topic:'np.random.seed()',
+    scenario:'A colleague needs to reproduce your random experiment exactly. You must set <strong>seed 42</strong> then generate 3 integers 0–100.',
+    task:'Set seed to <strong>42</strong>, then create <code>result</code> using <code>np.random.randint(0, 101, 3)</code>.',
+    setupPy:null,
+    setupHTML:`<span class="sc-kw">import</span> <span class="sc-lib">numpy</span> <span class="sc-kw">as</span> <span class="sc-lib">np</span>\n<span class="sc-cm"># two lines needed: seed first, then randint</span>`,
+    hint:'np.random.seed(n)  then randint()',
+    isAssign:true, reprExpr:'result',
+    checkExpr:'list(result) == [51, 92, 14]',
+    answer:'np.random.seed(42)\nresult = np.random.randint(0, 101, 3)'
+  },
+
+  // ─────────── SECTION 2: ARRAY METHODS ───────────
+  {
+    id:8, section:'Array Methods', topic:'.reshape()',
+    scenario:'You have integers <strong>0–11</strong> in a flat 1D array. Your data pipeline needs a <strong>3×4 matrix</strong>.',
+    task:'Reshape <code>flat</code> into a 3×4 matrix named <code>matrix</code>.',
+    setupPy:'flat = np.arange(0, 12)',
+    setupHTML:`<span class="sc-kw">import</span> <span class="sc-lib">numpy</span> <span class="sc-kw">as</span> <span class="sc-lib">np</span>\nflat = <span class="sc-lib">np</span>.<span class="sc-fn">arange</span>(<span class="sc-num">0</span>, <span class="sc-num">12</span>)`,
+    hint:'.reshape(rows, cols)',
+    isAssign:true, reprExpr:'matrix',
+    checkExpr:'matrix.shape == (3, 4) and list(matrix.flatten()) == list(range(12))',
+    answer:'matrix = flat.reshape(3, 4)'
+  },
+  {
+    id:9, section:'Array Methods', topic:'.max()',
+    scenario:'A sprinter recorded 6 lap times in seconds. The coach needs the <strong>slowest lap</strong> (the highest value).',
+    task:'Find the maximum value in <code>laps</code>.',
+    setupPy:'laps = np.array([58.3, 57.1, 59.8, 56.4, 60.2, 57.9])',
+    setupHTML:`<span class="sc-kw">import</span> <span class="sc-lib">numpy</span> <span class="sc-kw">as</span> <span class="sc-lib">np</span>\nlaps = <span class="sc-lib">np</span>.<span class="sc-fn">array</span>([<span class="sc-num">58.3</span>, <span class="sc-num">57.1</span>, <span class="sc-num">59.8</span>, <span class="sc-num">56.4</span>, <span class="sc-num">60.2</span>, <span class="sc-num">57.9</span>])`,
+    hint:'.max()',
+    isAssign:false, reprExpr:'_result',
+    checkExpr:'abs(float(_result) - 60.2) < 0.01',
+    answer:'laps.max()'
+  },
+  {
+    id:10, section:'Array Methods', topic:'.min()',
+    scenario:'Same lap data. The coach wants to celebrate the <strong>fastest lap</strong>.',
+    task:'Find the minimum value in <code>laps</code>.',
+    setupPy:'laps = np.array([58.3, 57.1, 59.8, 56.4, 60.2, 57.9])',
+    setupHTML:`<span class="sc-kw">import</span> <span class="sc-lib">numpy</span> <span class="sc-kw">as</span> <span class="sc-lib">np</span>\nlaps = <span class="sc-lib">np</span>.<span class="sc-fn">array</span>([<span class="sc-num">58.3</span>, <span class="sc-num">57.1</span>, <span class="sc-num">59.8</span>, <span class="sc-num">56.4</span>, <span class="sc-num">60.2</span>, <span class="sc-num">57.9</span>])`,
+    hint:'.min()',
+    isAssign:false, reprExpr:'_result',
+    checkExpr:'abs(float(_result) - 56.4) < 0.01',
+    answer:'laps.min()'
+  },
+  {
+    id:11, section:'Array Methods', topic:'.argmax()',
+    scenario:'A store tracked daily sales for a week. They need to know the <strong>index of the day with peak sales</strong>.',
+    task:'Find the <strong>index</strong> of the highest value in <code>sales</code>.',
+    setupPy:'sales = np.array([240, 310, 185, 420, 295, 380, 260])',
+    setupHTML:`<span class="sc-kw">import</span> <span class="sc-lib">numpy</span> <span class="sc-kw">as</span> <span class="sc-lib">np</span>\nsales = <span class="sc-lib">np</span>.<span class="sc-fn">array</span>([<span class="sc-num">240</span>, <span class="sc-num">310</span>, <span class="sc-num">185</span>, <span class="sc-num">420</span>, <span class="sc-num">295</span>, <span class="sc-num">380</span>, <span class="sc-num">260</span>])`,
+    hint:'.argmax()',
+    isAssign:false, reprExpr:'_result',
+    checkExpr:'int(_result) == 3',
+    answer:'sales.argmax()'
+  },
+  {
+    id:12, section:'Array Methods', topic:'.argmin()',
+    scenario:'Same sales data. The manager flags the <strong>worst day by index</strong> for a review.',
+    task:'Find the <strong>index</strong> of the lowest value in <code>sales</code>.',
+    setupPy:'sales = np.array([240, 310, 185, 420, 295, 380, 260])',
+    setupHTML:`<span class="sc-kw">import</span> <span class="sc-lib">numpy</span> <span class="sc-kw">as</span> <span class="sc-lib">np</span>\nsales = <span class="sc-lib">np</span>.<span class="sc-fn">array</span>([<span class="sc-num">240</span>, <span class="sc-num">310</span>, <span class="sc-num">185</span>, <span class="sc-num">420</span>, <span class="sc-num">295</span>, <span class="sc-num">380</span>, <span class="sc-num">260</span>])`,
+    hint:'.argmin()',
+    isAssign:false, reprExpr:'_result',
+    checkExpr:'int(_result) == 2',
+    answer:'sales.argmin()'
+  },
+  {
+    id:13, section:'Array Methods', topic:'.shape',
+    scenario:'A student built a 3D array to store RGB pixel data across <strong>3 channels, 4 rows, 2 columns</strong>.',
+    task:'Find the shape of <code>cube</code>. Remember — it\'s a property, no parentheses!',
+    setupPy:'cube = np.zeros((3, 4, 2))',
+    setupHTML:`<span class="sc-kw">import</span> <span class="sc-lib">numpy</span> <span class="sc-kw">as</span> <span class="sc-lib">np</span>\ncube = <span class="sc-lib">np</span>.<span class="sc-fn">zeros</span>((<span class="sc-num">3</span>, <span class="sc-num">4</span>, <span class="sc-num">2</span>))`,
+    hint:'.shape  ← no ()',
+    isAssign:false, reprExpr:'_result',
+    checkExpr:'_result == (3, 4, 2)',
+    answer:'cube.shape'
+  },
+  {
+    id:14, section:'Array Methods', topic:'.copy()',
+    scenario:'You want to experiment on the prices data without changing the original array. A plain assignment (<code>b = a</code>) is <em>not</em> safe.',
+    task:'Create an independent deep copy of <code>prices</code> named <code>prices_copy</code>.',
+    setupPy:'prices = np.array([10, 20, 30, 40, 50])',
+    setupHTML:`<span class="sc-kw">import</span> <span class="sc-lib">numpy</span> <span class="sc-kw">as</span> <span class="sc-lib">np</span>\nprices = <span class="sc-lib">np</span>.<span class="sc-fn">array</span>([<span class="sc-num">10</span>, <span class="sc-num">20</span>, <span class="sc-num">30</span>, <span class="sc-num">40</span>, <span class="sc-num">50</span>])`,
+    hint:'.copy()',
+    isAssign:true, reprExpr:'prices_copy',
+    checkExpr:'list(prices_copy) == [10, 20, 30, 40, 50] and prices_copy is not prices',
+    answer:'prices_copy = prices.copy()'
+  },
+
+  // ─────────── SECTION 3: INDEXING & SLICING ───────────
+  {
+    id:15, section:'Indexing & Slicing', topic:'arr[i]',
+    scenario:'City temperatures (°C) are stored for 6 cities. You need the temperature of the <strong>4th city</strong> (index 3).',
+    task:'Get the single element at index <strong>3</strong> from <code>temps</code>. The value you are looking for is <code>31</code>.',
+    setupPy:'temps = np.array([22, 18, 25, 31, 19, 27])',
+    setupHTML:`<span class="sc-kw">import</span> <span class="sc-lib">numpy</span> <span class="sc-kw">as</span> <span class="sc-lib">np</span>\ntemps = <span class="sc-lib">np</span>.<span class="sc-fn">array</span>([<span class="sc-num">22</span>, <span class="sc-num">18</span>, <span class="sc-num">25</span>, <span class="sc-num">31</span>, <span class="sc-num">19</span>, <span class="sc-num">27</span>])`,
+    hint:'arr[index]',
+    isAssign:false, reprExpr:'_result',
+    checkExpr:'int(_result) == 31',
+    answer:'temps[3]'
+  },
+  {
+    id:16, section:'Indexing & Slicing', topic:'arr[start:end]',
+    scenario:"A runner's daily step count for a week is recorded. Your report only needs days at indices <strong>2, 3, and 4</strong>.",
+    task:'Slice <code>steps</code> to get elements at indices 2 through 4.<br>Expected result: <code>[7800, 11000, 6500]</code>.',
+    setupPy:'steps = np.array([8200, 9500, 7800, 11000, 6500, 9200, 8700])',
+    setupHTML:`<span class="sc-kw">import</span> <span class="sc-lib">numpy</span> <span class="sc-kw">as</span> <span class="sc-lib">np</span>\nsteps = <span class="sc-lib">np</span>.<span class="sc-fn">array</span>([<span class="sc-num">8200</span>, <span class="sc-num">9500</span>, <span class="sc-num">7800</span>, <span class="sc-num">11000</span>, <span class="sc-num">6500</span>, <span class="sc-num">9200</span>, <span class="sc-num">8700</span>])`,
+    hint:'arr[start:end]  — end is exclusive',
+    isAssign:false, reprExpr:'_result',
+    checkExpr:'list(_result) == [7800, 11000, 6500]',
+    answer:'steps[2:5]'
+  },
+  {
+    id:17, section:'Indexing & Slicing', topic:'arr[s:e] = val',
+    scenario:"A warehouse marks the first 3 items as <strong>out of stock</strong> by setting their count to 0.",
+    task:'Set the first 3 elements of <code>inventory</code> to <strong>0</strong> in-place.<br>Those elements are currently <code>15, 22, 8</code>.<br>After the change the array should be <code>[0, 0, 0, 30, 45, 12]</code>.',
+    setupPy:'inventory = np.array([15, 22, 8, 30, 45, 12])',
+    setupHTML:`<span class="sc-kw">import</span> <span class="sc-lib">numpy</span> <span class="sc-kw">as</span> <span class="sc-lib">np</span>\ninventory = <span class="sc-lib">np</span>.<span class="sc-fn">array</span>([<span class="sc-num">15</span>, <span class="sc-num">22</span>, <span class="sc-num">8</span>, <span class="sc-num">30</span>, <span class="sc-num">45</span>, <span class="sc-num">12</span>])`,
+    hint:'arr[start:end] = value',
+    isAssign:true, reprExpr:'inventory',
+    checkExpr:'list(inventory) == [0, 0, 0, 30, 45, 12]',
+    answer:'inventory[0:3] = 0'
+  },
+  {
+    id:18, section:'Indexing & Slicing', topic:'arr[row][col]',
+    scenario:'A seating chart is a 3×5 matrix. You need the value at <strong>row 1, column 3</strong>.',
+    task:'Get the element at row index <strong>1</strong>, column index <strong>3</strong> from <code>seating</code>. The value you are looking for is <code>9</code>.',
+    setupPy:'seating = np.array([[1,2,3,4,5],[6,7,8,9,10],[11,12,13,14,15]])',
+    setupHTML:`<span class="sc-kw">import</span> <span class="sc-lib">numpy</span> <span class="sc-kw">as</span> <span class="sc-lib">np</span>\nseating = <span class="sc-lib">np</span>.<span class="sc-fn">array</span>([\n    [<span class="sc-num">1</span>, <span class="sc-num">2</span>, <span class="sc-num">3</span>, <span class="sc-num">4</span>, <span class="sc-num">5</span>],\n    [<span class="sc-num">6</span>, <span class="sc-num">7</span>, <span class="sc-num">8</span>, <span class="sc-num">9</span>, <span class="sc-num">10</span>],\n    [<span class="sc-num">11</span>, <span class="sc-num">12</span>, <span class="sc-num">13</span>, <span class="sc-num">14</span>, <span class="sc-num">15</span>]\n])`,
+    hint:'arr[row][col]',
+    isAssign:false, reprExpr:'_result',
+    checkExpr:'int(_result) == 9',
+    answer:'seating[1][3]'
+  },
+  {
+    id:19, section:'Indexing & Slicing', topic:'arr[condition]',
+    scenario:'A product price list needs to be filtered. Marketing only wants items <strong>costing more than $50</strong>.',
+    task:'Return only the values in <code>prices</code> that are <strong>greater than 50</strong>.<br>Expected result: <code>[80, 120, 95, 60]</code>.',
+    setupPy:'prices = np.array([25, 80, 45, 120, 35, 95, 60, 15])',
+    setupHTML:`<span class="sc-kw">import</span> <span class="sc-lib">numpy</span> <span class="sc-kw">as</span> <span class="sc-lib">np</span>\nprices = <span class="sc-lib">np</span>.<span class="sc-fn">array</span>([<span class="sc-num">25</span>, <span class="sc-num">80</span>, <span class="sc-num">45</span>, <span class="sc-num">120</span>, <span class="sc-num">35</span>, <span class="sc-num">95</span>, <span class="sc-num">60</span>, <span class="sc-num">15</span>])`,
+    hint:'arr[arr > value]',
+    isAssign:false, reprExpr:'_result',
+    checkExpr:'list(_result) == [80, 120, 95, 60]',
+    answer:'prices[prices > 50]'
+  },
+
+  // ─────────── SECTION 4: ARITHMETIC & STATS ───────────
+  {
+    id:20, section:'Arithmetic & Stats', topic:'arr + value',
+    scenario:'A teacher awards every student <strong>5 bonus points</strong>. All scores need to increase by 5.',
+    task:'Add <strong>5</strong> to every element of <code>scores</code>.',
+    setupPy:'scores = np.array([72, 65, 88, 91, 54, 78])',
+    setupHTML:`<span class="sc-kw">import</span> <span class="sc-lib">numpy</span> <span class="sc-kw">as</span> <span class="sc-lib">np</span>\nscores = <span class="sc-lib">np</span>.<span class="sc-fn">array</span>([<span class="sc-num">72</span>, <span class="sc-num">65</span>, <span class="sc-num">88</span>, <span class="sc-num">91</span>, <span class="sc-num">54</span>, <span class="sc-num">78</span>])`,
+    hint:'arr + number',
+    isAssign:false, reprExpr:'_result',
+    checkExpr:'list(_result) == [77, 70, 93, 96, 59, 83]',
+    answer:'scores + 5'
+  },
+  {
+    id:21, section:'Arithmetic & Stats', topic:'.sum()',
+    scenario:'A sales team recorded monthly revenue (thousands): <strong>42, 58, 51, 63</strong>. The CFO needs the <strong>total for the quarter</strong>.',
+    task:'Calculate the total sum of <code>revenue</code>.',
+    setupPy:'revenue = np.array([42, 58, 51, 63])',
+    setupHTML:`<span class="sc-kw">import</span> <span class="sc-lib">numpy</span> <span class="sc-kw">as</span> <span class="sc-lib">np</span>\nrevenue = <span class="sc-lib">np</span>.<span class="sc-fn">array</span>([<span class="sc-num">42</span>, <span class="sc-num">58</span>, <span class="sc-num">51</span>, <span class="sc-num">63</span>])`,
+    hint:'.sum()',
+    isAssign:false, reprExpr:'_result',
+    checkExpr:'int(_result) == 214',
+    answer:'revenue.sum()'
+  },
+  {
+    id:22, section:'Arithmetic & Stats', topic:'.mean()',
+    scenario:"A student's 7 test scores for the semester are recorded. The transcript needs the <strong>semester average</strong>.",
+    task:'Find the mean of <code>test_scores</code>.',
+    setupPy:'test_scores = np.array([72, 85, 91, 63, 78, 88, 95])',
+    setupHTML:`<span class="sc-kw">import</span> <span class="sc-lib">numpy</span> <span class="sc-kw">as</span> <span class="sc-lib">np</span>\ntest_scores = <span class="sc-lib">np</span>.<span class="sc-fn">array</span>([<span class="sc-num">72</span>, <span class="sc-num">85</span>, <span class="sc-num">91</span>, <span class="sc-num">63</span>, <span class="sc-num">78</span>, <span class="sc-num">88</span>, <span class="sc-num">95</span>])`,
+    hint:'.mean()',
+    isAssign:false, reprExpr:'_result',
+    checkExpr:'abs(float(_result) - 81.71428571) < 0.01',
+    answer:'test_scores.mean()'
+  }
+
+]; // end QUESTIONS
+
+// ════════════════════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════════════════════
+let pyodide   = null;
+let curQ      = 0;
+let totalRuns = 0;
+let hintShown = false;
+let muted     = false;
+
+// ════════════════════════════════════════════════════════
+//  SOUND
+// ════════════════════════════════════════════════════════
+function playSound(src) {
+  if (muted) return;
+  const a = new Audio(src);
+  a.play().catch(() => {});
+}
+function toggleMute() {
+  muted = !muted;
+  document.getElementById('btn-mute').textContent = muted ? '🔇' : '🔔';
+}
+
+// ════════════════════════════════════════════════════════
+//  BOOT PYODIDE
+// ════════════════════════════════════════════════════════
+async function boot() {
+  try {
+    pyodide = await loadPyodide();
+    await pyodide.loadPackage('numpy');
+    const loader = document.getElementById('py-loader');
+    loader.classList.add('out');
+    setTimeout(() => loader.remove(), 600);
+    renderQ(0);
+  } catch(e) {
+    document.getElementById('py-err').style.display = 'block';
+    document.querySelector('.py-ring').style.display = 'none';
+    document.querySelector('.py-msg').textContent = 'Could not load Python';
+  }
+}
+boot();
+
+// ════════════════════════════════════════════════════════
+//  RENDER QUESTION
+// ════════════════════════════════════════════════════════
+function renderQ(idx) {
+  hintShown = false;
+  const q   = QUESTIONS[idx];
+  const st  = SECTION_STYLE[q.section];
+  const pct = Math.round(idx / QUESTIONS.length * 100);
+
+  // progress bar + counter + nav buttons
+  document.getElementById('q-fill').style.width = pct + '%';
+  document.getElementById('q-counter').textContent = `Q ${idx+1} / ${QUESTIONS.length}`;
+  document.getElementById('btn-prev-nav').disabled = idx === 0;
+  document.getElementById('btn-fwd-nav').disabled  = idx === QUESTIONS.length - 1;
+  const pill = document.getElementById('q-pill');
+  pill.textContent = q.section;
+  pill.style.cssText = `background:${st.bg};border:1px solid ${st.border};color:${st.color};`;
+
+  // hero visible only on Q1; label visible from Q2
+  document.getElementById('qh-wrap').style.display = idx === 0 ? '' : 'none';
+  document.getElementById('quiz-label').style.display = idx === 0 ? 'none' : 'block';
+
+  document.getElementById('quiz-area').innerHTML = `
+<div class="q-card" id="q-card" style="--card-accent:${st.color}">
+  <div class="q-meta">
+    <span class="badge badge-n">Q${q.id} / 22</span>
+  </div>
+
+  <p class="q-scenario">${q.scenario}</p>
+
+  <div class="block-label">Setup — already loaded</div>
+  <div class="setup-code">${q.setupHTML}</div>
+
+  <div class="q-task">🎯 <strong>Your task:</strong> ${q.task}</div>
+
+  <div class="hint-row">
+    <button class="btn-hint" onclick="toggleHint()">💡 Hint</button>
+    <span class="hint-reveal" id="hint-box">${q.hint}</span>
+    <button class="btn-cheat" onclick="cheat()">🎰 Cheat</button>
+  </div>
+
+  <div class="block-label">Your answer &nbsp;<span style="font-weight:400;text-transform:none;letter-spacing:0;color:rgba(255,255,255,.2);font-size:.58rem;">Ctrl+Enter to run</span></div>
+  <div class="editor-chrome">
+    <div class="editor-bar">
+      <div class="editor-dot" style="background:#f87171"></div>
+      <div class="editor-dot" style="background:#fbbf24"></div>
+      <div class="editor-dot" style="background:#34d399"></div>
+      <span class="editor-lang">python · numpy</span>
+    </div>
+    <textarea class="code-area" id="code-area"
+      placeholder="Write your NumPy command here…"
+      spellcheck="false" autocorrect="off" autocapitalize="off"></textarea>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn-run" id="btn-run" onclick="runCode()">▶ Run</button>
+    <button class="btn-next" id="btn-next" style="display:none" onclick="nextQ()">
+      ${idx + 1 < QUESTIONS.length ? 'Next →' : 'Finish ✓'}
+    </button>
+  </div>
+
+  <div class="output-wrap" id="out-wrap">
+    <div class="block-label">Output</div>
+    <div class="output-box" id="out-box"></div>
+  </div>
+
+  <div class="feedback" id="feedback"></div>
+</div>`;
+
+  const ta = document.getElementById('code-area');
+  ta.focus();
+  ta.addEventListener('keydown', e => {
+    if (e.key==='Tab') { e.preventDefault(); const s=ta.selectionStart; ta.value=ta.value.slice(0,s)+'    '+ta.value.slice(ta.selectionEnd); ta.selectionStart=ta.selectionEnd=s+4; }
+    if (e.key==='Enter'&&(e.ctrlKey||e.metaKey)) runCode();
+  });
+}
+
+// ════════════════════════════════════════════════════════
+//  HINT / CHEAT
+// ════════════════════════════════════════════════════════
+function toggleHint() {
+  hintShown = !hintShown;
+  document.getElementById('hint-box').classList.toggle('show', hintShown);
+  document.querySelector('.btn-hint').textContent = hintShown ? '💡 Hide' : '💡 Hint';
+}
+function cheat() {
+  document.getElementById('code-area').value = QUESTIONS[curQ].answer;
+  document.getElementById('code-area').focus();
+  playSound('sounds/why.mp3');
+}
+
+// ════════════════════════════════════════════════════════
+//  RUN CODE
+// ════════════════════════════════════════════════════════
+async function runCode() {
+  const q    = QUESTIONS[curQ];
+  const code = document.getElementById('code-area').value.trim();
+  if (!code) return;
+  totalRuns++;
+
+  const btn     = document.getElementById('btn-run');
+  const outWrap = document.getElementById('out-wrap');
+  const outBox  = document.getElementById('out-box');
+  const fb      = document.getElementById('feedback');
+
+  btn.disabled = true;
+  btn.classList.add('running');
+  btn.textContent = '⏳ Running…';
+  outWrap.classList.remove('show');
+  fb.classList.remove('show','ok','bad');
+
+  const pyCode = `
+import numpy as np
+${q.setupPy || ''}
+${q.isAssign ? code : `_result = (${code})`}
+_repr = repr(${q.reprExpr})
+_ok   = bool(${q.checkExpr})
+[_repr, _ok]
+`;
+
+  try {
+    const res  = await pyodide.runPythonAsync(pyCode);
+    const arr  = res.toJs();
+    outBox.textContent = arr[0];
+    outBox.className   = 'output-box';
+    outWrap.classList.add('show');
+
+    void fb.offsetHeight;
+    if (arr[1]) {
+      fb.innerHTML = '✅ Correct!<div class="countdown-bar"><div class="countdown-fill"></div></div>';
+      fb.classList.add('show','ok');
+      playSound('sounds/good.mp3');
+      spawnParticles();
+      setTimeout(nextQ, 2000);
+    } else {
+      fb.textContent = '❌ Not quite — check your answer and try again.';
+      fb.classList.add('show','bad');
+    }
+  } catch(err) {
+    const msg = err.message.split('\n').filter(l=>l.trim()).slice(-3).join('\n');
+    outBox.textContent = msg;
+    outBox.className   = 'output-box err';
+    outWrap.classList.add('show');
+    fb.textContent = '❌ Python error — check your syntax.';
+    fb.classList.add('show','bad');
+  }
+
+  btn.disabled = false;
+  btn.classList.remove('running');
+  btn.textContent = '▶ Run';
+}
+
+// ════════════════════════════════════════════════════════
+//  NAV BUTTONS (prev / fwd — free navigation)
+// ════════════════════════════════════════════════════════
+function prevQ() {
+  if (curQ > 0) { curQ--; renderQ(curQ); }
+}
+function fwdQ() {
+  if (curQ < QUESTIONS.length - 1) { curQ++; renderQ(curQ); }
+}
+
+// ════════════════════════════════════════════════════════
+//  NEXT (auto-advance after correct answer)
+// ════════════════════════════════════════════════════════
+function nextQ() {
+  curQ++;
+  if (curQ >= QUESTIONS.length) {
+    document.getElementById('quiz-area').style.display = 'none';
+    document.getElementById('q-fill').style.width = '100%';
+    document.getElementById('q-counter').textContent = `✓ All ${QUESTIONS.length} done!`;
+    document.getElementById('c-attempts').textContent = totalRuns;
+    document.getElementById('completion').classList.add('show');
+    window.scrollTo({top:0,behavior:'smooth'});
+    return;
+  }
+  renderQ(curQ);
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// ════════════════════════════════════════════════════════
+//  RESTART
+// ════════════════════════════════════════════════════════
+function restart() {
+  curQ = 0; totalRuns = 0;
+  document.getElementById('quiz-area').style.display = '';
+  document.getElementById('completion').classList.remove('show');
+  document.getElementById('qh-wrap').style.display = '';
+  document.getElementById('quiz-label').style.display = 'none';
+  renderQ(0);
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// ════════════════════════════════════════════════════════
+//  PARTICLES
+// ════════════════════════════════════════════════════════
+function spawnParticles() {
+  const cols = ['#a855f7','#818cf8','#34d399','#38bdf8','#fbbf24','#e879f9','#f97316'];
+  const card = document.getElementById('q-card');
+  const r    = card.getBoundingClientRect();
+  const cx   = r.left + r.width / 2;
+  const cy   = r.top  + r.height / 2;
+  for (let i = 0; i < 24; i++) {
+    const el = document.createElement('div');
+    el.className = 'ptcl';
+    const sz = 5 + Math.random() * 9;
+    el.style.cssText = `width:${sz}px;height:${sz}px;background:${cols[~~(Math.random()*cols.length)]};left:${cx+(Math.random()-.5)*160}px;top:${cy}px;--tx:${(Math.random()-.5)*320}px;--ty:${-(60+Math.random()*220)}px;animation-delay:${Math.random()*.25}s;`;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 1600);
+  }
+}
+
+// ════════════════════════════════════════════════════════
+//  SCROLL PROGRESS BAR
+// ════════════════════════════════════════════════════════
+(function(){
+  const pb = document.getElementById('progress');
+  window.addEventListener('scroll', () => {
+    const h = document.documentElement;
+    pb.style.width = (h.scrollTop / (h.scrollHeight - h.clientHeight) * 100) + '%';
+  });
+})();
+</script>
+</body>
+</html>

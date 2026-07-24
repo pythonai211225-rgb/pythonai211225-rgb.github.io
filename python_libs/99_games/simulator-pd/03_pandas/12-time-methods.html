@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Topic 12 — Time Methods</title>
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    .ser-out{border-collapse:collapse;font-family:'Courier New',monospace;font-size:.82rem;width:100%;}
+    .ser-out th{color:var(--muted);font-size:.64rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:4px 14px 4px 0;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap;}
+    .ser-out td{padding:5px 14px 5px 0;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:top;white-space:nowrap;}
+    .ser-out td:first-child{color:var(--accent);}
+    .ser-wrap{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 18px;display:inline-block;overflow-x:auto;}
+    .ser-label{font-size:.62rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+    .code-result-list{display:grid;gap:14px;margin:16px 0 4px;}
+    .code-result{display:grid;grid-template-columns:minmax(260px,1fr) auto;align-items:start;gap:14px;}
+    .code-result .code-wrap{margin:0;}
+    .code-result .ser-wrap{display:block;justify-self:end;min-width:270px;max-width:100%;}
+    .code-result.stacked{grid-template-columns:1fr;}
+    .code-result.stacked .ser-wrap{justify-self:stretch;min-width:0;}
+    .table-pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;}
+    .table-pair.one-column{grid-template-columns:1fr;}
+    .page-layout{display:flex;height:calc(100vh - 54px);overflow:hidden;}
+    .sidebar{width:210px;min-width:210px;height:100%;overflow-y:auto;background:#0a0e14;border-right:1px solid var(--border);display:flex;flex-direction:column;scrollbar-width:thin;scrollbar-color:var(--border) transparent;flex-shrink:0;}
+    .sidebar-head{padding:18px 14px 12px;font-size:.6rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);}
+    .sidebar-nav{padding:6px 0;flex:1;}
+    .s-item{display:flex;align-items:center;gap:9px;padding:9px 14px;cursor:pointer;border-left:3px solid transparent;background:none;border-top:none;border-right:none;border-bottom:none;width:100%;text-align:left;transition:background .18s,border-color .18s;}
+    .s-item:hover{background:rgba(255,255,255,.04);}
+    .s-item.active{background:rgba(168,85,247,.08);border-left-color:var(--accent);}
+    .s-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;transition:transform .2s;}
+    .s-item.active .s-dot{transform:scale(1.45);box-shadow:0 0 8px currentColor;}
+    .s-num{font-size:.58rem;color:var(--border);font-family:'Courier New',monospace;font-weight:700;min-width:16px;}
+    .s-item.active .s-num{color:var(--accent);}
+    .s-label{font-size:.74rem;color:var(--muted);font-family:'Courier New',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .s-item.active .s-label{color:var(--text);}
+    .s-item.done .s-label::after{content:' ✓';color:var(--green);font-size:.67rem;}
+    .panel-viewport{flex:1;overflow-y:auto;overflow-x:hidden;}
+    .panel{display:none;flex-direction:column;min-height:100%;padding:36px 48px 80px;max-width:800px;margin:0 auto;animation:pdIn .3s ease;}
+    .panel.active{display:flex;}
+    @keyframes pdIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:translateX(0)}}
+    .panel.exit{display:flex;animation:pdOut .22s ease forwards;}
+    @keyframes pdOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(-24px)}}
+    .pnav{display:flex;justify-content:space-between;align-items:center;margin-top:36px;padding-top:20px;border-top:1px solid var(--border);flex-shrink:0;}
+    .pnav-btn{display:flex;align-items:center;gap:7px;padding:9px 20px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:.82rem;font-weight:700;cursor:pointer;transition:color .2s,border-color .2s,background .2s;}
+    .pnav-btn:hover:not(:disabled){color:var(--text);border-color:var(--accent);background:rgba(168,85,247,.06);}
+    .pnav-btn:disabled{opacity:.28;cursor:default;}
+    .pnav-btn.next{background:rgba(168,85,247,.08);border-color:rgba(168,85,247,.35);color:var(--accent);}
+    .pnav-btn.next:hover{background:rgba(168,85,247,.16);border-color:var(--accent);}
+    @media(max-width:700px){.sidebar{display:none;}.panel{padding:20px 16px 60px;}.code-result{grid-template-columns:1fr;}.code-result .ser-wrap{min-width:0;justify-self:stretch;}}
+  </style>
+</head>
+<body>
+<div class="progress-bar" id="progress"></div>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">← Python Libs</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item" href="01-intro.html">01</a>
+    <a class="nav-item" href="02-topic.html">02</a>
+    <a class="nav-item" href="03-cheat-sheet.html">03</a>
+    <a class="nav-item" href="04-series.html">04</a>
+    <a class="nav-item" href="05-creating-df.html">05</a>
+    <a class="nav-item" href="06-subsetting.html">06</a>
+    <a class="nav-item" href="07-reshaping.html">07</a>
+    <a class="nav-item" href="08-groupby-agg.html">08</a>
+    <a class="nav-item" href="09-combining.html">09</a>
+    <a class="nav-item" href="10-missing-newcol.html">10</a>
+    <a class="nav-item" href="11-string-methods.html">11</a>
+    <a class="nav-item active" href="12-time-methods.html">12</a>
+    <a class="nav-item" href="13-pivot-table.html">13</a>
+    <a class="nav-item" href="14-export.html">14</a>
+  </div>
+</nav>
+
+<div class="page-layout">
+
+  <aside class="sidebar">
+    <div class="sidebar-head">Topic 12 · Time Methods</div>
+    <nav class="sidebar-nav">
+      <button class="s-item active" data-panel="0" onclick="goTo(0)"><span class="s-num">00</span><span class="s-dot" style="background:#a855f7"></span><span class="s-label">Overview</span></button>
+      <button class="s-item" data-panel="1" onclick="goTo(1)"><span class="s-num">01</span><span class="s-dot" style="background:#facc15"></span><span class="s-label">Parsing Dates</span></button>
+      <button class="s-item" data-panel="2" onclick="goTo(2)"><span class="s-num">02</span><span class="s-dot" style="background:#3b82f6"></span><span class="s-label">dt Components</span></button>
+      <button class="s-item" data-panel="3" onclick="goTo(3)"><span class="s-num">03</span><span class="s-dot" style="background:#10b981"></span><span class="s-label">Timedelta</span></button>
+      <button class="s-item" data-panel="4" onclick="goTo(4)"><span class="s-num">04</span><span class="s-dot" style="background:#f97316"></span><span class="s-label">Resample</span></button>
+      <button class="s-item" data-panel="5" onclick="goTo(5)"><span class="s-num">05</span><span class="s-dot" style="background:#06b6d4"></span><span class="s-label">Exercises</span></button>
+    </nav>
+  </aside>
+
+  <div class="panel-viewport" id="viewport">
+
+    <!-- 0: Overview -->
+    <div class="panel active" id="panel-0">
+      <div class="hero">
+        <span class="topic-label"><span class="dot"></span>Topic 12 of 14</span>
+        <h1>Time Methods</h1>
+        <p>Parse date strings with <code>pd.to_datetime()</code>, extract components with the <code>.dt</code> accessor, do date arithmetic with <code>pd.Timedelta</code>, and aggregate time-series data with <code>resample()</code>.</p>
+        <div class="hero-pills">
+          <span class="tag">pd.to_datetime</span>
+          <span class="tag blue">dt.year / month</span>
+          <span class="tag green">pd.Timedelta</span>
+          <span class="tag orange">resample</span>
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" disabled>← Prev</button>
+        <button class="pnav-btn next" onclick="goTo(1)">Parsing Dates →</button>
+      </div>
+    </div>
+
+    <!-- 1: Parsing Dates -->
+    <div class="panel" id="panel-1">
+      <div class="section">
+        <div class="section-label">Parsing Dates</div>
+        <h2>pd.to_datetime() — Convert Strings to Timestamps</h2>
+        <div class="code-result-list">
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="kw">import</span> <span class="lib">pandas</span> <span class="kw">as</span> <span class="lib">pd</span></span>
+<span class="line"></span>
+<span class="line">df = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({</span>
+<span class="line">    <span class="str">'event'</span>:    [<span class="str">'Launch'</span>, <span class="str">'Review'</span>, <span class="str">'Deploy'</span>, <span class="str">'Audit'</span>],</span>
+<span class="line">    <span class="str">'date_str'</span>: [<span class="str">'2024-01-15'</span>, <span class="str">'2024-03-22'</span>, <span class="str">'2024-07-08'</span>, <span class="str">'2024-11-30'</span>]</span>
+<span class="line">})</span>
+<span class="line">df</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">df</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>event</th><th>date_str</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>Launch</td><td>2024-01-15</td></tr>
+                  <tr><td>1</td><td>Review</td><td>2024-03-22</td></tr>
+                  <tr><td>2</td><td>Deploy</td><td>2024-07-08</td></tr>
+                  <tr><td>3</td><td>Audit</td><td>2024-11-30</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># convert string column to datetime dtype</span></span>
+<span class="line">df[<span class="str">'date'</span>] = <span class="lib">pd</span>.<span class="fn">to_datetime</span>(df[<span class="str">'date_str'</span>])</span>
+<span class="line">df.dtypes</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">dtypes</div>
+              <table class="ser-out">
+                <thead><tr><th>column</th><th>dtype</th></tr></thead>
+                <tbody>
+                  <tr><td>event</td><td>object</td></tr>
+                  <tr><td>date_str</td><td>object</td></tr>
+                  <tr><td>date</td><td>datetime64[ns]</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># parse_dates at read time — no extra step needed</span></span>
+<span class="line">df2 = <span class="lib">pd</span>.<span class="fn">read_csv</span>(<span class="str">'events.csv'</span>, parse_dates=[<span class="str">'date_str'</span>])</span>
+<span class="line"></span>
+<span class="line"><span class="cm"># custom format string</span></span>
+<span class="line"><span class="lib">pd</span>.<span class="fn">to_datetime</span>(<span class="str">'15/01/2024'</span>, format=<span class="str">'%d/%m/%Y'</span>)</span>
+<span class="line"><span class="out"># Timestamp('2024-01-15 00:00:00')</span></span></pre>
+            </div>
+          </div>
+        </div>
+        <div class="callout blue">
+          <strong>errors parameter:</strong> pass <code>errors='coerce'</code> to turn unparseable strings into <code>NaT</code> (Not a Time) instead of raising an exception.
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(0)">← Overview</button>
+        <button class="pnav-btn next" onclick="goTo(2)">dt Components →</button>
+      </div>
+    </div>
+
+    <!-- 2: dt Components -->
+    <div class="panel" id="panel-2">
+      <div class="section">
+        <div class="section-label">dt Components</div>
+        <h2>Extracting Parts of a Date</h2>
+        <div class="code-result-list">
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line">df[<span class="str">'date'</span>] = <span class="lib">pd</span>.<span class="fn">to_datetime</span>(df[<span class="str">'date_str'</span>])</span>
+<span class="line"></span>
+<span class="line">df[<span class="str">'year'</span>]  = df[<span class="str">'date'</span>].dt.year</span>
+<span class="line">df[<span class="str">'month'</span>] = df[<span class="str">'date'</span>].dt.month</span>
+<span class="line">df[<span class="str">'day'</span>]   = df[<span class="str">'date'</span>].dt.day</span>
+<span class="line">df[<span class="str">'dow'</span>]   = df[<span class="str">'date'</span>].dt.dayofweek  <span class="cm"># 0=Mon … 6=Sun</span></span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">components</div>
+              <table class="ser-out">
+                <thead><tr><th>event</th><th>year</th><th>month</th><th>day</th><th>dow</th></tr></thead>
+                <tbody>
+                  <tr><td>Launch</td><td>2024</td><td>1</td><td>15</td><td>0</td></tr>
+                  <tr><td>Review</td><td>2024</td><td>3</td><td>22</td><td>4</td></tr>
+                  <tr><td>Deploy</td><td>2024</td><td>7</td><td>8</td><td>0</td></tr>
+                  <tr><td>Audit</td><td>2024</td><td>11</td><td>30</td><td>5</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># strftime: format to string</span></span>
+<span class="line">df[<span class="str">'date'</span>].dt.<span class="fn">strftime</span>(<span class="str">'%b %Y'</span>)</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">strftime('%b %Y')</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>result</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>Jan 2024</td></tr>
+                  <tr><td>1</td><td>Mar 2024</td></tr>
+                  <tr><td>2</td><td>Jul 2024</td></tr>
+                  <tr><td>3</td><td>Nov 2024</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># dt.quarter — Q1 / Q2 / Q3 / Q4</span></span>
+<span class="line">df[<span class="str">'date'</span>].dt.quarter</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">dt.quarter</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>quarter</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>1</td></tr>
+                  <tr><td>1</td><td>1</td></tr>
+                  <tr><td>2</td><td>3</td></tr>
+                  <tr><td>3</td><td>4</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="callout blue">
+          <strong>Common dt attributes:</strong> <code>dt.year</code>, <code>dt.month</code>, <code>dt.day</code>, <code>dt.hour</code>, <code>dt.minute</code>, <code>dt.dayofweek</code> (0=Mon), <code>dt.dayofyear</code>, <code>dt.quarter</code>, <code>dt.is_month_end</code>.
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(1)">← Parsing Dates</button>
+        <button class="pnav-btn next" onclick="goTo(3)">Timedelta →</button>
+      </div>
+    </div>
+
+    <!-- 3: Timedelta -->
+    <div class="panel" id="panel-3">
+      <div class="section">
+        <div class="section-label">Timedelta</div>
+        <h2>Date Arithmetic &amp; Date Ranges</h2>
+        <div class="code-result-list">
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># add 30 days to each date</span></span>
+<span class="line">df[<span class="str">'date'</span>] + <span class="lib">pd</span>.<span class="cls">Timedelta</span>(days=<span class="num">30</span>)</span></pre>
+            </div>
+            <div class="table-pair">
+              <div class="ser-wrap">
+                <div class="ser-label">df['date']</div>
+                <table class="ser-out">
+                  <thead><tr><th>index</th><th>date</th></tr></thead>
+                  <tbody>
+                    <tr><td>0</td><td>2024-01-15</td></tr>
+                    <tr><td>1</td><td>2024-03-22</td></tr>
+                    <tr><td>2</td><td>2024-07-08</td></tr>
+                    <tr><td>3</td><td>2024-11-30</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="ser-wrap">
+                <div class="ser-label">+ Timedelta(days=30)</div>
+                <table class="ser-out">
+                  <thead><tr><th>index</th><th>date</th></tr></thead>
+                  <tbody>
+                    <tr><td>0</td><td>2024-02-14</td></tr>
+                    <tr><td>1</td><td>2024-04-21</td></tr>
+                    <tr><td>2</td><td>2024-08-07</td></tr>
+                    <tr><td>3</td><td>2024-12-30</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># difference between two date columns → Timedelta Series</span></span>
+<span class="line">df[<span class="str">'deadline'</span>] = <span class="lib">pd</span>.<span class="fn">to_datetime</span>(<span class="str">'2024-12-31'</span>)</span>
+<span class="line">df[<span class="str">'days_left'</span>] = (df[<span class="str">'deadline'</span>] - df[<span class="str">'date'</span>]).dt.days</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">days_left</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>days_left</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>351</td></tr>
+                  <tr><td>1</td><td>284</td></tr>
+                  <tr><td>2</td><td>176</td></tr>
+                  <tr><td>3</td><td>31</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># generate a fixed sequence of dates</span></span>
+<span class="line"><span class="lib">pd</span>.<span class="fn">date_range</span>(start=<span class="str">'2024-01-01'</span>, periods=<span class="num">4</span>, freq=<span class="str">'QS'</span>)</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">date_range (quarterly)</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>date</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>2024-01-01</td></tr>
+                  <tr><td>1</td><td>2024-04-01</td></tr>
+                  <tr><td>2</td><td>2024-07-01</td></tr>
+                  <tr><td>3</td><td>2024-10-01</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(2)">← dt Components</button>
+        <button class="pnav-btn next" onclick="goTo(4)">Resample →</button>
+      </div>
+    </div>
+
+    <!-- 4: Resample -->
+    <div class="panel" id="panel-4">
+      <div class="section">
+        <div class="section-label">Resample</div>
+        <h2>Aggregating Time-Series Data</h2>
+        <div class="code-result-list">
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line">sales = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({</span>
+<span class="line">    <span class="str">'date'</span>:   <span class="lib">pd</span>.<span class="fn">to_datetime</span>([</span>
+<span class="line">        <span class="str">'2024-01-10'</span>, <span class="str">'2024-01-25'</span>,</span>
+<span class="line">        <span class="str">'2024-02-08'</span>,</span>
+<span class="line">        <span class="str">'2024-03-15'</span>, <span class="str">'2024-03-20'</span>]),</span>
+<span class="line">    <span class="str">'amount'</span>: [<span class="num">100</span>, <span class="num">150</span>, <span class="num">80</span>, <span class="num">200</span>, <span class="num">120</span>]</span>
+<span class="line">})</span>
+<span class="line">sales</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">sales</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>date</th><th>amount</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>2024-01-10</td><td>100</td></tr>
+                  <tr><td>1</td><td>2024-01-25</td><td>150</td></tr>
+                  <tr><td>2</td><td>2024-02-08</td><td>80</td></tr>
+                  <tr><td>3</td><td>2024-03-15</td><td>200</td></tr>
+                  <tr><td>4</td><td>2024-03-20</td><td>120</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># resample requires a DatetimeIndex</span></span>
+<span class="line">monthly = (sales</span>
+<span class="line">    .<span class="fn">set_index</span>(<span class="str">'date'</span>)</span>
+<span class="line">    .<span class="fn">resample</span>(<span class="str">'ME'</span>)[<span class="str">'amount'</span>]</span>
+<span class="line">    .<span class="fn">sum</span>()</span>
+<span class="line">)</span>
+<span class="line">monthly</span></pre>
+            </div>
+            <div class="table-pair">
+              <div class="ser-wrap">
+                <div class="ser-label">sales</div>
+                <table class="ser-out">
+                  <thead><tr><th>date</th><th>amount</th></tr></thead>
+                  <tbody>
+                    <tr><td>2024-01-10</td><td>100</td></tr>
+                    <tr><td>2024-01-25</td><td>150</td></tr>
+                    <tr><td>2024-02-08</td><td>80</td></tr>
+                    <tr><td>2024-03-15</td><td>200</td></tr>
+                    <tr><td>2024-03-20</td><td>120</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="ser-wrap">
+                <div class="ser-label">monthly sum</div>
+                <table class="ser-out">
+                  <thead><tr><th>date</th><th>amount</th></tr></thead>
+                  <tbody>
+                    <tr><td>2024-01-31</td><td>250</td></tr>
+                    <tr><td>2024-02-29</td><td>80</td></tr>
+                    <tr><td>2024-03-31</td><td>320</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># common freq strings</span></span>
+<span class="line"><span class="cm"># 'D'  — daily     'W' — weekly (Sun)</span></span>
+<span class="line"><span class="cm"># 'ME' — month end 'QE' — quarter end</span></span>
+<span class="line"><span class="cm"># 'YE' — year end  'h'  — hourly</span></span>
+<span class="line"></span>
+<span class="line"><span class="cm"># mean per week</span></span>
+<span class="line">sales.<span class="fn">set_index</span>(<span class="str">'date'</span>).<span class="fn">resample</span>(<span class="str">'W'</span>)[<span class="str">'amount'</span>].<span class="fn">mean</span>()</span></pre>
+            </div>
+          </div>
+        </div>
+        <div class="callout orange">
+          <strong>Old vs new freq strings:</strong> pandas ≥ 2.2 uses <code>'ME'</code> (month end) instead of <code>'M'</code>, and <code>'YE'</code> instead of <code>'A'</code>. Both work in most versions, but the new aliases are preferred.
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(3)">← Timedelta</button>
+        <button class="pnav-btn next" onclick="goTo(5)">Exercises →</button>
+      </div>
+    </div>
+
+    <!-- 5: Exercises -->
+    <div class="panel" id="panel-5">
+      <div class="section">
+        <div class="section-label">Exercises</div>
+        <h2>Practice — Time Methods</h2>
+
+        <div class="ex-block">
+          <span class="ex-num">Q1</span>
+          <p>Parse the <code>joined</code> column and add three new columns: <code>year</code>, <code>month</code>, and <code>day_of_week</code> (0 = Monday).</p>
+          <div class="code-wrap"><pre><span class="line">df = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({</span>
+<span class="line">    <span class="str">'name'</span>:   [<span class="str">'Alice'</span>, <span class="str">'Bob'</span>, <span class="str">'Carol'</span>],</span>
+<span class="line">    <span class="str">'joined'</span>: [<span class="str">'2024-01-15'</span>, <span class="str">'2024-06-01'</span>, <span class="str">'2024-11-20'</span>]</span>
+<span class="line">})</span></pre></div>
+          <details class="answer">
+            <summary>Show answer</summary>
+            <div class="answer-body">
+              <div class="code-wrap" style="margin:0">
+                <pre><span class="line">df[<span class="str">'joined'</span>] = <span class="lib">pd</span>.<span class="fn">to_datetime</span>(df[<span class="str">'joined'</span>])</span>
+<span class="line">df[<span class="str">'year'</span>]        = df[<span class="str">'joined'</span>].dt.year</span>
+<span class="line">df[<span class="str">'month'</span>]       = df[<span class="str">'joined'</span>].dt.month</span>
+<span class="line">df[<span class="str">'day_of_week'</span>] = df[<span class="str">'joined'</span>].dt.dayofweek</span>
+<span class="line"><span class="fn">print</span>(df)</span>
+<span class="line"><span class="out">#    name     joined  year  month  day_of_week</span></span>
+<span class="line"><span class="out"># 0  Alice 2024-01-15  2024      1            0</span></span>
+<span class="line"><span class="out"># 1    Bob 2024-06-01  2024      6            5</span></span>
+<span class="line"><span class="out"># 2  Carol 2024-11-20  2024     11            2</span></span></pre>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="ex-block">
+          <span class="ex-num">Q2</span>
+          <p>Add a column <code>due_date</code> that is 90 days after each <code>start_date</code>. Then add <code>overdue</code>: True if <code>due_date</code> is before 2024-07-01.</p>
+          <div class="code-wrap"><pre><span class="line">df = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({</span>
+<span class="line">    <span class="str">'task'</span>:       [<span class="str">'A'</span>, <span class="str">'B'</span>, <span class="str">'C'</span>],</span>
+<span class="line">    <span class="str">'start_date'</span>: <span class="lib">pd</span>.<span class="fn">to_datetime</span>([<span class="str">'2024-01-01'</span>, <span class="str">'2024-04-01'</span>, <span class="str">'2024-06-01'</span>])</span>
+<span class="line">})</span></pre></div>
+          <details class="answer">
+            <summary>Show answer</summary>
+            <div class="answer-body">
+              <div class="code-wrap" style="margin:0">
+                <pre><span class="line">df[<span class="str">'due_date'</span>] = df[<span class="str">'start_date'</span>] + <span class="lib">pd</span>.<span class="cls">Timedelta</span>(days=<span class="num">90</span>)</span>
+<span class="line">df[<span class="str">'overdue'</span>]  = df[<span class="str">'due_date'</span>] &lt; <span class="lib">pd</span>.<span class="cls">Timestamp</span>(<span class="str">'2024-07-01'</span>)</span>
+<span class="line"><span class="fn">print</span>(df)</span>
+<span class="line"><span class="out">#   task start_date   due_date  overdue</span></span>
+<span class="line"><span class="out"># 0    A 2024-01-01 2024-04-01     True</span></span>
+<span class="line"><span class="out"># 1    B 2024-04-01 2024-06-30     True</span></span>
+<span class="line"><span class="out"># 2    C 2024-06-01 2024-08-30    False</span></span></pre>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="ex-block">
+          <span class="ex-num">Q3</span>
+          <p>Resample the sales data below to get the total <code>revenue</code> per month.</p>
+          <div class="code-wrap"><pre><span class="line">df = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({</span>
+<span class="line">    <span class="str">'date'</span>:    <span class="lib">pd</span>.<span class="fn">to_datetime</span>([<span class="str">'2024-01-05'</span>,<span class="str">'2024-01-20'</span>,<span class="str">'2024-02-14'</span>,<span class="str">'2024-02-28'</span>]),</span>
+<span class="line">    <span class="str">'revenue'</span>: [<span class="num">500</span>, <span class="num">300</span>, <span class="num">700</span>, <span class="num">200</span>]</span>
+<span class="line">})</span></pre></div>
+          <details class="answer">
+            <summary>Show answer</summary>
+            <div class="answer-body">
+              <div class="code-wrap" style="margin:0">
+                <pre><span class="line">result = df.<span class="fn">set_index</span>(<span class="str">'date'</span>).<span class="fn">resample</span>(<span class="str">'ME'</span>)[<span class="str">'revenue'</span>].<span class="fn">sum</span>()</span>
+<span class="line"><span class="fn">print</span>(result)</span>
+<span class="line"><span class="out"># date</span></span>
+<span class="line"><span class="out"># 2024-01-31    800</span></span>
+<span class="line"><span class="out"># 2024-02-29    900</span></span></pre>
+              </div>
+            </div>
+          </details>
+        </div>
+
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(4)">← Resample</button>
+        <button class="pnav-btn next" onclick="goTo(0)">⟳ Overview</button>
+      </div>
+    </div>
+
+  </div><!-- /panel-viewport -->
+</div><!-- /page-layout -->
+
+<script src="app.js"></script>
+<script>
+let _cur = 0;
+function goTo(idx) {
+  if (idx === _cur) return;
+  const oldP = document.getElementById('panel-' + _cur);
+  const newP = document.getElementById('panel-' + idx);
+  if (!oldP || !newP) return;
+  if (_cur > 0) { const sb = document.querySelector('[data-panel="' + _cur + '"]'); if (sb) sb.classList.add('done'); }
+  oldP.classList.remove('active'); oldP.classList.add('exit');
+  setTimeout(() => oldP.classList.remove('exit'), 240);
+  _cur = idx;
+  newP.classList.add('active');
+  document.getElementById('viewport').scrollTop = 0;
+  document.querySelectorAll('.s-item').forEach(b => b.classList.toggle('active', +b.dataset.panel === idx));
+  newP.querySelectorAll('.section:not(.visible)').forEach((s, i) => {
+    setTimeout(() => {
+      s.classList.add('visible');
+      if (typeof animatePre === 'function') animatePre(s);
+      if (typeof animateRows === 'function') animateRows(s);
+    }, i * 80 + 60);
+  });
+}
+(function() {
+  const vp = document.getElementById('viewport');
+  const pb = document.getElementById('progress');
+  if (vp && pb) vp.addEventListener('scroll', () => {
+    pb.style.width = (vp.scrollTop / (vp.scrollHeight - vp.clientHeight) * 100) + '%';
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1358 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Topic 09 — Reshape, Combine &amp; Split</title>
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    .page-layout{display:flex;height:calc(100vh - 54px);overflow:hidden}
+    .sidebar{width:230px;min-width:230px;height:100%;overflow-y:auto;background:#0a0e14;border-right:1px solid var(--border);display:flex;flex-direction:column;scrollbar-width:thin;scrollbar-color:var(--border) transparent;flex-shrink:0}
+    .sidebar-head{padding:20px 18px 14px;font-size:.65rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+    .sidebar-nav{padding:8px 0;flex:1}
+    .s-item{display:flex;align-items:center;gap:11px;padding:10px 18px;cursor:pointer;background:none;border:none;border-left:3px solid transparent;width:100%;text-align:left;transition:background .18s,border-color .18s}
+    .s-item:hover{background:rgba(255,255,255,.04)}
+    .s-item.active{background:rgba(250,204,21,.08);border-left-color:var(--accent)}
+    .s-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;transition:transform .2s}
+    .s-item.active .s-dot{transform:scale(1.45);box-shadow:0 0 8px currentColor}
+    .s-num{font-size:.62rem;color:var(--border);font-family:'Courier New',monospace;font-weight:700;min-width:18px}
+    .s-item.active .s-num{color:var(--accent)}
+    .s-label{font-size:.79rem;color:var(--muted);font-family:'Courier New',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .s-item.active .s-label{color:var(--text)}
+    .s-item.done .s-label::after{content:' ✓';color:var(--green);font-size:.7rem}
+    .s-group{padding:6px 18px 2px;font-size:.59rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--border)}
+
+    .panel-viewport{flex:1;overflow-y:auto;overflow-x:hidden;position:relative}
+    .panel{display:none;flex-direction:column;min-height:100%;padding:40px 52px 100px;max-width:820px;margin:0 auto;animation:fadeIn .35s ease}
+    .panel.active{display:flex}
+    @keyframes fadeIn{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:translateX(0)}}
+    .panel.exit{display:flex;animation:fadeOut .25s ease forwards}
+    @keyframes fadeOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(-28px)}}
+
+    .m-hero{position:relative;height:200px;border-radius:18px;overflow:hidden;margin-bottom:26px;flex-shrink:0}
+    .m-hero img{width:100%;height:100%;object-fit:cover;filter:brightness(.5) saturate(.8);transition:filter .45s}
+    .panel.active .m-hero img{filter:brightness(.6) saturate(1.1)}
+    .m-hero-ov{position:absolute;inset:0;padding:26px 30px;display:flex;flex-direction:column;justify-content:flex-end;background:linear-gradient(0deg,rgba(0,0,0,.78) 0%,rgba(0,0,0,.15) 55%,transparent 100%)}
+    .m-breadcrumb{font-size:.62rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:5px}
+    .m-name{font-size:1.7rem;font-weight:900;color:#fff;font-family:'Courier New',monospace}
+    .m-tagline{font-size:.86rem;color:rgba(255,255,255,.62);margin-top:4px}
+
+    .pills{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 20px;align-items:center}
+    .pill{padding:5px 14px;border-radius:999px;font-size:.7rem;font-weight:700;letter-spacing:.06em}
+    .pill-sig{font-family:'Courier New',monospace;font-size:.74rem;letter-spacing:0;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);color:var(--text)}
+    .pill-ret{background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);color:var(--green);font-family:'Courier New',monospace;letter-spacing:0}
+    .pill-note{background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.3);color:var(--orange);font-family:'Courier New',monospace;font-size:.7rem}
+    .pill-param{position:relative;cursor:help;transition:filter .18s}
+    .pill-param:hover{filter:brightness(1.3)}
+    .pill-param .balloon{position:absolute;bottom:calc(100% + 14px);left:50%;transform:translateX(-50%) translateY(6px);width:230px;background:linear-gradient(155deg,#0e2845 0%,#071a2e 100%);border:1.5px solid rgba(240,182,62,.65);border-radius:14px;padding:13px 16px 11px;box-shadow:0 0 0 1px rgba(240,182,62,.1),0 18px 48px rgba(0,0,0,.72),0 0 36px rgba(240,182,62,.07);opacity:0;pointer-events:none;transition:opacity .22s ease,transform .22s ease;z-index:300}
+    .pill-param:hover .balloon{opacity:1;transform:translateX(-50%) translateY(0);animation:balloonFloat 3s ease-in-out infinite}
+    @keyframes balloonFloat{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-5px)}}
+    .balloon-title{font-family:'Courier New',monospace;font-size:.7rem;font-weight:800;color:#f0b63e;letter-spacing:.04em;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+    .balloon-title::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:#f0b63e;box-shadow:0 0 6px rgba(240,182,62,.7);flex-shrink:0}
+    .balloon-body{font-size:.76rem;color:rgba(230,237,243,.78);line-height:1.6;font-family:'Segoe UI',system-ui,sans-serif}
+    .pill-param .balloon::after{content:'';position:absolute;bottom:-10px;left:50%;transform:translateX(-50%);border-left:10px solid transparent;border-right:10px solid transparent;border-top:10px solid rgba(240,182,62,.65)}
+    .pill-param .balloon::before{content:'';position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);border-left:9px solid transparent;border-right:9px solid transparent;border-top:9px solid #071a2e;z-index:1}
+
+    .m-desc{font-size:.95rem;color:var(--muted);line-height:1.75;margin-bottom:14px}
+    .m-desc code{font-family:'Courier New',monospace;font-size:.88em;padding:1px 6px;border-radius:4px;background:rgba(255,255,255,.06)}
+
+    .demo-box{background:#060a10;border:1px solid var(--border);border-radius:14px;padding:22px 22px 18px;margin-top:20px;flex-shrink:0;display:flex;flex-direction:column}
+    .demo-lbl{font-size:.64rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin-bottom:18px;display:flex;align-items:center;gap:8px}
+    .demo-lbl::before{content:'';width:3px;height:12px;border-radius:2px;background:var(--accent);flex-shrink:0}
+    .demo-controls{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-end;margin-bottom:18px}
+    .ctrl{display:flex;flex-direction:column;gap:5px}
+    .ctrl label{font-size:.69rem;color:var(--muted);font-weight:600}
+    .ctrl input[type=range]{-webkit-appearance:none;width:130px;height:4px;background:var(--border);border-radius:2px;outline:none;cursor:pointer}
+    .ctrl input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;background:var(--accent);border-radius:50%;cursor:pointer;box-shadow:0 0 6px rgba(250,204,21,.5)}
+    .ctrl .cval{font-size:.7rem;color:var(--accent);font-family:'Courier New',monospace;font-weight:700;text-align:center}
+    .demo-canvas-wrap{background:#020509;border-radius:10px;padding:14px;overflow-x:auto;min-height:72px;order:4}
+    canvas{display:block}
+    .demo-out{font-family:'Courier New',monospace;font-size:.8rem;color:#10b981;line-height:1.65;margin-bottom:14px;padding:11px 15px;background:rgba(16,185,129,.05);border:1px solid rgba(16,185,129,.18);border-radius:8px;white-space:pre-wrap;order:3}
+    .demo-btn{padding:8px 18px;border-radius:8px;font-size:.76rem;font-weight:700;cursor:pointer;transition:background .2s,border-color .2s}
+    .toggle-group{display:flex;gap:6px;flex-wrap:wrap}
+    .tgl-btn{padding:6px 16px;border-radius:8px;font-size:.74rem;font-weight:700;cursor:pointer;font-family:'Courier New',monospace;transition:all .2s}
+    .tgl-btn.on{background:rgba(250,204,21,.15);border:1px solid rgba(250,204,21,.45);color:var(--accent)}
+    .tgl-btn:not(.on){background:transparent;border:1px solid var(--border);color:var(--muted)}
+    .tgl-btn:not(.on):hover{border-color:var(--accent);color:var(--text)}
+
+    .panel-nav{display:flex;justify-content:space-between;align-items:center;margin-top:40px;padding-top:24px;border-top:1px solid var(--border);flex-shrink:0}
+    .pnav-btn{display:flex;align-items:center;gap:9px;padding:10px 22px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:.83rem;font-weight:700;cursor:pointer;transition:color .2s,border-color .2s,background .2s}
+    .pnav-btn:hover:not(:disabled){color:var(--text);border-color:var(--accent);background:rgba(250,204,21,.06)}
+    .pnav-btn:disabled{opacity:.28;cursor:default}
+    .pnav-btn.next{background:rgba(250,204,21,.08);border-color:rgba(250,204,21,.35);color:var(--accent)}
+    .pnav-btn.next:hover{background:rgba(250,204,21,.16);border-color:var(--accent)}
+    .pnav-dots{display:flex;gap:5px;align-items:center;flex-wrap:wrap;justify-content:center;max-width:160px}
+    .pnav-dot{width:6px;height:6px;border-radius:50%;background:var(--border);transition:background .2s,transform .2s;cursor:pointer;border:none;padding:0}
+    .pnav-dot.active{background:var(--accent);transform:scale(1.4)}
+
+    .overview-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-top:12px}
+    .ov-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 14px;cursor:pointer;transition:border-color .2s,box-shadow .2s,transform .18s;display:flex;flex-direction:column;gap:6px}
+    .ov-card:hover{transform:translateY(-3px);border-color:rgba(250,204,21,.4);box-shadow:0 8px 28px rgba(250,204,21,.08)}
+    .ov-card-num{font-size:.6rem;color:var(--muted);font-weight:800;letter-spacing:.1em}
+    .ov-card-name{font-size:.86rem;font-family:'Courier New',monospace;font-weight:700}
+    .ov-card-desc{font-size:.74rem;color:var(--muted);line-height:1.5}
+    .section-lbl{font-size:.68rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;margin:20px 0 8px;display:flex;align-items:center;gap:8px}
+    .section-lbl span{width:3px;height:12px;border-radius:2px;display:inline-block}
+
+    @media(max-width:700px){.sidebar{display:none}.panel{padding:20px 16px 80px}}
+    .exercise-header{display:flex;align-items:flex-start;gap:16px;margin-bottom:24px;padding:20px;background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.2);border-radius:14px;position:relative;overflow:hidden;}
+    .exercise-header::before{content:'';position:absolute;top:-40px;right:-40px;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,rgba(251,191,36,.1) 0%,transparent 70%);pointer-events:none;}
+    .exercise-badge{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;font-size:1.8rem;font-weight:800;color:#0d1a2e;background:linear-gradient(135deg,#fbbf24,#f59e0b);box-shadow:0 6px 18px rgba(251,191,36,.35);flex-shrink:0;}
+    .ex-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px 16px;margin-bottom:14px;transition:border-color .2s;}
+    .ex-card:hover{border-color:rgba(250,204,21,.3);}
+    .ex-q-head{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+    .ex-num{font-size:.68rem;font-weight:800;letter-spacing:.1em;padding:3px 10px;border-radius:6px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--muted);font-family:'Courier New',monospace;}
+    .ex-task{font-size:.88rem;color:var(--muted);margin-bottom:10px;line-height:1.6;}
+    .ex-task code{font-family:'Courier New',monospace;font-size:.85em;padding:1px 6px;border-radius:4px;background:rgba(255,255,255,.06);}
+  </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">← Python Libs</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item" href="01-intro-numpy.html">01</a>
+    <a class="nav-item" href="02-topics.html">02</a>
+    <a class="nav-item" href="03-cheat-sheet.html">03</a>
+    <a class="nav-item" href="04-placeholder.html">04</a>
+    <a class="nav-item" href="05-arrays-prop-info.html">05</a>
+    <a class="nav-item" href="06-arith-opt.html">06</a>
+    <a class="nav-item" href="07-comp-stat-agg.html">07</a>
+    <a class="nav-item" href="08-copy-sort-access.html">08</a>
+    <a class="nav-item active" href="09-resh-com.html">09</a>
+    <a class="nav-item" href="10-investigations.html">🔍</a>
+    <a class="nav-item" href="solve1.html">★</a>
+    <a class="nav-item" href="solve2.html">★★</a>
+  </div>
+</nav>
+
+<div class="page-layout">
+
+  <aside class="sidebar">
+    <div class="sidebar-head">13 Ops + Exercises</div>
+    <nav class="sidebar-nav">
+      <button class="s-item active" data-panel="0" onclick="goTo(0)"><span class="s-num">00</span><span class="s-dot" style="background:#8b5cf6"></span><span class="s-label">Overview</span></button>
+      <div class="s-group">Shape</div>
+      <button class="s-item" data-panel="1" onclick="goTo(1)"><span class="s-num">01</span><span class="s-dot" style="background:#3b82f6"></span><span class="s-label">.T / transpose()</span></button>
+      <button class="s-item" data-panel="2" onclick="goTo(2)"><span class="s-num">02</span><span class="s-dot" style="background:#06b6d4"></span><span class="s-label">.ravel()</span></button>
+      <button class="s-item" data-panel="3" onclick="goTo(3)"><span class="s-num">03</span><span class="s-dot" style="background:#10b981"></span><span class="s-label">.reshape()</span></button>
+      <button class="s-item" data-panel="4" onclick="goTo(4)"><span class="s-num">04</span><span class="s-dot" style="background:#facc15"></span><span class="s-label">.resize()</span></button>
+      <div class="s-group">Add / Remove</div>
+      <button class="s-item" data-panel="5" onclick="goTo(5)"><span class="s-num">05</span><span class="s-dot" style="background:#f97316"></span><span class="s-label">np.append()</span></button>
+      <button class="s-item" data-panel="6" onclick="goTo(6)"><span class="s-num">06</span><span class="s-dot" style="background:#ec4899"></span><span class="s-label">np.insert()</span></button>
+      <button class="s-item" data-panel="7" onclick="goTo(7)"><span class="s-num">07</span><span class="s-dot" style="background:#f43f5e"></span><span class="s-label">np.delete()</span></button>
+      <div class="s-group">Combine</div>
+      <button class="s-item" data-panel="8" onclick="goTo(8)"><span class="s-num">08</span><span class="s-dot" style="background:#a78bfa"></span><span class="s-label">np.concatenate()</span></button>
+      <button class="s-item" data-panel="9" onclick="goTo(9)"><span class="s-num">09</span><span class="s-dot" style="background:#14b8a6"></span><span class="s-label">np.vstack()</span></button>
+      <button class="s-item" data-panel="10" onclick="goTo(10)"><span class="s-num">10</span><span class="s-dot" style="background:#34d399"></span><span class="s-label">np.hstack()</span></button>
+      <button class="s-item" data-panel="11" onclick="goTo(11)"><span class="s-num">11</span><span class="s-dot" style="background:#fb923c"></span><span class="s-label">np.column_stack()</span></button>
+      <div class="s-group">Split</div>
+      <button class="s-item" data-panel="12" onclick="goTo(12)"><span class="s-num">12</span><span class="s-dot" style="background:#e879f9"></span><span class="s-label">np.hsplit()</span></button>
+      <button class="s-item" data-panel="13" onclick="goTo(13)"><span class="s-num">13</span><span class="s-dot" style="background:#6ee7b7"></span><span class="s-label">np.vsplit()</span></button>
+      <button class="s-item" data-panel="14" onclick="goTo(14)"><span class="s-num">14</span><span class="s-dot" style="background:#fbbf24"></span><span class="s-label">Exercises</span></button>
+    </nav>
+  </aside>
+
+  <div class="panel-viewport" id="viewport">
+
+    <!-- ══ PANEL 0: Overview ══ -->
+    <div class="panel active" id="panel-0">
+      <div class="hero" style="margin-bottom:36px">
+        <span class="topic-label"><span class="dot"></span>Topic 09 of 09</span>
+        <h1>Reshape, Combine &amp; Split</h1>
+        <p>Reshape arrays into any dimension, transpose axes, flatten to 1D, add or remove elements, stack arrays together row-wise or column-wise, and split them back apart.</p>
+        <div class="hero-pills">
+          <span class="tag blue">4 Shape ops</span>
+          <span class="tag orange">3 Add/Remove ops</span>
+          <span class="tag green">4 Combine ops</span>
+          <span class="tag">2 Split ops</span>
+        </div>
+      </div>
+      <div class="section-lbl" style="color:#3b82f6"><span style="background:#3b82f6"></span>Shape &amp; Flatten</div>
+      <div class="overview-grid" style="margin-top:0;margin-bottom:20px">
+        <div class="ov-card" onclick="goTo(1)"><div class="ov-card-num">01/13</div><div class="ov-card-name" style="color:#3b82f6">.T / transpose()</div><div class="ov-card-desc">Rows become columns — swap axes.</div></div>
+        <div class="ov-card" onclick="goTo(2)"><div class="ov-card-num">02/13</div><div class="ov-card-name" style="color:#06b6d4">.ravel()</div><div class="ov-card-desc">Flatten any shape into a 1D array.</div></div>
+        <div class="ov-card" onclick="goTo(3)"><div class="ov-card-num">03/13</div><div class="ov-card-name" style="color:#10b981">.reshape()</div><div class="ov-card-desc">Change shape without changing data.</div></div>
+        <div class="ov-card" onclick="goTo(4)"><div class="ov-card-num">04/13</div><div class="ov-card-name" style="color:#facc15">.resize()</div><div class="ov-card-desc">Resize — can change total element count.</div></div>
+      </div>
+      <div class="section-lbl" style="color:#f97316"><span style="background:#f97316"></span>Add / Remove Elements</div>
+      <div class="overview-grid" style="margin-top:0;margin-bottom:20px">
+        <div class="ov-card" onclick="goTo(5)"><div class="ov-card-num">05/13</div><div class="ov-card-name" style="color:#f97316">np.append()</div><div class="ov-card-desc">Add elements at the end — returns new array.</div></div>
+        <div class="ov-card" onclick="goTo(6)"><div class="ov-card-num">06/13</div><div class="ov-card-name" style="color:#ec4899">np.insert()</div><div class="ov-card-desc">Insert values before a given index.</div></div>
+        <div class="ov-card" onclick="goTo(7)"><div class="ov-card-num">07/13</div><div class="ov-card-name" style="color:#f43f5e">np.delete()</div><div class="ov-card-desc">Remove elements at specified indices.</div></div>
+      </div>
+      <div class="section-lbl" style="color:#a78bfa"><span style="background:#a78bfa"></span>Combine &amp; Split</div>
+      <div class="overview-grid" style="margin-top:0">
+        <div class="ov-card" onclick="goTo(8)"><div class="ov-card-num">08/13</div><div class="ov-card-name" style="color:#a78bfa">np.concatenate()</div><div class="ov-card-desc">Join along an existing axis.</div></div>
+        <div class="ov-card" onclick="goTo(9)"><div class="ov-card-num">09/13</div><div class="ov-card-name" style="color:#14b8a6">np.vstack()</div><div class="ov-card-desc">Stack row-wise (vertically).</div></div>
+        <div class="ov-card" onclick="goTo(10)"><div class="ov-card-num">10/13</div><div class="ov-card-name" style="color:#34d399">np.hstack()</div><div class="ov-card-desc">Stack column-wise (horizontally).</div></div>
+        <div class="ov-card" onclick="goTo(11)"><div class="ov-card-num">11/13</div><div class="ov-card-name" style="color:#fb923c">np.column_stack()</div><div class="ov-card-desc">1D arrays as columns into 2D.</div></div>
+        <div class="ov-card" onclick="goTo(12)"><div class="ov-card-num">12/13</div><div class="ov-card-name" style="color:#e879f9">np.hsplit()</div><div class="ov-card-desc">Split horizontally at Nth index.</div></div>
+        <div class="ov-card" onclick="goTo(13)"><div class="ov-card-num">13/13</div><div class="ov-card-name" style="color:#6ee7b7">np.vsplit()</div><div class="ov-card-desc">Split vertically into row groups.</div></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" disabled>← Prev</button>
+        <div class="pnav-dots" id="dots-0"></div>
+        <button class="pnav-btn next" onclick="goTo(1)">.T →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 1: .T ══ -->
+    <div class="panel" id="panel-1">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1535378917042-10a22c95931a?w=900&q=75&fit=crop&h=200" alt="Geometric rotation" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Shape 01 / 04 · Transpose</div>
+          <div class="m-name">.T / np.transpose()</div>
+          <div class="m-tagline">Flip the axes — rows become columns</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">array.T</span>
+        <span class="pill pill-sig">np.transpose(array)</span>
+        <span class="pill pill-param" style="background:rgba(59,130,246,.1);color:var(--blue);border:1px solid rgba(59,130,246,.28);">array
+          <span class="balloon"><span class="balloon-title">array</span><span class="balloon-body">The input array to transpose. Rows become columns and vice versa. For 1D arrays the result is unchanged; for N-D arrays all axes are reversed.</span></span>
+        </span>
+        <span class="pill pill-note">returns view</span>
+        <span class="pill pill-ret">→ transposed ndarray</span>
+      </div>
+      <p class="m-desc">Swaps rows and columns: a shape <code>(2, 3)</code> array becomes <code>(3, 2)</code>. <code>.T</code> is the concise attribute form; both return a <em>view</em> (no data copied). On a 1D array, <code>.T</code> does nothing — use <code>.reshape(-1,1)</code> to make a column vector.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>b = <span class="lib">np</span>.<span class="fn">array</span>([[<span class="num">1</span>,<span class="num">2</span>,<span class="num">3</span>],[<span class="num">4</span>,<span class="num">5</span>,<span class="num">6</span>]])
+<span class="fn">print</span>(b.T)
+<span class="cm"># [[1 4]
+#  [2 5]
+#  [3 6]]</span>
+<span class="fn">print</span>(b.shape, b.T.shape)  <span class="cm"># (2,3) (3,2)</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — toggle between original and transposed</div>
+        <div class="demo-controls">
+          <div class="toggle-group">
+            <button class="tgl-btn on" id="tp-orig" onclick="setTranspose(false)">Original (2×3)</button>
+            <button class="tgl-btn" id="tp-T" onclick="setTranspose(true)">.T (3×2)</button>
+          </div>
+        </div>
+        <div class="demo-out" id="out-tp"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-tp" height="160"></canvas></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(0)">← Overview</button>
+        <div class="pnav-dots" id="dots-1"></div>
+        <button class="pnav-btn next" onclick="goTo(2)">.ravel() →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 2: .ravel() ══ -->
+    <div class="panel" id="panel-2">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1518186285589-2f7649de83e0?w=900&q=75&fit=crop&h=200" alt="Unrolling" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Shape 02 / 04 · Flatten</div>
+          <div class="m-name">.ravel()</div>
+          <div class="m-tagline">Unroll any shape into a 1D array</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">array.ravel()</span>
+        <span class="pill pill-param" style="background:rgba(139,92,246,.1);color:var(--purple);border:1px solid rgba(139,92,246,.28);">order
+          <span class="balloon"><span class="balloon-title">order</span><span class="balloon-body">Reading order for flattening. <code style="color:#f0b63e">'C'</code> reads row-by-row (default), <code style="color:#f0b63e">'F'</code> reads column-by-column (Fortran-order). Affects the element sequence in the output.</span></span>
+        </span>
+        <span class="pill pill-note">returns view if possible</span>
+        <span class="pill pill-ret">→ 1D ndarray</span>
+      </div>
+      <p class="m-desc">Flattens any multi-dimensional array into a single row, reading elements in <strong style="color:var(--cyan)">row-major (C) order</strong> by default — left to right, top to bottom. Returns a view when the memory is contiguous; otherwise a copy. Compare with <code>.flatten()</code> which <em>always</em> copies.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>b = <span class="lib">np</span>.<span class="fn">array</span>([[<span class="num">1</span>,<span class="num">2</span>],[<span class="num">3</span>,<span class="num">4</span>]])
+<span class="fn">print</span>(b.<span class="fn">ravel</span>())   <span class="cm"># [1 2 3 4]</span>
+
+c = <span class="lib">np</span>.<span class="fn">arange</span>(<span class="num">24</span>).<span class="fn">reshape</span>(<span class="num">2</span>,<span class="num">3</span>,<span class="num">4</span>)
+<span class="fn">print</span>(c.<span class="fn">ravel</span>().shape)  <span class="cm"># (24,)</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — 2D grid unfolds into a row</div>
+        <div class="demo-controls">
+          <div class="toggle-group">
+            <button class="tgl-btn on" id="rv-2d" onclick="setRavel(false)">2D grid</button>
+            <button class="tgl-btn" id="rv-1d" onclick="setRavel(true)">.ravel() → 1D</button>
+          </div>
+        </div>
+        <div class="demo-out" id="out-rv"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-rv" height="140"></canvas></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(1)">← .T</button>
+        <div class="pnav-dots" id="dots-2"></div>
+        <button class="pnav-btn next" onclick="goTo(3)">.reshape() →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 3: .reshape() ══ -->
+    <div class="panel" id="panel-3">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1464802686167-b939a6910659?w=900&q=75&fit=crop&h=200" alt="Geometric transformation" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Shape 03 / 04 · Reshape</div>
+          <div class="m-name">.reshape()</div>
+          <div class="m-tagline">New shape, same data — use -1 to auto-calculate</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">array.reshape(rows, cols)</span>
+        <span class="pill pill-param" style="background:rgba(6,182,212,.1);color:var(--cyan);border:1px solid rgba(6,182,212,.28);">rows
+          <span class="balloon"><span class="balloon-title">rows</span><span class="balloon-body">Number of rows in the new shape. The product of all shape dimensions must equal the total element count. Use <code style="color:#f0b63e">-1</code> to have NumPy infer this dimension.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(249,115,22,.1);color:var(--orange);border:1px solid rgba(249,115,22,.28);">cols
+          <span class="balloon"><span class="balloon-title">cols</span><span class="balloon-body">Number of columns in the new shape. The product of all shape dimensions must equal the total element count. Use <code style="color:#f0b63e">-1</code> to have NumPy infer this dimension.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(16,185,129,.1);color:var(--green);border:1px solid rgba(16,185,129,.28);">-1
+          <span class="balloon"><span class="balloon-title">-1 (auto dim)</span><span class="balloon-body">Passing <code style="color:#f0b63e">-1</code> for one dimension tells NumPy to calculate it automatically from the total element count. Only one dimension can be <code style="color:#f0b63e">-1</code> at a time.</span></span>
+        </span>
+        <span class="pill pill-note">returns view</span>
+        <span class="pill pill-ret">→ ndarray (new shape)</span>
+      </div>
+      <p class="m-desc">Rearranges the data into a new shape without copying. The total number of elements must stay the same. Use <code>-1</code> as a wildcard for one dimension to let NumPy compute it — e.g. <code>reshape(3, -1)</code> on 12 elements gives <code>(3, 4)</code>.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>g = <span class="lib">np</span>.<span class="fn">arange</span>(<span class="num">6</span>)
+<span class="fn">print</span>(g.<span class="fn">reshape</span>(<span class="num">2</span>, <span class="num">3</span>))
+<span class="cm"># [[0 1 2]
+#  [3 4 5]]</span>
+
+<span class="fn">print</span>(g.<span class="fn">reshape</span>(<span class="num">3</span>, -<span class="num">1</span>))  <span class="cm"># -1 auto → (3,2)</span>
+<span class="cm"># [[0 1]
+#  [2 3]
+#  [4 5]]</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — pick a target shape (12 elements)</div>
+        <div class="demo-controls">
+          <div class="toggle-group">
+            <button class="tgl-btn on" id="rsh-12" onclick="setReshape(1,12)">(1, 12)</button>
+            <button class="tgl-btn" id="rsh-23" onclick="setReshape(2,6)">(2, 6)</button>
+            <button class="tgl-btn" id="rsh-34" onclick="setReshape(3,4)">(3, 4)</button>
+            <button class="tgl-btn" id="rsh-46" onclick="setReshape(4,3)">(4, 3)</button>
+            <button class="tgl-btn" id="rsh-62" onclick="setReshape(6,2)">(6, 2)</button>
+          </div>
+        </div>
+        <div class="demo-out" id="out-rsh"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-rsh" height="170"></canvas></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(2)">← .ravel()</button>
+        <div class="pnav-dots" id="dots-3"></div>
+        <button class="pnav-btn next" onclick="goTo(4)">.resize() →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 4: .resize() ══ -->
+    <div class="panel" id="panel-4">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1609921212029-bb5a28e60960?w=900&q=75&fit=crop&h=200" alt="Scaling grid" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Shape 04 / 04 · Resize</div>
+          <div class="m-name">.resize()</div>
+          <div class="m-tagline">Reshape in-place — can grow or shrink</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">array.resize(new_shape)</span>
+        <span class="pill pill-param" style="background:rgba(236,72,153,.1);color:var(--pink);border:1px solid rgba(236,72,153,.28);">new_shape
+          <span class="balloon"><span class="balloon-title">new_shape</span><span class="balloon-body">A tuple specifying the desired new dimensions. If larger than the original, extra slots are filled with <code style="color:#f0b63e">0</code>. If smaller, data is truncated. The array is resized in-place.</span></span>
+        </span>
+        <span class="pill pill-note">in-place</span>
+        <span class="pill pill-note" style="background:rgba(250,204,21,.1);border-color:rgba(250,204,21,.3);color:var(--accent);">pads with 0s</span>
+        <span class="pill pill-ret">→ None</span>
+      </div>
+      <p class="m-desc">Unlike <code>.reshape()</code>, <code>.resize()</code> modifies the array in-place and can change the total number of elements. If the new shape is larger, the array is padded with <strong style="color:var(--accent)">zeros</strong>. If smaller, it is truncated. Use <code>np.resize(a, shape)</code> to get a new array instead of modifying in-place.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>h = <span class="lib">np</span>.<span class="fn">arange</span>(<span class="num">6</span>)        <span class="cm"># [0 1 2 3 4 5]</span>
+h.<span class="fn">resize</span>((<span class="num">2</span>, <span class="num">4</span>))       <span class="cm"># 6 elements → 8 slots (pad)</span>
+<span class="fn">print</span>(h)
+<span class="cm"># [[0 1 2 3]
+#  [4 5 0 0]]  ← padded with zeros</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — resize from 6 elements</div>
+        <div class="demo-controls">
+          <div class="toggle-group">
+            <button class="tgl-btn on" id="rsz-14" onclick="setResize(1,6)">(1, 6)</button>
+            <button class="tgl-btn" id="rsz-23" onclick="setResize(2,4)">(2, 4) +pad</button>
+            <button class="tgl-btn" id="rsz-32" onclick="setResize(3,3)">(3, 3) +pad</button>
+            <button class="tgl-btn" id="rsz-sm" onclick="setResize(1,4)">(1, 4) trunc</button>
+          </div>
+        </div>
+        <div class="demo-out" id="out-rsz"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-rsz" height="160"></canvas></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(3)">← .reshape()</button>
+        <div class="pnav-dots" id="dots-4"></div>
+        <button class="pnav-btn next" onclick="goTo(5)">np.append() →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 5: np.append() ══ -->
+    <div class="panel" id="panel-5">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=900&q=75&fit=crop&h=200" alt="Adding items" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Add/Remove 01 / 03</div>
+          <div class="m-name">np.append()</div>
+          <div class="m-tagline">Add elements to the end — returns a new array</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">np.append(arr, values)</span>
+        <span class="pill pill-param" style="background:rgba(16,185,129,.1);color:var(--green);border:1px solid rgba(16,185,129,.28);">arr
+          <span class="balloon"><span class="balloon-title">arr</span><span class="balloon-body">The base array. It is flattened to 1D before appending unless <code>axis</code> is specified. The original array is never modified.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(250,204,21,.1);color:var(--accent);border:1px solid rgba(250,204,21,.28);">values
+          <span class="balloon"><span class="balloon-title">values</span><span class="balloon-body">The values to add at the end. Also flattened to 1D unless <code>axis</code> is given. Can be a scalar, list, or array.</span></span>
+        </span>
+        <span class="pill pill-note">returns NEW array</span>
+        <span class="pill pill-ret">→ 1D ndarray</span>
+      </div>
+      <p class="m-desc">Returns a <strong style="color:var(--orange)">new flat array</strong> with the values appended at the end. The original is unchanged. Unlike Python list <code>.append()</code>, this is not O(1) — it allocates a brand new array every time, so avoid calling it in a loop for performance.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>a = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>])
+<span class="fn">print</span>(<span class="lib">np</span>.<span class="fn">append</span>(a, [<span class="num">4</span>, <span class="num">5</span>]))
+<span class="cm"># [1 2 3 4 5]</span>
+<span class="fn">print</span>(a)   <span class="cm"># [1 2 3]  ← unchanged</span>
+
+<span class="cm"># 2D → flattened automatically</span>
+<span class="fn">print</span>(<span class="lib">np</span>.<span class="fn">append</span>([[<span class="num">1</span>,<span class="num">2</span>],[<span class="num">3</span>,<span class="num">4</span>]], [<span class="num">5</span>,<span class="num">6</span>]))
+<span class="cm"># [1 2 3 4 5 6]</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — watch values get added</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>Append count</label><input type="range" min="1" max="5" value="2" id="app-n" oninput="drawAppend()"><span class="cval" id="app-nv">2</span></div>
+        </div>
+        <div class="demo-out" id="out-app"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-app" height="70"></canvas></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(4)">← .resize()</button>
+        <div class="pnav-dots" id="dots-5"></div>
+        <button class="pnav-btn next" onclick="goTo(6)">np.insert() →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 6: np.insert() ══ -->
+    <div class="panel" id="panel-6">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1576153192396-180ecef2a715?w=900&q=75&fit=crop&h=200" alt="Insert slot" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Add/Remove 02 / 03</div>
+          <div class="m-name">np.insert()</div>
+          <div class="m-tagline">Inject a value before a given index</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">np.insert(arr, obj, values)</span>
+        <span class="pill pill-param" style="background:rgba(59,130,246,.1);color:var(--blue);border:1px solid rgba(59,130,246,.28);">arr
+          <span class="balloon"><span class="balloon-title">arr</span><span class="balloon-body">The array to insert into. The original is not modified — a new array is always returned with the inserted values in place.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(6,182,212,.1);color:var(--cyan);border:1px solid rgba(6,182,212,.28);">values
+          <span class="balloon"><span class="balloon-title">values</span><span class="balloon-body">The value(s) to insert. Can be a scalar or array. For multiple positions, provide matching arrays for both <code>obj</code> and <code>values</code>.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(236,72,153,.1);color:var(--pink);border:1px solid rgba(236,72,153,.28);">obj
+          <span class="balloon"><span class="balloon-title">obj</span><span class="balloon-body">The index (or list of indices) before which to insert. Existing elements at and after that index are shifted right to make room.</span></span>
+        </span>
+        <span class="pill pill-ret">→ new ndarray</span>
+      </div>
+      <p class="m-desc">Returns a new array with values inserted before the given index. The original is not modified. You can insert at multiple positions at once by passing lists for both <code>obj</code> and <code>values</code>.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>a = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>])
+<span class="fn">print</span>(<span class="lib">np</span>.<span class="fn">insert</span>(a, <span class="num">1</span>, <span class="num">5</span>))
+<span class="cm"># [1 5 2 3]  ← 5 inserted before index 1</span>
+
+<span class="fn">print</span>(<span class="lib">np</span>.<span class="fn">insert</span>(a, [<span class="num">1</span>,<span class="num">2</span>], [<span class="num">5</span>,<span class="num">6</span>]))
+<span class="cm"># [1 5 2 6 3]  ← two insertions</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — slide to choose insert position</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>Insert before index</label><input type="range" min="0" max="5" value="2" id="ins-i" oninput="drawInsert()"><span class="cval" id="ins-iv">2</span></div>
+        </div>
+        <div class="demo-out" id="out-ins"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-ins" height="110"></canvas></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(5)">← np.append()</button>
+        <div class="pnav-dots" id="dots-6"></div>
+        <button class="pnav-btn next" onclick="goTo(7)">np.delete() →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 7: np.delete() ══ -->
+    <div class="panel" id="panel-7">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1590859808308-3d2d9c515b1a?w=900&q=75&fit=crop&h=200" alt="Remove element" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Add/Remove 03 / 03</div>
+          <div class="m-name">np.delete()</div>
+          <div class="m-tagline">Remove elements at specified indices</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">np.delete(arr, obj)</span>
+        <span class="pill pill-param" style="background:rgba(249,115,22,.1);color:var(--orange);border:1px solid rgba(249,115,22,.28);">arr
+          <span class="balloon"><span class="balloon-title">arr</span><span class="balloon-body">The source array. The original is never modified — a new array with the specified elements removed is returned.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(244,63,94,.1);color:#f43f5e;border:1px solid rgba(244,63,94,.28);">obj
+          <span class="balloon"><span class="balloon-title">obj</span><span class="balloon-body">Index or list of indices to remove. The remaining elements are packed together in the result. Supports negative indices too.</span></span>
+        </span>
+        <span class="pill pill-ret">→ new ndarray</span>
+      </div>
+      <p class="m-desc">Returns a new array with the elements at the specified indices removed. The original is untouched. Pass a list to delete multiple elements at once. On 2D arrays, pass an <code>axis</code> to delete entire rows or columns.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>a = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>, <span class="num">4</span>, <span class="num">5</span>])
+<span class="fn">print</span>(<span class="lib">np</span>.<span class="fn">delete</span>(a, <span class="num">2</span>))        <span class="cm"># [1 2 4 5]</span>
+<span class="fn">print</span>(<span class="lib">np</span>.<span class="fn">delete</span>(a, [<span class="num">1</span>, <span class="num">3</span>]))   <span class="cm"># [1 3 5]</span>
+<span class="fn">print</span>(a)                          <span class="cm"># [1 2 3 4 5] unchanged</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — pick which index to delete</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>Delete index</label><input type="range" min="0" max="5" value="2" id="del-i" oninput="drawDelete()"><span class="cval" id="del-iv">2</span></div>
+        </div>
+        <div class="demo-out" id="out-del"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-del" height="110"></canvas></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(6)">← np.insert()</button>
+        <div class="pnav-dots" id="dots-7"></div>
+        <button class="pnav-btn next" onclick="goTo(8)">np.concatenate() →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 8: np.concatenate() ══ -->
+    <div class="panel" id="panel-8">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1521295121783-8a321d551ad2?w=900&q=75&fit=crop&h=200" alt="Chain links joined" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Combine 01 / 04</div>
+          <div class="m-name">np.concatenate()</div>
+          <div class="m-tagline">Join arrays along an existing axis</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">np.concatenate((a, b), axis=0)</span>
+        <span class="pill pill-param" style="background:rgba(6,182,212,.1);color:var(--cyan);border:1px solid rgba(6,182,212,.28);">(a, b, …)
+          <span class="balloon"><span class="balloon-title">(a, b, …)</span><span class="balloon-body">A tuple or list of arrays to join. All arrays must have the same shape except along the concatenation <code>axis</code>.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(167,139,250,.1);color:var(--purple);border:1px solid rgba(167,139,250,.28);">axis
+          <span class="balloon"><span class="balloon-title">axis</span><span class="balloon-body"><code style="color:#f0b63e">axis=0</code> stacks rows (default, same as vstack). <code style="color:#f0b63e">axis=1</code> joins along columns (same as hstack). Arrays must match in all other dimensions.</span></span>
+        </span>
+        <span class="pill pill-ret">→ new ndarray</span>
+      </div>
+      <p class="m-desc">The general-purpose joining function. The arrays must have compatible shapes — all dimensions except the concatenation axis must match. For 1D arrays it simply chains them together.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>a = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">1</span>,<span class="num">2</span>,<span class="num">3</span>])
+d = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">10</span>,<span class="num">15</span>,<span class="num">20</span>])
+<span class="fn">print</span>(<span class="lib">np</span>.<span class="fn">concatenate</span>((a, d), axis=<span class="num">0</span>))
+<span class="cm"># [ 1  2  3 10 15 20]</span>
+
+x = <span class="lib">np</span>.<span class="fn">array</span>([[<span class="num">1</span>,<span class="num">2</span>],[<span class="num">3</span>,<span class="num">4</span>]])
+y = <span class="lib">np</span>.<span class="fn">array</span>([[<span class="num">5</span>,<span class="num">6</span>]])
+<span class="fn">print</span>(<span class="lib">np</span>.<span class="fn">concatenate</span>((x, y), axis=<span class="num">0</span>))
+<span class="cm"># [[1 2],[3 4],[5 6]]</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — two arrays join into one</div>
+        <div class="demo-controls">
+          <button class="demo-btn" style="background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.3);color:var(--purple);" onclick="shuffleConcat()">⟳ New values</button>
+        </div>
+        <div class="demo-out" id="out-cat"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-cat" height="80"></canvas></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(7)">← np.delete()</button>
+        <div class="pnav-dots" id="dots-8"></div>
+        <button class="pnav-btn next" onclick="goTo(9)">np.vstack() →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 9: np.vstack() ══ -->
+    <div class="panel" id="panel-9">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1516937941344-00b4e0337589?w=900&q=75&fit=crop&h=200" alt="Stacked layers" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Combine 02 / 04</div>
+          <div class="m-name">np.vstack()</div>
+          <div class="m-tagline">Stack arrays vertically — row on top of row</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">np.vstack((a, b, …))</span>
+        <span class="pill pill-param" style="background:rgba(16,185,129,.1);color:var(--green);border:1px solid rgba(16,185,129,.28);">tup
+          <span class="balloon"><span class="balloon-title">tup</span><span class="balloon-body">A sequence of arrays to stack vertically (row-wise). All arrays must have the same number of columns. 1D arrays are treated as a single row before stacking.</span></span>
+        </span>
+        <span class="pill pill-note">row-wise (axis=0)</span>
+        <span class="pill pill-ret">→ 2D ndarray</span>
+      </div>
+      <p class="m-desc">Stacks arrays on top of each other. A 1D array is treated as a single row. All arrays must have the same number of columns. Equivalent to <code>np.concatenate((a, b), axis=0)</code> and also to <code>np.r_[a, b]</code>.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>a = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>])
+b = <span class="lib">np</span>.<span class="fn">array</span>([[<span class="num">4</span>, <span class="num">5</span>, <span class="num">6</span>],
+              [<span class="num">7</span>, <span class="num">8</span>, <span class="num">9</span>]])
+<span class="fn">print</span>(<span class="lib">np</span>.<span class="fn">vstack</span>((a, b)))
+<span class="cm"># [[1 2 3]
+#  [4 5 6]
+#  [7 8 9]]</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — 1D row stacked on top of 2D</div>
+        <div class="demo-controls">
+          <div class="toggle-group">
+            <button class="tgl-btn on" id="vs-sep" onclick="setVstack(false)">Separate</button>
+            <button class="tgl-btn" id="vs-stk" onclick="setVstack(true)">np.vstack()</button>
+          </div>
+        </div>
+        <div class="demo-out" id="out-vs"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-vs" height="160"></canvas></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(8)">← np.concatenate()</button>
+        <div class="pnav-dots" id="dots-9"></div>
+        <button class="pnav-btn next" onclick="goTo(10)">np.hstack() →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 10: np.hstack() ══ -->
+    <div class="panel" id="panel-10">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1434626881859-194d67b2b86f?w=900&q=75&fit=crop&h=200" alt="Side by side panels" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Combine 03 / 04</div>
+          <div class="m-name">np.hstack()</div>
+          <div class="m-tagline">Stack arrays side by side — column by column</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">np.hstack((a, b, …))</span>
+        <span class="pill pill-param" style="background:rgba(250,204,21,.1);color:var(--accent);border:1px solid rgba(250,204,21,.28);">tup
+          <span class="balloon"><span class="balloon-title">tup</span><span class="balloon-body">A sequence of arrays to stack horizontally (column-wise). For 2D inputs, all arrays must have the same number of rows.</span></span>
+        </span>
+        <span class="pill pill-note">column-wise (axis=1)</span>
+        <span class="pill pill-ret">→ ndarray</span>
+      </div>
+      <p class="m-desc">Places arrays next to each other horizontally. For 2D arrays this is equivalent to <code>np.concatenate((a, b), axis=1)</code>. All arrays must have the same number of rows. Equivalent to <code>np.c_[a, b]</code> for 2D.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>e = <span class="lib">np</span>.<span class="fn">full</span>((<span class="num">2</span>,<span class="num">2</span>), <span class="num">7</span>)
+f = <span class="lib">np</span>.<span class="fn">eye</span>(<span class="num">2</span>)
+<span class="fn">print</span>(<span class="lib">np</span>.<span class="fn">hstack</span>((e, f)))
+<span class="cm"># [[7. 7. 1. 0.]
+#  [7. 7. 0. 1.]]</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — two grids placed side by side</div>
+        <div class="demo-controls">
+          <div class="toggle-group">
+            <button class="tgl-btn on" id="hs-sep" onclick="setHstack(false)">Separate</button>
+            <button class="tgl-btn" id="hs-stk" onclick="setHstack(true)">np.hstack()</button>
+          </div>
+        </div>
+        <div class="demo-out" id="out-hs"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-hs" height="120"></canvas></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(9)">← np.vstack()</button>
+        <div class="pnav-dots" id="dots-10"></div>
+        <button class="pnav-btn next" onclick="goTo(11)">np.column_stack() →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 11: np.column_stack() ══ -->
+    <div class="panel" id="panel-11">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?w=900&q=75&fit=crop&h=200" alt="Columns alignment" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Combine 04 / 04</div>
+          <div class="m-name">np.column_stack()</div>
+          <div class="m-tagline">1D arrays become columns in a 2D matrix</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">np.column_stack((a, b))</span>
+        <span class="pill pill-param" style="background:rgba(236,72,153,.1);color:var(--pink);border:1px solid rgba(236,72,153,.28);">tup
+          <span class="balloon"><span class="balloon-title">tup</span><span class="balloon-body">A tuple of 1D or 2D arrays to stack as columns. 1D arrays are automatically promoted to shape <code>(n, 1)</code> before stacking, making them proper columns.</span></span>
+        </span>
+        <span class="pill pill-note">1D → columns</span>
+        <span class="pill pill-ret">→ 2D ndarray</span>
+      </div>
+      <p class="m-desc">Takes 1D arrays and stacks them as columns. Each input array becomes a column in the output. This is the natural way to build a feature matrix from individual feature vectors. Equivalent to <code>np.hstack</code> for 2D arrays.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>a = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>])
+d = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">10</span>, <span class="num">15</span>, <span class="num">20</span>])
+<span class="fn">print</span>(<span class="lib">np</span>.<span class="fn">column_stack</span>((a, d)))
+<span class="cm"># [[ 1 10]
+#  [ 2 15]
+#  [ 3 20]]</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — two 1D arrays become two columns</div>
+        <div class="demo-controls">
+          <div class="toggle-group">
+            <button class="tgl-btn on" id="cs-sep" onclick="setCstack(false)">Separate</button>
+            <button class="tgl-btn" id="cs-stk" onclick="setCstack(true)">column_stack()</button>
+          </div>
+        </div>
+        <div class="demo-out" id="out-cs"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-cs" height="140"></canvas></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(10)">← np.hstack()</button>
+        <div class="pnav-dots" id="dots-11"></div>
+        <button class="pnav-btn next" onclick="goTo(12)">np.hsplit() →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 12: np.hsplit() ══ -->
+    <div class="panel" id="panel-12">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=900&q=75&fit=crop&h=200" alt="Horizontal cut" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Split 01 / 02</div>
+          <div class="m-name">np.hsplit()</div>
+          <div class="m-tagline">Cut a 1D array into equal horizontal pieces</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">np.hsplit(array, N)</span>
+        <span class="pill pill-param" style="background:rgba(59,130,246,.1);color:var(--blue);border:1px solid rgba(59,130,246,.28);">array
+          <span class="balloon"><span class="balloon-title">array</span><span class="balloon-body">The 2D array to split horizontally (column-wise). Its number of columns must be evenly divisible by <code>N</code>.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(232,121,249,.1);color:#e879f9;border:1px solid rgba(232,121,249,.28);">N
+          <span class="balloon"><span class="balloon-title">N</span><span class="balloon-body">Number of equal sections to split into. If an integer, the array must be divisible by N. You can also pass a list of split points like <code style="color:#f0b63e">[3, 5]</code>.</span></span>
+        </span>
+        <span class="pill pill-ret">→ list of ndarrays</span>
+      </div>
+      <p class="m-desc">Splits along the horizontal axis (axis=1 for 2D, axis=0 for 1D). Returns a list of sub-arrays. The array length must be evenly divisible by N (or use split points). The inverse operation of <code>np.hstack()</code>.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>a = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>, <span class="num">4</span>, <span class="num">5</span>, <span class="num">6</span>])
+parts = <span class="lib">np</span>.<span class="fn">hsplit</span>(a, <span class="num">3</span>)
+<span class="cm"># [array([1, 2]), array([3, 4]), array([5, 6])]</span>
+
+<span class="cm"># split at specific positions</span>
+<span class="lib">np</span>.<span class="fn">hsplit</span>(a, [<span class="num">2</span>, <span class="num">4</span>])
+<span class="cm"># [array([1,2]), array([3,4]), array([5,6])]</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — choose how many pieces</div>
+        <div class="demo-controls">
+          <div class="toggle-group">
+            <button class="tgl-btn on" id="hsp-2" onclick="setHsplit(2)">Split into 2</button>
+            <button class="tgl-btn" id="hsp-3" onclick="setHsplit(3)">Split into 3</button>
+            <button class="tgl-btn" id="hsp-6" onclick="setHsplit(6)">Split into 6</button>
+          </div>
+        </div>
+        <div class="demo-out" id="out-hsp"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-hsp" height="80"></canvas></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(11)">← np.column_stack()</button>
+        <div class="pnav-dots" id="dots-12"></div>
+        <button class="pnav-btn next" onclick="goTo(13)">np.vsplit() →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 13: np.vsplit() ══ -->
+    <div class="panel" id="panel-13">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1518186285589-2f7649de83e0?w=900&q=75&fit=crop&h=200" alt="Vertical layers split" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Split 02 / 02</div>
+          <div class="m-name">np.vsplit()</div>
+          <div class="m-tagline">Slice a 2D array into horizontal row groups</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">np.vsplit(array, N)</span>
+        <span class="pill pill-param" style="background:rgba(6,182,212,.1);color:var(--cyan);border:1px solid rgba(6,182,212,.28);">array
+          <span class="balloon"><span class="balloon-title">array</span><span class="balloon-body">The 2D array to split vertically (row-wise). Its number of rows must be evenly divisible by <code>N</code>.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(110,231,183,.1);color:#6ee7b7;border:1px solid rgba(110,231,183,.28);">N
+          <span class="balloon"><span class="balloon-title">N</span><span class="balloon-body">Number of equal row-groups to cut into, or a list of row indices at which to split. The number of rows must be divisible by N when passing an integer.</span></span>
+        </span>
+        <span class="pill pill-ret">→ list of ndarrays</span>
+      </div>
+      <p class="m-desc">Splits a 2D array into row groups (along axis=0). Each part is a 2D sub-array. The inverse operation of <code>np.vstack()</code>. Use <code>np.split(a, N, axis=0)</code> for the same effect.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>c = <span class="lib">np</span>.<span class="fn">arange</span>(<span class="num">12</span>).<span class="fn">reshape</span>(<span class="num">4</span>, <span class="num">3</span>)
+parts = <span class="lib">np</span>.<span class="fn">vsplit</span>(c, <span class="num">2</span>)
+<span class="fn">print</span>(parts[<span class="num">0</span>])   <span class="cm"># rows 0-1</span>
+<span class="cm"># [[0 1 2]
+#  [3 4 5]]</span>
+<span class="fn">print</span>(parts[<span class="num">1</span>])   <span class="cm"># rows 2-3</span>
+<span class="cm"># [[ 6  7  8]
+#  [ 9 10 11]]</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — split a 4×3 grid into row groups</div>
+        <div class="demo-controls">
+          <div class="toggle-group">
+            <button class="tgl-btn on" id="vsp-2" onclick="setVsplit(2)">Split into 2</button>
+            <button class="tgl-btn" id="vsp-4" onclick="setVsplit(4)">Split into 4</button>
+          </div>
+        </div>
+        <div class="demo-out" id="out-vsp"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-vsp" height="170"></canvas></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(12)">← np.hsplit()</button>
+        <div class="pnav-dots" id="dots-13"></div>
+        <button class="pnav-btn next" onclick="goTo(14)">Exercises →</button>
+      </div>
+    </div>
+
+    <!-- PANEL 14: Exercises -->
+    <div class="panel" id="panel-14">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=900&q=75&fit=crop&h=200" alt="Practice" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Panel 14 · Practice</div>
+          <div class="m-name">Exercises</div>
+          <div class="m-tagline">13 challenges — reshape, combine &amp; split</div>
+        </div>
+      </div>
+      <div class="exercise-header">
+        <div class="exercise-badge">?</div>
+        <div>
+          <h2 style="font-size:1.15rem;font-weight:900;color:var(--text);margin-bottom:4px;">Practice Time</h2>
+          <p style="color:#fbbf24;font-size:.88rem;font-weight:700;">What does each expression return? No solutions shown!</p>
+        </div>
+      </div>
+      <div id="ex-cards-09">
+        <div class="ex-card">
+          <div class="ex-q-head"><span class="ex-num">Q1</span></div>
+          <p class="ex-task">Given <code>a = np.array([[1,2,3],[4,5,6]])</code> — what does <code>a.T</code> return?</p>
+          <div class="code-wrap"><div class="code-header"><span class="code-lang">output</span></div>
+          <pre><span class="cm"># shape becomes (3, 2)</span>
+array([[?, ?],
+       [?, ?],
+       [?, ?]])</pre></div>
+        </div>
+        <div class="ex-card">
+          <div class="ex-q-head"><span class="ex-num">Q2</span></div>
+          <p class="ex-task">Given <code>a = np.array([[1,2,3],[4,5,6]])</code> — what does <code>a.ravel()</code> return?</p>
+          <div class="code-wrap"><div class="code-header"><span class="code-lang">output</span></div>
+          <pre>array([?, ?, ?, ?, ?, ?])</pre></div>
+        </div>
+        <div class="ex-card">
+          <div class="ex-q-head"><span class="ex-num">Q3</span></div>
+          <p class="ex-task">Given <code>a = np.arange(6)</code> — what does <code>a.reshape(2, 3)</code> return?</p>
+          <div class="code-wrap"><div class="code-header"><span class="code-lang">output</span></div>
+          <pre>array([[?, ?, ?],
+       [?, ?, ?]])</pre></div>
+        </div>
+        <div class="ex-card">
+          <div class="ex-q-head"><span class="ex-num">Q4</span></div>
+          <p class="ex-task">Given <code>a = np.array([1,2,3])</code> — what does <code>np.append(a, [4,5])</code> return?</p>
+          <div class="code-wrap"><div class="code-header"><span class="code-lang">output</span></div>
+          <pre>array([?, ?, ?, ?, ?])</pre></div>
+        </div>
+        <div class="ex-card">
+          <div class="ex-q-head"><span class="ex-num">Q5</span></div>
+          <p class="ex-task">Given <code>a = np.array([1,2,3,4])</code> — what does <code>np.insert(a, 2, 99)</code> return?</p>
+          <div class="code-wrap"><div class="code-header"><span class="code-lang">output</span></div>
+          <pre><span class="cm"># inserts 99 at index 2</span>
+array([?, ?, ?, ?, ?])</pre></div>
+        </div>
+        <div class="ex-card">
+          <div class="ex-q-head"><span class="ex-num">Q6</span></div>
+          <p class="ex-task">Given <code>a = np.array([10,20,30,40,50])</code> — what does <code>np.delete(a, 2)</code> return?</p>
+          <div class="code-wrap"><div class="code-header"><span class="code-lang">output</span></div>
+          <pre>array([?, ?, ?, ?])</pre></div>
+        </div>
+        <div class="ex-card">
+          <div class="ex-q-head"><span class="ex-num">Q7</span></div>
+          <p class="ex-task">Given <code>a = np.array([1,2,3])</code> and <code>b = np.array([4,5,6])</code> — what does <code>np.concatenate([a, b])</code> return?</p>
+          <div class="code-wrap"><div class="code-header"><span class="code-lang">output</span></div>
+          <pre>array([?, ?, ?, ?, ?, ?])</pre></div>
+        </div>
+        <div class="ex-card">
+          <div class="ex-q-head"><span class="ex-num">Q8</span></div>
+          <p class="ex-task">Given <code>a = np.array([1,2,3])</code> and <code>b = np.array([4,5,6])</code> — what does <code>np.vstack([a, b])</code> return?</p>
+          <div class="code-wrap"><div class="code-header"><span class="code-lang">output</span></div>
+          <pre><span class="cm"># shape: (2, 3)</span>
+array([[?, ?, ?],
+       [?, ?, ?]])</pre></div>
+        </div>
+        <div class="ex-card">
+          <div class="ex-q-head"><span class="ex-num">Q9</span></div>
+          <p class="ex-task">Given <code>a = np.array([1,2,3])</code> and <code>b = np.array([4,5,6])</code> — what does <code>np.hstack([a, b])</code> return?</p>
+          <div class="code-wrap"><div class="code-header"><span class="code-lang">output</span></div>
+          <pre>array([?, ?, ?, ?, ?, ?])</pre></div>
+        </div>
+        <div class="ex-card">
+          <div class="ex-q-head"><span class="ex-num">Q10</span></div>
+          <p class="ex-task">Given <code>a = np.array([1,2,3])</code> and <code>b = np.array([4,5,6])</code> — what does <code>np.column_stack([a, b])</code> return?</p>
+          <div class="code-wrap"><div class="code-header"><span class="code-lang">output</span></div>
+          <pre><span class="cm"># shape: (3, 2)</span>
+array([[?, ?],
+       [?, ?],
+       [?, ?]])</pre></div>
+        </div>
+        <div class="ex-card">
+          <div class="ex-q-head"><span class="ex-num">Q11</span></div>
+          <p class="ex-task">Given <code>a = np.array([1,2,3,4,5,6])</code> — what does <code>np.hsplit(a, 3)</code> return?</p>
+          <div class="code-wrap"><div class="code-header"><span class="code-lang">output</span></div>
+          <pre><span class="cm"># splits into 3 equal parts</span>
+[array([?,?]), array([?,?]), array([?,?])]</pre></div>
+        </div>
+        <div class="ex-card">
+          <div class="ex-q-head"><span class="ex-num">Q12</span></div>
+          <p class="ex-task">Given <code>a = np.arange(8).reshape(4,2)</code> — what does <code>np.vsplit(a, 2)</code> return?</p>
+          <div class="code-wrap"><div class="code-header"><span class="code-lang">output</span></div>
+          <pre><span class="cm"># splits into 2 sub-arrays of shape (2, 2)</span>
+[array([[?,?],[?,?]]), array([[?,?],[?,?]])]</pre></div>
+        </div>
+        <div class="ex-card">
+          <div class="ex-q-head"><span class="ex-num">Q13</span></div>
+          <p class="ex-task">Is <code>a.reshape(3,4)</code> valid if <code>a = np.arange(10)</code>? What about <code>a.reshape(2,5)</code>?</p>
+          <div class="code-wrap"><div class="code-header"><span class="code-lang">output</span></div>
+          <pre><span class="cm"># total elements must match</span>
+reshape(3,4): ?
+reshape(2,5): ?</pre></div>
+        </div>
+      </div><!-- end ex-cards-09 -->
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(13)">← np.vsplit()</button>
+        <div class="pnav-dots" id="dots-14"></div>
+        <button class="pnav-btn next" onclick="goTo(0)" style="background:rgba(139,92,246,.1);border-color:rgba(139,92,246,.4);color:var(--purple);">&#8635; Back to Overview</button>
+      </div>
+    </div>
+
+  </div><!-- /panel-viewport -->
+</div><!-- /page-layout -->
+
+<script>
+const $ = id => document.getElementById(id);
+const TOTAL = 15;
+const LABELS = ['Overview','.T/transpose()','.ravel()','.reshape()','.resize()','np.append()','np.insert()','np.delete()','np.concatenate()','np.vstack()','np.hstack()','np.column_stack()','np.hsplit()','np.vsplit()','Exercises'];
+let current = 0;
+
+function goTo(idx) {
+  if (idx === current) return;
+  if (current > 0) document.querySelector(`[data-panel="${current}"]`).classList.add('done');
+  const oldP = $('panel-' + current), newP = $('panel-' + idx);
+  oldP.classList.remove('active'); oldP.classList.add('exit');
+  setTimeout(() => oldP.classList.remove('exit'), 280);
+  current = idx; newP.classList.add('active');
+  $('viewport').scrollTop = 0;
+  document.querySelectorAll('.s-item').forEach(b => b.classList.toggle('active', +b.dataset.panel === idx));
+  updateDots();
+  const draws = [null, () => setTranspose(false), () => setRavel(false), () => setReshape(1,12), () => setResize(1,6), drawAppend, drawInsert, drawDelete, shuffleConcat, () => setVstack(false), () => setHstack(false), () => setCstack(false), () => setHsplit(2), () => setVsplit(2), shuffleEx09];
+  if (draws[idx]) setTimeout(draws[idx], 60);
+}
+
+function updateDots() {
+  for (let i = 0; i < TOTAL; i++) {
+    const cont = $('dots-' + i); if (!cont) continue;
+    cont.innerHTML = '';
+    for (let d = 0; d < TOTAL; d++) {
+      const btn = document.createElement('button');
+      btn.className = 'pnav-dot' + (d === current ? ' active' : '');
+      btn.title = LABELS[d]; btn.onclick = () => goTo(d);
+      cont.appendChild(btn);
+    }
+  }
+}
+$('viewport').addEventListener('scroll', () => {
+  const el = $('viewport');
+  $('progress').style.width = (el.scrollTop / (el.scrollHeight - el.clientHeight) * 100) + '%';
+});
+function cp(btn) {
+  navigator.clipboard.writeText(btn.closest('.code-wrap').querySelector('pre').innerText.trim()).then(() => {
+    btn.textContent = '✓ copied'; setTimeout(() => btn.textContent = 'copy', 1600);
+  });
+}
+
+/* ══ grid drawing helper ══ */
+function drawGrid(ctx, grid, ox, oy, cs, p, colorFn, labelFn) {
+  grid.forEach((row, r) => row.forEach((v, c) => {
+    const x = ox + c * (cs + p), y = oy + r * (cs + p);
+    ctx.fillStyle = colorFn(v, r, c) + '28'; ctx.beginPath(); ctx.roundRect(x, y, cs, cs, 5); ctx.fill();
+    ctx.strokeStyle = colorFn(v, r, c) + '70'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = colorFn(v, r, c); ctx.font = 'bold 13px Courier New';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(labelFn ? labelFn(v, r, c) : v, x + cs / 2, y + cs / 2);
+  }));
+}
+function draw1D(ctx, arr, oy, cs, p, colorFn) {
+  arr.forEach((v, i) => {
+    const x = p + i * (cs + p);
+    ctx.fillStyle = colorFn(v, i) + '28'; ctx.beginPath(); ctx.roundRect(x, oy, cs, cs - 4, 5); ctx.fill();
+    ctx.strokeStyle = colorFn(v, i) + '70'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = colorFn(v, i); ctx.font = 'bold 13px Courier New';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(v, x + cs / 2, oy + (cs - 4) / 2);
+  });
+}
+
+/* ═══ P1: transpose ═══ */
+const tpGrid = [[1,2,3],[4,5,6]];
+function setTranspose(doT) {
+  $('tp-orig').className = 'tgl-btn' + (!doT ? ' on' : '');
+  $('tp-T').className = 'tgl-btn' + (doT ? ' on' : '');
+  const grid = doT ? [0,1,2].map(c => [0,1].map(r => tpGrid[r][c])) : tpGrid;
+  const rows = grid.length, cols = grid[0].length, cs = 54, p = 5;
+  const cv = $('cv-tp');
+  cv.width = Math.max(cols * (cs+p)+p, 220); cv.height = rows * (cs+p) + p + 20;
+  const ctx = cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+  const lbl = doT ? `b.T  →  shape (3, 2)` : `b  →  shape (2, 3)`;
+  ctx.fillStyle = '#8b949e'; ctx.font = 'bold 10px Segoe UI'; ctx.textAlign = 'left';
+  ctx.fillText(lbl, p, 11);
+  const colorRow = ['#3b82f6','#ec4899'];
+  grid.forEach((row, r) => row.forEach((v, c) => {
+    const origR = doT ? c : r;
+    const x = p + c*(cs+p), y = 16 + r*(cs+p);
+    ctx.fillStyle = colorRow[origR]+'28'; ctx.beginPath(); ctx.roundRect(x,y,cs,cs,5); ctx.fill();
+    ctx.strokeStyle = colorRow[origR]+'60'; ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle = colorRow[origR]; ctx.font='bold 15px Courier New';
+    ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(v,x+cs/2,y+cs/2);
+  }));
+  $('out-tp').textContent = doT
+    ? `b.T\n[[1 4]\n [2 5]\n [3 6]]  shape=(3,2)`
+    : `b = [[1,2,3],[4,5,6]]  shape=(2,3)`;
+}
+
+/* ═══ P2: ravel ═══ */
+const rvGrid = [[1,2,3],[4,5,6],[7,8,9]];
+function setRavel(doRavel) {
+  $('rv-2d').className = 'tgl-btn' + (!doRavel ? ' on' : '');
+  $('rv-1d').className = 'tgl-btn' + (doRavel ? ' on' : '');
+  const cs = 50, p = 5, flat = rvGrid.flat();
+  const cv = $('cv-rv');
+  if (!doRavel) {
+    const rows = 3, cols = 3;
+    cv.width = cols*(cs+p)+p; cv.height = rows*(cs+p)+p;
+    const ctx = cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+    drawGrid(ctx, rvGrid, p, p, cs, p, () => '#06b6d4', null);
+  } else {
+    cv.width = flat.length*(cs+p)+p; cv.height = cs+p*2;
+    const ctx = cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+    flat.forEach((v, i) => {
+      const x = p + i*(cs+p), hue = 150 + i*15;
+      ctx.fillStyle = `hsla(${hue},70%,55%,.2)`; ctx.beginPath(); ctx.roundRect(x,p,cs,cs,5); ctx.fill();
+      ctx.strokeStyle = `hsla(${hue},70%,60%,.5)`; ctx.lineWidth=1; ctx.stroke();
+      ctx.fillStyle = `hsla(${hue},80%,72%,1)`; ctx.font='bold 14px Courier New';
+      ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(v,x+cs/2,p+cs/2);
+    });
+  }
+  $('out-rv').textContent = doRavel
+    ? `b.ravel()  →  [${flat.join(', ')}]\nshape: (9,)`
+    : `b = [[1,2,3],[4,5,6],[7,8,9]]\nshape: (3, 3)`;
+}
+
+/* ═══ P3: reshape ═══ */
+const rshBase = Array.from({length:12},(_,i)=>i);
+function setReshape(rows, cols) {
+  ['12','23','34','46','62'].forEach(k => $('rsh-'+k).className='tgl-btn');
+  const key = `${rows}${cols}`;
+  if ($('rsh-'+key)) $('rsh-'+key).className='tgl-btn on';
+  const grid = Array.from({length:rows},(_,r)=>Array.from({length:cols},(_,c)=>rshBase[r*cols+c]));
+  const cs = Math.min(50, Math.floor(500/(cols+1))), p = 4;
+  const cv = $('cv-rsh');
+  cv.width = cols*(cs+p)+p; cv.height = rows*(cs+p)+p+16;
+  const ctx = cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+  ctx.fillStyle='#8b949e'; ctx.font='bold 9px Segoe UI'; ctx.textAlign='left';
+  ctx.fillText(`shape: (${rows}, ${cols})`, p, 10);
+  grid.forEach((row,r)=>row.forEach((v,c)=>{
+    const x=p+c*(cs+p), y=14+r*(cs+p);
+    const hue=200+(v/12*120)|0;
+    ctx.fillStyle=`hsla(${hue},65%,55%,.22)`; ctx.beginPath(); ctx.roundRect(x,y,cs,cs,4); ctx.fill();
+    ctx.strokeStyle=`hsla(${hue},65%,60%,.5)`; ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle=`hsla(${hue},80%,75%,1)`; ctx.font='bold 12px Courier New';
+    ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(v,x+cs/2,y+cs/2);
+  }));
+  $('out-rsh').textContent = `g = np.arange(12)\ng.reshape(${rows}, ${cols === 12 ? -1 : cols})  →  shape=(${rows},${cols})`;
+}
+
+/* ═══ P4: resize ═══ */
+const rszBase = [0,1,2,3,4,5];
+function setResize(rows, cols) {
+  ['14','23','32','sm'].forEach(k=>$('rsz-'+k).className='tgl-btn');
+  const map={[1*100+6]:'14',[2*100+4]:'23',[3*100+3]:'32',[1*100+4]:'sm'};
+  const k=map[rows*100+cols]; if(k)$('rsz-'+k).className='tgl-btn on';
+  const total=rows*cols, cs=52, p=5;
+  const vals=Array.from({length:total},(_,i)=>i<rszBase.length?rszBase[i]:0);
+  const grid=Array.from({length:rows},(_,r)=>Array.from({length:cols},(_,c)=>vals[r*cols+c]));
+  const cv=$('cv-rsz');
+  cv.width=cols*(cs+p)+p; cv.height=rows*(cs+p)+p+16;
+  const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+  ctx.fillStyle='#8b949e'; ctx.font='bold 9px Segoe UI'; ctx.textAlign='left';
+  ctx.fillText(`resize → (${rows}, ${cols})`, p, 10);
+  grid.forEach((row,r)=>row.forEach((v,c)=>{
+    const idx=r*cols+c, isPad=idx>=rszBase.length, isTrunc=total<rszBase.length && idx<total;
+    const x=p+c*(cs+p), y=14+r*(cs+p);
+    ctx.fillStyle=isPad?'rgba(250,204,21,.15)':'rgba(59,130,246,.18)';
+    ctx.beginPath(); ctx.roundRect(x,y,cs,cs,5); ctx.fill();
+    ctx.strokeStyle=isPad?'rgba(250,204,21,.5)':'rgba(59,130,246,.4)'; ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle=isPad?'#facc15':'#3b82f6'; ctx.font='bold 14px Courier New';
+    ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(v,x+cs/2,y+cs/2);
+    if(isPad){ ctx.fillStyle='rgba(250,204,21,.5)'; ctx.font='8px Segoe UI'; ctx.fillText('pad',x+cs/2,y+cs-6); }
+  }));
+  $('out-rsz').textContent = `h = np.arange(6)  →  [${rszBase.join(' ')}]\nh.resize((${rows}, ${cols}))\n${total>6?'Padded with zeros (yellow)':'Truncated to '+total+' elements'}`;
+}
+
+/* ═══ P5: append ═══ */
+const appBase=[1,2,3,4,5];
+const appNew=[10,20,30,40,50];
+function drawAppend(){
+  const n=+$('app-n').value; $('app-nv').textContent=n;
+  const result=[...appBase,...appNew.slice(0,n)];
+  const cs=48, p=4, cv=$('cv-app');
+  cv.width=result.length*(cs+p)+p; cv.height=cs+p*2;
+  const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+  result.forEach((v,i)=>{
+    const x=p+i*(cs+p), isNew=i>=appBase.length;
+    ctx.fillStyle=isNew?'rgba(249,115,22,.28)':'rgba(59,130,246,.2)';
+    ctx.beginPath(); ctx.roundRect(x,p,cs,cs,5); ctx.fill();
+    ctx.strokeStyle=isNew?'rgba(249,115,22,.7)':'rgba(59,130,246,.5)'; ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle=isNew?'#f97316':'#3b82f6'; ctx.font='bold 13px Courier New';
+    ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(v,x+cs/2,p+cs/2);
+  });
+  $('out-app').textContent=`a = [${appBase.join(', ')}]\nnp.append(a, [${appNew.slice(0,n).join(', ')}])\n→  [${result.join(', ')}]`;
+}
+
+/* ═══ P6: insert ═══ */
+const insBase=[1,2,3,4,5,6];
+function drawInsert(){
+  const idx=+$('ins-i').value; $('ins-iv').textContent=idx;
+  const result=[...insBase.slice(0,idx),99,...insBase.slice(idx)];
+  const cs=46, p=4, cv=$('cv-ins');
+  cv.width=Math.max(insBase.length*(cs+p)+p,result.length*(cs+p)+p);
+  cv.height=110;
+  const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+  ctx.fillStyle='#8b949e'; ctx.font='bold 10px Segoe UI'; ctx.textAlign='left';
+  ctx.fillText('a (before)', p, 10);
+  ctx.fillText('after insert', p, 66);
+  insBase.forEach((v,i)=>{
+    const x=p+i*(cs+p);
+    ctx.fillStyle='rgba(255,255,255,.06)'; ctx.beginPath(); ctx.roundRect(x,14,cs,42,5); ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,.12)'; ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle='#8b949e'; ctx.font='bold 13px Courier New'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(v,x+cs/2,35);
+  });
+  result.forEach((v,i)=>{
+    const x=p+i*(cs+p), isNew=i===idx;
+    ctx.fillStyle=isNew?'rgba(236,72,153,.3)':'rgba(255,255,255,.05)';
+    ctx.beginPath(); ctx.roundRect(x,70,cs,42,5); ctx.fill();
+    ctx.strokeStyle=isNew?'#ec4899':'rgba(255,255,255,.1)'; ctx.lineWidth=isNew?2:1; ctx.stroke();
+    ctx.fillStyle=isNew?'#ec4899':'#8b949e'; ctx.font='bold 13px Courier New'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(v,x+cs/2,91);
+  });
+  $('out-ins').textContent=`a = [${insBase.join(', ')}]\nnp.insert(a, ${idx}, 99)\n→  [${result.join(', ')}]`;
+}
+
+/* ═══ P7: delete ═══ */
+const delBase=[1,2,3,4,5,6];
+function drawDelete(){
+  const idx=+$('del-i').value; $('del-iv').textContent=idx;
+  const result=delBase.filter((_,i)=>i!==idx);
+  const cs=50, p=5, cv=$('cv-del');
+  cv.width=delBase.length*(cs+p)+p; cv.height=110;
+  const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+  ctx.fillStyle='#8b949e'; ctx.font='bold 10px Segoe UI'; ctx.textAlign='left';
+  ctx.fillText('a (before)', p, 10); ctx.fillText('after delete', p, 68);
+  delBase.forEach((v,i)=>{
+    const x=p+i*(cs+p), isDel=i===idx;
+    ctx.fillStyle=isDel?'rgba(244,63,94,.25)':'rgba(255,255,255,.06)';
+    ctx.beginPath(); ctx.roundRect(x,14,cs,44,5); ctx.fill();
+    ctx.strokeStyle=isDel?'#f43f5e':'rgba(255,255,255,.12)'; ctx.lineWidth=isDel?2:1; ctx.stroke();
+    ctx.fillStyle=isDel?'#f43f5e':'#8b949e'; ctx.font=isDel?'bold 13px Courier New':'bold 13px Courier New';
+    ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(v,x+cs/2,36);
+    if(isDel){ ctx.fillStyle='#f43f5e'; ctx.font='bold 16px Courier New'; ctx.fillText('✕',x+cs/2,48); }
+  });
+  result.forEach((v,i)=>{
+    const x=p+i*(cs+p);
+    ctx.fillStyle='rgba(52,211,153,.2)'; ctx.beginPath(); ctx.roundRect(x,72,cs,44,5); ctx.fill();
+    ctx.strokeStyle='rgba(52,211,153,.5)'; ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle='#34d399'; ctx.font='bold 13px Courier New'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(v,x+cs/2,94);
+  });
+  $('out-del').textContent=`a = [${delBase.join(', ')}]\nnp.delete(a, ${idx})\n→  [${result.join(', ')}]`;
+}
+
+/* ═══ P8: concatenate ═══ */
+let catA=[1,2,3], catB=[10,15,20];
+function shuffleConcat(){ catA=Array.from({length:3},()=>~~(Math.random()*9)+1); catB=Array.from({length:3},()=>~~(Math.random()*20)+10); drawCatCanvas(); }
+function drawCatCanvas(){
+  const result=[...catA,...catB];
+  const cs=52, p=5, cv=$('cv-cat');
+  cv.width=result.length*(cs+p)+p+30; cv.height=80;
+  const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+  result.forEach((v,i)=>{
+    const x=p+i*(cs+p), isB=i>=catA.length;
+    ctx.fillStyle=isB?'rgba(167,139,250,.25)':'rgba(59,130,246,.2)';
+    ctx.beginPath(); ctx.roundRect(x,16,cs,44,5); ctx.fill();
+    ctx.strokeStyle=isB?'rgba(167,139,250,.6)':'rgba(59,130,246,.5)'; ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle=isB?'#a78bfa':'#3b82f6'; ctx.font='bold 14px Courier New';
+    ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(v,x+cs/2,38);
+  });
+  ctx.strokeStyle='rgba(250,204,21,.5)'; ctx.lineWidth=2;
+  const splitX=p+catA.length*(cs+p)-p/2;
+  ctx.setLineDash([4,3]); ctx.beginPath(); ctx.moveTo(splitX,14); ctx.lineTo(splitX,62); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle='rgba(255,255,255,.25)'; ctx.font='bold 10px Segoe UI'; ctx.textAlign='center'; ctx.fillText('a',p+catA.length/2*(cs+p),10);
+  ctx.fillText('d',p+catA.length*(cs+p)+catB.length/2*(cs+p)-cs/2,10);
+  $('out-cat').textContent=`np.concatenate(([${catA.join(',')}],[${catB.join(',')}]),axis=0)\n→  [${result.join(', ')}]`;
+}
+
+/* ═══ P9: vstack ═══ */
+const vsA=[1,2,3], vsB=[[4,5,6],[7,8,9]];
+function setVstack(stacked){
+  $('vs-sep').className='tgl-btn'+(!stacked?' on':'');
+  $('vs-stk').className='tgl-btn'+(stacked?' on':'');
+  const cs=52, p=5, cv=$('cv-vs');
+  if(!stacked){
+    cv.width=3*(cs+p)+p; cv.height=160;
+    const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+    ctx.fillStyle='#3b82f6'; ctx.font='bold 10px Segoe UI'; ctx.textAlign='left'; ctx.fillText('a (1D)',p,10);
+    vsA.forEach((v,i)=>{ const x=p+i*(cs+p); ctx.fillStyle='rgba(59,130,246,.2)'; ctx.beginPath(); ctx.roundRect(x,14,cs,cs,5); ctx.fill(); ctx.strokeStyle='rgba(59,130,246,.5)'; ctx.lineWidth=1; ctx.stroke(); ctx.fillStyle='#3b82f6'; ctx.font='bold 14px Courier New'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(v,x+cs/2,14+cs/2); });
+    ctx.fillStyle='#ec4899'; ctx.font='bold 10px Segoe UI'; ctx.textAlign='left'; ctx.fillText('b (2D)',p,80);
+    vsB.forEach((row,r)=>row.forEach((v,c)=>{ const x=p+c*(cs+p),y=84+r*(cs+p); ctx.fillStyle='rgba(236,72,153,.15)'; ctx.beginPath(); ctx.roundRect(x,y,cs,cs,5); ctx.fill(); ctx.strokeStyle='rgba(236,72,153,.4)'; ctx.lineWidth=1; ctx.stroke(); ctx.fillStyle='#ec4899'; ctx.font='bold 14px Courier New'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(v,x+cs/2,y+cs/2); }));
+  } else {
+    const combined=[vsA,...vsB];
+    cv.width=3*(cs+p)+p; cv.height=combined.length*(cs+p)+p+16;
+    const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+    ctx.fillStyle='#8b949e'; ctx.font='bold 10px Segoe UI'; ctx.textAlign='left'; ctx.fillText('np.vstack((a,b))  →  shape (3,3)',p,10);
+    const colors=['#3b82f6','#ec4899','#ec4899'];
+    combined.forEach((row,r)=>row.forEach((v,c)=>{ const x=p+c*(cs+p),y=14+r*(cs+p); ctx.fillStyle=colors[r]+'28'; ctx.beginPath(); ctx.roundRect(x,y,cs,cs,5); ctx.fill(); ctx.strokeStyle=colors[r]+'60'; ctx.lineWidth=1; ctx.stroke(); ctx.fillStyle=colors[r]; ctx.font='bold 14px Courier New'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(v,x+cs/2,y+cs/2); }));
+  }
+  $('out-vs').textContent=stacked?`np.vstack((a, b))\n→ [[1,2,3],[4,5,6],[7,8,9]]  shape=(3,3)`:`a = [1,2,3]   shape=(3,)\nb = [[4,5,6],[7,8,9]]  shape=(2,3)`;
+}
+
+/* ═══ P10: hstack ═══ */
+const hsE=[[7,7],[7,7]], hsF=[[1,0],[0,1]];
+function setHstack(stacked){
+  $('hs-sep').className='tgl-btn'+(!stacked?' on':'');
+  $('hs-stk').className='tgl-btn'+(stacked?' on':'');
+  const cs=48, p=5, cv=$('cv-hs');
+  if(!stacked){
+    cv.width=2*(cs+p)+p+30+2*(cs+p)+p; cv.height=2*(cs+p)+p+16;
+    const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+    ctx.fillStyle='#facc15'; ctx.font='bold 10px Segoe UI'; ctx.textAlign='left'; ctx.fillText('e (2×2)',p,10);
+    hsE.forEach((row,r)=>row.forEach((v,c)=>{ const x=p+c*(cs+p),y=14+r*(cs+p); ctx.fillStyle='rgba(250,204,21,.2)'; ctx.beginPath(); ctx.roundRect(x,y,cs,cs,5); ctx.fill(); ctx.strokeStyle='rgba(250,204,21,.5)'; ctx.lineWidth=1; ctx.stroke(); ctx.fillStyle='#facc15'; ctx.font='bold 14px Courier New'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(v,x+cs/2,y+cs/2); }));
+    const off=2*(cs+p)+p+20;
+    ctx.fillStyle='#10b981'; ctx.font='bold 10px Segoe UI'; ctx.textAlign='left'; ctx.fillText('f (eye)',p+off,10);
+    hsF.forEach((row,r)=>row.forEach((v,c)=>{ const x=p+off+c*(cs+p),y=14+r*(cs+p); ctx.fillStyle='rgba(16,185,129,.15)'; ctx.beginPath(); ctx.roundRect(x,y,cs,cs,5); ctx.fill(); ctx.strokeStyle='rgba(16,185,129,.4)'; ctx.lineWidth=1; ctx.stroke(); ctx.fillStyle='#10b981'; ctx.font='bold 14px Courier New'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(v,x+cs/2,y+cs/2); }));
+  } else {
+    const combined=hsE.map((row,r)=>[...row,...hsF[r]]);
+    cv.width=4*(cs+p)+p; cv.height=2*(cs+p)+p+16;
+    const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+    ctx.fillStyle='#8b949e'; ctx.font='bold 10px Segoe UI'; ctx.textAlign='left'; ctx.fillText('np.hstack((e,f))  →  shape (2,4)',p,10);
+    combined.forEach((row,r)=>row.forEach((v,c)=>{ const x=p+c*(cs+p),y=14+r*(cs+p); const col=c<2?'#facc15':'#10b981'; ctx.fillStyle=col+'28'; ctx.beginPath(); ctx.roundRect(x,y,cs,cs,5); ctx.fill(); ctx.strokeStyle=col+'60'; ctx.lineWidth=1; ctx.stroke(); ctx.fillStyle=col; ctx.font='bold 14px Courier New'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(v,x+cs/2,y+cs/2); }));
+  }
+  $('out-hs').textContent=stacked?`np.hstack((e, f))\n→ [[7,7,1,0],[7,7,0,1]]  shape=(2,4)`:`e = [[7,7],[7,7]]  f = [[1,0],[0,1]]`;
+}
+
+/* ═══ P11: column_stack ═══ */
+const csA=[1,2,3], csD=[10,15,20];
+function setCstack(stacked){
+  $('cs-sep').className='tgl-btn'+(!stacked?' on':'');
+  $('cs-stk').className='tgl-btn'+(stacked?' on':'');
+  const cs=54, p=5, cv=$('cv-cs');
+  if(!stacked){
+    cv.width=Math.max(csA.length,2)*(cs+p)+p; cv.height=140;
+    const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+    ctx.fillStyle='#3b82f6'; ctx.font='bold 10px Segoe UI'; ctx.textAlign='left'; ctx.fillText('a',p,10);
+    csA.forEach((v,i)=>{ const x=p+i*(cs+p); ctx.fillStyle='rgba(59,130,246,.2)'; ctx.beginPath(); ctx.roundRect(x,14,cs,cs,5); ctx.fill(); ctx.strokeStyle='rgba(59,130,246,.5)'; ctx.lineWidth=1; ctx.stroke(); ctx.fillStyle='#3b82f6'; ctx.font='bold 14px Courier New'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(v,x+cs/2,14+cs/2); });
+    ctx.fillStyle='#fb923c'; ctx.font='bold 10px Segoe UI'; ctx.textAlign='left'; ctx.fillText('d',p,82);
+    csD.forEach((v,i)=>{ const x=p+i*(cs+p); ctx.fillStyle='rgba(251,146,60,.18)'; ctx.beginPath(); ctx.roundRect(x,86,cs,cs,5); ctx.fill(); ctx.strokeStyle='rgba(251,146,60,.45)'; ctx.lineWidth=1; ctx.stroke(); ctx.fillStyle='#fb923c'; ctx.font='bold 14px Courier New'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(v,x+cs/2,86+cs/2); });
+  } else {
+    const combined=csA.map((v,i)=>[v,csD[i]]);
+    cv.width=2*(cs+p)+p; cv.height=3*(cs+p)+p+16;
+    const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+    ctx.fillStyle='#8b949e'; ctx.font='bold 10px Segoe UI'; ctx.textAlign='left'; ctx.fillText('np.column_stack((a,d))  →  (3,2)',p,10);
+    combined.forEach((row,r)=>row.forEach((v,c)=>{ const x=p+c*(cs+p),y=14+r*(cs+p); const col=c===0?'#3b82f6':'#fb923c'; ctx.fillStyle=col+'28'; ctx.beginPath(); ctx.roundRect(x,y,cs,cs,5); ctx.fill(); ctx.strokeStyle=col+'60'; ctx.lineWidth=1; ctx.stroke(); ctx.fillStyle=col; ctx.font='bold 14px Courier New'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(v,x+cs/2,y+cs/2); }));
+  }
+  $('out-cs').textContent=stacked?`np.column_stack((a, d))\n→ [[ 1, 10],\n   [ 2, 15],\n   [ 3, 20]]  shape=(3,2)`:`a = [${csA.join(',')}]\nd = [${csD.join(',')}]`;
+}
+
+/* ═══ P12: hsplit ═══ */
+const hspArr=[1,2,3,4,5,6];
+function setHsplit(n){
+  ['2','3','6'].forEach(k=>$('hsp-'+k).className='tgl-btn'+(String(n)===k?' on':''));
+  const parts=Array.from({length:n},(_,i)=>hspArr.slice(i*6/n,(i+1)*6/n));
+  const cs=48, p=5, cv=$('cv-hsp');
+  cv.width=hspArr.length*(cs+p)+p+(n-1)*10; cv.height=cs+p*2+16;
+  const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+  let offset=0;
+  const hues=[200,140,50,300,30,170];
+  parts.forEach((part,pi)=>{
+    part.forEach((v,i)=>{
+      const x=p+offset+i*(cs+p);
+      ctx.fillStyle=`hsla(${hues[pi]},65%,55%,.22)`; ctx.beginPath(); ctx.roundRect(x,16,cs,cs,5); ctx.fill();
+      ctx.strokeStyle=`hsla(${hues[pi]},65%,60%,.5)`; ctx.lineWidth=1; ctx.stroke();
+      ctx.fillStyle=`hsla(${hues[pi]},80%,75%,1)`; ctx.font='bold 14px Courier New';
+      ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(v,x+cs/2,16+cs/2);
+    });
+    ctx.fillStyle=`hsla(${hues[pi]},70%,65%,.8)`; ctx.font='bold 9px Segoe UI'; ctx.textAlign='center';
+    ctx.fillText(`[${part.join(',')}]`, p+offset+part.length/2*(cs+p)-cs/2+cs/2, 10);
+    offset+=part.length*(cs+p)+10;
+  });
+  const pStr=parts.map(p=>`[${p.join(',')}]`).join(', ');
+  $('out-hsp').textContent=`np.hsplit([${hspArr.join(',')}], ${n})\n→  [${pStr}]`;
+}
+
+/* ═══ P13: vsplit ═══ */
+const vspGrid=Array.from({length:4},(_,r)=>Array.from({length:3},(_,c)=>r*3+c));
+function setVsplit(n){
+  ['2','4'].forEach(k=>$('vsp-'+k).className='tgl-btn'+(String(n)===k?' on':''));
+  const partRows=4/n;
+  const cs=46, p=5, gap=8, cv=$('cv-vsp');
+  cv.width=3*(cs+p)+p; cv.height=4*(cs+p)+p+(n-1)*gap+16;
+  const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+  const hues=[200,140,300,50];
+  let yOff=0;
+  for(let pi=0;pi<n;pi++){
+    const rows=vspGrid.slice(pi*partRows,(pi+1)*partRows);
+    ctx.fillStyle=`hsla(${hues[pi]},70%,65%,.7)`; ctx.font='bold 9px Segoe UI'; ctx.textAlign='left';
+    ctx.fillText(`part ${pi}`, p, yOff+10);
+    rows.forEach((row,r)=>row.forEach((v,c)=>{
+      const x=p+c*(cs+p), y=yOff+13+r*(cs+p);
+      ctx.fillStyle=`hsla(${hues[pi]},65%,55%,.2)`; ctx.beginPath(); ctx.roundRect(x,y,cs,cs,4); ctx.fill();
+      ctx.strokeStyle=`hsla(${hues[pi]},65%,60%,.5)`; ctx.lineWidth=1; ctx.stroke();
+      ctx.fillStyle=`hsla(${hues[pi]},80%,75%,1)`; ctx.font='bold 13px Courier New';
+      ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(v,x+cs/2,y+cs/2);
+    }));
+    yOff+=rows.length*(cs+p)+gap;
+  }
+  $('out-vsp').textContent=`c = np.arange(12).reshape(4,3)\nparts = np.vsplit(c, ${n})\n→  ${n} sub-arrays of shape (${4/n}, 3)`;
+}
+
+/* ── shuffle exercises ── */
+function shuffleEx09() {
+  const c = document.getElementById('ex-cards-09'); if (!c) return;
+  const cards = Array.from(c.querySelectorAll('.ex-card'));
+  for (let i = cards.length - 1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [cards[i],cards[j]]=[cards[j],cards[i]]; }
+  cards.forEach(card => c.appendChild(card));
+  c.querySelectorAll('.ex-num').forEach((el,i) => { el.textContent='Q'+(i+1); });
+}
+
+/* ── init ── */
+updateDots();
+setTranspose(false);
+shuffleEx09();
+(function() {
+  const m = location.hash.match(/^#open-(\d+)$/);
+  if (m) { const p = +m[1]; if (p >= 0 && p <= 14) goTo(p); }
+})();
+</script>
+</body>
+</html>

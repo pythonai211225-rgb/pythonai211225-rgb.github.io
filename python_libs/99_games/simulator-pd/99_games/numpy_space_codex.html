@@ -1,0 +1,1185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>NumPy Space Academy</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#03050f;--c1:#22d3ee;--c2:#a855f7;--c3:#f97316;--c4:#22c55e;
+  --red:#ef4444;--text:#f8fafc;--muted:#94a3b8;
+  --hd:'Space Grotesk',sans-serif;--code:'JetBrains Mono',monospace;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--hd);overflow:hidden}
+canvas#stars{position:fixed;inset:0;z-index:0;pointer-events:none}
+
+/* ── SCREENS ─────────────────────────────────────────────── */
+.screen{position:fixed;inset:0;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .5s}
+.hidden{opacity:0;pointer-events:none}
+
+/* ── HUD ──────────────────────────────────────────────────── */
+#hud{position:fixed;top:0;left:0;right:0;z-index:50;padding:.75rem 1.5rem;display:flex;align-items:center;justify-content:space-between;background:rgba(3,5,15,.7);backdrop-filter:blur(16px);border-bottom:1px solid rgba(34,211,238,.12)}
+.hud-logo{font-size:1.1rem;font-weight:700;letter-spacing:.04em;display:flex;align-items:center;gap:.5rem}
+.hud-logo span{color:var(--c1)}
+.hud-stars{display:flex;gap:.4rem;align-items:center;font-size:.8rem;color:var(--muted)}
+.star-pip{width:18px;height:18px;border-radius:50%;border:2px solid;display:flex;align-items:center;justify-content:center;font-size:.6rem;transition:all .3s}
+.star-pip.done{box-shadow:0 0 10px currentColor}
+.hud-score{font-family:var(--code);font-size:.85rem;color:var(--c1);border:1px solid rgba(34,211,238,.25);padding:.3rem .8rem;border-radius:99px;background:rgba(34,211,238,.08)}
+
+/* ── MAP SCREEN ───────────────────────────────────────────── */
+#map-scr{position:fixed;inset:0;z-index:10;overflow:hidden}
+#solar-sys{position:absolute;inset:0}
+
+/* Station at center */
+#station{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:60px;height:60px;
+  animation:spin 20s linear infinite;
+}
+
+/* Rocket */
+#rocket{
+  position:absolute;width:86px;height:56px;z-index:20;
+  transition:left 1.6s cubic-bezier(.4,0,.2,1),top 1.6s cubic-bezier(.4,0,.2,1),transform .45s;
+  transform:translate(-50%,-50%);
+  filter:drop-shadow(0 0 6px rgba(34,211,238,.35));
+  left:50%;top:50%;
+  pointer-events:none;
+}
+.rocket-img{
+  width:100%;height:100%;object-fit:contain;display:block;position:relative;z-index:2;
+  border-radius:9px;opacity:.94;filter:brightness(.9) contrast(1.06) saturate(1.22);
+  animation:shipIdle 2s ease-in-out infinite;
+}
+#rocket::before{
+  content:'';position:absolute;left:50%;bottom:-23px;width:32px;height:50px;border-radius:50%;
+  background:linear-gradient(180deg,rgba(34,211,238,.58),rgba(249,115,22,.42),transparent);
+  filter:blur(8px);transform:translateX(-50%) scaleY(.65);opacity:.52;z-index:1;
+  animation:shipThrust .18s ease-in-out infinite alternate;
+}
+#rocket::after{
+  content:'';position:absolute;left:50%;bottom:-68px;width:3px;height:82px;border-radius:99px;
+  background:linear-gradient(180deg,rgba(255,255,255,.52),rgba(34,211,238,.38),transparent);
+  filter:blur(1px);transform:translateX(-50%);opacity:.3;z-index:0;
+}
+#rocket.flying{filter:drop-shadow(0 0 11px rgba(34,211,238,.62)) drop-shadow(0 0 18px rgba(249,115,22,.22))}
+#rocket.flying .rocket-img{animation:shipBoost .28s ease-in-out infinite alternate}
+#rocket.flying::before{opacity:.78;transform:translateX(-50%) scaleY(1.18)}
+#rocket.flying::after{opacity:.5;height:124px;bottom:-104px}
+@keyframes shipIdle{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-2px) scale(1.015)}}
+@keyframes shipBoost{0%{transform:translateX(0) translateY(-1px) scale(1.02)}100%{transform:translateX(2px) translateY(1px) scale(1.05)}}
+@keyframes shipThrust{from{opacity:.42;height:42px}to{opacity:.72;height:58px}}
+
+/* Planet containers */
+.planet-wrap{
+  position:absolute;transform:translate(-50%,-50%);
+  display:flex;flex-direction:column;align-items:center;gap:.6rem;
+  cursor:pointer;
+  animation:float 4s ease-in-out infinite;
+}
+.planet-wrap:nth-child(2){animation-delay:.5s}
+.planet-wrap:nth-child(3){animation-delay:1s}
+.planet-orb{
+  border-radius:50%;position:relative;
+  transition:transform .25s,filter .25s;
+  box-shadow:0 0 30px var(--p-glow,#22d3ee),0 0 60px var(--p-glow2,rgba(34,211,238,.3));
+}
+.planet-wrap:hover .planet-orb{transform:scale(1.12);filter:brightness(1.2)}
+.planet-ring{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotateX(70deg);
+  border:3px solid;border-radius:50%;opacity:.55;
+}
+.planet-atmosphere{
+  position:absolute;inset:-6px;border-radius:50%;
+  animation:atmoPulse 3s ease-in-out infinite;
+  pointer-events:none;
+}
+@keyframes atmoPulse{0%,100%{opacity:.3;transform:scale(1)}50%{opacity:.6;transform:scale(1.05)}}
+.planet-name{font-size:.85rem;font-weight:700;text-align:center;text-shadow:0 0 12px currentColor;white-space:nowrap}
+.planet-tag{font-size:.68rem;color:var(--muted);text-align:center;font-family:var(--code)}
+.planet-status{
+  font-size:.65rem;padding:.15rem .5rem;border-radius:99px;border:1px solid;font-family:var(--code);font-weight:600;
+  transition:all .3s;
+}
+
+/* Orbit lines drawn on canvas */
+
+/* ── QUIZ SCREEN ─────────────────────────────────────────── */
+#quiz-scr{
+  position:fixed;inset:0;z-index:30;
+  display:grid;grid-template-columns:1fr 1.3fr;
+  align-items:center;
+  padding:5rem 2rem 2rem;
+  gap:2rem;
+}
+/* Alien side */
+.alien-side{display:flex;flex-direction:column;align-items:center;gap:1.2rem}
+.alien-wrap{
+  position:relative;
+  animation:float 3s ease-in-out infinite;
+}
+.alien-svg{width:160px;height:200px;filter:drop-shadow(0 0 20px var(--al-glow,#22d3ee))}
+.alien-name{font-size:.8rem;font-weight:700;letter-spacing:.12em;color:var(--al-col,#22d3ee);text-transform:uppercase}
+.speech-bubble{
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);
+  border-radius:14px;padding:1rem 1.25rem;max-width:260px;text-align:center;
+  font-size:.88rem;line-height:1.6;color:var(--text);position:relative;
+  animation:bubbleIn .4s cubic-bezier(.34,1.56,.64,1);
+}
+.speech-bubble::after{
+  content:'';position:absolute;bottom:-10px;left:50%;transform:translateX(-50%);
+  width:0;height:0;border-left:10px solid transparent;border-right:10px solid transparent;
+  border-top:10px solid rgba(255,255,255,.06);
+}
+@keyframes bubbleIn{from{opacity:0;transform:scale(.8) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
+
+/* Planet surface BG */
+.surface-bg{position:fixed;inset:0;z-index:-1;opacity:.35}
+
+/* Progress pips */
+.q-pips{display:flex;gap:.5rem;margin-bottom:1.5rem}
+.q-pip{width:28px;height:5px;border-radius:3px;background:rgba(255,255,255,.12);transition:all .4s}
+.q-pip.active{background:var(--al-col,#22d3ee);box-shadow:0 0 8px var(--al-col,#22d3ee)}
+.q-pip.done{background:var(--c4)}
+
+/* Quiz panel */
+.quiz-panel{
+  background:rgba(5,10,25,.85);border:1px solid rgba(255,255,255,.12);
+  border-radius:22px;padding:1.75rem;backdrop-filter:blur(24px);
+  position:relative;overflow:hidden;
+}
+.quiz-panel::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--al-col,#22d3ee),transparent);opacity:.7}
+.q-meta{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
+.q-num{font-family:var(--code);font-size:.72rem;color:var(--muted)}
+.q-badge{font-size:.68rem;padding:.18rem .55rem;border-radius:99px;font-weight:600;border:1px solid}
+.q-ask-row{display:grid;grid-template-columns:88px 1fr;align-items:center;gap:1rem;margin-bottom:1.2rem}
+.mentor-avatar{
+  width:88px;height:88px;border-radius:18px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;
+  background:radial-gradient(circle at 50% 28%,var(--al-col,#22d3ee) 0 1px,transparent 2px),
+    linear-gradient(145deg,rgba(255,255,255,.1),rgba(255,255,255,.025));
+  border:1px solid rgba(255,255,255,.14);
+  box-shadow:inset 0 0 28px rgba(255,255,255,.04),0 0 24px color-mix(in srgb,var(--al-col,#22d3ee) 24%,transparent);
+}
+.mentor-avatar::before{
+  content:'';position:absolute;inset:-35% -20% auto;height:70%;
+  background:radial-gradient(circle,rgba(255,255,255,.24),transparent 58%);
+  transform:rotate(-18deg);opacity:.45;
+}
+.mentor-svg{width:82px;height:82px;position:relative;z-index:1;filter:drop-shadow(0 0 12px color-mix(in srgb,var(--al-col,#22d3ee) 55%,transparent))}
+.mentor-helmet{fill:rgba(226,232,240,.92)}
+.mentor-suit{fill:rgba(15,23,42,.88);stroke:var(--al-col,#22d3ee);stroke-width:1.4}
+.mentor-visor{fill:rgba(3,7,18,.94);stroke:var(--al-col,#22d3ee);stroke-width:1.5}
+.mentor-eye{fill:#f8fafc;animation:mentorBlink 5.5s infinite}
+.mentor-mouth{fill:var(--al-col,#22d3ee);transform-origin:50px 48px;animation:mentorTalk .42s ease-in-out infinite}
+.mentor-wave{stroke:var(--al-col,#22d3ee);stroke-width:1.5;fill:none;stroke-linecap:round;opacity:.7;animation:mentorWave 1.2s ease-in-out infinite}
+.mentor-antenna,.mentor-ear,.mentor-crown{animation:mentorNod 2.4s ease-in-out infinite;transform-origin:50px 18px}
+.mentor-face{fill:rgba(15,23,42,.9);stroke:var(--al-col,#22d3ee);stroke-width:1.5}
+.mentor-accent{fill:var(--al-col,#22d3ee)}
+.mentor-line{stroke:var(--al-col,#22d3ee);stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.mentor-avatar[data-mentor="1"]{border-radius:50% 50% 18px 18px}
+.mentor-avatar[data-mentor="2"]{border-radius:24px;background:linear-gradient(145deg,rgba(255,255,255,.12),rgba(255,255,255,.025)),repeating-linear-gradient(90deg,transparent 0 9px,color-mix(in srgb,var(--al-col,#22d3ee) 12%,transparent) 10px 11px)}
+.q-prompt{font-size:1rem;font-weight:600;line-height:1.5}
+@keyframes mentorTalk{0%,100%{transform:scaleY(.32)}35%{transform:scaleY(1.15)}65%{transform:scaleY(.62)}}
+@keyframes mentorBlink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.12)}}
+@keyframes mentorWave{0%,100%{opacity:.2;transform:translateX(0)}50%{opacity:.85;transform:translateX(3px)}}
+@keyframes mentorNod{0%,100%{transform:rotate(-2deg)}50%{transform:rotate(3deg)}}
+
+/* Matrix cells */
+.mx-wrap{display:flex;flex-direction:column;gap:.3rem;margin-bottom:1.25rem}
+.mx-row{display:flex;gap:.3rem}
+.cell{
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--code);font-weight:600;font-size:.8rem;
+  border:1px solid;border-radius:8px;
+  animation:cellPop .35s cubic-bezier(.34,1.56,.64,1) both;
+}
+@keyframes cellPop{from{opacity:0;transform:scale(.4)}to{opacity:1;transform:scale(1)}}
+.cz{background:rgba(148,163,184,.05);border-color:rgba(148,163,184,.18);color:rgba(148,163,184,.55)}
+.co{background:rgba(34,211,238,.08);border-color:rgba(34,211,238,.28);color:var(--c1)}
+.cd{background:rgba(168,85,247,.12);border-color:rgba(168,85,247,.38);color:var(--c2);animation:cellPop .35s cubic-bezier(.34,1.56,.64,1) both,dGlow 2s ease-in-out infinite}
+@keyframes dGlow{0%,100%{box-shadow:0 0 6px rgba(168,85,247,.3)}50%{box-shadow:0 0 14px rgba(168,85,247,.7)}}
+.cp{background:rgba(34,211,238,.07);border-color:rgba(34,211,238,.2);color:#7dd3fc}
+.cs{background:rgba(251,191,36,.08);border-color:rgba(251,191,36,.28);color:#fbbf24}
+.cg{background:rgba(34,197,94,.08);border-color:rgba(34,197,94,.28);color:var(--c4)}
+
+/* Compute visualization */
+.compute-vis{
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);
+  border-radius:12px;padding:.9rem 1.1rem;margin-bottom:1.25rem;font-family:var(--code);font-size:.82rem;
+}
+.cv-arr{color:var(--c1);margin-bottom:.4rem}
+.cv-res{display:flex;align-items:center;gap:.6rem}
+.cv-arrow{color:var(--muted)}
+.cv-val{font-size:1.3rem;font-weight:700;color:#fbbf24}
+.cv-lbl{font-size:.72rem;color:var(--muted)}
+
+/* Transform vis */
+.transform-vis{display:flex;align-items:center;gap:1rem;margin-bottom:1.25rem;flex-wrap:wrap}
+.tx-lbl{font-family:var(--code);font-size:.68rem;color:var(--muted);margin-bottom:.35rem}
+.tx-arrow{font-size:1.5rem;color:var(--muted)}
+
+/* Import line */
+.import-ln{font-family:var(--code);font-size:.76rem;padding:.4rem .7rem;background:rgba(255,255,255,.03);border-radius:6px;margin-bottom:.4rem;border-left:3px solid rgba(168,85,247,.45);color:var(--muted)}
+.import-ln .kw{color:var(--c2)}.import-ln .nm{color:var(--c1)}.import-ln .al{color:#fbbf24}
+.ans-pre{font-family:var(--code);font-size:.8rem;color:var(--muted);margin-bottom:.3rem}
+.ans-pre .vr{color:#7dd3fc}.ans-pre .op{color:var(--c2)}
+
+/* Code input */
+.code-in{
+  width:100%;background:rgba(2,6,23,.9);border:1.5px solid rgba(34,211,238,.2);
+  border-radius:11px;padding:.8rem 1rem;font-family:var(--code);font-size:.92rem;
+  color:var(--c1);outline:none;caret-color:var(--c1);resize:none;min-height:68px;
+  line-height:1.6;transition:border-color .2s,box-shadow .2s,color .2s;
+}
+.code-in::placeholder{color:rgba(148,163,184,.25)}
+.code-in:focus{border-color:var(--c1);box-shadow:0 0 0 3px rgba(34,211,238,.1)}
+.code-in.ok{border-color:var(--c4);color:var(--c4);box-shadow:0 0 0 3px rgba(34,197,94,.12),0 0 18px rgba(34,197,94,.1)}
+.code-in.bad{border-color:var(--red);color:var(--red);animation:shake .35s ease}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}
+
+/* Feedback */
+.fb{min-height:40px;display:flex;align-items:center;gap:.55rem;font-size:.84rem;padding:.6rem .9rem;border-radius:9px;margin:.75rem 0;opacity:0;transition:opacity .3s}
+.fb.show{opacity:1}
+.fb.ok{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.22);color:var(--c4)}
+.fb.bad{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.18);color:var(--red)}
+.fb.hint{background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.2);color:#fbbf24}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:.4rem;padding:.6rem 1.2rem;border-radius:9px;font-family:var(--hd);font-size:.86rem;font-weight:600;cursor:pointer;border:none;transition:all .2s;white-space:nowrap}
+.btn-run{background:linear-gradient(135deg,var(--c1),#0ea5e9);color:#020617;box-shadow:0 0 16px rgba(34,211,238,.25)}
+.btn-run:hover{transform:translateY(-2px);box-shadow:0 0 24px rgba(34,211,238,.4)}
+.btn-hint{background:rgba(255,255,255,.06);color:var(--muted);border:1px solid rgba(255,255,255,.1)}
+.btn-hint:hover{background:rgba(255,255,255,.1);color:var(--text)}
+.btn-row{display:flex;gap:.6rem;flex-wrap:wrap}
+
+/* ── WIN SCREEN ───────────────────────────────────────────── */
+#win-scr{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:2rem;background:rgba(3,5,15,.95)}
+.win-title{font-size:3rem;font-weight:700;background:linear-gradient(135deg,var(--c1),var(--c2),var(--c4));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:.6rem}
+.win-sub{color:var(--muted);font-size:1.05rem;margin-bottom:2rem;line-height:1.7}
+.win-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;width:100%;max-width:420px;margin-bottom:2rem}
+.wstat{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:1.1rem}
+.wstat-v{font-size:1.8rem;font-weight:700;color:var(--c1)}
+.wstat-l{font-size:.75rem;color:var(--muted);margin-top:.15rem}
+
+/* ── ANIMATIONS ───────────────────────────────────────────── */
+@keyframes float{0%,100%{transform:translate(-50%,-50%) translateY(0)}50%{transform:translate(-50%,-50%) translateY(-12px)}}
+@keyframes spin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+@keyframes warpFlash{0%{opacity:0}50%{opacity:.7}100%{opacity:0}}
+.warp-flash{position:fixed;inset:0;z-index:25;background:white;pointer-events:none;animation:warpFlash .3s ease forwards}
+@keyframes landPulse{0%{transform:scale(1)}100%{transform:scale(2);opacity:0}}
+
+/* Particle + confetti */
+.particle{position:fixed;border-radius:50%;pointer-events:none;z-index:999;animation:pburst .6s ease-out forwards}
+@keyframes pburst{0%{opacity:1;transform:translate(0,0) scale(1)}100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(0)}}
+.confetti{position:fixed;pointer-events:none;z-index:1000;animation:cfall linear forwards}
+@keyframes cfall{0%{opacity:1;transform:translateY(-10px) rotate(0)}100%{opacity:0;transform:translateY(100vh) rotate(720deg)}}
+
+@media(max-width:700px){#quiz-scr{grid-template-columns:1fr;padding:4.5rem 1rem 1rem}.alien-side{flex-direction:row;gap:1rem}.alien-svg{width:90px;height:110px}.q-ask-row{grid-template-columns:64px 1fr;gap:.75rem}.mentor-avatar{width:64px;height:64px;border-radius:14px}.mentor-svg{width:62px;height:62px}.q-prompt{font-size:.94rem}}
+@media(prefers-reduced-motion:reduce){.mentor-mouth,.mentor-eye,.mentor-wave,.mentor-antenna,.mentor-ear,.mentor-crown{animation:none}}
+</style>
+</head>
+<body>
+<canvas id="stars"></canvas>
+
+<!-- HUD -->
+<div id="hud" class="hidden">
+  <div class="hud-logo"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z" fill="url(#hg)"/><defs><linearGradient id="hg" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse"><stop stop-color="#22d3ee"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs></svg><span>NumPy <span>Space</span> Academy</span></div>
+  <div class="hud-stars" id="hud-stars"></div>
+  <div class="hud-score">XP: <span id="hud-xp">0</span></div>
+</div>
+
+<!-- MAP SCREEN -->
+<div id="map-scr">
+  <div id="solar-sys">
+    <!-- Station -->
+    <div id="station">
+      <svg viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="30" cy="30" r="10" fill="#1e293b" stroke="rgba(34,211,238,0.5)" stroke-width="1.5"/>
+        <rect x="5" y="27" width="20" height="6" rx="2" fill="rgba(34,211,238,0.25)" stroke="rgba(34,211,238,0.5)" stroke-width="1"/>
+        <rect x="35" y="27" width="20" height="6" rx="2" fill="rgba(168,85,247,0.25)" stroke="rgba(168,85,247,0.5)" stroke-width="1"/>
+        <circle cx="30" cy="30" r="4" fill="#22d3ee" opacity=".7"/>
+        <circle cx="30" cy="30" r="7" stroke="rgba(34,211,238,0.3)" stroke-width="1" fill="none"/>
+      </svg>
+    </div>
+    <!-- Rocket -->
+    <div id="rocket">
+      <img class="rocket-img" src="image_64e15e12_ship.png" alt="Space ship"/>
+    </div>
+  </div>
+  <!-- Map title -->
+  <div style="position:absolute;top:5.5rem;left:50%;transform:translateX(-50%);text-align:center;pointer-events:none">
+    <div style="font-size:1.6rem;font-weight:700;letter-spacing:.06em">GALACTIC <span style="color:var(--c1)">NUMPY</span> ACADEMY</div>
+    <div style="font-size:.78rem;color:var(--muted);margin-top:.3rem;font-family:var(--code)">Select a star system to begin your mission</div>
+  </div>
+</div>
+
+<!-- QUIZ SCREEN -->
+<div id="quiz-scr" class="hidden">
+  <canvas id="surface-bg" class="surface-bg"></canvas>
+  <!-- Alien side -->
+  <div class="alien-side">
+    <div class="alien-wrap">
+      <svg class="alien-svg" id="alien-svg" viewBox="0 0 120 160"></svg>
+    </div>
+    <div class="alien-name" id="alien-name"></div>
+    <div class="speech-bubble" id="speech"></div>
+    <div class="q-pips" id="q-pips"></div>
+  </div>
+  <!-- Quiz panel -->
+  <div class="quiz-panel" id="quiz-panel">
+    <div class="q-meta">
+      <span class="q-num" id="q-num"></span>
+      <span class="q-badge" id="q-badge"></span>
+    </div>
+    <div class="q-ask-row">
+      <div class="mentor-avatar" id="mentor-avatar" aria-hidden="true"></div>
+      <div class="q-prompt" id="q-prompt"></div>
+    </div>
+    <div id="q-visual"></div>
+    <div class="import-ln"><span class="kw">import</span> <span class="nm">numpy</span> <span class="kw">as</span> <span class="al">np</span></div>
+    <div class="ans-pre"><span class="vr">result</span> <span class="op">=</span></div>
+    <textarea class="code-in" id="code-in" placeholder="np.___( )" spellcheck="false" autocomplete="off" rows="2"></textarea>
+    <div class="fb" id="fb"></div>
+    <div class="btn-row">
+      <button class="btn btn-run" onclick="checkQ()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Run
+      </button>
+      <button class="btn btn-hint" onclick="showHint()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+        Hint
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- WIN SCREEN -->
+<div id="win-scr" class="hidden">
+  <svg width="80" height="80" viewBox="0 0 24 24" fill="none" style="margin-bottom:1rem;filter:drop-shadow(0 0 20px #22d3ee)">
+    <circle cx="12" cy="12" r="10" stroke="url(#wg)" stroke-width="1.5"/>
+    <path d="M8 12l3 3 5-6" stroke="url(#wg)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <defs><linearGradient id="wg" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse"><stop stop-color="#22d3ee"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs>
+  </svg>
+  <div class="win-title">Galaxy Conquered!</div>
+  <div class="win-sub">You've mastered all three star systems.<br>The galaxy recognizes you as a <strong>NumPy Commander</strong>!</div>
+  <div class="win-stats">
+    <div class="wstat"><div class="wstat-v" id="ws-xp">0</div><div class="wstat-l">Total XP</div></div>
+    <div class="wstat"><div class="wstat-v" id="ws-at">0</div><div class="wstat-l">Attempts</div></div>
+    <div class="wstat"><div class="wstat-v" id="ws-hn">0</div><div class="wstat-l">Hints Used</div></div>
+  </div>
+  <button class="btn btn-run" onclick="restartGame()" style="font-size:.95rem;padding:.8rem 2rem">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/></svg>
+    New Mission
+  </button>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// PLANETS DATA
+// ═══════════════════════════════════════════════════════════════
+const PLANETS = [
+  {
+    id:'creation', name:'Creation Colony', tag:'Array Forge',
+    x:24, y:32, color:'#22d3ee', color2:'#3b82f6', r:58,
+    alienName:'CRY-8R', alienColor:'#22d3ee',
+    greetings:["Greetings, Cadet! I am CRY-8R. Ready to forge some arrays?","The Array Forge awaits! Show me your creation powers.","Welcome back! Let's crystallize some NumPy arrays!"],
+    questions:[
+      {
+        type:'create',prompt:'Create this 1D array of multiples of 5:',
+        values:[[5,10,15,20]],ct:(r,c,v)=>'cp',
+        shape:'shape: (4,) · dtype: int64',
+        ok:['np.array([5,10,15,20])','np.array([5, 10, 15, 20])'],
+        hints:['Use np.array() and pass a Python list.','np.array([...]) with your values inside.','np.array([5, 10, 15, 20])'],
+      },
+      {
+        type:'create',prompt:'Forge a 2×3 matrix filled with zeros:',
+        values:[[0,0,0],[0,0,0]],ct:()=>'cz',
+        shape:'shape: (2, 3) · dtype: float64',
+        ok:['np.zeros((2,3))','np.zeros((2, 3))','np.zeros([2,3])','np.zeros([2, 3])'],
+        hints:['NumPy has a dedicated function for zero-filled arrays.','np.zeros(shape) — pass a shape tuple.','np.zeros((2, 3))'],
+      },
+      {
+        type:'create',prompt:'Generate evenly spaced numbers using arange:',
+        values:[[0,5,10,15,20]],ct:(r,c,v)=>v===0?'cz':'cp',
+        shape:'shape: (5,) · dtype: int64',
+        ok:['np.arange(0,25,5)','np.arange(0, 25, 5)','np.arange(5)*5'],
+        hints:['np.arange(start, stop, step) generates a range.','Step of 5 from 0 to 25 gives you [0,5,10,15,20].','np.arange(0, 25, 5)'],
+      },
+    ],
+  },
+  {
+    id:'investigation', name:'Investigation Nebula', tag:'Data Mining HQ',
+    x:73, y:26, color:'#f97316', color2:'#ef4444', r:50,
+    alienName:'MAXIMUS', alienColor:'#f97316',
+    greetings:["Ho ho! MAXIMUS here — detective of data! Investigate these arrays!","My sensors are ready! Can you find what I seek?","Back again? My algorithms are warming up for you!"],
+    questions:[
+      {
+        type:'compute',
+        prompt:'Find the maximum value in this array:',
+        inputArr:[4,8,1,7,2,9,3], inputName:'arr',
+        result:'9', resultLabel:'Maximum',
+        ok:['np.max(arr)','arr.max()','np.amax(arr)'],
+        hints:['NumPy has a function that returns the largest element.','np.max(array) or array.max() — both work.','np.max(arr)'],
+      },
+      {
+        type:'compute',
+        prompt:'Calculate the sum of all elements:',
+        inputArr:[4,8,1,7,2,9,3], inputName:'arr',
+        result:'34', resultLabel:'Sum',
+        ok:['np.sum(arr)','arr.sum()'],
+        hints:['np.sum() adds up all elements in an array.','np.sum(array) or array.sum().','np.sum(arr)'],
+      },
+      {
+        type:'compute',
+        prompt:'Compute the average of this dataset:',
+        inputArr:[2,4,6,8,10], inputName:'arr',
+        result:'6.0', resultLabel:'Mean',
+        ok:['np.mean(arr)','arr.mean()','np.average(arr)'],
+        hints:['The mean is the average — NumPy has a function for it.','np.mean(array) or array.mean().','np.mean(arr)'],
+      },
+    ],
+  },
+  {
+    id:'reshape', name:'Reshape Realm', tag:'Matrix Morphing',
+    x:48, y:74, color:'#a855f7', color2:'#ec4899', r:54,
+    alienName:'MORPHA', alienColor:'#a855f7',
+    greetings:["I am MORPHA — I shift between forms! Can you transform arrays?","Shape is just an illusion! Prove you can reshape reality.","Welcome, shape-bender! Let us bend these matrices together!"],
+    questions:[
+      {
+        type:'transform',
+        prompt:'Reshape this flat array into a 2×3 matrix:',
+        beforeValues:[[0,1,2,3,4,5]], beforeCt:()=>'cp',
+        afterValues:[[0,1,2],[3,4,5]], afterCt:(r,c,v)=>v===0?'cz':'cp',
+        ok:['np.arange(6).reshape(2,3)','np.arange(6).reshape(2, 3)','np.arange(6).reshape((2,3))','np.arange(6).reshape((2, 3))','np.arange(0,6).reshape(2,3)','np.arange(0,6).reshape(2, 3)'],
+        hints:['First create [0,1,2,3,4,5] with np.arange(), then chain .reshape().','np.arange(6).reshape(rows, cols).','np.arange(6).reshape(2, 3)'],
+      },
+      {
+        type:'transform',
+        prompt:'Transpose this matrix (flip rows ↔ columns):',
+        beforeValues:[[1,2,3],[4,5,6]], beforeCt:()=>'cp',
+        afterValues:[[1,4],[2,5],[3,6]], afterCt:()=>'cs',
+        ok:['arr.T','np.transpose(arr)'],
+        hints:['Transposing swaps rows and columns. NumPy arrays have a shorthand property for this.','arr.T gives the transpose, or use np.transpose(arr).','arr.T'],
+      },
+      {
+        type:'create',
+        prompt:'Build a 3×3 diagonal matrix with [3, 7, 2] on the diagonal:',
+        values:[[3,0,0],[0,7,0],[0,0,2]],ct:(r,c,v)=>r===c?'cd':'cz',
+        shape:'shape: (3, 3) · dtype: int64',
+        ok:['np.diag([3,7,2])','np.diag([3, 7, 2])'],
+        hints:['np.diag() can construct a diagonal matrix from a 1D array.','Pass the diagonal values as a list to np.diag().','np.diag([3, 7, 2])'],
+      },
+    ],
+  },
+];
+
+// ═══════════════════════════════════════════════════════════════
+// ALIEN SVG DEFINITIONS
+// ═══════════════════════════════════════════════════════════════
+const ALIENS = {
+  'CRY-8R': (col,mood)=>`
+    <defs>
+      <radialGradient id="ag1" cx="50%" cy="40%"><stop offset="0%" stop-color="${col}" stop-opacity=".9"/><stop offset="100%" stop-color="${col}" stop-opacity=".2"/></radialGradient>
+      <filter id="glow1"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    </defs>
+    <!-- body crystal -->
+    <polygon points="60,15 80,32 85,60 70,85 60,92 50,85 35,60 40,32" fill="url(#ag1)" filter="url(#glow1)" opacity=".85"/>
+    <!-- inner facets -->
+    <polygon points="60,22 75,38 78,62 60,85 42,62 45,38" fill="none" stroke="${col}" stroke-width="1" opacity=".4"/>
+    <polygon points="60,30 70,45 72,65 60,80 48,65 50,45" fill="none" stroke="${col}" stroke-width=".5" opacity=".3"/>
+    <!-- eyes -->
+    <circle cx="49" cy="50" r="9" fill="white"/>
+    <circle cx="71" cy="50" r="9" fill="white"/>
+    <circle cx="${mood==='happy'?51:49}" cy="50" r="5" fill="#0f172a"/>
+    <circle cx="${mood==='happy'?73:71}" cy="50" r="5" fill="#0f172a"/>
+    <circle cx="${mood==='happy'?53:51}" cy="48" r="2" fill="white" opacity=".7"/>
+    <circle cx="${mood==='happy'?75:73}" cy="48" r="2" fill="white" opacity=".7"/>
+    <!-- pupils glow -->
+    <circle cx="${mood==='happy'?51:49}" cy="50" r="3" fill="${col}" opacity=".5"/>
+    <circle cx="${mood==='happy'?73:71}" cy="50" r="3" fill="${col}" opacity=".5"/>
+    <!-- antenna -->
+    <line x1="60" y1="15" x2="55" y2="2" stroke="${col}" stroke-width="2"/>
+    <circle cx="55" cy="2" r="5" fill="${col}" filter="url(#glow1)"/>
+    <!-- mouth -->
+    ${mood==='happy'?`<path d="M50 72 Q60 82 70 72" stroke="${col}" stroke-width="2.5" fill="none" stroke-linecap="round"/>`
+    :mood==='celebrate'?`<path d="M47 70 Q60 85 73 70" stroke="${col}" stroke-width="2.5" fill="none" stroke-linecap="round"/>`
+    :`<line x1="50" y1="74" x2="70" y2="74" stroke="${col}" stroke-width="2" stroke-linecap="round"/>`}
+    <!-- legs -->
+    <path d="M45,92 Q38,108 33,118" stroke="${col}" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path d="M60,95 Q60,112 60,122" stroke="${col}" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path d="M75,92 Q82,108 87,118" stroke="${col}" stroke-width="3" fill="none" stroke-linecap="round"/>
+  `,
+
+  'MAXIMUS': (col,mood)=>`
+    <defs>
+      <radialGradient id="ag2" cx="50%" cy="50%"><stop offset="0%" stop-color="${col}" stop-opacity=".7"/><stop offset="100%" stop-color="${col}" stop-opacity=".15"/></radialGradient>
+      <filter id="glow2"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    </defs>
+    <!-- round body -->
+    <ellipse cx="60" cy="65" rx="32" ry="35" fill="url(#ag2)" filter="url(#glow2)"/>
+    <ellipse cx="60" cy="65" rx="26" ry="29" fill="none" stroke="${col}" stroke-width="1" opacity=".35"/>
+    <!-- head (bigger) -->
+    <circle cx="60" cy="38" r="28" fill="url(#ag2)" filter="url(#glow2)"/>
+    <circle cx="60" cy="38" r="24" fill="none" stroke="${col}" stroke-width=".8" opacity=".3"/>
+    <!-- huge eyes -->
+    <circle cx="45" cy="34" r="12" fill="white"/>
+    <circle cx="75" cy="34" r="12" fill="white"/>
+    <circle cx="${mood==='happy'||mood==='celebrate'?47:45}" cy="34" r="7" fill="#0f172a"/>
+    <circle cx="${mood==='happy'||mood==='celebrate'?77:75}" cy="34" r="7" fill="#0f172a"/>
+    <circle cx="${mood==='happy'||mood==='celebrate'?49:47}" cy="31" r="3" fill="white" opacity=".8"/>
+    <circle cx="${mood==='happy'||mood==='celebrate'?79:77}" cy="31" r="3" fill="white" opacity=".8"/>
+    <circle cx="${mood==='happy'||mood==='celebrate'?47:45}" cy="34" r="4" fill="${col}" opacity=".6"/>
+    <circle cx="${mood==='happy'||mood==='celebrate'?77:75}" cy="34" r="4" fill="${col}" opacity=".6"/>
+    <!-- monocle -->
+    <circle cx="75" cy="34" r="14" fill="none" stroke="${col}" stroke-width="2" opacity=".7"/>
+    <line x1="89" y1="34" x2="95" y2="40" stroke="${col}" stroke-width="1.5"/>
+    <!-- mouth -->
+    ${mood==='happy'?`<path d="M47 52 Q60 62 73 52" stroke="${col}" stroke-width="2.5" fill="none" stroke-linecap="round"/>`
+    :mood==='celebrate'?`<path d="M44 50 Q60 66 76 50" stroke="${col}" stroke-width="3" fill="none" stroke-linecap="round"/>`
+    :`<path d="M47 55 Q60 52 73 55" stroke="${col}" stroke-width="2" fill="none" stroke-linecap="round"/>`}
+    <!-- arms -->
+    <path d="M28,65 Q15,55 10,70" stroke="${col}" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+    <path d="M92,65 Q105,55 110,70" stroke="${col}" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+    <!-- little magnifier -->
+    <circle cx="108" cy="72" r="7" fill="none" stroke="${col}" stroke-width="2"/>
+    <line x1="113" y1="77" x2="118" y2="82" stroke="${col}" stroke-width="2" stroke-linecap="round"/>
+    <!-- feet -->
+    <ellipse cx="45" cy="100" rx="10" ry="6" fill="${col}" opacity=".4"/>
+    <ellipse cx="75" cy="100" rx="10" ry="6" fill="${col}" opacity=".4"/>
+  `,
+
+  'MORPHA': (col,mood)=>`
+    <defs>
+      <radialGradient id="ag3" cx="50%" cy="45%"><stop offset="0%" stop-color="${col}" stop-opacity=".8"/><stop offset="100%" stop-color="${col}" stop-opacity=".15"/></radialGradient>
+      <filter id="glow3"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    </defs>
+    <!-- amorphous body -->
+    <path d="M60,10 C85,10 90,30 92,55 C94,80 80,100 60,105 C40,100 26,80 28,55 C30,30 35,10 60,10z" fill="url(#ag3)" filter="url(#glow3)"/>
+    <path d="M60,18 C80,18 84,34 86,56 C88,75 76,94 60,98 C44,94 32,75 34,56 C36,34 40,18 60,18z" fill="none" stroke="${col}" stroke-width="1" opacity=".3"/>
+    <!-- morphing extra blob top -->
+    <ellipse cx="${mood==='celebrate'?42:38}" cy="18" rx="9" ry="12" fill="${col}" opacity=".5" filter="url(#glow3)"/>
+    <ellipse cx="${mood==='celebrate'?78:82}" cy="22" rx="9" ry="12" fill="${col}" opacity=".5" filter="url(#glow3)"/>
+    <!-- eyes (3!) -->
+    <circle cx="47" cy="45" r="9" fill="white"/><circle cx="60" cy="38" r="9" fill="white"/><circle cx="73" cy="45" r="9" fill="white"/>
+    <circle cx="47" cy="45" r="5" fill="#0f172a"/><circle cx="60" cy="38" r="5" fill="#0f172a"/><circle cx="73" cy="45" r="5" fill="#0f172a"/>
+    <circle cx="47" cy="45" r="3" fill="${col}" opacity=".6"/><circle cx="60" cy="38" r="3" fill="${col}" opacity=".6"/><circle cx="73" cy="45" r="3" fill="${col}" opacity=".6"/>
+    <circle cx="49" cy="43" r="1.5" fill="white" opacity=".8"/><circle cx="62" cy="36" r="1.5" fill="white" opacity=".8"/><circle cx="75" cy="43" r="1.5" fill="white" opacity=".8"/>
+    <!-- mouth -->
+    ${mood==='happy'||mood==='celebrate'
+      ?`<path d="M45 68 Q60 82 75 68" stroke="${col}" stroke-width="2.5" fill="none" stroke-linecap="round"/>`
+      :`<path d="M46 70 Q60 67 74 70" stroke="${col}" stroke-width="2" fill="none" stroke-linecap="round"/>`}
+    <!-- multiple arms/tentacles -->
+    <path d="M28,55 Q10,45 5,30" stroke="${col}" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path d="M28,70 Q8,72 2,85" stroke="${col}" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path d="M92,55 Q110,45 115,30" stroke="${col}" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path d="M92,70 Q112,72 118,85" stroke="${col}" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <!-- tentacle ends -->
+    <circle cx="5" cy="30" r="5" fill="${col}" opacity=".6"/><circle cx="2" cy="85" r="5" fill="${col}" opacity=".6"/>
+    <circle cx="115" cy="30" r="5" fill="${col}" opacity=".6"/><circle cx="118" cy="85" r="5" fill="${col}" opacity=".6"/>
+  `,
+};
+
+// ═══════════════════════════════════════════════════════════════
+// STARS CANVAS
+// ═══════════════════════════════════════════════════════════════
+const MENTORS = [
+  ()=>`
+    <svg class="mentor-svg" viewBox="0 0 100 100">
+      <defs>
+        <linearGradient id="mentorVisorA" x1="28" y1="26" x2="76" y2="62" gradientUnits="userSpaceOnUse">
+          <stop stop-color="rgba(34,211,238,.45)"/>
+          <stop offset="1" stop-color="rgba(168,85,247,.18)"/>
+        </linearGradient>
+      </defs>
+      <g class="mentor-antenna">
+        <path d="M50 18v-9" stroke="var(--al-col,#22d3ee)" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="50" cy="7" r="4" fill="var(--al-col,#22d3ee)"/>
+      </g>
+      <circle class="mentor-helmet" cx="50" cy="44" r="28"/>
+      <path class="mentor-suit" d="M25 88c4-17 15-25 25-25s21 8 25 25H25z"/>
+      <rect class="mentor-visor" x="27" y="28" width="46" height="35" rx="18"/>
+      <path d="M31 35c10-8 28-9 39 1" stroke="url(#mentorVisorA)" stroke-width="8" stroke-linecap="round" opacity=".85"/>
+      <circle class="mentor-eye" cx="41" cy="45" r="3"/>
+      <circle class="mentor-eye" cx="59" cy="45" r="3"/>
+      <ellipse class="mentor-mouth" cx="50" cy="55" rx="8" ry="4"/>
+      <path class="mentor-wave" d="M78 41c5 2 8 6 8 11"/>
+      <path class="mentor-wave" d="M84 34c8 4 13 10 13 19"/>
+    </svg>
+  `,
+  ()=>`
+    <svg class="mentor-svg" viewBox="0 0 100 100">
+      <g class="mentor-ear">
+        <rect x="16" y="40" width="11" height="22" rx="5" class="mentor-accent" opacity=".45"/>
+        <rect x="73" y="40" width="11" height="22" rx="5" class="mentor-accent" opacity=".45"/>
+      </g>
+      <rect class="mentor-face" x="24" y="24" width="52" height="50" rx="14"/>
+      <path class="mentor-line" d="M36 22v-9M64 22v-9"/>
+      <circle cx="36" cy="12" r="4" class="mentor-accent"/>
+      <circle cx="64" cy="12" r="4" class="mentor-accent"/>
+      <rect x="32" y="37" width="36" height="18" rx="9" fill="rgba(3,7,18,.9)" stroke="var(--al-col,#22d3ee)" stroke-width="1.4"/>
+      <rect class="mentor-eye" x="39" y="43" width="6" height="6" rx="2"/>
+      <rect class="mentor-eye" x="55" y="43" width="6" height="6" rx="2"/>
+      <rect class="mentor-mouth" x="42" y="61" width="16" height="6" rx="3"/>
+      <path class="mentor-line" d="M34 80h32M42 86h16" opacity=".45"/>
+      <path class="mentor-wave" d="M79 31c5 3 8 7 8 13"/>
+    </svg>
+  `,
+  ()=>`
+    <svg class="mentor-svg" viewBox="0 0 100 100">
+      <g class="mentor-crown">
+        <path d="M31 25l9-13 10 12 10-12 9 13" fill="none" stroke="var(--al-col,#22d3ee)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+      <path d="M25 51c0-18 11-31 25-31s25 13 25 31c0 15-10 28-25 28S25 66 25 51z" fill="rgba(226,232,240,.88)" stroke="var(--al-col,#22d3ee)" stroke-width="1.5"/>
+      <path class="mentor-face" d="M31 47c3-11 11-18 19-18s16 7 19 18c-2 13-9 21-19 21S33 60 31 47z"/>
+      <path class="mentor-line" d="M35 38c-6 1-10 6-11 12M65 38c6 1 10 6 11 12" opacity=".5"/>
+      <circle class="mentor-eye" cx="42" cy="48" r="3.2"/>
+      <circle class="mentor-eye" cx="58" cy="48" r="3.2"/>
+      <path class="mentor-line" d="M39 39c5-3 9-3 13 0M54 39c5-3 9-3 13 0" opacity=".5"/>
+      <ellipse class="mentor-mouth" cx="50" cy="59" rx="8" ry="4"/>
+      <path class="mentor-wave" d="M75 62c5 1 8 5 9 10"/>
+      <path class="mentor-line" d="M35 81c9 5 21 5 30 0" opacity=".45"/>
+    </svg>
+  `,
+];
+
+const cv = document.getElementById('stars');
+const cx = cv.getContext('2d');
+let W, H, stars = [], warpSpeed = 0, warpTarget = 0;
+
+function initStars(){
+  W = cv.width = innerWidth; H = cv.height = innerHeight;
+  stars = Array.from({length:200},()=>({
+    x:Math.random()*W, y:Math.random()*H,
+    z:Math.random()*W,
+    px:0, py:0,
+    s:Math.random()*1.5+.3,
+    o:Math.random()*.7+.2,
+  }));
+}
+
+function drawStars(){
+  cx.fillStyle = 'rgba(3,5,15,0.25)';
+  cx.fillRect(0,0,W,H);
+
+  if(warpSpeed<.05){
+    // Normal twinkle stars
+    stars.forEach(s=>{
+      cx.beginPath();
+      cx.arc(s.x,s.y,s.s,0,Math.PI*2);
+      cx.fillStyle=`rgba(255,255,255,${s.o})`;
+      cx.fill();
+    });
+    // Draw orbit circles on map
+    if(document.getElementById('map-scr').style.display!=='none'&&!document.getElementById('map-scr').classList.contains('hidden')){
+      PLANETS.forEach(p=>{
+        const px=p.x/100*W, py=p.y/100*H, cx2=W/2, cy2=H/2;
+        const dist=Math.hypot(px-cx2,py-cy2);
+        cx.beginPath();cx.ellipse(cx2,cy2,dist,dist*.35,Math.atan2(py-cy2,px-cx2),0,Math.PI*2);
+        cx.strokeStyle=`rgba(255,255,255,0.04)`;cx.lineWidth=1;cx.setLineDash([4,8]);cx.stroke();cx.setLineDash([]);
+      });
+    }
+  } else {
+    // Warp effect
+    cx.fillStyle = 'rgba(3,5,15,0.4)';
+    cx.fillRect(0,0,W,H);
+    const cx2=W/2, cy2=H/2;
+    stars.forEach(s=>{
+      const dx=s.x-cx2, dy=s.y-cy2;
+      const len=Math.hypot(dx,dy)*warpSpeed*.8;
+      const nx=dx/Math.hypot(dx,dy), ny=dy/Math.hypot(dx,dy);
+      cx.beginPath();
+      cx.moveTo(s.x,s.y);
+      cx.lineTo(s.x+nx*len,s.y+ny*len);
+      cx.strokeStyle=`rgba(200,230,255,${.4*Math.min(warpSpeed,1)})`;
+      cx.lineWidth=.8;cx.stroke();
+    });
+    // Warp rings
+    for(let r=0;r<3;r++){
+      const radius=50+r*80+Date.now()/10%200;
+      cx.beginPath();cx.arc(cx2,cy2,radius,0,Math.PI*2);
+      cx.strokeStyle=`rgba(34,211,238,${.15-r*.04})`;cx.lineWidth=1;cx.stroke();
+    }
+  }
+  // Ease warp
+  warpSpeed += (warpTarget - warpSpeed) * 0.08;
+  requestAnimationFrame(drawStars);
+}
+
+initStars();
+drawStars();
+addEventListener('resize', initStars);
+
+// ═══════════════════════════════════════════════════════════════
+// GAME STATE
+// ═══════════════════════════════════════════════════════════════
+let gs = {
+  screen:'map', planet:null, qIdx:0,
+  solved:{}, // {planetId: [true/false per q]}
+  hintLvl:{}, // {planetId_qIdx: level}
+  attempts:{}, // {planetId_qIdx: count}
+  score:0, totalAttempts:0, totalHints:0,
+  alienMood:'idle',
+};
+
+// ═══════════════════════════════════════════════════════════════
+// INIT MAP
+// ═══════════════════════════════════════════════════════════════
+function initMap(){
+  const sys = document.getElementById('solar-sys');
+  // Remove old planets
+  sys.querySelectorAll('.planet-wrap').forEach(e=>e.remove());
+
+  PLANETS.forEach(p=>{
+    const done = gs.solved[p.id]?.filter(Boolean).length===3;
+    const wrap = document.createElement('div');
+    wrap.className='planet-wrap';
+    wrap.id=`pw-${p.id}`;
+    wrap.style.cssText=`left:${p.x}%;top:${p.y}%;--p-glow:${p.color};--p-glow2:${p.color}44`;
+    wrap.onclick=()=>startFlight(p);
+
+    const solved = gs.solved[p.id]?.filter(Boolean).length||0;
+
+    wrap.innerHTML=`
+      <div class="planet-orb" style="width:${p.r}px;height:${p.r}px;background:radial-gradient(circle at 35% 35%,${p.color},${p.color2});--p-glow:${p.color}">
+        <div class="planet-atmosphere" style="background:radial-gradient(circle,${p.color}33,transparent 70%)"></div>
+        ${p.id==='creation'?`<div class="planet-ring" style="width:${p.r*1.5}px;height:${p.r*.6}px;border-color:${p.color}55"></div>`:''}
+        ${done?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:1.4rem;z-index:2">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="${p.color}" stroke-width="3" stroke-linecap="round"/></svg>
+        </div>`:''}
+      </div>
+      <div class="planet-name" style="color:${p.color}">${p.name}</div>
+      <div class="planet-tag">${p.tag}</div>
+      <div class="planet-status" style="color:${done?'#22c55e':p.color};border-color:${done?'rgba(34,197,94,.3)':p.color+'44'};background:${done?'rgba(34,197,94,.08)':p.color+'11'}">
+        ${done?'✓ COMPLETE':`${solved}/3 solved`}
+      </div>
+    `;
+    sys.appendChild(wrap);
+  });
+
+  // HUD stars
+  const hudStars = document.getElementById('hud-stars');
+  hudStars.innerHTML='';
+  PLANETS.forEach(p=>{
+    const done=gs.solved[p.id]?.filter(Boolean).length===3;
+    const pip=document.createElement('div');
+    pip.className='star-pip'+(done?' done':'');
+    pip.style.cssText=`color:${p.color};border-color:${p.color}${done?'':' 44'}`;
+    pip.title=p.name;
+    pip.innerHTML=done?`<svg width="10" height="10" viewBox="0 0 24 24" fill="${p.color}"><path d="M20 6L9 17l-5-5" stroke="${p.color}" stroke-width="3" stroke-linecap="round" fill="none"/></svg>`:'';
+    hudStars.appendChild(pip);
+  });
+  document.getElementById('hud-xp').textContent=gs.score;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FLIGHT ANIMATION
+// ═══════════════════════════════════════════════════════════════
+function startFlight(planet){
+  if(gs.screen!=='map') return;
+  gs.screen='flying';
+  gs.planet=planet;
+
+  const rocket=document.getElementById('rocket');
+  const targetX=planet.x, targetY=planet.y;
+
+  // Rotate rocket toward planet
+  const curX=parseFloat(rocket.style.left)||50;
+  const curY=parseFloat(rocket.style.top)||50;
+  const angle=Math.atan2(targetY-curY,targetX-curX)*180/Math.PI+90;
+  rocket.style.transform=`translate(-50%,-50%) rotate(${angle}deg)`;
+  rocket.classList.add('flying');
+
+  // Start warp
+  warpTarget=2.5;
+
+  // Fly rocket
+  setTimeout(()=>{
+    rocket.style.left=targetX+'%';
+    rocket.style.top=targetY+'%';
+  },200);
+
+  // Landing flash + transition
+  setTimeout(()=>{
+    warpTarget=0;
+    rocket.classList.remove('flying');
+    const flash=document.createElement('div');
+    flash.className='warp-flash';
+    document.body.appendChild(flash);
+    setTimeout(()=>{
+      flash.remove();
+      showQuiz(planet);
+    },300);
+  },1900);
+}
+
+function returnFlight(){
+  gs.screen='returning';
+  // Transition back to map
+  const flash=document.createElement('div');
+  flash.className='warp-flash';
+  document.body.appendChild(flash);
+
+  setTimeout(()=>{
+    hideQuiz();
+    flash.remove();
+    warpTarget=2;
+    const rocket=document.getElementById('rocket');
+    rocket.classList.add('flying');
+    const curX=parseFloat(rocket.style.left)||50;
+    const curY=parseFloat(rocket.style.top)||50;
+    const returnAngle=Math.atan2(50-curY,50-curX)*180/Math.PI+90;
+    rocket.style.transform=`translate(-50%,-50%) rotate(${returnAngle}deg)`;
+    rocket.style.left='50%';
+    rocket.style.top='50%';
+    setTimeout(()=>{warpTarget=0;gs.screen='map';rocket.classList.remove('flying');rocket.style.transform='translate(-50%,-50%) rotate(0deg)';},1200);
+    initMap();
+    // Check win
+    const allDone=PLANETS.every(p=>gs.solved[p.id]?.filter(Boolean).length===3);
+    if(allDone) setTimeout(showWin,1500);
+  },300);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// QUIZ
+// ═══════════════════════════════════════════════════════════════
+function showQuiz(planet){
+  gs.screen='quiz';
+  gs.qIdx=0;
+  if(!gs.solved[planet.id]) gs.solved[planet.id]=[false,false,false];
+
+  document.getElementById('quiz-scr').classList.remove('hidden');
+
+  // Set alien color CSS var
+  document.getElementById('quiz-scr').style.setProperty('--al-col',planet.color);
+  document.getElementById('quiz-scr').style.setProperty('--al-glow',planet.color);
+
+  // Surface bg
+  drawSurface(planet);
+
+  renderQuestion();
+}
+
+function hideQuiz(){
+  document.getElementById('quiz-scr').classList.add('hidden');
+}
+
+function drawSurface(planet){
+  const sc=document.getElementById('surface-bg');
+  sc.width=innerWidth; sc.height=innerHeight;
+  const sctx=sc.getContext('2d');
+  const col=planet.color;
+  const grad=sctx.createRadialGradient(innerWidth*.5,innerHeight*.8,0,innerWidth*.5,innerHeight*.8,innerHeight);
+  grad.addColorStop(0,col+'22');grad.addColorStop(.5,col+'08');grad.addColorStop(1,'transparent');
+  sctx.fillStyle=grad;sctx.fillRect(0,0,innerWidth,innerHeight);
+  // Ground
+  const ggrad=sctx.createLinearGradient(0,innerHeight*.75,0,innerHeight);
+  ggrad.addColorStop(0,col+'33');ggrad.addColorStop(1,col+'08');
+  sctx.fillStyle=ggrad;sctx.fillRect(0,innerHeight*.75,innerWidth,innerHeight*.25);
+  // Craters
+  for(let i=0;i<8;i++){
+    const ex=Math.random()*innerWidth, ey=innerHeight*.8+Math.random()*innerHeight*.15;
+    const er=15+Math.random()*40;
+    sctx.beginPath();sctx.ellipse(ex,ey,er,er*.35,0,0,Math.PI*2);
+    sctx.strokeStyle=col+'44';sctx.lineWidth=2;sctx.stroke();
+  }
+}
+
+function renderQuestion(){
+  const planet=gs.planet;
+  const q=planet.questions[gs.qIdx];
+  const col=planet.color;
+
+  // Alien
+  const mood = gs.solved[planet.id][gs.qIdx] ? 'happy' : 'idle';
+  document.getElementById('alien-svg').innerHTML = ALIENS[planet.alienName](col, mood);
+  document.getElementById('alien-name').textContent = planet.alienName;
+  document.getElementById('alien-name').style.color = col;
+
+  // Speech
+  const speeches = {
+    idle:['What does this look like to you, Cadet?','Analyze the pattern and type the command!','Your knowledge is being tested — focus!'],
+    done:['Outstanding work! Mission continues!','Perfect execution, Commander!','My sensors confirm: CORRECT!'],
+  };
+  const isAlreadySolved = gs.solved[planet.id][gs.qIdx];
+  const speechList = isAlreadySolved ? speeches.done : speeches.idle;
+  document.getElementById('speech').textContent = speechList[gs.qIdx % speechList.length];
+
+  // Progress pips
+  const pips = document.getElementById('q-pips');
+  pips.innerHTML='';
+  planet.questions.forEach((_,i)=>{
+    const pip=document.createElement('div');
+    pip.className='q-pip'+(i===gs.qIdx?' active':gs.solved[planet.id][i]?' done':'');
+    pip.style.background = i===gs.qIdx?col:gs.solved[planet.id][i]?'var(--c4)':'rgba(255,255,255,.12)';
+    if(i===gs.qIdx) pip.style.boxShadow=`0 0 8px ${col}`;
+    pips.appendChild(pip);
+  });
+
+  // Q num + badge
+  document.getElementById('q-num').textContent=`QUESTION ${gs.qIdx+1} / 3`;
+  const bd=document.getElementById('q-badge');
+  const diffs=['Beginner','Intermediate','Advanced'];
+  bd.textContent=diffs[gs.qIdx];
+  bd.style.cssText=`border-color:${col}44;color:${col};background:${col}14`;
+
+  const mentor=document.getElementById('mentor-avatar');
+  mentor.dataset.mentor=String(gs.qIdx);
+  mentor.innerHTML=MENTORS[gs.qIdx % MENTORS.length]();
+
+  // Prompt
+  document.getElementById('q-prompt').textContent=q.prompt;
+
+  // Visual
+  const vis=document.getElementById('q-visual');
+  vis.innerHTML='';
+
+  if(q.type==='create'){
+    vis.appendChild(buildMatrix(q.values,q.ct,q.shape));
+  } else if(q.type==='compute'){
+    const d=document.createElement('div');
+    d.className='compute-vis';
+    d.innerHTML=`<div class="cv-arr"><span style="color:var(--muted)">arr = </span><span style="color:${col}">[${q.inputArr.join(', ')}]</span></div>
+    <div class="cv-res"><span class="cv-arrow">→</span><span class="cv-val">${q.result}</span><span class="cv-lbl">${q.resultLabel}</span></div>`;
+    vis.appendChild(d);
+  } else if(q.type==='transform'){
+    const d=document.createElement('div');
+    d.className='transform-vis';
+    const bWrap=document.createElement('div');
+    bWrap.innerHTML='<div class="tx-lbl">INPUT</div>';
+    bWrap.appendChild(buildMatrix(q.beforeValues,q.beforeCt,''));
+    const arrow=document.createElement('div');
+    arrow.className='tx-arrow';arrow.textContent='→';
+    const aWrap=document.createElement('div');
+    aWrap.innerHTML='<div class="tx-lbl">OUTPUT</div>';
+    aWrap.appendChild(buildMatrix(q.afterValues,q.afterCt,''));
+    d.appendChild(bWrap);d.appendChild(arrow);d.appendChild(aWrap);
+    vis.appendChild(d);
+  }
+
+  // Input
+  const inp=document.getElementById('code-in');
+  inp.value='';
+  inp.className='code-in';
+  inp.disabled=false;
+  if(isAlreadySolved){
+    inp.value=q.ok[0];
+    inp.className='code-in ok';
+    inp.disabled=true;
+  }
+
+  clearFb();
+  document.getElementById('quiz-panel').style.setProperty('--al-col',col);
+
+  // Animate panel
+  const panel=document.getElementById('quiz-panel');
+  panel.style.animation='none';
+  requestAnimationFrame(()=>panel.style.animation='bubbleIn .4s cubic-bezier(.34,1.56,.64,1)');
+
+  if(!isAlreadySolved) setTimeout(()=>inp.focus(),200);
+}
+
+function buildMatrix(values,ctFn,shape){
+  const cols=values[0].length;
+  const sz=cols<=2?62:cols<=3?54:cols<=4?46:42;
+  const wrap=document.createElement('div');
+  wrap.className='mx-wrap';
+  values.forEach((row,r)=>{
+    const rEl=document.createElement('div');rEl.className='mx-row';
+    row.forEach((v,c)=>{
+      const cell=document.createElement('div');
+      cell.className=`cell ${ctFn(r,c,v)}`;
+      cell.style.width=sz+'px';cell.style.height=sz+'px';
+      cell.style.animationDelay=`${(r*cols+c)*50}ms`;
+      let txt=Number.isInteger(v)?String(v):v.toFixed(2);
+      cell.textContent=txt;cell.title=`[${r}][${c}] = ${txt}`;
+      rEl.appendChild(cell);
+    });
+    wrap.appendChild(rEl);
+  });
+  if(shape){
+    const st=document.createElement('div');
+    st.style.cssText='font-family:var(--code);font-size:.68rem;color:var(--muted);margin-top:.65rem;padding:.25rem .6rem;background:rgba(255,255,255,.04);border-radius:6px;display:inline-block';
+    st.textContent=shape;
+    wrap.appendChild(st);
+  }
+  return wrap;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ANSWER CHECK
+// ═══════════════════════════════════════════════════════════════
+function norm(s){
+  return s.trim().replace(/import\s+numpy\s+as\s+np\s*\n?/gi,'').replace(/result\s*=\s*/,'').replace(/\s+/g,'').toLowerCase().replace(/;$/,'');
+}
+
+function checkQ(){
+  const planet=gs.planet, q=planet.questions[gs.qIdx];
+  if(gs.solved[planet.id][gs.qIdx]){ advanceQ(); return; }
+
+  const inp=document.getElementById('code-in');
+  const val=inp.value.trim();
+  if(!val){showFb('bad',iconX()+' Type your command above.');return;}
+
+  const key=`${planet.id}_${gs.qIdx}`;
+  gs.attempts[key]=(gs.attempts[key]||0)+1;
+  gs.totalAttempts++;
+
+  const correct=q.ok.some(a=>norm(a)===norm(val));
+
+  if(correct){
+    gs.solved[planet.id][gs.qIdx]=true;
+    // Score
+    const hl=gs.hintLvl[key]||0, at=gs.attempts[key];
+    gs.score+=hl===0&&at===1?10:hl===0?7:Math.max(3,10-hl*2);
+    document.getElementById('hud-xp').textContent=gs.score;
+
+    inp.className='code-in ok';
+    inp.disabled=true;
+    showFb('ok',iconOk()+' '+pickMsg());
+    setAlienMood('celebrate');
+    burst(inp.getBoundingClientRect(), planet.color);
+    flashCells(planet.color);
+
+    setTimeout(()=>advanceQ(),1600);
+  } else {
+    inp.className='code-in bad';
+    setTimeout(()=>{inp.className='code-in';},450);
+    const left=3-(gs.attempts[key]||0);
+    setAlienMood('thinking');
+    if(left<=0) showFb('hint',iconInfo()+' Use the Hint button!');
+    else showFb('bad',iconX()+` Not quite. ${Math.max(0,left)} attempt${left!==1?'s':''} until hint.`);
+    setTimeout(()=>setAlienMood('idle'),1500);
+  }
+}
+
+function advanceQ(){
+  const planet=gs.planet;
+  const allDone=planet.questions.every((_,i)=>gs.solved[planet.id][i]);
+
+  if(gs.qIdx<2){
+    gs.qIdx++;
+    // Find next unsolved or just advance
+    while(gs.qIdx<3&&gs.solved[planet.id][gs.qIdx]) gs.qIdx++;
+    if(gs.qIdx>=3){
+      endPlanet();
+    } else {
+      renderQuestion();
+    }
+  } else {
+    endPlanet();
+  }
+}
+
+function endPlanet(){
+  const planet=gs.planet;
+  const allSolved=planet.questions.every((_,i)=>gs.solved[planet.id][i]);
+  if(!allSolved){
+    // Find first unsolved
+    const first=planet.questions.findIndex((_,i)=>!gs.solved[planet.id][i]);
+    if(first>=0){ gs.qIdx=first; renderQuestion(); return; }
+  }
+  // All solved — return
+  setAlienMood('celebrate');
+  document.getElementById('speech').textContent=`Mission accomplished! All systems solved! Heading back to base...`;
+  showFb('ok',iconOk()+` All 3 challenges complete! ${gs.score} XP total.`);
+  setTimeout(returnFlight,2000);
+}
+
+function showHint(){
+  const planet=gs.planet, q=planet.questions[gs.qIdx];
+  const key=`${planet.id}_${gs.qIdx}`;
+  const lvl=gs.hintLvl[key]||0;
+  if(lvl>=q.hints.length){showFb('hint',iconInfo()+' No more hints — try the answer shown!');return;}
+  gs.totalHints++;
+  gs.hintLvl[key]=(gs.hintLvl[key]||0)+1;
+  const h=q.hints[lvl];
+  const isAns=lvl===q.hints.length-1;
+  showFb('hint',`${iconInfo()}<div><div style="font-size:.66rem;opacity:.6;margin-bottom:.15rem">HINT ${lvl+1}/${q.hints.length}${isAns?' · ANSWER':''}</div><code style="font-family:var(--code)">${h}</code></div>`);
+  if(isAns){document.getElementById('code-in').value=h;document.getElementById('code-in').focus();}
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ALIEN MOOD
+// ═══════════════════════════════════════════════════════════════
+function setAlienMood(mood){
+  gs.alienMood=mood;
+  const planet=gs.planet;
+  if(!planet) return;
+  document.getElementById('alien-svg').innerHTML=ALIENS[planet.alienName](planet.color,mood);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// WIN
+// ═══════════════════════════════════════════════════════════════
+function showWin(){
+  document.getElementById('win-scr').classList.remove('hidden');
+  document.getElementById('ws-xp').textContent=gs.score;
+  document.getElementById('ws-at').textContent=gs.totalAttempts;
+  document.getElementById('ws-hn').textContent=gs.totalHints;
+  confetti();
+}
+
+function restartGame(){
+  gs={screen:'map',planet:null,qIdx:0,solved:{},hintLvl:{},attempts:{},score:0,totalAttempts:0,totalHints:0,alienMood:'idle'};
+  document.getElementById('win-scr').classList.add('hidden');
+  document.getElementById('quiz-scr').classList.add('hidden');
+  document.getElementById('hud-xp').textContent='0';
+  const rocket=document.getElementById('rocket');
+  rocket.classList.remove('flying');
+  rocket.style.left='50%';rocket.style.top='50%';rocket.style.transform='translate(-50%,-50%) rotate(0deg)';
+  initMap();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════
+function pickMsg(){return['Nailed it!','Precisely!','Perfect!','Spot on!','Excellent!','Outstanding!'][Math.floor(Math.random()*6)]}
+function iconOk(){return'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>'}
+function iconX(){return'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>'}
+function iconInfo(){return'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>'}
+function showFb(type,html){const f=document.getElementById('fb');f.className=`fb ${type} show`;f.innerHTML=html;}
+function clearFb(){const f=document.getElementById('fb');f.className='fb';f.innerHTML='';}
+
+function burst(rect,col){
+  const cx2=rect.left+rect.width/2,cy2=rect.top+rect.height/2;
+  const cols=[col,'#22c55e','#f8fafc','#fbbf24',col+'aa'];
+  for(let i=0;i<18;i++){
+    const p=document.createElement('div');p.className='particle';
+    const a=(i/18)*Math.PI*2,d=50+Math.random()*80;
+    p.style.cssText=`left:${cx2}px;top:${cy2}px;width:${3+Math.random()*5}px;height:${3+Math.random()*5}px;background:${cols[i%cols.length]};--dx:${Math.cos(a)*d}px;--dy:${Math.sin(a)*d}px;animation-duration:${.4+Math.random()*.3}s`;
+    document.body.appendChild(p);setTimeout(()=>p.remove(),800);
+  }
+}
+
+function flashCells(col){
+  document.querySelectorAll('.cell').forEach((c,i)=>setTimeout(()=>{
+    c.style.transform='scale(1.18)';c.style.borderColor=col;c.style.boxShadow=`0 0 14px ${col}`;
+    setTimeout(()=>{c.style.transform='';c.style.boxShadow='';},300);
+  },i*40));
+}
+
+function confetti(){
+  const cols=['#22d3ee','#a855f7','#22c55e','#fbbf24','#f472b6','#f87171'];
+  for(let i=0;i<100;i++) setTimeout(()=>{
+    const c=document.createElement('div');c.className='confetti';
+    const w=5+Math.random()*8;
+    c.style.cssText=`left:${Math.random()*100}vw;top:-20px;width:${w}px;height:${w}px;border-radius:${Math.random()>.5?'50%':'2px'};background:${cols[i%cols.length]};animation-duration:${2+Math.random()*2.5}s`;
+    document.body.appendChild(c);setTimeout(()=>c.remove(),5000);
+  },i*20);
+}
+
+// Keyboard
+document.getElementById('code-in').addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();checkQ();}
+});
+
+// ═══════════════════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════════════════
+document.getElementById('hud').classList.remove('hidden');
+initMap();
+
+</script>
+</body>
+</html>

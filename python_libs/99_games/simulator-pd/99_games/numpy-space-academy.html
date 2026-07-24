@@ -1,0 +1,1328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NumPy Space Academy</title>
+
+  <!-- PixiJS v7 — GPU-accelerated warp starfield -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.3.2/pixi.min.js"></script>
+  <!-- GSAP 3 — Cinematic timeline animations -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/MotionPathPlugin.min.js"></script>
+  <!-- CodeMirror 5 — Syntax-highlighted Python editor -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+  <!-- Pyodide — Python + NumPy running natively in the browser -->
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Exo+2:ital,wght@0,300;0,400;0,600;1,300&display=swap" rel="stylesheet" />
+
+<style>
+/* ═══════════════════════════ RESET & VARIABLES ═══════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --c: #00e5ff;
+  --c2: #7c4dff;
+  --gold: #ffd600;
+  --text: #e8f4f8;
+  --dim: #6b7e8f;
+  --glass: rgba(3, 12, 32, 0.78);
+  --border: rgba(0, 229, 255, 0.18);
+  --hud: 'Orbitron', monospace;
+  --body: 'Exo 2', sans-serif;
+}
+
+html, body {
+  width: 100%; height: 100%; overflow: hidden;
+  background: #000008;
+  color: var(--text);
+  font-family: var(--body);
+  user-select: none;
+}
+
+/* ═══════════════════════════ LAYER STACK ═══════════════════════════ */
+#pixi-canvas {
+  position: fixed; inset: 0;
+  width: 100%; height: 100%;
+  z-index: 0;
+}
+
+#game-root {
+  position: fixed; inset: 0;
+  z-index: 10;
+}
+
+/* ═══════════════════════════ SCREENS ═══════════════════════════ */
+.screen {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none;
+}
+
+/* ═══════════════════════════ LOADING ═══════════════════════════ */
+#screen-loading {
+  background: rgba(0,0,8,0.96);
+  z-index: 100;
+  gap: 1.5rem;
+}
+
+.spin {
+  width: 52px; height: 52px;
+  border: 2px solid rgba(0,229,255,0.12);
+  border-top-color: var(--c);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.load-logo {
+  font-family: var(--hud);
+  font-size: clamp(1.6rem, 4vw, 3rem);
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-align: center;
+  line-height: 1.2;
+  color: var(--c);
+  text-shadow: 0 0 24px var(--c), 0 0 70px rgba(0,229,255,0.35);
+}
+.load-logo em { color: var(--gold); font-style: normal; }
+
+.load-bar-wrap {
+  width: clamp(200px, 38vw, 380px);
+  height: 3px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.load-bar {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--c2), var(--c));
+  box-shadow: 0 0 10px var(--c);
+  border-radius: 2px;
+  transition: width 0.5s ease;
+}
+
+.load-status {
+  font-family: var(--hud);
+  font-size: 0.68rem;
+  letter-spacing: 0.35em;
+  color: var(--dim);
+  text-transform: uppercase;
+}
+
+/* ═══════════════════════════ INTRO ═══════════════════════════ */
+#screen-intro {
+  z-index: 20;
+  text-align: center;
+  gap: 0;
+}
+
+.intro-eye {
+  font-family: var(--hud);
+  font-size: 0.68rem;
+  letter-spacing: 0.7em;
+  color: var(--c);
+  text-transform: uppercase;
+  opacity: 0;
+  margin-bottom: 1.6rem;
+}
+
+.intro-title {
+  font-family: var(--hud);
+  font-size: clamp(2.8rem, 7.5vw, 7rem);
+  font-weight: 900;
+  line-height: 1.0;
+  opacity: 0;
+  margin-bottom: 0.35rem;
+  background: linear-gradient(145deg, #fff 0%, var(--c) 45%, var(--c2) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 40px rgba(0,229,255,0.45));
+}
+
+.intro-sub {
+  font-family: var(--hud);
+  font-size: clamp(0.9rem, 2.5vw, 2rem);
+  font-weight: 700;
+  letter-spacing: 0.4em;
+  color: var(--gold);
+  opacity: 0;
+  margin-bottom: 2.4rem;
+  text-shadow: 0 0 18px var(--gold);
+}
+
+.intro-desc {
+  font-size: clamp(0.85rem, 1.3vw, 1rem);
+  color: rgba(200,225,245,0.65);
+  max-width: 500px;
+  line-height: 1.75;
+  font-weight: 300;
+  font-style: italic;
+  opacity: 0;
+  margin-bottom: 3rem;
+}
+
+.intro-btn {
+  font-family: var(--hud);
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: #000;
+  background: linear-gradient(135deg, var(--c), #0097a7);
+  border: none;
+  padding: 1rem 3.2rem;
+  cursor: pointer;
+  clip-path: polygon(14px 0%, 100% 0%, calc(100% - 14px) 100%, 0% 100%);
+  text-transform: uppercase;
+  opacity: 0;
+  transition: filter 0.2s, transform 0.15s;
+}
+.intro-btn:hover { filter: brightness(1.3); transform: scale(1.04); }
+
+.intro-hint {
+  position: absolute; bottom: 2rem;
+  font-family: var(--hud); font-size: 0.62rem;
+  letter-spacing: 0.4em; color: var(--dim);
+  text-transform: uppercase; opacity: 0;
+}
+
+/* ═══════════════════════════ GALAXY MAP ═══════════════════════════ */
+#screen-map { z-index: 20; }
+
+.map-hdr {
+  position: absolute; top: 2rem; left: 0; right: 0;
+  text-align: center; pointer-events: none;
+}
+.map-hdr h2 {
+  font-family: var(--hud); font-size: 0.66rem;
+  letter-spacing: 0.55em; color: var(--dim); text-transform: uppercase;
+}
+.map-hdr .sys-name {
+  font-family: var(--hud); font-size: clamp(1rem, 2.4vw, 1.7rem);
+  font-weight: 700; color: var(--text); letter-spacing: 0.18em;
+  text-shadow: 0 0 22px rgba(0,229,255,0.3); margin-top: 0.3rem;
+}
+
+.map-xp {
+  position: absolute; top: 2rem; right: 2.5rem;
+  font-family: var(--hud); font-size: 0.62rem;
+  letter-spacing: 0.25em; color: var(--gold); text-align: right;
+}
+.map-xp .xpv {
+  display: block; font-size: 1.5rem; font-weight: 900;
+  text-shadow: 0 0 12px var(--gold);
+}
+
+.map-progress {
+  position: absolute; bottom: 2rem; left: 0; right: 0;
+  text-align: center; font-family: var(--hud);
+  font-size: 0.62rem; letter-spacing: 0.4em; color: var(--dim);
+  text-transform: uppercase; pointer-events: none;
+}
+
+/* orbit rings */
+.orbit-ring {
+  position: absolute; border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.05);
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+/* planet wrapper */
+.mp-wrap {
+  position: absolute; transform: translate(-50%, -50%);
+  cursor: pointer; z-index: 2;
+}
+
+.mp-sphere {
+  border-radius: 50%;
+  position: relative; overflow: visible;
+  transition: filter 0.3s;
+}
+
+.mp-wrap.locked .mp-sphere { filter: grayscale(0.85) brightness(0.35); }
+.mp-wrap.locked { cursor: default; }
+
+.mp-label {
+  position: absolute; bottom: calc(100% + 10px);
+  left: 50%; transform: translateX(-50%);
+  white-space: nowrap; text-align: center; pointer-events: none;
+}
+.mp-name {
+  display: block; font-family: var(--hud);
+  font-size: 0.68rem; font-weight: 700; letter-spacing: 0.12em;
+}
+.mp-sector {
+  display: block; font-size: 0.58rem; color: var(--dim);
+  letter-spacing: 0.25em; margin-top: 2px;
+}
+.mp-wrap.done .mp-name::after { content: ' ✓'; color: #66ff99; }
+
+.mp-lock {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%,-50%);
+  font-size: 1.3rem; pointer-events: none; opacity: 0.6;
+}
+
+/* saturn ring for crystallis */
+.saturn-ring {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%) rotateX(72deg);
+  border-radius: 50%; pointer-events: none;
+  z-index: -1;
+}
+
+@keyframes float-a { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-9px)} }
+@keyframes float-b { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+@keyframes float-c { 0%,100%{transform:translateY(-3px)} 50%{transform:translateY(-11px)} }
+
+/* ═══════════════════════════ FLYING ═══════════════════════════ */
+#screen-flying { z-index: 30; }
+
+.warp-dest {
+  font-family: var(--hud); font-size: clamp(0.75rem, 1.8vw, 1rem);
+  letter-spacing: 0.55em; color: var(--c); text-transform: uppercase;
+  opacity: 0; margin-bottom: 2.5rem;
+  text-shadow: 0 0 20px var(--c);
+}
+
+.warp-planet {
+  border-radius: 50%; opacity: 0;
+  transform: scale(0); transform-origin: center;
+}
+
+/* ═══════════════════════════ TASK SCREEN ═══════════════════════════ */
+#screen-task {
+  z-index: 20;
+  flex-direction: row;
+  align-items: stretch;
+  padding: 0; overflow: hidden;
+}
+
+.task-bg-wrap {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none; overflow: hidden;
+}
+.task-bg-planet {
+  border-radius: 50%;
+  opacity: 0.1; filter: blur(70px);
+  transform: translate(35%, -22%);
+  pointer-events: none; flex-shrink: 0;
+}
+
+/* left panel */
+.task-left {
+  width: 38%; min-width: 290px;
+  display: flex; flex-direction: column;
+  justify-content: center;
+  padding: 2.5rem 2rem 2.5rem 3rem;
+  position: relative;
+  border-right: 1px solid var(--border);
+  background: linear-gradient(135deg, rgba(3,12,32,0.92), rgba(5,18,48,0.88));
+  backdrop-filter: blur(22px);
+  overflow-y: auto;
+}
+.task-left::before {
+  content: ''; position: absolute;
+  top: 0; bottom: 0; left: 0; width: 3px;
+  background: linear-gradient(180deg, transparent, var(--c), transparent);
+}
+
+.task-back {
+  position: absolute; top: 1.4rem; left: 1.4rem;
+  font-family: var(--hud); font-size: 0.62rem; letter-spacing: 0.25em;
+  color: var(--dim); background: transparent; border: none;
+  cursor: pointer; text-transform: uppercase;
+  transition: color 0.2s;
+}
+.task-back:hover { color: var(--text); }
+
+.task-chip {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-family: var(--hud); font-size: 0.6rem;
+  letter-spacing: 0.3em; color: var(--dim);
+  text-transform: uppercase; margin-bottom: 1.4rem;
+}
+.chip-dot {
+  width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+}
+
+.task-title {
+  font-family: var(--hud);
+  font-size: clamp(1.1rem, 1.8vw, 1.55rem);
+  font-weight: 700; color: var(--text);
+  line-height: 1.25; margin-bottom: 0.9rem;
+}
+
+.task-story {
+  font-size: 0.87rem; line-height: 1.72;
+  color: rgba(200,225,245,0.65);
+  font-style: italic; font-weight: 300;
+  margin-bottom: 1.4rem;
+}
+
+.obj-box {
+  background: rgba(0,229,255,0.05);
+  border: 1px solid rgba(0,229,255,0.18);
+  border-radius: 8px; padding: 1rem 1.2rem;
+  margin-bottom: 1.5rem;
+}
+.obj-box h4 {
+  font-family: var(--hud); font-size: 0.58rem;
+  letter-spacing: 0.35em; color: var(--c);
+  text-transform: uppercase; margin-bottom: 0.45rem;
+}
+.obj-box p { font-size: 0.83rem; color: var(--text); line-height: 1.5; }
+.obj-box code {
+  background: rgba(0,0,0,0.35); padding: 2px 6px; border-radius: 4px;
+  font-size: 0.8rem; color: var(--c); font-family: 'Courier New', monospace;
+}
+
+.hint-btn {
+  font-family: var(--hud); font-size: 0.65rem;
+  letter-spacing: 0.2em; color: var(--dim);
+  background: transparent; border: 1px solid rgba(255,255,255,0.1);
+  padding: 0.45rem 0.9rem; cursor: pointer; border-radius: 4px;
+  text-transform: uppercase; align-self: flex-start;
+  transition: color 0.2s, border-color 0.2s;
+}
+.hint-btn:hover { color: var(--gold); border-color: var(--gold); }
+
+.hint-txt {
+  font-size: 0.8rem; color: var(--gold); margin-top: 0.7rem;
+  padding: 0.7rem 0.9rem; background: rgba(255,214,0,0.05);
+  border-radius: 4px; border-left: 2px solid var(--gold);
+  display: none; font-style: italic; line-height: 1.55;
+}
+.hint-txt code {
+  background: rgba(0,0,0,0.3); padding: 1px 5px; border-radius: 3px;
+  color: var(--gold); font-family: 'Courier New', monospace;
+}
+
+/* right panel */
+.task-right {
+  flex: 1; display: flex; flex-direction: column;
+  background: rgba(3,12,32,0.72); backdrop-filter: blur(22px);
+  overflow: hidden;
+}
+
+.editor-hdr {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.9rem 1.5rem; flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  background: rgba(0,0,0,0.25);
+}
+.editor-hdr-title {
+  font-family: var(--hud); font-size: 0.65rem;
+  letter-spacing: 0.3em; color: var(--dim); text-transform: uppercase;
+}
+.ed-dots { display: flex; gap: 6px; }
+.ed-dot { width: 10px; height: 10px; border-radius: 50%; }
+.ed-dot:nth-child(1){background:#ff5f56}
+.ed-dot:nth-child(2){background:#ffbd2e}
+.ed-dot:nth-child(3){background:#27c93f}
+
+.editor-wrap {
+  flex: 1; overflow: hidden; position: relative;
+}
+.editor-wrap .CodeMirror {
+  position: absolute; inset: 0; height: 100% !important;
+  font-size: 0.9rem !important;
+  font-family: 'Fira Code', 'Cascadia Code', 'Courier New', monospace !important;
+  background: transparent !important; line-height: 1.65 !important;
+}
+.editor-wrap .CodeMirror-scroll { height: 100% !important; }
+
+.task-footer {
+  display: flex; align-items: center; gap: 0.9rem;
+  padding: 0.9rem 1.5rem; flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  background: rgba(0,0,0,0.35);
+}
+
+.run-btn {
+  font-family: var(--hud); font-size: 0.78rem; font-weight: 700;
+  letter-spacing: 0.2em; color: #000;
+  background: linear-gradient(135deg, var(--c), #0097a7);
+  border: none; padding: 0.72rem 2rem; cursor: pointer;
+  clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+  text-transform: uppercase; flex-shrink: 0;
+  transition: filter 0.2s, transform 0.15s;
+}
+.run-btn:hover:not(:disabled) { filter: brightness(1.2); transform: scale(1.03); }
+.run-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.reset-btn {
+  font-family: var(--hud); font-size: 0.65rem; letter-spacing: 0.2em;
+  color: var(--dim); background: transparent;
+  border: 1px solid rgba(255,255,255,0.1);
+  padding: 0.72rem 1.1rem; cursor: pointer;
+  text-transform: uppercase; border-radius: 4px;
+  transition: color 0.2s, border-color 0.2s; flex-shrink: 0;
+}
+.reset-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.3); }
+
+.output {
+  flex: 1; font-size: 0.76rem;
+  font-family: 'Courier New', monospace;
+  color: var(--dim); min-width: 0; overflow: hidden;
+  white-space: nowrap; text-overflow: ellipsis;
+  transition: color 0.3s;
+}
+.output.ok  { color: #66ff99; }
+.output.err { color: #ff6b6b; }
+.output.run { color: var(--c); animation: blink 0.75s infinite; }
+
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.35} }
+
+/* ═══════════════════════════ SUCCESS ═══════════════════════════ */
+#screen-success {
+  z-index: 35; text-align: center; gap: 0;
+}
+.suc-glow {
+  position: absolute; inset: 0;
+  background: radial-gradient(circle at center, rgba(0,229,255,0.07) 0%, transparent 65%);
+  pointer-events: none;
+}
+.suc-badge { font-size: 5rem; opacity: 0; margin-bottom: 1.2rem; filter: drop-shadow(0 0 24px rgba(255,200,0,0.9)); }
+.suc-title {
+  font-family: var(--hud); font-size: clamp(1.5rem, 4vw, 3.2rem);
+  font-weight: 900; color: var(--c); letter-spacing: 0.2em;
+  text-transform: uppercase; opacity: 0; margin-bottom: 0.6rem;
+  text-shadow: 0 0 30px var(--c), 0 0 80px rgba(0,229,255,0.25);
+}
+.suc-planet {
+  font-family: var(--hud); font-size: 0.9rem;
+  letter-spacing: 0.3em; color: var(--gold); opacity: 0; margin-bottom: 1.8rem;
+  text-shadow: 0 0 10px var(--gold);
+}
+.suc-xp {
+  font-family: var(--hud); font-size: 1rem; color: var(--gold);
+  opacity: 0; margin-bottom: 2.8rem;
+}
+.suc-xp span { font-size: 2.2rem; font-weight: 900; }
+.suc-btn {
+  font-family: var(--hud); font-size: 0.85rem; font-weight: 700;
+  letter-spacing: 0.22em; color: #000;
+  background: linear-gradient(135deg, var(--gold), #ff8f00);
+  border: none; padding: 1rem 3rem; cursor: pointer;
+  clip-path: polygon(14px 0%, 100% 0%, calc(100% - 14px) 100%, 0% 100%);
+  text-transform: uppercase; opacity: 0;
+  transition: filter 0.2s, transform 0.15s;
+}
+.suc-btn:hover { filter: brightness(1.3); transform: scale(1.04); }
+
+/* ═══════════════════════════ PARTICLES ═══════════════════════════ */
+#ptcl { position: fixed; inset: 0; z-index: 55; pointer-events: none; }
+
+/* ═══════════════════════════ SCANLINE ═══════════════════════════ */
+#scanline {
+  position: fixed; inset: 0; z-index: 8; pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg, transparent, transparent 2px,
+    rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px
+  );
+  animation: scanmove 12s linear infinite;
+}
+@keyframes scanmove {
+  from { background-position: 0 0; }
+  to   { background-position: 0 200px; }
+}
+
+/* ═══════════════════════════ RESPONSIVE ═══════════════════════════ */
+@media (max-width: 768px) {
+  #screen-task { flex-direction: column; }
+  .task-left {
+    width: 100%; min-width: unset; min-height: unset;
+    border-right: none; border-bottom: 1px solid var(--border);
+    padding: 3rem 1.5rem 1.5rem;
+    max-height: 46vh; overflow-y: auto;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- Layer 0: PixiJS GPU starfield -->
+<canvas id="pixi-canvas"></canvas>
+
+<!-- Cinematic scanline overlay -->
+<div id="scanline"></div>
+
+<!-- Game root -->
+<div id="game-root">
+
+  <!-- ── LOADING ── -->
+  <div id="screen-loading" class="screen" style="opacity:1;pointer-events:all">
+    <div class="spin"></div>
+    <div class="load-logo">NUMPY<br><em>SPACE ACADEMY</em></div>
+    <div class="load-bar-wrap"><div class="load-bar" id="load-bar"></div></div>
+    <div class="load-status" id="load-status">Initializing Quantum Drive…</div>
+  </div>
+
+  <!-- ── INTRO ── -->
+  <div id="screen-intro" class="screen">
+    <div class="intro-eye">Stardate 3024 · Mission Control</div>
+    <h1 class="intro-title">NumPy<br>Space Academy</h1>
+    <div class="intro-sub">Navigate the Cosmos</div>
+    <p class="intro-desc">
+      A star system hums with alien civilisations that speak entirely in mathematical arrays.
+      Master NumPy to decode their signals, solve orbital equations, and unlock the galaxy.
+    </p>
+    <button class="intro-btn" id="launch-btn">⚡ Launch Mission</button>
+    <div class="intro-hint">Select a planet on the Galaxy Map to begin</div>
+  </div>
+
+  <!-- ── GALAXY MAP ── -->
+  <div id="screen-map" class="screen">
+    <div class="map-hdr">
+      <h2>Navigation System</h2>
+      <div class="sys-name">The NumPy Nebula</div>
+    </div>
+    <div class="map-xp">
+      <span style="font-size:0.62rem;letter-spacing:.25em">MISSION XP</span>
+      <span class="xpv" id="xp-val">0</span>
+    </div>
+
+    <!-- decorative orbit rings -->
+    <div class="orbit-ring" style="width:220px;height:220px"></div>
+    <div class="orbit-ring" style="width:400px;height:400px"></div>
+    <div class="orbit-ring" style="width:570px;height:570px"></div>
+    <div class="orbit-ring" style="width:730px;height:730px"></div>
+
+    <div id="map-planets"></div>
+
+    <div class="map-progress" id="map-progress">0 / 6 Systems Explored</div>
+  </div>
+
+  <!-- ── FLYING ── -->
+  <div id="screen-flying" class="screen">
+    <div class="warp-dest" id="warp-dest">DESTINATION: UNKNOWN</div>
+    <div class="warp-planet" id="warp-planet" style="width:130px;height:130px"></div>
+  </div>
+
+  <!-- ── TASK ── -->
+  <div id="screen-task" class="screen">
+    <div class="task-bg-wrap">
+      <div class="task-bg-planet" id="task-bg-planet" style="width:620px;height:620px"></div>
+    </div>
+
+    <div class="task-left" id="task-left">
+      <button class="task-back" id="task-back">← Galaxy Map</button>
+      <div class="task-chip">
+        <div class="chip-dot" id="chip-dot"></div>
+        <span id="chip-sector"></span>
+      </div>
+      <h2 class="task-title" id="task-title"></h2>
+      <p class="task-story" id="task-story"></p>
+      <div class="obj-box">
+        <h4>Mission Objective</h4>
+        <p id="task-obj"></p>
+      </div>
+      <button class="hint-btn" id="hint-btn">🔭 Show Hint</button>
+      <div class="hint-txt" id="hint-txt"></div>
+    </div>
+
+    <div class="task-right">
+      <div class="editor-hdr">
+        <div class="ed-dots">
+          <div class="ed-dot"></div>
+          <div class="ed-dot"></div>
+          <div class="ed-dot"></div>
+        </div>
+        <div class="editor-hdr-title">mission_control.py</div>
+      </div>
+      <div class="editor-wrap">
+        <textarea id="code-editor"></textarea>
+      </div>
+      <div class="task-footer">
+        <button class="run-btn" id="run-btn">▶ Run Mission</button>
+        <button class="reset-btn" id="reset-btn">↺ Reset</button>
+        <div class="output" id="output">Ready for launch…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SUCCESS ── -->
+  <div id="screen-success" class="screen">
+    <div class="suc-glow"></div>
+    <div class="suc-badge" id="suc-badge">🏆</div>
+    <h2 class="suc-title" id="suc-title">Mission Complete!</h2>
+    <div class="suc-planet" id="suc-planet"></div>
+    <div class="suc-xp">+<span id="suc-xp">100</span> XP</div>
+    <button class="suc-btn" id="suc-next">→ Continue Mission</button>
+  </div>
+
+</div><!-- /game-root -->
+
+<!-- Particle burst layer -->
+<div id="ptcl"></div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   NumPy Space Academy · Main Script
+   Libraries: PixiJS 7 · GSAP 3 · CodeMirror 5 · Pyodide 0.24
+══════════════════════════════════════════════════════════════════ */
+
+gsap.registerPlugin(MotionPathPlugin);
+
+/* ──────────────────────── PLANET / TASK DATA ──────────────────────── */
+const PLANETS = [
+  {
+    id: 'nova', name: 'Nova Prime', sector: 'Sector 1',
+    mapX: '17%', mapY: '34%', size: 74, floatAnim: 'float-a', floatDur: '5.5s', floatDel: '0s',
+    grad: 'radial-gradient(circle at 32% 30%, #b2dfdb, #26a69a 35%, #00695c 65%, #001510)',
+    glow: '#26a69a', unlocked: true, done: false, xp: 100,
+    task: {
+      title: '📡 Signal Arrays',
+      story: 'The crew of Nova Prime is transmitting distress signals at specific radio frequencies. To establish contact, you must store these frequencies in a NumPy array.',
+      obj: 'Create a NumPy array called <code>frequencies</code> containing: <code>[437.2, 892.5, 156.1, 2048.3, 99.7]</code>',
+      hint: 'Use <code>np.array([val1, val2, ...])</code> to create an array from a list.',
+      starter: `import numpy as np\n\n# Store the alien signal frequencies (in MHz)\n# Values: 437.2, 892.5, 156.1, 2048.3, 99.7\nfrequencies = `,
+      check: `import numpy as np\n_ok = isinstance(frequencies, np.ndarray) and np.allclose(frequencies, [437.2, 892.5, 156.1, 2048.3, 99.7])\nstr(_ok)`
+    }
+  },
+  {
+    id: 'helios', name: 'Helios Station', sector: 'Sector 2',
+    mapX: '73%', mapY: '20%', size: 66, floatAnim: 'float-b', floatDur: '6.2s', floatDel: '-2s',
+    grad: 'radial-gradient(circle at 32% 30%, #ff8a65, #e64a19 35%, #bf360c 65%, #3d0800)',
+    glow: '#e64a19', unlocked: false, done: false, xp: 150,
+    task: {
+      title: '🔥 Orbital Entry Angle',
+      story: 'Helios Station orbits a binary star. Your entry vector requires the exact sine of a 45-degree angle (π/4 radians) or the navigation computer will reject the docking sequence.',
+      obj: 'Compute <code>np.sin(np.pi / 4)</code> and store the result in a variable called <code>angle</code>',
+      hint: '<code>np.sin()</code> accepts radians. Use <code>np.pi</code> for the value of π.',
+      starter: `import numpy as np\n\n# Calculate sin(π/4) for the orbital entry angle\n# Store the result in 'angle'\nangle = `,
+      check: `import numpy as np\n_ok = abs(float(angle) - float(np.sin(np.pi / 4))) < 0.001\nstr(_ok)`
+    }
+  },
+  {
+    id: 'zog9', name: 'Zog-9', sector: 'Sector 3',
+    mapX: '80%', mapY: '63%', size: 88, floatAnim: 'float-c', floatDur: '7s', floatDel: '-4s',
+    grad: 'radial-gradient(circle at 32% 30%, #ce93d8, #8e24aa 35%, #4a148c 65%, #110025)',
+    glow: '#8e24aa', unlocked: false, done: false, xp: 200,
+    task: {
+      title: '👾 Elder of the Council',
+      story: 'The High Council of Zog-9 insists you address their eldest member first. You have a census array of alien ages in Earth years — find the oldest.',
+      obj: 'Given <code>ages = np.array([234, 156, 892, 45, 671, 318])</code>, find the maximum value and store it in <code>oldest</code>',
+      hint: 'NumPy arrays have a <code>.max()</code> method. You can also use <code>np.max(array)</code>.',
+      starter: `import numpy as np\n\nages = np.array([234, 156, 892, 45, 671, 318])\n\n# Find the oldest alien (maximum value)\noldest = `,
+      check: `import numpy as np\nages = np.array([234, 156, 892, 45, 671, 318])\n_ok = int(oldest) == 892\nstr(_ok)`
+    }
+  },
+  {
+    id: 'aquaria', name: 'Aquaria Deep', sector: 'Sector 4',
+    mapX: '50%', mapY: '77%', size: 80, floatAnim: 'float-a', floatDur: '6.8s', floatDel: '-1.5s',
+    grad: 'radial-gradient(circle at 32% 30%, #81d4fa, #0288d1 35%, #01579b 65%, #001222)',
+    glow: '#0288d1', unlocked: false, done: false, xp: 200,
+    task: {
+      title: '🌊 Fuel Efficiency Report',
+      story: 'Your ship has been leaking coolant across the deep-space leg to Aquaria. The engineers logged daily fuel consumption and need the average to plan a safe return voyage.',
+      obj: 'Compute the mean of <code>fuel_data</code> using NumPy and store it in <code>avg_fuel</code>',
+      hint: 'Use <code>np.mean(array)</code> to get the arithmetic mean of all elements.',
+      starter: `import numpy as np\n\nfuel_data = np.array([12.5, 8.3, 15.7, 9.1, 11.2, 13.8, 7.6])\n\n# Compute the average daily fuel consumption\navg_fuel = `,
+      check: `import numpy as np\nfuel_data = np.array([12.5, 8.3, 15.7, 9.1, 11.2, 13.8, 7.6])\n_exp = float(np.mean(fuel_data))\n_ok = abs(float(avg_fuel) - _exp) < 0.01\nstr(_ok)`
+    }
+  },
+  {
+    id: 'crystallis', name: 'Crystallis', sector: 'Sector 5',
+    mapX: '24%', mapY: '73%', size: 84, floatAnim: 'float-b', floatDur: '5.8s', floatDel: '-3s',
+    grad: 'radial-gradient(circle at 32% 30%, #fff59d, #f9a825 35%, #e65100 65%, #3e0f00)',
+    glow: '#f9a825', ring: true, unlocked: false, done: false, xp: 250,
+    task: {
+      title: '💎 Asteroid Survey Grid',
+      story: 'The crystal miners of Crystallis catalogued 12 asteroid clusters as a flat sequence of IDs. Reshape this data into a 3-row, 4-column mining grid so the drilling crews can navigate it.',
+      obj: 'Create a 3×4 NumPy array using <code>np.arange(12).reshape(3, 4)</code> and store it in <code>asteroid_map</code>',
+      hint: '<code>np.arange(n)</code> creates [0, 1, …, n-1]. Chain <code>.reshape(rows, cols)</code> to change its shape.',
+      starter: `import numpy as np\n\n# Create asteroid IDs 0–11 and reshape into a 3×4 grid\nasteroid_map = `,
+      check: `import numpy as np\n_ok = hasattr(asteroid_map, 'shape') and tuple(asteroid_map.shape) == (3, 4)\nstr(_ok)`
+    }
+  },
+  {
+    id: 'nexus', name: 'Nexus Gate', sector: 'Sector 6 · Final',
+    mapX: '47%', mapY: '17%', size: 98, floatAnim: 'float-c', floatDur: '7.5s', floatDel: '-5s',
+    grad: 'radial-gradient(circle at 32% 30%, #ffecb3, #ff8f00 28%, #5d4037 58%, #1a0900)',
+    glow: '#ff8f00', unlocked: false, done: false, xp: 350,
+    task: {
+      title: '⚡ Gate Verification Vector',
+      story: 'The Nexus Gate at the heart of the galaxy demands a precise trajectory verification. You must compute the dot product of two navigation vectors or the gate will seal permanently.',
+      obj: 'Compute <code>np.dot([1, 2, 3], [4, 5, 6])</code> and store it in <code>nav_result</code>',
+      hint: '<code>np.dot(v1, v2)</code> computes the dot product: 1×4 + 2×5 + 3×6 = <strong>32</strong>.',
+      starter: `import numpy as np\n\nv1 = np.array([1, 2, 3])\nv2 = np.array([4, 5, 6])\n\n# Compute the dot product for gate verification\nnav_result = `,
+      check: `import numpy as np\nv1 = np.array([1, 2, 3])\nv2 = np.array([4, 5, 6])\n_ok = int(nav_result) == 32\nstr(_ok)`
+    }
+  }
+];
+
+/* ──────────────────────── GAME STATE ──────────────────────── */
+const S = {
+  pyodide: null,
+  editor:  null,
+  xp:      0,
+  warpSpd: 0.005,
+  current: null,   // planet id
+  starter: '',
+  screen:  'loading',
+};
+
+/* ──────────────────────── PIXI WARP FIELD ──────────────────────── */
+let pixiApp, warpGfx;
+
+function initWarp() {
+  pixiApp = new PIXI.Application({
+    view: document.getElementById('pixi-canvas'),
+    backgroundColor: 0x000008,
+    resizeTo: window,
+    antialias: true,
+    resolution: Math.min(window.devicePixelRatio || 1, 2),
+    autoDensity: true,
+  });
+
+  // Deep space nebula blobs
+  const nebulaCtx = new PIXI.Container();
+  pixiApp.stage.addChild(nebulaCtx);
+
+  const nebulaPalette = [0x10002b, 0x00111e, 0x001a10, 0x1a0009];
+  const nebulas = [];
+  for (let i = 0; i < 7; i++) {
+    const g = new PIXI.Graphics();
+    const r = 180 + Math.random() * 320;
+    g.beginFill(nebulaPalette[i % nebulaPalette.length], 0.22);
+    g.drawCircle(0, 0, r);
+    g.endFill();
+    g.x = Math.random() * window.innerWidth;
+    g.y = Math.random() * window.innerHeight;
+    g._vx = (Math.random() - 0.5) * 0.07;
+    g._vy = (Math.random() - 0.5) * 0.07;
+    nebulaCtx.addChild(g);
+    nebulas.push(g);
+  }
+
+  // Warp star streaks
+  warpGfx = new PIXI.Graphics();
+  pixiApp.stage.addChild(warpGfx);
+
+  // Star colour palette (blue-white, pure white, warm)
+  const palette = [0xffffff, 0xffffff, 0xffffff, 0xc8e6ff, 0xc8e6ff, 0xffe0b2, 0xffcccc, 0xccffee];
+
+  const NUM = 1600;
+  const FOV = 290;
+  const stars = Array.from({ length: NUM }, () => ({
+    x:  (Math.random() - 0.5) * 2,
+    y:  (Math.random() - 0.5) * 2,
+    z:  Math.random(),
+    pz: Math.random(),
+    col: palette[Math.floor(Math.random() * palette.length)],
+    sz:  0.5 + Math.random() * 1.6,
+  }));
+
+  pixiApp.ticker.add((delta) => {
+    const W = pixiApp.screen.width, H = pixiApp.screen.height;
+    const cx = W / 2, cy = H / 2;
+    const spd = S.warpSpd;
+
+    // drift nebulas
+    nebulas.forEach(n => {
+      n.x += n._vx * delta;
+      n.y += n._vy * delta;
+      if (n.x < -500) n.x = W + 500;
+      if (n.x > W + 500) n.x = -500;
+      if (n.y < -500) n.y = H + 500;
+      if (n.y > H + 500) n.y = -500;
+    });
+
+    warpGfx.clear();
+
+    for (const s of stars) {
+      s.pz = s.z;
+      s.z -= spd * delta;
+
+      if (s.z <= 0) {
+        s.x = (Math.random() - 0.5) * 2;
+        s.y = (Math.random() - 0.5) * 2;
+        s.z = 1.0; s.pz = 1.0;
+        continue;
+      }
+
+      const sx = (s.x / s.z) * FOV + cx;
+      const sy = (s.y / s.z) * FOV + cy;
+      const px = (s.x / s.pz) * FOV + cx;
+      const py = (s.y / s.pz) * FOV + cy;
+
+      if (sx < -60 || sx > W + 60 || sy < -60 || sy > H + 60) {
+        s.x = (Math.random() - 0.5) * 2; s.y = (Math.random() - 0.5) * 2;
+        s.z = 1.0; s.pz = 1.0; continue;
+      }
+
+      const depth = 1 - s.z;
+      const alpha = Math.min(1, depth * 1.9);
+      const w = Math.max(0.4, depth * s.sz * (1 + spd * 55));
+
+      warpGfx.lineStyle(w, s.col, alpha);
+      warpGfx.moveTo(px, py);
+      warpGfx.lineTo(sx, sy);
+    }
+  });
+}
+
+/* ──────────────────────── SCREEN MANAGER ──────────────────────── */
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(el => {
+    el.style.pointerEvents = 'none';
+  });
+  const el = document.getElementById('screen-' + id);
+  if (el) {
+    gsap.set(el, { opacity: 1 });
+    el.style.pointerEvents = 'all';
+  }
+  S.screen = id;
+}
+
+function fadeOutScreen(id, cb) {
+  gsap.to('#screen-' + id, { opacity: 0, duration: 0.45, onComplete: cb });
+  document.getElementById('screen-' + id).style.pointerEvents = 'none';
+}
+
+/* ──────────────────────── GALAXY MAP ──────────────────────── */
+function renderMap() {
+  const wrap = document.getElementById('map-planets');
+  wrap.innerHTML = '';
+  const done = PLANETS.filter(p => p.done).length;
+  document.getElementById('map-progress').textContent = `${done} / 6 Systems Explored`;
+  document.getElementById('xp-val').textContent = S.xp;
+
+  PLANETS.forEach((p, i) => {
+    const outer = document.createElement('div');
+    outer.className = `mp-wrap${p.unlocked ? '' : ' locked'}${p.done ? ' done' : ''}`;
+    outer.style.cssText = `left:${p.mapX};top:${p.mapY}`;
+    outer.dataset.id = p.id;
+
+    const sphere = document.createElement('div');
+    sphere.className = 'mp-sphere';
+    sphere.style.cssText = `
+      width:${p.size}px; height:${p.size}px;
+      background:${p.grad};
+      box-shadow: 0 0 ${p.size * 0.4}px ${p.glow}88, 0 0 ${p.size * 1.1}px ${p.glow}22;
+      animation: ${p.floatAnim} ${p.floatDur} ease-in-out infinite ${p.floatDel};
+    `;
+
+    // Saturn rings for Crystallis
+    if (p.ring) {
+      const ring = document.createElement('div');
+      ring.className = 'saturn-ring';
+      ring.style.cssText = `
+        width:${p.size * 1.55}px; height:${p.size * 0.4}px;
+        border: 5px solid ${p.glow}55;
+        box-shadow: 0 0 12px ${p.glow}33;
+      `;
+      sphere.appendChild(ring);
+    }
+
+    const label = document.createElement('div');
+    label.className = 'mp-label';
+    label.innerHTML = `<span class="mp-name" style="color:${p.glow}">${p.name}</span><span class="mp-sector">${p.sector}</span>`;
+
+    outer.appendChild(sphere);
+    outer.appendChild(label);
+
+    if (!p.unlocked) {
+      const lock = document.createElement('div');
+      lock.className = 'mp-lock'; lock.textContent = '🔒';
+      outer.appendChild(lock);
+    }
+
+    if (p.unlocked) {
+      outer.addEventListener('click', () => launchFlight(p.id));
+      outer.addEventListener('mouseenter', () => {
+        gsap.to(sphere, {
+          scale: 1.14, duration: 0.3, ease: 'back.out(1.5)',
+          boxShadow: `0 0 ${p.size * 0.7}px ${p.glow}cc, 0 0 ${p.size * 1.6}px ${p.glow}44`,
+        });
+      });
+      outer.addEventListener('mouseleave', () => {
+        gsap.to(sphere, {
+          scale: 1, duration: 0.4, ease: 'power2.out',
+          boxShadow: `0 0 ${p.size * 0.4}px ${p.glow}88, 0 0 ${p.size * 1.1}px ${p.glow}22`,
+        });
+      });
+    }
+
+    wrap.appendChild(outer);
+  });
+}
+
+function animateMapIn() {
+  gsap.fromTo('.mp-wrap',
+    { scale: 0, opacity: 0 },
+    { scale: 1, opacity: 1, duration: 0.65, ease: 'back.out(1.4)', stagger: 0.1 }
+  );
+  gsap.fromTo('.map-hdr',
+    { y: -28, opacity: 0 },
+    { y: 0, opacity: 1, duration: 0.8, ease: 'power3.out', delay: 0.15 }
+  );
+  gsap.fromTo('.map-xp, .map-progress',
+    { opacity: 0 },
+    { opacity: 1, duration: 0.8, delay: 0.4 }
+  );
+  // Slow stars to map drift speed
+  gsap.to(S, { warpSpd: 0.0025, duration: 1.6, ease: 'power3.out' });
+}
+
+/* ──────────────────────── FLIGHT SEQUENCE ──────────────────────── */
+function launchFlight(planetId) {
+  const p = PLANETS.find(x => x.id === planetId);
+  if (!p || !p.unlocked) return;
+  S.current = planetId;
+
+  // Prep flying screen elements (hidden)
+  document.getElementById('warp-dest').textContent = `DESTINATION: ${p.name.toUpperCase()}`;
+  const wp = document.getElementById('warp-planet');
+  wp.style.cssText = `width:130px;height:130px;background:${p.grad};box-shadow:0 0 60px ${p.glow}88`;
+  gsap.set(wp, { scale: 0, opacity: 0 });
+  gsap.set('#warp-dest', { opacity: 0, y: 20, letterSpacing: '0.8em' });
+
+  const tl = gsap.timeline({ onComplete: () => landOnPlanet(p) });
+
+  // Fade out map
+  tl.to('#screen-map', { opacity: 0, duration: 0.5 });
+  tl.call(() => {
+    document.getElementById('screen-map').style.pointerEvents = 'none';
+    showScreen('flying');
+  });
+
+  // Warp acceleration
+  tl.to(S, { warpSpd: 0.1, duration: 1.3, ease: 'power4.in' });
+
+  // Show destination HUD
+  tl.to('#warp-dest', { opacity: 1, y: 0, letterSpacing: '0.3em', duration: 0.6, ease: 'power2.out' }, '-=0.6');
+
+  // Hold at warp
+  tl.to({}, { duration: 0.6 });
+
+  // Decelerate
+  tl.to(S, { warpSpd: 0.007, duration: 1.6, ease: 'power4.out' });
+
+  // Planet materialises
+  tl.fromTo(wp, { scale: 0, opacity: 0 }, { scale: 1, opacity: 1, duration: 1, ease: 'power2.out' }, '-=1.4');
+
+  // Landing — planet expands to fill screen
+  tl.to(wp, { scale: 14, opacity: 0.3, duration: 1.3, ease: 'power3.in' });
+
+  // White flash → task screen
+  tl.to('#screen-flying', { opacity: 0, duration: 0.35 });
+}
+
+function landOnPlanet(p) {
+  gsap.set('#warp-planet', { scale: 0, opacity: 0 });
+
+  // Populate task screen
+  document.getElementById('chip-dot').style.cssText = `background:${p.grad};box-shadow:0 0 8px ${p.glow}`;
+  document.getElementById('chip-sector').textContent = p.sector;
+  document.getElementById('task-title').textContent = p.task.title;
+  document.getElementById('task-story').textContent = p.task.story;
+  document.getElementById('task-obj').innerHTML = p.task.obj;
+  document.getElementById('hint-txt').innerHTML = p.task.hint;
+  document.getElementById('hint-txt').style.display = 'none';
+  document.getElementById('hint-btn').textContent = '🔭 Show Hint';
+
+  document.getElementById('task-bg-planet').style.cssText =
+    `width:620px;height:620px;background:${p.grad}`;
+
+  // Reset output
+  setOut('Ready for launch…', '');
+
+  // Code editor
+  if (!S.editor) initEditor();
+  S.editor.setValue(p.task.starter);
+  S.editor.clearHistory();
+  S.starter = p.task.starter;
+  setTimeout(() => S.editor.refresh(), 120);
+
+  showScreen('task');
+
+  // Barely-moving stars — parked at planet
+  gsap.to(S, { warpSpd: 0.001, duration: 2.2, ease: 'power3.out' });
+
+  // Panel slide-in
+  gsap.fromTo('#task-left',
+    { x: -55, opacity: 0 }, { x: 0, opacity: 1, duration: 0.6, ease: 'power3.out', delay: 0.1 }
+  );
+  gsap.fromTo('.task-right',
+    { x: 55, opacity: 0 }, { x: 0, opacity: 1, duration: 0.6, ease: 'power3.out', delay: 0.25 }
+  );
+}
+
+/* ──────────────────────── CODE EXECUTION ──────────────────────── */
+async function runCode() {
+  if (!S.pyodide) { setOut('Python engine not ready — please wait.', 'err'); return; }
+
+  const code = S.editor.getValue();
+  const p = PLANETS.find(x => x.id === S.current);
+  if (!p) return;
+
+  document.getElementById('run-btn').disabled = true;
+  setOut('▶ Executing…', 'run');
+
+  try {
+    await S.pyodide.runPythonAsync('import numpy as np');
+    await S.pyodide.runPythonAsync(code);
+    const result = await S.pyodide.runPythonAsync(p.task.check);
+
+    if (result === 'True' || result === true) {
+      setOut('✓ Objective achieved!', 'ok');
+      await sleep(700);
+      onSuccess(p);
+    } else {
+      setOut('✗ Not quite right — check your values and try again.', 'err');
+    }
+  } catch (err) {
+    setOut('✗ ' + cleanErr(err.message || String(err)), 'err');
+  } finally {
+    document.getElementById('run-btn').disabled = false;
+  }
+}
+
+function cleanErr(msg) {
+  if (msg.includes('NameError')) {
+    const m = msg.match(/name '(\w+)' is not defined/);
+    return m ? `Variable "${m[1]}" not found — check the variable name.` : 'NameError: variable not defined.';
+  }
+  if (msg.includes('SyntaxError')) return 'Syntax error — check for missing brackets or typos.';
+  if (msg.includes('ImportError') || msg.includes('ModuleNotFoundError')) return 'NumPy is pre-loaded as np — no need to reinstall.';
+  if (msg.includes('ValueError')) return 'ValueError: ' + (msg.split('ValueError:')[1] || '').trim();
+  if (msg.includes('AttributeError')) return 'AttributeError: ' + (msg.split('AttributeError:')[1] || '').trim();
+  const lines = msg.split('\n').filter(l => l.trim());
+  return lines[lines.length - 1] || 'An error occurred.';
+}
+
+function setOut(txt, cls) {
+  const el = document.getElementById('output');
+  el.textContent = txt;
+  el.className = 'output ' + (cls || '');
+}
+
+/* ──────────────────────── SUCCESS FLOW ──────────────────────── */
+function onSuccess(p) {
+  p.done = true;
+  S.xp += p.xp;
+
+  // Unlock next planet
+  const idx = PLANETS.indexOf(p);
+  if (idx + 1 < PLANETS.length) PLANETS[idx + 1].unlocked = true;
+
+  const allDone = PLANETS.every(x => x.done);
+  document.getElementById('suc-badge').textContent = allDone ? '🌌' : '🏆';
+  document.getElementById('suc-title').textContent = allDone ? 'Galaxy Conquered!' : 'Mission Complete!';
+  document.getElementById('suc-planet').textContent = `${p.name} — ${p.sector}`;
+  document.getElementById('suc-xp').textContent = p.xp;
+
+  const nxt = PLANETS.find(x => x.unlocked && !x.done);
+  const btn = document.getElementById('suc-next');
+  btn.textContent = allDone ? '🏆 View Galaxy Map' : (nxt ? `→ Fly to ${nxt.name}` : '← Galaxy Map');
+
+  createBurst();
+  fadeOutScreen('task', () => {
+    showScreen('success');
+    const tl = gsap.timeline();
+    tl.fromTo('.suc-badge',  { scale: 0, rotation: -18 }, { scale: 1, rotation: 0, opacity: 1, duration: 0.7, ease: 'back.out(2.2)' });
+    tl.fromTo('.suc-title',  { y: 28, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: 'power3.out' }, '-=0.2');
+    tl.fromTo('.suc-planet', { y: 18, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45 }, '-=0.15');
+    tl.fromTo('.suc-xp',    { scale: 0.75, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.5, ease: 'back.out' }, '-=0.1');
+    tl.fromTo('.suc-btn',   { y: 18, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45 }, '-=0.1');
+    tl.to('.suc-title', { textShadow: '0 0 60px #00e5ff, 0 0 130px rgba(0,229,255,0.35)', yoyo: true, repeat: -1, duration: 2, ease: 'sine.inOut' });
+    // Speed up stars during celebration
+    gsap.to(S, { warpSpd: 0.018, duration: 0.8, yoyo: true, repeat: 1, ease: 'power2.inOut' });
+  });
+}
+
+/* ──────────────────────── PARTICLE BURST ──────────────────────── */
+function createBurst() {
+  const overlay = document.getElementById('ptcl');
+  const cols = ['#00e5ff','#7c4dff','#ffd600','#66ff99','#ff6b6b','#ffffff','#ff9f1c'];
+  const cx = window.innerWidth / 2, cy = window.innerHeight / 2;
+  for (let i = 0; i < 70; i++) {
+    const el = document.createElement('div');
+    const col = cols[i % cols.length];
+    const sz = 2.5 + Math.random() * 5;
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 90 + Math.random() * 310;
+    Object.assign(el.style, {
+      position: 'absolute', left: cx + 'px', top: cy + 'px',
+      width: sz + 'px', height: sz + 'px',
+      borderRadius: Math.random() > 0.4 ? '50%' : '2px',
+      background: col, boxShadow: `0 0 ${sz * 2}px ${col}`,
+      transform: 'translate(-50%,-50%)', pointerEvents: 'none',
+    });
+    overlay.appendChild(el);
+    gsap.to(el, {
+      x: Math.cos(angle) * dist, y: Math.sin(angle) * dist,
+      opacity: 0, scale: 0.15,
+      duration: 1.1 + Math.random() * 0.9,
+      ease: 'power3.out',
+      onComplete: () => el.remove(),
+    });
+  }
+}
+
+/* ──────────────────────── INTRO ANIMATION ──────────────────────── */
+function animateIntro() {
+  const tl = gsap.timeline();
+
+  // Ramp warp speed
+  tl.to(S, { warpSpd: 0.024, duration: 2.2, ease: 'power2.inOut' });
+
+  tl.fromTo('.intro-eye',
+    { y: -18, opacity: 0 }, { y: 0, opacity: 1, duration: 0.8, ease: 'power3.out' }, 0.25
+  );
+  tl.fromTo('.intro-title',
+    { y: 45, opacity: 0, letterSpacing: '0.45em' },
+    { y: 0, opacity: 1, letterSpacing: '0.02em', duration: 1.3, ease: 'power4.out' }, 0.55
+  );
+  tl.fromTo('.intro-sub',
+    { y: 18, opacity: 0 }, { y: 0, opacity: 1, duration: 0.9, ease: 'power3.out' }, 1.05
+  );
+  tl.fromTo('.intro-desc',
+    { y: 16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.8, ease: 'power2.out' }, 1.35
+  );
+  tl.fromTo('.intro-btn',
+    { scale: 0.65, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.75, ease: 'back.out(2)' }, 1.65
+  );
+  tl.fromTo('.intro-hint',
+    { opacity: 0 }, { opacity: 0.45, duration: 0.9 }, 2.1
+  );
+  // Pulse the launch button
+  tl.to('.intro-btn', {
+    filter: 'brightness(1.25)', repeat: -1, yoyo: true, duration: 1.6, ease: 'sine.inOut'
+  }, 2.5);
+}
+
+/* ──────────────────────── PYODIDE INIT ──────────────────────── */
+async function initPyodide() {
+  const bar = document.getElementById('load-bar');
+  const status = document.getElementById('load-status');
+
+  const msgs = [
+    'Initializing Quantum Drive…',
+    'Loading Python Runtime…',
+    'Calibrating NumPy Arrays…',
+    'Charting Star Systems…',
+    'Aligning Navigation Beacons…',
+    'Preparing Mission Briefing…',
+  ];
+  let mi = 0;
+  const msgTimer = setInterval(() => { status.textContent = msgs[++mi % msgs.length]; }, 1800);
+
+  let prog = 0;
+  const barTimer = setInterval(() => {
+    prog = Math.min(88, prog + Math.random() * 2.8);
+    bar.style.width = prog + '%';
+  }, 380);
+
+  try {
+    S.pyodide = await loadPyodide({ indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/' });
+    await S.pyodide.loadPackage('numpy');
+  } catch (_) {
+    status.style.color = '#ff6b6b';
+    status.textContent = 'Warning: Python engine offline. App will run in demo mode.';
+  } finally {
+    clearInterval(msgTimer); clearInterval(barTimer);
+    bar.style.width = '100%';
+    if (!status.style.color) status.textContent = 'Systems Online — Ready for Launch!';
+    await sleep(550);
+    gsap.to('#screen-loading', {
+      opacity: 0, duration: 0.9, ease: 'power2.inOut',
+      onComplete: () => {
+        document.getElementById('screen-loading').style.pointerEvents = 'none';
+        showScreen('intro');
+        animateIntro();
+      }
+    });
+  }
+}
+
+/* ──────────────────────── CODE EDITOR ──────────────────────── */
+function initEditor() {
+  S.editor = CodeMirror.fromTextArea(document.getElementById('code-editor'), {
+    mode: 'python', theme: 'dracula',
+    lineNumbers: true, indentUnit: 4, tabSize: 4,
+    indentWithTabs: false, matchBrackets: true,
+    lineWrapping: false,
+    extraKeys: { 'Tab': cm => cm.replaceSelection('    ') },
+  });
+}
+
+/* ──────────────────────── EVENT BINDINGS ──────────────────────── */
+function bindEvents() {
+  // Intro → Map
+  document.getElementById('launch-btn').addEventListener('click', () => {
+    fadeOutScreen('intro', () => {
+      showScreen('map');
+      renderMap();
+      animateMapIn();
+    });
+  });
+
+  // Run code
+  document.getElementById('run-btn').addEventListener('click', runCode);
+
+  // Reset code
+  document.getElementById('reset-btn').addEventListener('click', () => {
+    if (S.editor) { S.editor.setValue(S.starter); S.editor.clearHistory(); }
+    setOut('Code reset.', '');
+  });
+
+  // Hint toggle
+  document.getElementById('hint-btn').addEventListener('click', () => {
+    const h = document.getElementById('hint-txt');
+    const btn = document.getElementById('hint-btn');
+    const open = h.style.display === 'block';
+    h.style.display = open ? 'none' : 'block';
+    btn.textContent = open ? '🔭 Show Hint' : '🔭 Hide Hint';
+    if (!open) gsap.fromTo(h, { opacity: 0, y: 5 }, { opacity: 1, y: 0, duration: 0.3 });
+  });
+
+  // Back to map
+  document.getElementById('task-back').addEventListener('click', () => {
+    fadeOutScreen('task', () => {
+      showScreen('map');
+      renderMap();
+      animateMapIn();
+    });
+  });
+
+  // Success → next
+  document.getElementById('suc-next').addEventListener('click', () => {
+    const nxt = PLANETS.find(x => x.unlocked && !x.done);
+    fadeOutScreen('success', () => {
+      if (nxt) {
+        launchFlight(nxt.id);
+      } else {
+        showScreen('map');
+        renderMap();
+        animateMapIn();
+      }
+    });
+  });
+}
+
+/* ──────────────────────── UTILS ──────────────────────── */
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* ──────────────────────── BOOT ──────────────────────── */
+window.addEventListener('load', () => {
+  initWarp();
+  bindEvents();
+  initPyodide();
+});
+</script>
+</body>
+</html>

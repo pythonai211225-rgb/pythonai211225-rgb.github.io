@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Starship ARTEMIS-9 · Array Interface</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --g:#00c8ff;--gd:rgba(0,200,255,.12);--gs:rgba(0,200,255,.06);
+  --bg:#000c1a;--amber:#e8a000;
+}
+html,body{height:100%;background:var(--bg);color:var(--g);font-family:'Courier New',monospace;overflow:hidden}
+
+/* deep-space gradient */
+body::before{
+  content:'';position:fixed;inset:0;z-index:0;
+  background:
+    radial-gradient(ellipse 70% 50% at 50% 110%, rgba(0,60,120,.35) 0%, transparent 65%),
+    radial-gradient(ellipse 40% 30% at 80% 10%, rgba(0,30,80,.2) 0%, transparent 60%);
+}
+
+/* ── CANVASES ── */
+#stars,#fx{position:fixed;inset:0;pointer-events:none}
+#stars{z-index:1}
+#fx{z-index:60}
+
+/* ── GAME GRID ── */
+.grid{
+  position:fixed;inset:0;z-index:10;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  grid-template-rows:1fr 1fr;
+}
+.quad{position:relative;padding:22px 26px;overflow:hidden}
+
+/* quadrant borders */
+.tl{border-right:1px solid rgba(0,200,255,.15);border-bottom:1px solid rgba(0,200,255,.15)}
+.tr{border-bottom:1px solid rgba(0,200,255,.15)}
+.bl{border-right:1px solid rgba(0,200,255,.15)}
+
+/* corner ornaments */
+.quad::before{
+  content:'';position:absolute;width:16px;height:16px;
+  border:1px solid rgba(0,200,255,.45);
+}
+.tl::before{top:8px;left:8px;border-right:none;border-bottom:none}
+.tr::before{top:8px;right:8px;border-left:none;border-bottom:none}
+.bl::before{bottom:8px;left:8px;border-right:none;border-top:none}
+.br::before{bottom:8px;right:8px;border-left:none;border-top:none}
+
+/* faint scanline on all quads */
+.quad::after{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(0deg,rgba(0,0,0,.05) 0px,rgba(0,0,0,.05) 1px,transparent 1px,transparent 3px);
+  z-index:5;
+}
+
+/* ── TOP-LEFT: INTEL PANEL ── */
+.tl{display:flex;flex-direction:column;justify-content:center;gap:0}
+.sys-label{
+  font-size:.58rem;font-weight:700;letter-spacing:.22em;text-transform:uppercase;
+  color:rgba(0,200,255,.38);margin-bottom:16px;
+  border-bottom:1px solid rgba(0,200,255,.12);padding-bottom:8px;
+}
+.mystery-line{
+  font-size:.8rem;line-height:2.1;color:rgba(0,200,255,.8);
+  white-space:nowrap;overflow:hidden;
+}
+.mystery-line .tag{color:rgba(0,200,255,.3);margin-right:8px;font-size:.7rem}
+.mystery-line .hl{color:#fff;text-shadow:0 0 12px rgba(0,200,255,.9)}
+.mystery-line .amb{color:var(--amber);text-shadow:0 0 10px rgba(232,160,0,.7)}
+.mystery-line.dim{color:rgba(0,200,255,.3)}
+.cursor-blink{
+  display:inline-block;width:7px;height:13px;background:var(--g);
+  vertical-align:middle;margin-left:4px;animation:blink .9s step-end infinite;
+}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+
+/* ── TOP-RIGHT: TARGET MATRIX ── */
+.tr{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+.panel-title{
+  font-size:.58rem;font-weight:700;letter-spacing:.22em;text-transform:uppercase;
+  color:rgba(0,200,255,.4);align-self:flex-start;
+  display:flex;align-items:center;gap:8px;
+  border-bottom:1px solid rgba(0,200,255,.12);padding-bottom:8px;width:100%;
+}
+.panel-title::before{content:'◈';font-size:.6rem;color:var(--amber)}
+.matrix-grid{display:flex;flex-direction:column;gap:5px;position:relative}
+.matrix-row{display:flex;gap:5px}
+.cell{
+  width:72px;height:52px;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(0,8,22,.92);
+  border:1px solid rgba(0,200,255,.25);
+  font-size:1rem;font-weight:700;
+  position:relative;overflow:hidden;
+  transition:all .25s;
+}
+.cell::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(0,200,255,.05) 0%,transparent 60%);
+}
+.cell .val{position:relative;z-index:2;text-shadow:0 0 8px var(--g)}
+.cell.glow{
+  border-color:rgba(0,200,255,.6);
+  box-shadow:0 0 16px rgba(0,200,255,.4),inset 0 0 14px rgba(0,200,255,.07);
+}
+/* sweep animation */
+.cell .scan{
+  position:absolute;top:0;left:-100%;width:60%;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(0,200,255,.14),transparent);
+  animation:sweep 3.5s linear infinite;
+}
+@keyframes sweep{0%{left:-60%}100%{left:110%}}
+/* circuit corners */
+.cell .corner{position:absolute;width:8px;height:8px;border-color:rgba(0,200,255,.5);border-style:solid;opacity:.55}
+.cell .corner.tl{top:3px;left:3px;border-width:1px 0 0 1px}
+.cell .corner.tr{top:3px;right:3px;border-width:1px 1px 0 0}
+.cell .corner.bl{bottom:3px;left:3px;border-width:0 0 1px 1px}
+.cell .corner.br{bottom:3px;right:3px;border-width:0 1px 1px 0}
+
+/* matrix brackets */
+.matrix-wrap{position:relative;padding:0 20px}
+.bracket{
+  position:absolute;top:0;bottom:0;width:10px;
+  border:2px solid rgba(0,200,255,.4);
+}
+.bracket.left{left:0;border-right:none;border-radius:3px 0 0 3px}
+.bracket.right{right:0;border-left:none;border-radius:0 3px 3px 0}
+
+/* ── BOTTOM-LEFT: CONSOLE ── */
+.bl{display:flex;flex-direction:column;justify-content:center}
+.term-header{
+  font-size:.58rem;font-weight:700;letter-spacing:.22em;text-transform:uppercase;
+  color:rgba(0,200,255,.4);margin-bottom:14px;
+  display:flex;align-items:center;gap:8px;
+  border-bottom:1px solid rgba(0,200,255,.12);padding-bottom:8px;
+}
+.term-header::before{content:'◈';color:var(--amber)}
+.import-line{font-size:.8rem;color:rgba(0,200,255,.3);margin-bottom:6px}
+.term-prompt{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.prompt-char{color:var(--amber);font-size:.9rem;font-weight:700;text-shadow:0 0 8px rgba(232,160,0,.7)}
+#code-inp{
+  flex:1;background:transparent;border:none;outline:none;
+  color:var(--g);font-family:'Courier New',monospace;font-size:.92rem;
+  caret-color:var(--amber);text-shadow:0 0 6px rgba(0,200,255,.5);
+  letter-spacing:.03em;
+}
+#code-inp::selection{background:rgba(0,200,255,.2)}
+#code-inp::placeholder{color:rgba(0,200,255,.2)}
+.term-divider{
+  height:1px;background:linear-gradient(90deg,rgba(0,200,255,.2),rgba(0,200,255,.03));
+  margin:10px 0;
+}
+.status-line{
+  font-size:.76rem;min-height:22px;
+  display:flex;align-items:center;gap:8px;
+  transition:color .2s;
+}
+.status-line.ok{color:#00c8ff;text-shadow:0 0 8px rgba(0,200,255,.8)}
+.status-line.err{color:#ff4444}
+.status-line.hint{color:rgba(0,200,255,.4)}
+.status-dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0;animation:pulse 1.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.35}50%{opacity:1}}
+.hint-block{
+  margin-top:12px;padding:10px 14px;
+  border:1px solid rgba(0,200,255,.16);border-left:2px solid rgba(232,160,0,.5);
+  background:rgba(0,200,255,.03);
+  font-size:.73rem;color:rgba(0,200,255,.42);line-height:1.8;
+}
+.hint-block span{color:rgba(0,200,255,.8)}
+
+/* ── BOTTOM-RIGHT: PREVIEW ── */
+.br{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}
+#preview-label{
+  font-size:.58rem;font-weight:700;letter-spacing:.22em;text-transform:uppercase;
+  color:rgba(0,200,255,.4);align-self:flex-start;
+  display:flex;align-items:center;gap:8px;
+  border-bottom:1px solid rgba(0,200,255,.12);padding-bottom:8px;width:100%;
+}
+#preview-label::before{content:'◈';color:var(--amber)}
+.empty-preview{
+  width:200px;height:80px;border:1px dashed rgba(0,200,255,.18);
+  display:flex;align-items:center;justify-content:center;
+  color:rgba(0,200,255,.2);font-size:.75rem;letter-spacing:.12em;
+}
+.match-badge{
+  font-size:.67rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;
+  padding:5px 16px;border-radius:2px;display:none;
+}
+.match-badge.ok{
+  display:inline-block;color:#000;background:#00c8ff;
+  box-shadow:0 0 24px rgba(0,200,255,.7);
+  animation:badgePop .3s ease;
+}
+.match-badge.no{
+  display:inline-block;color:#ff4444;border:1px solid #ff4444;
+  background:rgba(255,68,68,.07);
+}
+@keyframes badgePop{from{transform:scale(.7);opacity:0}to{transform:scale(1);opacity:1}}
+
+/* ── MATCH ANIMATION ── */
+.user-wrap{position:relative;transition:transform .6s cubic-bezier(.4,0,.2,1),opacity .4s}
+</style>
+</head>
+<body>
+
+<canvas id="stars"></canvas>
+<canvas id="fx"></canvas>
+
+<div class="grid">
+
+  <!-- ── TOP-LEFT: INTEL PANEL ── -->
+  <div class="quad tl">
+    <div class="sys-label">Command Bridge · Tactical Array Intel</div>
+    <div class="mystery-line" id="ml0"></div>
+    <div class="mystery-line" id="ml1"></div>
+    <div class="mystery-line" id="ml2"></div>
+    <div class="mystery-line" id="ml3"></div>
+    <div class="mystery-line" id="ml4"></div>
+    <div class="mystery-line" id="ml5"></div>
+    <div class="mystery-line dim" id="ml6"></div>
+  </div>
+
+  <!-- ── TOP-RIGHT: PAYLOAD DISPLAY ── -->
+  <div class="quad tr" id="target-quad">
+    <div class="panel-title">Classified Payload · Code Required</div>
+    <div class="matrix-wrap">
+      <div class="bracket left"></div>
+      <div class="matrix-grid" id="target-grid"></div>
+      <div class="bracket right"></div>
+    </div>
+  </div>
+
+  <!-- ── BOTTOM-LEFT: CONSOLE ── -->
+  <div class="quad bl">
+    <div class="term-header">Navigation Console</div>
+    <div class="import-line"><span style="color:rgba(0,200,255,.2)">import</span> numpy <span style="color:rgba(0,200,255,.2)">as</span> np</div>
+    <div class="term-prompt">
+      <span class="prompt-char">▶</span>
+      <input id="code-inp" type="text" placeholder="np.zeros((2, 4))" autocomplete="off" spellcheck="false"/>
+    </div>
+    <div class="term-divider"></div>
+    <div class="status-line hint" id="status">
+      <span class="status-dot"></span>
+      <span>Awaiting command input...</span>
+    </div>
+    <div class="hint-block">
+      Reconstruct the classified payload:<br>
+      <span>2-row × 4-column</span> zero array.<br>
+      Try: <span>np.zeros((2, 4))</span>
+    </div>
+  </div>
+
+  <!-- ── BOTTOM-RIGHT: ACTIVE SEQUENCE ── -->
+  <div class="quad br">
+    <div id="preview-label">Active Sequence</div>
+    <div class="user-wrap" id="user-wrap">
+      <div class="matrix-wrap" id="preview-matrix-wrap" style="display:none">
+        <div class="bracket left"></div>
+        <div id="preview-grid" style="display:flex;flex-direction:column;gap:5px"></div>
+        <div class="bracket right"></div>
+      </div>
+      <div class="empty-preview" id="empty-preview">ENTER SEQUENCE</div>
+    </div>
+    <div class="match-badge" id="match-badge"></div>
+  </div>
+
+</div>
+
+<script>
+'use strict';
+
+// ── STARS + FX CANVASES ───────────────────────────────────────────────────────
+const starsC = document.getElementById('stars');
+const sctx   = starsC.getContext('2d');
+const fx     = document.getElementById('fx');
+const fctx   = fx.getContext('2d');
+
+let W, H;
+function resizeCanvases(){
+  W = fx.width = starsC.width = innerWidth;
+  H = fx.height = starsC.height = innerHeight;
+  drawStars();
+}
+
+function drawStars(){
+  sctx.clearRect(0,0,W,H);
+  // tiny stars
+  for(let i=0;i<220;i++){
+    const x=Math.random()*W, y=Math.random()*H;
+    const r=Math.random()*1.1;
+    const a=0.15+Math.random()*.55;
+    sctx.beginPath(); sctx.arc(x,y,r,0,Math.PI*2);
+    sctx.fillStyle=`rgba(200,225,255,${a})`; sctx.fill();
+  }
+  // a few slightly larger blue-tinted stars
+  for(let i=0;i<18;i++){
+    const x=Math.random()*W, y=Math.random()*H;
+    sctx.beginPath(); sctx.arc(x,y,1.4+Math.random()*.8,0,Math.PI*2);
+    sctx.fillStyle=`rgba(150,210,255,${0.4+Math.random()*.4})`; sctx.fill();
+  }
+}
+resizeCanvases();
+addEventListener('resize', resizeCanvases);
+
+// ── PARTICLES ────────────────────────────────────────────────────────────────
+let particles = [];
+function spawnExplosion(cx, cy){
+  const colors = ['#00c8ff','#ffffff','#0080ff','#80d8ff','#e8f8ff','#e8a000'];
+  for(let i=0;i<160;i++){
+    const a=Math.random()*Math.PI*2, spd=2+Math.random()*16;
+    particles.push({
+      x:cx, y:cy,
+      vx:Math.cos(a)*spd, vy:Math.sin(a)*spd,
+      life:1, col:colors[Math.floor(Math.random()*colors.length)],
+      r:1.5+Math.random()*5, sq:Math.random()<.28,
+    });
+  }
+  fctx.fillStyle='rgba(0,180,255,0.14)';
+  fctx.fillRect(0,0,W,H);
+}
+function drawParticles(){
+  for(let i=particles.length-1;i>=0;i--){
+    const p=particles[i];
+    p.x+=p.vx; p.y+=p.vy; p.vy+=.1; p.vx*=.97; p.life-=.022;
+    if(p.life<=0){particles.splice(i,1);continue;}
+    fctx.save();
+    fctx.globalAlpha=p.life;
+    fctx.fillStyle=p.col;
+    fctx.shadowColor=p.col; fctx.shadowBlur=p.r*3;
+    if(p.sq){
+      fctx.translate(p.x,p.y); fctx.rotate(p.life*5);
+      fctx.fillRect(-p.r/2,-p.r/2,p.r,p.r);
+    } else {
+      fctx.beginPath(); fctx.arc(p.x,p.y,p.r*p.life,0,Math.PI*2); fctx.fill();
+    }
+    fctx.restore();
+  }
+}
+
+// ── INTEL REVEAL ANIMATION ───────────────────────────────────────────────────
+const GLYPHS = '0123456789ABCDEF<>+-=*/\\|[]{}!?.~^&%#';
+function scrambleChar(ch){
+  return ch===' ' ? ' ' : GLYPHS[Math.floor(Math.random()*GLYPHS.length)];
+}
+
+const MYSTERY_LINES = [
+  { tag:'VESSEL',  text:'STARSHIP  ARTEMIS-9',        hl:'hl'  },
+  { tag:'SYSTEM',  text:'ARRAY LOCK  ENGAGED',         hl:'amb' },
+  { tag:'PAYLOAD', text:'ZERO-MATRIX  2 × 4',    hl:'hl'  },
+  { tag:'FORMAT',  text:'FLOAT64   NULL FIELD',        hl:''    },
+  { tag:'SECTOR',  text:'ENCRYPTED GRID ACTIVE',       hl:''    },
+  { tag:'ORDER',   text:'RECONSTRUCT TO UNLOCK',       hl:'hl'  },
+  { tag:'',        text:'AWAITING COMMAND INPUT...',   hl:''    },
+];
+
+let textReveal = 0;
+const REVEAL_SPEED = 0.004;
+let t = 0;
+let textDone = false;
+
+function renderMysteryStatic(){
+  MYSTERY_LINES.forEach((line, li) => {
+    const el = document.getElementById(`ml${li}`);
+    let out = '';
+    if(line.tag) out += `<span class="tag">[${line.tag}]</span>`;
+    if(line.hl) out += `<span class="${line.hl}">${line.text}</span>`;
+    else         out += line.text;
+    if(li === MYSTERY_LINES.length-1) out += '<span class="cursor-blink"></span>';
+    el.innerHTML = out;
+  });
+}
+
+function updateMysteryText(){
+  if(textDone) return;
+  textReveal = Math.min(1, textReveal + REVEAL_SPEED);
+  if(textReveal >= 1){ textDone=true; renderMysteryStatic(); return; }
+
+  const totalChars = MYSTERY_LINES.reduce((s,l)=>s+l.text.length, 0);
+  let revealed = 0;
+  MYSTERY_LINES.forEach((line, li) => {
+    const el = document.getElementById(`ml${li}`);
+    const lineStart = revealed / totalChars;
+    const lineEnd   = (revealed + line.text.length) / totalChars;
+    const lineP     = Math.max(0, Math.min(1, (textReveal - lineStart) / (lineEnd - lineStart + 0.0001)));
+    const charsRevealed = Math.floor(lineP * line.text.length);
+
+    let out = '';
+    if(line.tag) out += `<span class="tag">[${line.tag}]</span>`;
+    let chars = '';
+    for(let i=0;i<line.text.length;i++){
+      if(i < charsRevealed)       chars += line.text[i];
+      else if(i === charsRevealed) chars += scrambleChar(line.text[i]);
+      else                         chars += ' ';
+    }
+    if(line.hl) out += `<span class="${line.hl}">${chars}</span>`;
+    else         out += chars;
+    el.innerHTML = out;
+    revealed += line.text.length;
+  });
+}
+
+// ── TARGET MATRIX ─────────────────────────────────────────────────────────────
+const TARGET = [[0,0,0,0],[0,0,0,0]]; // np.zeros((2,4))
+
+function buildCell(val, animDelay=0, glowing=true){
+  const cell = document.createElement('div');
+  cell.className = 'cell' + (glowing ? ' glow' : '');
+  cell.style.animationDelay = animDelay + 'ms';
+  cell.innerHTML = `
+    <span class="scan"></span>
+    <span class="corner tl"></span><span class="corner tr"></span>
+    <span class="corner bl"></span><span class="corner br"></span>
+    <span class="val">${val === 0 ? '0.' : val}</span>`;
+  return cell;
+}
+
+function renderMatrix(grid, containerId, glow=true){
+  const wrap = document.getElementById(containerId);
+  wrap.innerHTML = '';
+  grid.forEach((row, ri) => {
+    const rowEl = document.createElement('div');
+    rowEl.className = 'matrix-row';
+    row.forEach((val, ci) => {
+      rowEl.appendChild(buildCell(val, (ri*row.length+ci)*35, glow));
+    });
+    wrap.appendChild(rowEl);
+  });
+}
+renderMatrix(TARGET, 'target-grid', true);
+
+// ── NUMPY PARSER ─────────────────────────────────────────────────────────────
+function norm(s){
+  return s.trim()
+    .replace(/import\s+numpy\s+as\s+np\s*/gi,'')
+    .replace(/^\s*arr\s*=\s*/,'')
+    .replace(/\s+/g,'').toLowerCase().replace(/;$/,'');
+}
+
+function parseGrid(raw){
+  if(!raw||!raw.trim()) return null;
+  const s = norm(raw);
+  let m;
+
+  m = s.match(/^np\.zeros\([\[(](\d+)[,\s]+(\d+)[\])]?(?:,dtype=\w+)?\)$/);
+  if(m) return Array.from({length:+m[1]},()=>Array(+m[2]).fill(0));
+
+  m = s.match(/^np\.zeros\((\d+)\)$/);
+  if(m) return [Array(+m[1]).fill(0)];
+
+  m = s.match(/^np\.ones\([\[(](\d+)[,\s]+(\d+)[\])]?(?:,dtype=\w+)?\)$/);
+  if(m) return Array.from({length:+m[1]},()=>Array(+m[2]).fill(1));
+
+  m = s.match(/^np\.full\([\[(](\d+)[,\s]+(\d+)[\])]?,(-?[\d.]+)\)$/);
+  if(m){ const v=+m[3]; return Array.from({length:+m[1]},()=>Array(+m[2]).fill(v)); }
+
+  m = s.match(/^np\.array\(\[(\[[\s\S]*?\])\]\)$/);
+  if(m){
+    try{
+      const parsed=JSON.parse(m[1]);
+      if(Array.isArray(parsed)&&Array.isArray(parsed[0])) return parsed;
+    } catch(e){}
+  }
+
+  m = s.match(/^np\.array\(\[([^\[\]]+)\]\)$/);
+  if(m){
+    const vals=m[1].split(',').map(v=>+v.trim());
+    if(!isNaN(vals[0])) return [vals];
+  }
+
+  m = s.match(/^np\.arange\((-?[\d.]+),(-?[\d.]+)(?:,(-?[\d.]+))?\)$/);
+  if(m){const st=+m[1],en=+m[2],sp=m[3]?+m[3]:1;const a=[];for(let i=st;i<en;i+=sp)a.push(+i.toFixed(6));return[a];}
+
+  m = s.match(/^np\.linspace\((-?[\d.]+),(-?[\d.]+),(\d+)(?:,dtype=int)?\)$/);
+  if(m){const n=+m[3]-1;const a=[];for(let i=0;i<=n;i++)a.push(Math.round((+m[1]+(+m[2]-+m[1])*i/n)*1e6)/1e6);return[a];}
+
+  m = s.match(/^np\.eye\((\d+)\)$/);
+  if(m){const n=+m[1];return Array.from({length:n},(_,r)=>Array.from({length:n},(_,c)=>r===c?1:0));}
+
+  return null;
+}
+
+function gridsEqual(a, b){
+  if(!a||!b||a.length!==b.length) return false;
+  return a.every((row,r)=>{
+    if(!b[r]||row.length!==b[r].length) return false;
+    return row.every((v,c)=>Math.abs(+v - +b[r][c]) < 1e-6);
+  });
+}
+
+// ── PREVIEW RENDERER ─────────────────────────────────────────────────────────
+let lastGrid = null;
+let matched  = false;
+
+function renderPreview(grid){
+  const wrap    = document.getElementById('preview-matrix-wrap');
+  const empty   = document.getElementById('empty-preview');
+  const preGrid = document.getElementById('preview-grid');
+  const badge   = document.getElementById('match-badge');
+
+  if(!grid){
+    wrap.style.display='none'; empty.style.display='flex';
+    badge.className='match-badge'; lastGrid=null; return;
+  }
+
+  empty.style.display='none'; wrap.style.display='block'; preGrid.innerHTML='';
+
+  const isMatch = gridsEqual(grid, TARGET);
+  grid.forEach((row, ri) => {
+    const rowEl = document.createElement('div');
+    rowEl.className = 'matrix-row';
+    row.forEach((val, ci) => {
+      const c = buildCell(val, (ri*row.length+ci)*30, isMatch);
+      if(!isMatch){
+        c.style.borderColor='rgba(0,200,255,.14)';
+        c.querySelector('.val').style.textShadow='0 0 6px rgba(0,200,255,.35)';
+      }
+      rowEl.appendChild(c);
+    });
+    preGrid.appendChild(rowEl);
+  });
+
+  if(isMatch){
+    badge.textContent='✓ SEQUENCE MATCH'; badge.className='match-badge ok';
+  } else {
+    const rOk=grid.length===TARGET.length, cOk=grid[0]&&grid[0].length===TARGET[0].length;
+    badge.textContent = (rOk&&cOk) ? '✗ VALUES INCORRECT'
+      : `✗ SHAPE (${grid.length}×${grid[0]?.length||'?'}) ≠ (${TARGET.length}×${TARGET[0].length})`;
+    badge.className='match-badge no';
+  }
+  return isMatch;
+}
+
+// ── STATUS ────────────────────────────────────────────────────────────────────
+function setStatus(type, msg){
+  const s=document.getElementById('status');
+  s.className=`status-line ${type}`;
+  s.innerHTML=`<span class="status-dot"></span><span>${msg}</span>`;
+}
+
+// ── INPUT ─────────────────────────────────────────────────────────────────────
+let animRunning = false;
+const inp = document.getElementById('code-inp');
+
+inp.addEventListener('input', () => {
+  if(animRunning||matched) return;
+  const raw = inp.value;
+  if(!raw.trim()){ renderPreview(null); setStatus('hint','Awaiting command input...'); return; }
+  const grid = parseGrid(raw);
+  if(!grid){ renderPreview(null); setStatus('err','Invalid syntax — unrecognized numpy command'); return; }
+  const isMatch = renderPreview(grid);
+  if(isMatch) setStatus('ok','SEQUENCE VERIFIED — press Enter to transmit');
+  else setStatus('hint',`Shape (${grid.length}×${grid[0]?.length||'?'}) — continue input`);
+  lastGrid = grid;
+});
+
+inp.addEventListener('keydown', e => {
+  if(e.key==='Enter'&&!animRunning){
+    if(gridsEqual(lastGrid,TARGET)){
+      fireAnimation();
+    } else {
+      inp.style.transition='none';
+      inp.style.transform='translateX(-6px)';
+      setTimeout(()=>inp.style.transform='translateX(6px)',60);
+      setTimeout(()=>inp.style.transform='translateX(0)',120);
+    }
+  }
+});
+
+// ── FIRE ANIMATION ────────────────────────────────────────────────────────────
+function fireAnimation(){
+  animRunning=true; matched=true; inp.disabled=true;
+  setStatus('ok','CODE ACCEPTED — TRANSMITTING TO PAYLOAD');
+
+  document.querySelectorAll('#preview-grid .cell').forEach((c,i)=>{
+    c.style.transition=`all .2s ${i*30}ms`;
+    c.style.borderColor='#00c8ff';
+    c.style.boxShadow='0 0 24px rgba(0,200,255,.9), inset 0 0 20px rgba(0,200,255,.15)';
+    c.style.color='#fff'; c.style.textShadow='0 0 16px #00c8ff';
+  });
+
+  const uWrap = document.getElementById('user-wrap');
+  const tGrid = document.getElementById('target-grid');
+  const uRect = uWrap.getBoundingClientRect();
+  const tRect = tGrid.getBoundingClientRect();
+  const dx = tRect.left+tRect.width/2  - (uRect.left+uRect.width/2);
+  const dy = tRect.top +tRect.height/2 - (uRect.top +uRect.height/2);
+
+  setTimeout(()=>{
+    uWrap.style.transition='transform .55s cubic-bezier(.4,0,.6,1), opacity .4s';
+    uWrap.style.transform=`translate(${dx}px,${dy}px) scale(0.6)`;
+    uWrap.style.opacity='0';
+  }, 400);
+
+  setTimeout(()=>{
+    const cx=tRect.left+tRect.width/2, cy=tRect.top+tRect.height/2;
+    spawnExplosion(cx, cy);
+    document.querySelectorAll('#target-grid .cell').forEach((c,i)=>{
+      c.style.transition=`all .1s ${i*20}ms`;
+      c.style.background='rgba(0,200,255,.28)';
+      c.style.borderColor='#fff';
+      c.style.boxShadow='0 0 30px rgba(0,200,255,1),inset 0 0 20px rgba(0,200,255,.3)';
+    });
+    setTimeout(()=>{
+      document.querySelectorAll('#target-grid .cell').forEach(c=>{
+        c.style.background=''; c.style.borderColor=''; c.style.boxShadow='';
+      });
+    }, 500);
+    showSuccess();
+  }, 980);
+}
+
+function showSuccess(){
+  const tq = document.getElementById('target-quad');
+  const ov = document.createElement('div');
+  ov.style.cssText=`
+    position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+    background:rgba(0,8,22,.82);backdrop-filter:blur(3px);
+    animation:fadeIn .4s ease;
+  `;
+  ov.innerHTML=`
+    <style>@keyframes fadeIn{from{opacity:0}to{opacity:1}}</style>
+    <div style="font-size:.6rem;letter-spacing:.3em;color:rgba(232,160,0,.8);margin-bottom:12px;text-transform:uppercase">
+      Starship Artemis-9
+    </div>
+    <div style="font-size:1.7rem;font-weight:700;letter-spacing:.22em;color:#00c8ff;
+      text-shadow:0 0 30px #00c8ff,0 0 70px rgba(0,200,255,.4);margin-bottom:8px">
+      CLEARANCE GRANTED
+    </div>
+    <div style="font-size:.7rem;letter-spacing:.18em;color:rgba(0,200,255,.55)">
+      PAYLOAD UNLOCKED
+    </div>
+    <div style="margin-top:22px;font-size:.68rem;color:rgba(0,200,255,.28);letter-spacing:.1em">
+      Press Space to continue mission
+    </div>
+  `;
+  tq.appendChild(ov);
+  document.addEventListener('keydown', function next(e){
+    if(e.code==='Space'||e.key==='Enter'){
+      document.removeEventListener('keydown',next);
+      tq.removeChild(ov);
+      resetLevel();
+    }
+  });
+}
+
+function resetLevel(){
+  animRunning=false; matched=false; inp.disabled=false;
+  inp.value=''; inp.focus(); lastGrid=null;
+  const uWrap=document.getElementById('user-wrap');
+  uWrap.style.transition='none'; uWrap.style.transform=''; uWrap.style.opacity='';
+  renderPreview(null); setStatus('hint','Awaiting command input...'); particles=[];
+}
+
+// ── MAIN LOOP ─────────────────────────────────────────────────────────────────
+let last = 0;
+function loop(now){
+  const dt=Math.min((now-last)/1000,.05); last=now; t+=dt;
+  fctx.clearRect(0,0,W,H);
+  drawParticles();
+  updateMysteryText();
+  requestAnimationFrame(loop);
+}
+
+inp.focus();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

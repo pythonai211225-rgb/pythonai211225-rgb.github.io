@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Topic 11 — String Methods</title>
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    .ser-out{border-collapse:collapse;font-family:'Courier New',monospace;font-size:.82rem;width:100%;}
+    .ser-out th{color:var(--muted);font-size:.64rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:4px 14px 4px 0;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap;}
+    .ser-out td{padding:5px 14px 5px 0;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:top;white-space:nowrap;}
+    .ser-out td:first-child{color:var(--accent);}
+    .ser-wrap{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 18px;display:inline-block;overflow-x:auto;}
+    .ser-label{font-size:.62rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+    .code-result-list{display:grid;gap:14px;margin:16px 0 4px;}
+    .code-result{display:grid;grid-template-columns:minmax(260px,1fr) auto;align-items:start;gap:14px;}
+    .code-result .code-wrap{margin:0;}
+    .code-result .ser-wrap{display:block;justify-self:end;min-width:270px;max-width:100%;}
+    .code-result.stacked{grid-template-columns:1fr;}
+    .code-result.stacked .ser-wrap{justify-self:stretch;min-width:0;}
+    .table-pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;}
+    .table-pair.one-column{grid-template-columns:1fr;}
+    .page-layout{display:flex;height:calc(100vh - 54px);overflow:hidden;}
+    .sidebar{width:210px;min-width:210px;height:100%;overflow-y:auto;background:#0a0e14;border-right:1px solid var(--border);display:flex;flex-direction:column;scrollbar-width:thin;scrollbar-color:var(--border) transparent;flex-shrink:0;}
+    .sidebar-head{padding:18px 14px 12px;font-size:.6rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);}
+    .sidebar-nav{padding:6px 0;flex:1;}
+    .s-item{display:flex;align-items:center;gap:9px;padding:9px 14px;cursor:pointer;border-left:3px solid transparent;background:none;border-top:none;border-right:none;border-bottom:none;width:100%;text-align:left;transition:background .18s,border-color .18s;}
+    .s-item:hover{background:rgba(255,255,255,.04);}
+    .s-item.active{background:rgba(168,85,247,.08);border-left-color:var(--accent);}
+    .s-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;transition:transform .2s;}
+    .s-item.active .s-dot{transform:scale(1.45);box-shadow:0 0 8px currentColor;}
+    .s-num{font-size:.58rem;color:var(--border);font-family:'Courier New',monospace;font-weight:700;min-width:16px;}
+    .s-item.active .s-num{color:var(--accent);}
+    .s-label{font-size:.74rem;color:var(--muted);font-family:'Courier New',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .s-item.active .s-label{color:var(--text);}
+    .s-item.done .s-label::after{content:' ✓';color:var(--green);font-size:.67rem;}
+    .panel-viewport{flex:1;overflow-y:auto;overflow-x:hidden;}
+    .panel{display:none;flex-direction:column;min-height:100%;padding:36px 48px 80px;max-width:800px;margin:0 auto;animation:pdIn .3s ease;}
+    .panel.active{display:flex;}
+    @keyframes pdIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:translateX(0)}}
+    .panel.exit{display:flex;animation:pdOut .22s ease forwards;}
+    @keyframes pdOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(-24px)}}
+    .pnav{display:flex;justify-content:space-between;align-items:center;margin-top:36px;padding-top:20px;border-top:1px solid var(--border);flex-shrink:0;}
+    .pnav-btn{display:flex;align-items:center;gap:7px;padding:9px 20px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:.82rem;font-weight:700;cursor:pointer;transition:color .2s,border-color .2s,background .2s;}
+    .pnav-btn:hover:not(:disabled){color:var(--text);border-color:var(--accent);background:rgba(168,85,247,.06);}
+    .pnav-btn:disabled{opacity:.28;cursor:default;}
+    .pnav-btn.next{background:rgba(168,85,247,.08);border-color:rgba(168,85,247,.35);color:var(--accent);}
+    .pnav-btn.next:hover{background:rgba(168,85,247,.16);border-color:var(--accent);}
+    @media(max-width:700px){.sidebar{display:none;}.panel{padding:20px 16px 60px;}.code-result{grid-template-columns:1fr;}.code-result .ser-wrap{min-width:0;justify-self:stretch;}}
+  </style>
+</head>
+<body>
+<div class="progress-bar" id="progress"></div>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">← Python Libs</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item" href="01-intro.html">01</a>
+    <a class="nav-item" href="02-topic.html">02</a>
+    <a class="nav-item" href="03-cheat-sheet.html">03</a>
+    <a class="nav-item" href="04-series.html">04</a>
+    <a class="nav-item" href="05-creating-df.html">05</a>
+    <a class="nav-item" href="06-subsetting.html">06</a>
+    <a class="nav-item" href="07-reshaping.html">07</a>
+    <a class="nav-item" href="08-groupby-agg.html">08</a>
+    <a class="nav-item" href="09-combining.html">09</a>
+    <a class="nav-item" href="10-missing-newcol.html">10</a>
+    <a class="nav-item active" href="11-string-methods.html">11</a>
+    <a class="nav-item" href="12-time-methods.html">12</a>
+    <a class="nav-item" href="13-pivot-table.html">13</a>
+    <a class="nav-item" href="14-export.html">14</a>
+  </div>
+</nav>
+
+<div class="page-layout">
+
+  <aside class="sidebar">
+    <div class="sidebar-head">Topic 11 · String Methods</div>
+    <nav class="sidebar-nav">
+      <button class="s-item active" data-panel="0" onclick="goTo(0)"><span class="s-num">00</span><span class="s-dot" style="background:#a855f7"></span><span class="s-label">Overview</span></button>
+      <button class="s-item" data-panel="1" onclick="goTo(1)"><span class="s-num">01</span><span class="s-dot" style="background:#facc15"></span><span class="s-label">str Basics</span></button>
+      <button class="s-item" data-panel="2" onclick="goTo(2)"><span class="s-num">02</span><span class="s-dot" style="background:#3b82f6"></span><span class="s-label">Contains &amp; Find</span></button>
+      <button class="s-item" data-panel="3" onclick="goTo(3)"><span class="s-num">03</span><span class="s-dot" style="background:#10b981"></span><span class="s-label">Replace &amp; Split</span></button>
+      <button class="s-item" data-panel="4" onclick="goTo(4)"><span class="s-num">04</span><span class="s-dot" style="background:#f97316"></span><span class="s-label">Extract &amp; Slice</span></button>
+      <button class="s-item" data-panel="5" onclick="goTo(5)"><span class="s-num">05</span><span class="s-dot" style="background:#06b6d4"></span><span class="s-label">Exercises</span></button>
+    </nav>
+  </aside>
+
+  <div class="panel-viewport" id="viewport">
+
+    <!-- 0: Overview -->
+    <div class="panel active" id="panel-0">
+      <div class="hero">
+        <span class="topic-label"><span class="dot"></span>Topic 11 of 14</span>
+        <h1>String Methods</h1>
+        <p>The <code>.str</code> accessor applies vectorised string operations to an entire Series — no Python loops needed. Works on any object-dtype column.</p>
+        <div class="hero-pills">
+          <span class="tag">str.lower / upper</span>
+          <span class="tag blue">str.contains</span>
+          <span class="tag green">str.replace</span>
+          <span class="tag orange">str.split / extract</span>
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" disabled>← Prev</button>
+        <button class="pnav-btn next" onclick="goTo(1)">str Basics →</button>
+      </div>
+    </div>
+
+    <!-- 1: str Basics -->
+    <div class="panel" id="panel-1">
+      <div class="section">
+        <div class="section-label">str Basics</div>
+        <h2>Case, Length &amp; Strip</h2>
+        <div class="code-result-list">
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="kw">import</span> <span class="lib">pandas</span> <span class="kw">as</span> <span class="lib">pd</span></span>
+<span class="line"></span>
+<span class="line">df = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({</span>
+<span class="line">    <span class="str">'name'</span>:  [<span class="str">'alice smith'</span>, <span class="str">'BOB JONES'</span>, <span class="str">'carol lee'</span>, <span class="str">'David Park'</span>],</span>
+<span class="line">    <span class="str">'email'</span>: [<span class="str">'alice@mail.com'</span>, <span class="str">'bob@work.org'</span>, <span class="str">'carol@mail.com'</span>, <span class="str">'david@mail.com'</span>]</span>
+<span class="line">})</span>
+<span class="line">df</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">df</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>name</th><th>email</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>alice smith</td><td>alice@mail.com</td></tr>
+                  <tr><td>1</td><td>BOB JONES</td><td>bob@work.org</td></tr>
+                  <tr><td>2</td><td>carol lee</td><td>carol@mail.com</td></tr>
+                  <tr><td>3</td><td>David Park</td><td>david@mail.com</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line">df[<span class="str">'name'</span>].str.<span class="fn">lower</span>()</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">str.lower()</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>name</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>alice smith</td></tr>
+                  <tr><td>1</td><td>bob jones</td></tr>
+                  <tr><td>2</td><td>carol lee</td></tr>
+                  <tr><td>3</td><td>david park</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line">df[<span class="str">'name'</span>].str.<span class="fn">title</span>()</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">str.title()</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>name</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>Alice Smith</td></tr>
+                  <tr><td>1</td><td>Bob Jones</td></tr>
+                  <tr><td>2</td><td>Carol Lee</td></tr>
+                  <tr><td>3</td><td>David Park</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line">df[<span class="str">'name'</span>].str.<span class="fn">len</span>()</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">str.len()</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>length</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>11</td></tr>
+                  <tr><td>1</td><td>9</td></tr>
+                  <tr><td>2</td><td>9</td></tr>
+                  <tr><td>3</td><td>10</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line">messy = <span class="lib">pd</span>.<span class="cls">Series</span>([<span class="str">'  alice  '</span>, <span class="str">' bob'</span>, <span class="str">'carol  '</span>])</span>
+<span class="line">messy.str.<span class="fn">strip</span>()</span></pre>
+            </div>
+            <div class="table-pair">
+              <div class="ser-wrap">
+                <div class="ser-label">messy</div>
+                <table class="ser-out">
+                  <thead><tr><th>index</th><th>value</th></tr></thead>
+                  <tbody>
+                    <tr><td>0</td><td>'  alice  '</td></tr>
+                    <tr><td>1</td><td>' bob'</td></tr>
+                    <tr><td>2</td><td>'carol  '</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="ser-wrap">
+                <div class="ser-label">str.strip()</div>
+                <table class="ser-out">
+                  <thead><tr><th>index</th><th>value</th></tr></thead>
+                  <tbody>
+                    <tr><td>0</td><td>alice</td></tr>
+                    <tr><td>1</td><td>bob</td></tr>
+                    <tr><td>2</td><td>carol</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(0)">← Overview</button>
+        <button class="pnav-btn next" onclick="goTo(2)">Contains &amp; Find →</button>
+      </div>
+    </div>
+
+    <!-- 2: Contains & Find -->
+    <div class="panel" id="panel-2">
+      <div class="section">
+        <div class="section-label">Contains &amp; Find</div>
+        <h2>Searching Within Strings</h2>
+        <div class="code-result-list">
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># returns a boolean Series — supports regex by default</span></span>
+<span class="line">df[<span class="str">'email'</span>].str.<span class="fn">contains</span>(<span class="str">'mail'</span>)</span></pre>
+            </div>
+            <div class="table-pair">
+              <div class="ser-wrap">
+                <div class="ser-label">df['email']</div>
+                <table class="ser-out">
+                  <thead><tr><th>index</th><th>email</th></tr></thead>
+                  <tbody>
+                    <tr><td>0</td><td>alice@mail.com</td></tr>
+                    <tr><td>1</td><td>bob@work.org</td></tr>
+                    <tr><td>2</td><td>carol@mail.com</td></tr>
+                    <tr><td>3</td><td>david@mail.com</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="ser-wrap">
+                <div class="ser-label">contains('mail')</div>
+                <table class="ser-out">
+                  <thead><tr><th>index</th><th>result</th></tr></thead>
+                  <tbody>
+                    <tr><td>0</td><td>True</td></tr>
+                    <tr><td>1</td><td>False</td></tr>
+                    <tr><td>2</td><td>True</td></tr>
+                    <tr><td>3</td><td>True</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># use the boolean mask to filter rows</span></span>
+<span class="line">df[df[<span class="str">'email'</span>].str.<span class="fn">endswith</span>(<span class="str">'.org'</span>)]</span></pre>
+            </div>
+            <div class="table-pair">
+              <div class="ser-wrap">
+                <div class="ser-label">df</div>
+                <table class="ser-out">
+                  <thead><tr><th>index</th><th>name</th><th>email</th></tr></thead>
+                  <tbody>
+                    <tr><td>0</td><td>alice smith</td><td>alice@mail.com</td></tr>
+                    <tr><td>1</td><td>BOB JONES</td><td>bob@work.org</td></tr>
+                    <tr><td>2</td><td>carol lee</td><td>carol@mail.com</td></tr>
+                    <tr><td>3</td><td>David Park</td><td>david@mail.com</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="ser-wrap">
+                <div class="ser-label">endswith('.org')</div>
+                <table class="ser-out">
+                  <thead><tr><th>index</th><th>name</th><th>email</th></tr></thead>
+                  <tbody>
+                    <tr><td>1</td><td>BOB JONES</td><td>bob@work.org</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># startswith is case-sensitive</span></span>
+<span class="line">df[<span class="str">'name'</span>].str.<span class="fn">startswith</span>(<span class="str">'a'</span>)</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">startswith('a')</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>result</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>True</td></tr>
+                  <tr><td>1</td><td>False</td></tr>
+                  <tr><td>2</td><td>False</td></tr>
+                  <tr><td>3</td><td>False</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># count occurrences of a character (case-sensitive)</span></span>
+<span class="line">df[<span class="str">'name'</span>].str.<span class="fn">count</span>(<span class="str">'a'</span>)</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">count('a')</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>count</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>1</td></tr>
+                  <tr><td>1</td><td>0</td></tr>
+                  <tr><td>2</td><td>1</td></tr>
+                  <tr><td>3</td><td>2</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="callout blue">
+          <strong>Case-insensitive search:</strong> chain <code>.str.lower().str.contains('pattern')</code> or pass <code>case=False</code> to <code>str.contains()</code>.
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(1)">← str Basics</button>
+        <button class="pnav-btn next" onclick="goTo(3)">Replace &amp; Split →</button>
+      </div>
+    </div>
+
+    <!-- 3: Replace & Split -->
+    <div class="panel" id="panel-3">
+      <div class="section">
+        <div class="section-label">Replace &amp; Split</div>
+        <h2>Transforming String Content</h2>
+        <div class="code-result-list">
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># replace a substring (pass regex=False for literal match)</span></span>
+<span class="line">df[<span class="str">'name'</span>].str.<span class="fn">replace</span>(<span class="str">' '</span>, <span class="str">'_'</span>, regex=<span class="kw">False</span>)</span></pre>
+            </div>
+            <div class="table-pair">
+              <div class="ser-wrap">
+                <div class="ser-label">df['name']</div>
+                <table class="ser-out">
+                  <thead><tr><th>index</th><th>name</th></tr></thead>
+                  <tbody>
+                    <tr><td>0</td><td>alice smith</td></tr>
+                    <tr><td>1</td><td>BOB JONES</td></tr>
+                    <tr><td>2</td><td>carol lee</td></tr>
+                    <tr><td>3</td><td>David Park</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="ser-wrap">
+                <div class="ser-label">replace(' ', '_')</div>
+                <table class="ser-out">
+                  <thead><tr><th>index</th><th>name</th></tr></thead>
+                  <tbody>
+                    <tr><td>0</td><td>alice_smith</td></tr>
+                    <tr><td>1</td><td>BOB_JONES</td></tr>
+                    <tr><td>2</td><td>carol_lee</td></tr>
+                    <tr><td>3</td><td>David_Park</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># split into a list per row</span></span>
+<span class="line">df[<span class="str">'name'</span>].str.<span class="fn">split</span>(<span class="str">' '</span>)</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">str.split(' ')</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>parts</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>['alice', 'smith']</td></tr>
+                  <tr><td>1</td><td>['BOB', 'JONES']</td></tr>
+                  <tr><td>2</td><td>['carol', 'lee']</td></tr>
+                  <tr><td>3</td><td>['David', 'Park']</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># expand=True returns a full DataFrame</span></span>
+<span class="line">df[<span class="str">'name'</span>].str.<span class="fn">split</span>(<span class="str">' '</span>, expand=<span class="kw">True</span>)</span></pre>
+            </div>
+            <div class="table-pair">
+              <div class="ser-wrap">
+                <div class="ser-label">df['name']</div>
+                <table class="ser-out">
+                  <thead><tr><th>index</th><th>name</th></tr></thead>
+                  <tbody>
+                    <tr><td>0</td><td>alice smith</td></tr>
+                    <tr><td>1</td><td>BOB JONES</td></tr>
+                    <tr><td>2</td><td>carol lee</td></tr>
+                    <tr><td>3</td><td>David Park</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="ser-wrap">
+                <div class="ser-label">split(expand=True)</div>
+                <table class="ser-out">
+                  <thead><tr><th>index</th><th>0</th><th>1</th></tr></thead>
+                  <tbody>
+                    <tr><td>0</td><td>alice</td><td>smith</td></tr>
+                    <tr><td>1</td><td>BOB</td><td>JONES</td></tr>
+                    <tr><td>2</td><td>carol</td><td>lee</td></tr>
+                    <tr><td>3</td><td>David</td><td>Park</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(2)">← Contains &amp; Find</button>
+        <button class="pnav-btn next" onclick="goTo(4)">Extract &amp; Slice →</button>
+      </div>
+    </div>
+
+    <!-- 4: Extract & Slice -->
+    <div class="panel" id="panel-4">
+      <div class="section">
+        <div class="section-label">Extract &amp; Slice</div>
+        <h2>Slicing and Regex Extraction</h2>
+        <div class="code-result-list">
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># slice characters like a Python string</span></span>
+<span class="line">df[<span class="str">'name'</span>].str[:<span class="num">5</span>]</span></pre>
+            </div>
+            <div class="table-pair">
+              <div class="ser-wrap">
+                <div class="ser-label">df['name']</div>
+                <table class="ser-out">
+                  <thead><tr><th>index</th><th>name</th></tr></thead>
+                  <tbody>
+                    <tr><td>0</td><td>alice smith</td></tr>
+                    <tr><td>1</td><td>BOB JONES</td></tr>
+                    <tr><td>2</td><td>carol lee</td></tr>
+                    <tr><td>3</td><td>David Park</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="ser-wrap">
+                <div class="ser-label">str[:5]</div>
+                <table class="ser-out">
+                  <thead><tr><th>index</th><th>result</th></tr></thead>
+                  <tbody>
+                    <tr><td>0</td><td>alice</td></tr>
+                    <tr><td>1</td><td>BOB J</td></tr>
+                    <tr><td>2</td><td>carol</td></tr>
+                    <tr><td>3</td><td>David</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># extract first regex capture group per row</span></span>
+<span class="line">df[<span class="str">'email'</span>].str.<span class="fn">extract</span>(<span class="str">r'@(.+)'</span>)</span></pre>
+            </div>
+            <div class="table-pair">
+              <div class="ser-wrap">
+                <div class="ser-label">df['email']</div>
+                <table class="ser-out">
+                  <thead><tr><th>index</th><th>email</th></tr></thead>
+                  <tbody>
+                    <tr><td>0</td><td>alice@mail.com</td></tr>
+                    <tr><td>1</td><td>bob@work.org</td></tr>
+                    <tr><td>2</td><td>carol@mail.com</td></tr>
+                    <tr><td>3</td><td>david@mail.com</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="ser-wrap">
+                <div class="ser-label">extract(r'@(.+)')</div>
+                <table class="ser-out">
+                  <thead><tr><th>index</th><th>0</th></tr></thead>
+                  <tbody>
+                    <tr><td>0</td><td>mail.com</td></tr>
+                    <tr><td>1</td><td>work.org</td></tr>
+                    <tr><td>2</td><td>mail.com</td></tr>
+                    <tr><td>3</td><td>mail.com</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># named groups produce named columns automatically</span></span>
+<span class="line">df[<span class="str">'email'</span>].str.<span class="fn">extract</span>(<span class="str">r'(?P&lt;user&gt;[^@]+)@(?P&lt;domain&gt;.+)'</span>)</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">named groups</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>user</th><th>domain</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>alice</td><td>mail.com</td></tr>
+                  <tr><td>1</td><td>bob</td><td>work.org</td></tr>
+                  <tr><td>2</td><td>carol</td><td>mail.com</td></tr>
+                  <tr><td>3</td><td>david</td><td>mail.com</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="callout blue">
+          <strong>extract vs findall:</strong> <code>str.extract()</code> returns the first match per row as a DataFrame. <code>str.findall()</code> returns a list of all matches per row — useful when a row may contain multiple matches.
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(3)">← Replace &amp; Split</button>
+        <button class="pnav-btn next" onclick="goTo(5)">Exercises →</button>
+      </div>
+    </div>
+
+    <!-- 5: Exercises -->
+    <div class="panel" id="panel-5">
+      <div class="section">
+        <div class="section-label">Exercises</div>
+        <h2>Practice — String Methods</h2>
+
+        <div class="ex-block">
+          <span class="ex-num">Q1</span>
+          <p>Normalize the <code>name</code> column: strip whitespace and convert to title case.</p>
+          <div class="code-wrap"><pre><span class="line">df = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({<span class="str">'name'</span>: [<span class="str">'  alice smith  '</span>, <span class="str">'BOB JONES'</span>, <span class="str">'carol lee'</span>]})</span></pre></div>
+          <details class="answer">
+            <summary>Show answer</summary>
+            <div class="answer-body">
+              <div class="code-wrap" style="margin:0">
+                <pre><span class="line">df[<span class="str">'name'</span>] = df[<span class="str">'name'</span>].str.<span class="fn">strip</span>().str.<span class="fn">title</span>()</span>
+<span class="line"><span class="fn">print</span>(df)</span>
+<span class="line"><span class="out">#           name</span></span>
+<span class="line"><span class="out"># 0  Alice Smith</span></span>
+<span class="line"><span class="out"># 1    Bob Jones</span></span>
+<span class="line"><span class="out"># 2    Carol Lee</span></span></pre>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="ex-block">
+          <span class="ex-num">Q2</span>
+          <p>Filter the DataFrame to keep only rows where <code>product</code> starts with <code>'ap'</code> (case-insensitive).</p>
+          <div class="code-wrap"><pre><span class="line">df = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({<span class="str">'product'</span>: [<span class="str">'Apple'</span>, <span class="str">'apricot'</span>, <span class="str">'Banana'</span>, <span class="str">'APRICOT'</span>]})</span></pre></div>
+          <details class="answer">
+            <summary>Show answer</summary>
+            <div class="answer-body">
+              <div class="code-wrap" style="margin:0">
+                <pre><span class="line">mask = df[<span class="str">'product'</span>].str.<span class="fn">lower</span>().str.<span class="fn">startswith</span>(<span class="str">'ap'</span>)</span>
+<span class="line"><span class="fn">print</span>(df[mask])</span>
+<span class="line"><span class="out">#   product</span></span>
+<span class="line"><span class="out"># 0   Apple</span></span>
+<span class="line"><span class="out"># 1 apricot</span></span>
+<span class="line"><span class="out"># 3 APRICOT</span></span></pre>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="ex-block">
+          <span class="ex-num">Q3</span>
+          <p>Split <code>full_name</code> into two new columns <code>first</code> and <code>last</code>.</p>
+          <div class="code-wrap"><pre><span class="line">df = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({<span class="str">'full_name'</span>: [<span class="str">'Alice Smith'</span>, <span class="str">'Bob Jones'</span>, <span class="str">'Carol Lee'</span>]})</span></pre></div>
+          <details class="answer">
+            <summary>Show answer</summary>
+            <div class="answer-body">
+              <div class="code-wrap" style="margin:0">
+                <pre><span class="line">df[[<span class="str">'first'</span>, <span class="str">'last'</span>]] = df[<span class="str">'full_name'</span>].str.<span class="fn">split</span>(<span class="str">' '</span>, expand=<span class="kw">True</span>)</span>
+<span class="line"><span class="fn">print</span>(df)</span>
+<span class="line"><span class="out">#      full_name  first   last</span></span>
+<span class="line"><span class="out"># 0  Alice Smith  Alice  Smith</span></span>
+<span class="line"><span class="out"># 1    Bob Jones    Bob  Jones</span></span>
+<span class="line"><span class="out"># 2    Carol Lee  Carol    Lee</span></span></pre>
+              </div>
+            </div>
+          </details>
+        </div>
+
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(4)">← Extract &amp; Slice</button>
+        <button class="pnav-btn next" onclick="goTo(0)">⟳ Overview</button>
+      </div>
+    </div>
+
+  </div><!-- /panel-viewport -->
+</div><!-- /page-layout -->
+
+<script src="app.js"></script>
+<script>
+let _cur = 0;
+function goTo(idx) {
+  if (idx === _cur) return;
+  const oldP = document.getElementById('panel-' + _cur);
+  const newP = document.getElementById('panel-' + idx);
+  if (!oldP || !newP) return;
+  if (_cur > 0) { const sb = document.querySelector('[data-panel="' + _cur + '"]'); if (sb) sb.classList.add('done'); }
+  oldP.classList.remove('active'); oldP.classList.add('exit');
+  setTimeout(() => oldP.classList.remove('exit'), 240);
+  _cur = idx;
+  newP.classList.add('active');
+  document.getElementById('viewport').scrollTop = 0;
+  document.querySelectorAll('.s-item').forEach(b => b.classList.toggle('active', +b.dataset.panel === idx));
+  newP.querySelectorAll('.section:not(.visible)').forEach((s, i) => {
+    setTimeout(() => {
+      s.classList.add('visible');
+      if (typeof animatePre === 'function') animatePre(s);
+      if (typeof animateRows === 'function') animateRows(s);
+    }, i * 80 + 60);
+  });
+}
+(function() {
+  const vp = document.getElementById('viewport');
+  const pb = document.getElementById('progress');
+  if (vp && pb) vp.addEventListener('scroll', () => {
+    pb.style.width = (vp.scrollTop / (vp.scrollHeight - vp.clientHeight) * 100) + '%';
+  });
+})();
+</script>
+</body>
+</html>

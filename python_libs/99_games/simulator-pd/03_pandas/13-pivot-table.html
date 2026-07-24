@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Topic 13 — Pivot Table</title>
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    .ser-out{border-collapse:collapse;font-family:'Courier New',monospace;font-size:.82rem;width:100%;}
+    .ser-out th{color:var(--muted);font-size:.64rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:4px 14px 4px 0;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap;}
+    .ser-out td{padding:5px 14px 5px 0;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:top;white-space:nowrap;}
+    .ser-out td:first-child{color:var(--accent);}
+    .ser-wrap{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 18px;display:inline-block;overflow-x:auto;}
+    .ser-label{font-size:.62rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+    .code-result-list{display:grid;gap:14px;margin:16px 0 4px;}
+    .code-result{display:grid;grid-template-columns:minmax(260px,1fr) auto;align-items:start;gap:14px;}
+    .code-result .code-wrap{margin:0;}
+    .code-result .ser-wrap{display:block;justify-self:end;min-width:270px;max-width:100%;}
+    .code-result.stacked{grid-template-columns:1fr;}
+    .code-result.stacked .ser-wrap{justify-self:stretch;min-width:0;}
+    .table-pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;}
+    .table-pair.one-column{grid-template-columns:1fr;}
+    .page-layout{display:flex;height:calc(100vh - 54px);overflow:hidden;}
+    .sidebar{width:210px;min-width:210px;height:100%;overflow-y:auto;background:#0a0e14;border-right:1px solid var(--border);display:flex;flex-direction:column;scrollbar-width:thin;scrollbar-color:var(--border) transparent;flex-shrink:0;}
+    .sidebar-head{padding:18px 14px 12px;font-size:.6rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);}
+    .sidebar-nav{padding:6px 0;flex:1;}
+    .s-item{display:flex;align-items:center;gap:9px;padding:9px 14px;cursor:pointer;border-left:3px solid transparent;background:none;border-top:none;border-right:none;border-bottom:none;width:100%;text-align:left;transition:background .18s,border-color .18s;}
+    .s-item:hover{background:rgba(255,255,255,.04);}
+    .s-item.active{background:rgba(168,85,247,.08);border-left-color:var(--accent);}
+    .s-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;transition:transform .2s;}
+    .s-item.active .s-dot{transform:scale(1.45);box-shadow:0 0 8px currentColor;}
+    .s-num{font-size:.58rem;color:var(--border);font-family:'Courier New',monospace;font-weight:700;min-width:16px;}
+    .s-item.active .s-num{color:var(--accent);}
+    .s-label{font-size:.74rem;color:var(--muted);font-family:'Courier New',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .s-item.active .s-label{color:var(--text);}
+    .s-item.done .s-label::after{content:' ✓';color:var(--green);font-size:.67rem;}
+    .panel-viewport{flex:1;overflow-y:auto;overflow-x:hidden;}
+    .panel{display:none;flex-direction:column;min-height:100%;padding:36px 48px 80px;max-width:800px;margin:0 auto;animation:pdIn .3s ease;}
+    .panel.active{display:flex;}
+    @keyframes pdIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:translateX(0)}}
+    .panel.exit{display:flex;animation:pdOut .22s ease forwards;}
+    @keyframes pdOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(-24px)}}
+    .pnav{display:flex;justify-content:space-between;align-items:center;margin-top:36px;padding-top:20px;border-top:1px solid var(--border);flex-shrink:0;}
+    .pnav-btn{display:flex;align-items:center;gap:7px;padding:9px 20px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:.82rem;font-weight:700;cursor:pointer;transition:color .2s,border-color .2s,background .2s;}
+    .pnav-btn:hover:not(:disabled){color:var(--text);border-color:var(--accent);background:rgba(168,85,247,.06);}
+    .pnav-btn:disabled{opacity:.28;cursor:default;}
+    .pnav-btn.next{background:rgba(168,85,247,.08);border-color:rgba(168,85,247,.35);color:var(--accent);}
+    .pnav-btn.next:hover{background:rgba(168,85,247,.16);border-color:var(--accent);}
+    @media(max-width:700px){.sidebar{display:none;}.panel{padding:20px 16px 60px;}.code-result{grid-template-columns:1fr;}.code-result .ser-wrap{min-width:0;justify-self:stretch;}}
+  </style>
+</head>
+<body>
+<div class="progress-bar" id="progress"></div>
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">← Python Libs</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item" href="01-intro.html">01</a>
+    <a class="nav-item" href="02-topic.html">02</a>
+    <a class="nav-item" href="03-cheat-sheet.html">03</a>
+    <a class="nav-item" href="04-series.html">04</a>
+    <a class="nav-item" href="05-creating-df.html">05</a>
+    <a class="nav-item" href="06-subsetting.html">06</a>
+    <a class="nav-item" href="07-reshaping.html">07</a>
+    <a class="nav-item" href="08-groupby-agg.html">08</a>
+    <a class="nav-item" href="09-combining.html">09</a>
+    <a class="nav-item" href="10-missing-newcol.html">10</a>
+    <a class="nav-item" href="11-string-methods.html">11</a>
+    <a class="nav-item" href="12-time-methods.html">12</a>
+    <a class="nav-item active" href="13-pivot-table.html">13</a>
+    <a class="nav-item" href="14-export.html">14</a>
+  </div>
+</nav>
+
+<div class="page-layout">
+
+  <aside class="sidebar">
+    <div class="sidebar-head">Topic 13 · Pivot Table</div>
+    <nav class="sidebar-nav">
+      <button class="s-item active" data-panel="0" onclick="goTo(0)"><span class="s-num">00</span><span class="s-dot" style="background:#a855f7"></span><span class="s-label">Overview</span></button>
+      <button class="s-item" data-panel="1" onclick="goTo(1)"><span class="s-num">01</span><span class="s-dot" style="background:#facc15"></span><span class="s-label">Basic pivot_table</span></button>
+      <button class="s-item" data-panel="2" onclick="goTo(2)"><span class="s-num">02</span><span class="s-dot" style="background:#3b82f6"></span><span class="s-label">aggfunc &amp; Values</span></button>
+      <button class="s-item" data-panel="3" onclick="goTo(3)"><span class="s-num">03</span><span class="s-dot" style="background:#10b981"></span><span class="s-label">Margins &amp; Fill</span></button>
+      <button class="s-item" data-panel="4" onclick="goTo(4)"><span class="s-num">04</span><span class="s-dot" style="background:#f97316"></span><span class="s-label">Exercises</span></button>
+    </nav>
+  </aside>
+
+  <div class="panel-viewport" id="viewport">
+
+    <!-- 0: Overview -->
+    <div class="panel active" id="panel-0">
+      <div class="hero">
+        <span class="topic-label"><span class="dot"></span>Topic 13 of 14</span>
+        <h1>Pivot Table</h1>
+        <p><code>pd.pivot_table()</code> reshapes a DataFrame from long to wide, aggregating values along the way — like a spreadsheet pivot but in code.</p>
+        <div class="hero-pills">
+          <span class="tag">pd.pivot_table</span>
+          <span class="tag blue">index / columns</span>
+          <span class="tag green">aggfunc</span>
+          <span class="tag orange">margins</span>
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" disabled>← Prev</button>
+        <button class="pnav-btn next" onclick="goTo(1)">Basic pivot_table →</button>
+      </div>
+    </div>
+
+    <!-- 1: Basic pivot_table -->
+    <div class="panel" id="panel-1">
+      <div class="section">
+        <div class="section-label">Basic pivot_table</div>
+        <h2>Reshaping with pd.pivot_table()</h2>
+        <div class="code-result-list">
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="kw">import</span> <span class="lib">pandas</span> <span class="kw">as</span> <span class="lib">pd</span></span>
+<span class="line"></span>
+<span class="line">df = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({</span>
+<span class="line">    <span class="str">'region'</span>:  [<span class="str">'North'</span>,<span class="str">'North'</span>,<span class="str">'South'</span>,<span class="str">'South'</span>,<span class="str">'East'</span>,<span class="str">'East'</span>],</span>
+<span class="line">    <span class="str">'product'</span>: [<span class="str">'A'</span>,<span class="str">'B'</span>,<span class="str">'A'</span>,<span class="str">'B'</span>,<span class="str">'A'</span>,<span class="str">'B'</span>],</span>
+<span class="line">    <span class="str">'sales'</span>:   [<span class="num">100</span>,<span class="num">200</span>,<span class="num">150</span>,<span class="num">80</span>,<span class="num">120</span>,<span class="num">90</span>],</span>
+<span class="line">    <span class="str">'units'</span>:   [<span class="num">10</span>,<span class="num">8</span>,<span class="num">12</span>,<span class="num">5</span>,<span class="num">9</span>,<span class="num">7</span>]</span>
+<span class="line">})</span>
+<span class="line">df</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">df</div>
+              <table class="ser-out">
+                <thead><tr><th>index</th><th>region</th><th>product</th><th>sales</th><th>units</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>North</td><td>A</td><td>100</td><td>10</td></tr>
+                  <tr><td>1</td><td>North</td><td>B</td><td>200</td><td>8</td></tr>
+                  <tr><td>2</td><td>South</td><td>A</td><td>150</td><td>12</td></tr>
+                  <tr><td>3</td><td>South</td><td>B</td><td>80</td><td>5</td></tr>
+                  <tr><td>4</td><td>East</td><td>A</td><td>120</td><td>9</td></tr>
+                  <tr><td>5</td><td>East</td><td>B</td><td>90</td><td>7</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># rows = region, columns = product, cells = sum of sales</span></span>
+<span class="line"><span class="lib">pd</span>.<span class="fn">pivot_table</span>(</span>
+<span class="line">    df,</span>
+<span class="line">    values=<span class="str">'sales'</span>,</span>
+<span class="line">    index=<span class="str">'region'</span>,</span>
+<span class="line">    columns=<span class="str">'product'</span>,</span>
+<span class="line">    aggfunc=<span class="str">'sum'</span></span>
+<span class="line">)</span></pre>
+            </div>
+            <div class="table-pair">
+              <div class="ser-wrap">
+                <div class="ser-label">df (long)</div>
+                <table class="ser-out">
+                  <thead><tr><th>region</th><th>product</th><th>sales</th></tr></thead>
+                  <tbody>
+                    <tr><td>North</td><td>A</td><td>100</td></tr>
+                    <tr><td>North</td><td>B</td><td>200</td></tr>
+                    <tr><td>South</td><td>A</td><td>150</td></tr>
+                    <tr><td>South</td><td>B</td><td>80</td></tr>
+                    <tr><td>East</td><td>A</td><td>120</td></tr>
+                    <tr><td>East</td><td>B</td><td>90</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="ser-wrap">
+                <div class="ser-label">pivot (wide)</div>
+                <table class="ser-out">
+                  <thead><tr><th>region</th><th>A</th><th>B</th></tr></thead>
+                  <tbody>
+                    <tr><td>East</td><td>120</td><td>90</td></tr>
+                    <tr><td>North</td><td>100</td><td>200</td></tr>
+                    <tr><td>South</td><td>150</td><td>80</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="callout blue">
+          <strong>pivot_table vs pivot:</strong> <code>df.pivot()</code> requires unique combinations of index/column and does no aggregation. <code>pd.pivot_table()</code> handles duplicates by aggregating — use it when rows may not be unique.
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(0)">← Overview</button>
+        <button class="pnav-btn next" onclick="goTo(2)">aggfunc &amp; Values →</button>
+      </div>
+    </div>
+
+    <!-- 2: aggfunc & Values -->
+    <div class="panel" id="panel-2">
+      <div class="section">
+        <div class="section-label">aggfunc &amp; Values</div>
+        <h2>Changing the Aggregation Function</h2>
+        <div class="code-result-list">
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># mean instead of sum</span></span>
+<span class="line"><span class="lib">pd</span>.<span class="fn">pivot_table</span>(df, values=<span class="str">'sales'</span>, index=<span class="str">'region'</span>,</span>
+<span class="line">               columns=<span class="str">'product'</span>, aggfunc=<span class="str">'mean'</span>)</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">aggfunc='mean'</div>
+              <table class="ser-out">
+                <thead><tr><th>region</th><th>A</th><th>B</th></tr></thead>
+                <tbody>
+                  <tr><td>East</td><td>120.0</td><td>90.0</td></tr>
+                  <tr><td>North</td><td>100.0</td><td>200.0</td></tr>
+                  <tr><td>South</td><td>150.0</td><td>80.0</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># multiple values — each gets its own block of columns</span></span>
+<span class="line"><span class="lib">pd</span>.<span class="fn">pivot_table</span>(df, values=[<span class="str">'sales'</span>,<span class="str">'units'</span>],</span>
+<span class="line">               index=<span class="str">'region'</span>, columns=<span class="str">'product'</span>, aggfunc=<span class="str">'sum'</span>)</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">multi-value pivot</div>
+              <table class="ser-out">
+                <thead>
+                  <tr><th>region</th><th>sales A</th><th>sales B</th><th>units A</th><th>units B</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>East</td><td>120</td><td>90</td><td>9</td><td>7</td></tr>
+                  <tr><td>North</td><td>100</td><td>200</td><td>10</td><td>8</td></tr>
+                  <tr><td>South</td><td>150</td><td>80</td><td>12</td><td>5</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># different aggfunc per value column</span></span>
+<span class="line"><span class="lib">pd</span>.<span class="fn">pivot_table</span>(df, values=[<span class="str">'sales'</span>,<span class="str">'units'</span>],</span>
+<span class="line">               index=<span class="str">'region'</span>, columns=<span class="str">'product'</span>,</span>
+<span class="line">               aggfunc={<span class="str">'sales'</span>: <span class="str">'sum'</span>, <span class="str">'units'</span>: <span class="str">'mean'</span>})</span></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(1)">← Basic pivot_table</button>
+        <button class="pnav-btn next" onclick="goTo(3)">Margins &amp; Fill →</button>
+      </div>
+    </div>
+
+    <!-- 3: Margins & fill_value -->
+    <div class="panel" id="panel-3">
+      <div class="section">
+        <div class="section-label">Margins &amp; Fill</div>
+        <h2>Row / Column Totals and Missing Values</h2>
+        <div class="code-result-list">
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># margins=True adds row and column totals</span></span>
+<span class="line"><span class="lib">pd</span>.<span class="fn">pivot_table</span>(</span>
+<span class="line">    df, values=<span class="str">'sales'</span>, index=<span class="str">'region'</span>,</span>
+<span class="line">    columns=<span class="str">'product'</span>, aggfunc=<span class="str">'sum'</span>,</span>
+<span class="line">    margins=<span class="kw">True</span>, margins_name=<span class="str">'Total'</span></span>
+<span class="line">)</span></pre>
+            </div>
+            <div class="ser-wrap">
+              <div class="ser-label">with margins</div>
+              <table class="ser-out">
+                <thead><tr><th>region</th><th>A</th><th>B</th><th>Total</th></tr></thead>
+                <tbody>
+                  <tr><td>East</td><td>120</td><td>90</td><td>210</td></tr>
+                  <tr><td>North</td><td>100</td><td>200</td><td>300</td></tr>
+                  <tr><td>South</td><td>150</td><td>80</td><td>230</td></tr>
+                  <tr><td>Total</td><td>370</td><td>370</td><td>740</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="code-result stacked">
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">python</span><button class="copy-btn">Copy</button></div>
+              <pre><span class="line"><span class="cm"># fill_value replaces NaN when a cell has no data</span></span>
+<span class="line">sparse = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({</span>
+<span class="line">    <span class="str">'region'</span>:  [<span class="str">'North'</span>, <span class="str">'South'</span>, <span class="str">'East'</span>],</span>
+<span class="line">    <span class="str">'product'</span>: [<span class="str">'A'</span>,     <span class="str">'B'</span>,     <span class="str">'A'</span>   ],</span>
+<span class="line">    <span class="str">'sales'</span>:   [<span class="num">100</span>,     <span class="num">80</span>,      <span class="num">120</span>   ]</span>
+<span class="line">})</span>
+<span class="line"><span class="lib">pd</span>.<span class="fn">pivot_table</span>(sparse, values=<span class="str">'sales'</span>, index=<span class="str">'region'</span>,</span>
+<span class="line">               columns=<span class="str">'product'</span>, aggfunc=<span class="str">'sum'</span>, fill_value=<span class="num">0</span>)</span></pre>
+            </div>
+            <div class="table-pair">
+              <div class="ser-wrap">
+                <div class="ser-label">sparse (no fill)</div>
+                <table class="ser-out">
+                  <thead><tr><th>region</th><th>A</th><th>B</th></tr></thead>
+                  <tbody>
+                    <tr><td>East</td><td>120</td><td>NaN</td></tr>
+                    <tr><td>North</td><td>100</td><td>NaN</td></tr>
+                    <tr><td>South</td><td>NaN</td><td>80</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="ser-wrap">
+                <div class="ser-label">fill_value=0</div>
+                <table class="ser-out">
+                  <thead><tr><th>region</th><th>A</th><th>B</th></tr></thead>
+                  <tbody>
+                    <tr><td>East</td><td>120</td><td>0</td></tr>
+                    <tr><td>North</td><td>100</td><td>0</td></tr>
+                    <tr><td>South</td><td>0</td><td>80</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(2)">← aggfunc &amp; Values</button>
+        <button class="pnav-btn next" onclick="goTo(4)">Exercises →</button>
+      </div>
+    </div>
+
+    <!-- 4: Exercises -->
+    <div class="panel" id="panel-4">
+      <div class="section">
+        <div class="section-label">Exercises</div>
+        <h2>Practice — Pivot Table</h2>
+
+        <div class="ex-block">
+          <span class="ex-num">Q1</span>
+          <p>Create a pivot table showing the <strong>average</strong> <code>score</code> for each <code>student</code> (rows) and <code>subject</code> (columns).</p>
+          <div class="code-wrap"><pre><span class="line">df = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({</span>
+<span class="line">    <span class="str">'student'</span>: [<span class="str">'Alice'</span>,<span class="str">'Alice'</span>,<span class="str">'Bob'</span>,<span class="str">'Bob'</span>,<span class="str">'Carol'</span>,<span class="str">'Carol'</span>],</span>
+<span class="line">    <span class="str">'subject'</span>: [<span class="str">'Math'</span>,<span class="str">'English'</span>,<span class="str">'Math'</span>,<span class="str">'English'</span>,<span class="str">'Math'</span>,<span class="str">'English'</span>],</span>
+<span class="line">    <span class="str">'score'</span>:   [<span class="num">90</span>, <span class="num">85</span>, <span class="num">70</span>, <span class="num">78</span>, <span class="num">88</span>, <span class="num">92</span>]</span>
+<span class="line">})</span></pre></div>
+          <details class="answer">
+            <summary>Show answer</summary>
+            <div class="answer-body">
+              <div class="code-wrap" style="margin:0">
+                <pre><span class="line">pt = <span class="lib">pd</span>.<span class="fn">pivot_table</span>(df, values=<span class="str">'score'</span>, index=<span class="str">'student'</span>,</span>
+<span class="line">                   columns=<span class="str">'subject'</span>, aggfunc=<span class="str">'mean'</span>)</span>
+<span class="line"><span class="fn">print</span>(pt)</span>
+<span class="line"><span class="out"># subject  English  Math</span></span>
+<span class="line"><span class="out"># student</span></span>
+<span class="line"><span class="out"># Alice       85.0  90.0</span></span>
+<span class="line"><span class="out"># Bob         78.0  70.0</span></span>
+<span class="line"><span class="out"># Carol       92.0  88.0</span></span></pre>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="ex-block">
+          <span class="ex-num">Q2</span>
+          <p>Add row and column totals to the pivot table from Q1 using <code>margins=True</code>.</p>
+          <details class="answer">
+            <summary>Show answer</summary>
+            <div class="answer-body">
+              <div class="code-wrap" style="margin:0">
+                <pre><span class="line">pt = <span class="lib">pd</span>.<span class="fn">pivot_table</span>(df, values=<span class="str">'score'</span>, index=<span class="str">'student'</span>,</span>
+<span class="line">                   columns=<span class="str">'subject'</span>, aggfunc=<span class="str">'mean'</span>,</span>
+<span class="line">                   margins=<span class="kw">True</span>, margins_name=<span class="str">'All'</span>)</span>
+<span class="line"><span class="fn">print</span>(pt)</span>
+<span class="line"><span class="out"># subject  English  Math        All</span></span>
+<span class="line"><span class="out"># student</span></span>
+<span class="line"><span class="out"># Alice       85.0  90.0  87.500000</span></span>
+<span class="line"><span class="out"># Bob         78.0  70.0  74.000000</span></span>
+<span class="line"><span class="out"># Carol       92.0  88.0  90.000000</span></span>
+<span class="line"><span class="out"># All         85.0  82.67  83.833333</span></span></pre>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="ex-block">
+          <span class="ex-num">Q3</span>
+          <p>Create a pivot table of total <code>sales</code> by <code>month</code> (rows) and <code>category</code> (columns). Fill missing combinations with <code>0</code>.</p>
+          <div class="code-wrap"><pre><span class="line">df = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({</span>
+<span class="line">    <span class="str">'month'</span>:    [<span class="str">'Jan'</span>,<span class="str">'Jan'</span>,<span class="str">'Feb'</span>,<span class="str">'Mar'</span>],</span>
+<span class="line">    <span class="str">'category'</span>: [<span class="str">'A'</span>,  <span class="str">'B'</span>,  <span class="str">'A'</span>,  <span class="str">'B'</span>  ],</span>
+<span class="line">    <span class="str">'sales'</span>:    [<span class="num">100</span>, <span class="num">200</span>, <span class="num">150</span>, <span class="num">80</span>  ]</span>
+<span class="line">})</span></pre></div>
+          <details class="answer">
+            <summary>Show answer</summary>
+            <div class="answer-body">
+              <div class="code-wrap" style="margin:0">
+                <pre><span class="line">pt = <span class="lib">pd</span>.<span class="fn">pivot_table</span>(df, values=<span class="str">'sales'</span>, index=<span class="str">'month'</span>,</span>
+<span class="line">                   columns=<span class="str">'category'</span>, aggfunc=<span class="str">'sum'</span>, fill_value=<span class="num">0</span>)</span>
+<span class="line"><span class="fn">print</span>(pt)</span>
+<span class="line"><span class="out"># category    A    B</span></span>
+<span class="line"><span class="out"># month</span></span>
+<span class="line"><span class="out"># Feb       150    0</span></span>
+<span class="line"><span class="out"># Jan       100  200</span></span>
+<span class="line"><span class="out"># Mar         0   80</span></span></pre>
+              </div>
+            </div>
+          </details>
+        </div>
+
+      </div>
+      <div class="pnav">
+        <button class="pnav-btn" onclick="goTo(3)">← Margins &amp; Fill</button>
+        <button class="pnav-btn next" onclick="goTo(0)">⟳ Overview</button>
+      </div>
+    </div>
+
+  </div><!-- /panel-viewport -->
+</div><!-- /page-layout -->
+
+<script src="app.js"></script>
+<script>
+let _cur = 0;
+function goTo(idx) {
+  if (idx === _cur) return;
+  const oldP = document.getElementById('panel-' + _cur);
+  const newP = document.getElementById('panel-' + idx);
+  if (!oldP || !newP) return;
+  if (_cur > 0) { const sb = document.querySelector('[data-panel="' + _cur + '"]'); if (sb) sb.classList.add('done'); }
+  oldP.classList.remove('active'); oldP.classList.add('exit');
+  setTimeout(() => oldP.classList.remove('exit'), 240);
+  _cur = idx;
+  newP.classList.add('active');
+  document.getElementById('viewport').scrollTop = 0;
+  document.querySelectorAll('.s-item').forEach(b => b.classList.toggle('active', +b.dataset.panel === idx));
+  newP.querySelectorAll('.section:not(.visible)').forEach((s, i) => {
+    setTimeout(() => {
+      s.classList.add('visible');
+      if (typeof animatePre === 'function') animatePre(s);
+      if (typeof animateRows === 'function') animateRows(s);
+    }, i * 80 + 60);
+  });
+}
+(function() {
+  const vp = document.getElementById('viewport');
+  const pb = document.getElementById('progress');
+  if (vp && pb) vp.addEventListener('scroll', () => {
+    pb.style.width = (vp.scrollTop / (vp.scrollHeight - vp.clientHeight) * 100) + '%';
+  });
+})();
+</script>
+</body>
+</html>
