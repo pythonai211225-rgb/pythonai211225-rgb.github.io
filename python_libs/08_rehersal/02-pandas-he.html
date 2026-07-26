@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>תרגילי חזרה 02 - Pandas</title>
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    /* ── RTL overrides ── */
+    body { direction: rtl; }
+    .callout { border-left: none; border-right: 4px solid var(--accent); border-radius: 12px 0 0 12px; }
+    .callout.blue   { border-right-color: var(--blue); }
+    .callout.green  { border-right-color: var(--green); }
+    .callout.purple { border-right-color: var(--purple); }
+    .callout.yellow { border-right-color: var(--yellow); }
+    .steps li { padding: 14px 60px 14px 18px; }
+    .steps li::before { left: auto; right: 18px; }
+    .lesson-nav .btn-next { margin-left: 0; margin-right: auto; }
+
+    /* ── data-table styling ── */
+    table.data {
+      width: 100%; border-collapse: collapse; font-size: .82rem; margin: 8px 0 4px;
+      font-family: 'Courier New', monospace; direction: ltr;
+    }
+    table.data thead th {
+      background: rgba(59,130,246,.12); color: var(--blue); font-weight: 700; text-align: left;
+      padding: 9px 12px; border-bottom: 2px solid rgba(59,130,246,.28); white-space: nowrap;
+    }
+    table.data td { padding: 8px 12px; color: var(--text); border-bottom: 1px solid var(--border); white-space: nowrap; }
+    table.data td.idx { color: var(--muted); font-weight: 700; }
+    .nan { color: #ef4444; font-style: italic; opacity: .85; }
+    tr.dup-keep    { background: rgba(16,185,129,.10); }
+    tr.dup-remove  { background: rgba(239,68,68,.10); }
+    tr.dup-remove td:not(.idx) { text-decoration: line-through; opacity: .7; }
+    .table-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; padding: 6px 12px 10px; margin: 18px 0 22px; background: var(--surface); }
+    .table-cap { font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding: 8px 2px 2px; }
+    .legend-row { display: flex; flex-wrap: wrap; gap: 14px; margin: 14px 0 4px; font-size: .8rem; }
+    .legend-row span { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); }
+    .swatch { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
+    .arrow-map { display: inline-flex; align-items: center; gap: 8px; font-family: 'Courier New', monospace; font-weight: 700; direction: ltr; }
+    .id-old { color: #ef4444; }
+    .id-new { color: #10b981; }
+  </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">→ ספריות Python</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item" href="01-seaborn-he.html">01 · Seaborn</a>
+    <a class="nav-item active" href="02-pandas-he.html">02 · Pandas</a>
+    <a class="nav-item" href="03-solution-steps-he.html">03 · שלבי פתרון</a>
+    <a class="nav-item flag" href="02-pandas.html" title="English version"><svg class="flag-svg" viewBox="0 0 38 26" width="22" height="15" aria-label="English"><rect width="38" height="26" fill="#b22234"/><g fill="#fff"><rect y="2" width="38" height="2"/><rect y="6" width="38" height="2"/><rect y="10" width="38" height="2"/><rect y="14" width="38" height="2"/><rect y="18" width="38" height="2"/><rect y="22" width="38" height="2"/></g><rect width="16" height="14" fill="#3c3b6e"/></svg></a>
+  </div>
+</nav>
+
+<main>
+
+  <!-- ══ HERO ══ -->
+  <div class="hero">
+    <div class="topic-label"><span class="dot"></span>תרגיל חזרה למבחן · חלק 2</div>
+    <h1>תרגילי חזרה - Pandas: הסרת כפילויות ותיקון מכירות</h1>
+    <p>
+      שני קבצי CSV מתארים חנות ספרים. הקובץ <code>books.csv</code> מכיל רשימת ספרים, אך חלקם מופיעים
+      <strong>פעמיים</strong>. הקובץ <code>books_sales.csv</code> מתעד מכירות המצביעות על ספרים לפי המזהה שלהם.
+      המשימה: להסיר את הספרים הכפולים, ואז לתקן את קובץ המכירות כך שכל מכירה תצביע על הספר הנכון שנשאר
+    </p>
+    <div class="hero-pills">
+      <span class="tag blue">duplicated()</span>
+      <span class="tag green">isna() / notna()</span>
+      <span class="tag purple">merge()</span>
+      <span class="tag yellow">map() / replace()</span>
+    </div>
+  </div>
+
+  <!-- ══ DATA FILES ══ -->
+  <div class="section">
+    <div class="section-label">קבצי הנתונים</div>
+    <h2>שני הקבצים</h2>
+    <p>הורידו את שני הקבצים מהמאגר:</p>
+
+    <div class="dl-row">
+      <a class="dl-btn" href="files/books.csv" download>
+        <span class="ico">⬇</span> הורדת <span class="fname">books.csv</span>
+      </a>
+      <a class="dl-btn" href="files/books_sales.csv" download>
+        <span class="ico">⬇</span> הורדת <span class="fname">books_sales.csv</span>
+      </a>
+    </div>
+
+    <div class="table-cap">books.csv - רשימת הספרים</div>
+    <div class="table-scroll">
+      <table class="data">
+        <thead>
+          <tr><th></th><th>book_id</th><th>author_name</th><th>title</th><th>publication_year</th><th>catalog_number</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="idx">0</td><td>82471</td><td>Justin Cook</td><td>Rise of the Fallen</td><td>2008.0</td><td>CAT-1001</td></tr>
+          <tr><td class="idx">1</td><td>48525</td><td>Teresa Olson</td><td>Dreams of Steel</td><td>1969.0</td><td>CAT-1002</td></tr>
+          <tr><td class="idx">2</td><td>85837</td><td>Cindy Hickman</td><td>Memories of Tomorrow</td><td>1998.0</td><td>CAT-1003</td></tr>
+          <tr><td class="idx">3</td><td>91385</td><td>Theresa Shaw</td><td>Secrets of the Mind</td><td>1984.0</td><td>CAT-1004</td></tr>
+          <tr><td class="idx">4</td><td>39428</td><td>James White</td><td>Shadows of Time</td><td>2004.0</td><td>CAT-1005</td></tr>
+          <tr><td class="idx">5</td><td>54092</td><td>Leah Jackson</td><td>Winds of Change</td><td>1958.0</td><td>CAT-1006</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="table-cap">books_sales.csv - מכירות המצביעות על ספרים לפי book_id</div>
+    <div class="table-scroll">
+      <table class="data">
+        <thead>
+          <tr><th></th><th>sale_date</th><th>book_id</th><th>sale_price</th><th>store_name</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="idx">0</td><td>20/04/2024</td><td>12863</td><td>39.37</td><td>Marshall-Moore</td></tr>
+          <tr><td class="idx">1</td><td>01/08/2024</td><td>12863</td><td>76.76</td><td>Price Ltd</td></tr>
+          <tr><td class="idx">2</td><td>30/12/2023</td><td>12863</td><td>13.97</td><td>Jenkins-Munoz</td></tr>
+          <tr><td class="idx">3</td><td>31/05/2024</td><td>14187</td><td>76.16</td><td>Jackson and Sons</td></tr>
+          <tr><td class="idx">4</td><td>26/04/2023</td><td>14187</td><td>45.11</td><td>Clark-Walker</td></tr>
+          <tr><td class="idx">…</td><td>…</td><td>…</td><td>…</td><td>…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══ THE TASK ══ -->
+  <div class="section">
+    <div class="section-label">המשימה</div>
+    <h2>מה צריך לעשות</h2>
+    <p>
+      חלק מהספרים מופיעים בכפילות.<br> ניתן לזהות כפילות לפי כך שאותו <code>catalog_number</code> מופיע
+      <strong>פעמיים</strong> בקובץ <code>books.csv</code>
+    </p>
+
+    <ul class="steps">
+      <li>
+        <strong>הסרת הספרים הכפולים.</strong>
+        <span class="sub">לכל <code>catalog_number</code> כפול, מחקו את השורה המכילה <em>יותר שדות ריקים (NaN)</em>. השאירו את השורה המלאה יותר</span>
+      </li>
+      <li>
+        <strong>תיקון קובץ המכירות.</strong>
+        <span class="sub">בקובץ <code>books_sales.csv</code>, כל מכירה שהצביעה על <code>book_id</code> <em>שנמחק</em> צריכה כעת להצביע על ה־<code>book_id</code> ש<em>נשמר</em></span>
+      </li>
+    </ul>
+
+    <div class="callout">
+      <strong>דוגמה פתורה:</strong> נניח שבטבלת הספרים יש כפילות לספר עם
+      <code>book_id = 3</code> ו־<code>book_id = 5</code> (אותו <code>catalog_number</code>), ולשורה
+      <code>5</code> יש יותר עמודות עם <code>NaN</code>:
+      <ol style="margin:10px 18px 0 0; color:var(--muted)">
+        <li>מחקו את הספר עם <code>book_id = 5</code> מהקובץ <code>books.csv</code></li>
+        <li>בקובץ <code>books_sales.csv</code>, החליפו כל <code>book_id = 5</code> ל־<code>book_id = 3</code></li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- ══ EXPECTED RESULT ══ -->
+  <div class="section">
+    <div class="section-label">התוצאה המצופה</div>
+    <h2>כך נראה התיקון</h2>
+    <p>
+      הנה דוגמה ממוקדת.<br> שורות <code>0</code> ו־<code>2</code> למטה חולקות אותו <code>catalog_number</code>
+      (<code>CAT-1001</code>) - זהו אותו ספר. לשורה <code>2</code> יש שני שדות ריקים, ולכן היא זו שנמחק;
+      שורה <code>0</code> נשמרת
+    </p>
+
+    <div class="legend-row">
+      <span><span class="swatch" style="background:rgba(16,185,129,.35)"></span> נשמר (מלא יותר)</span>
+      <span><span class="swatch" style="background:rgba(239,68,68,.35)"></span> נמחק (יותר NaN)</span>
+      <span><span class="nan">NaN</span> = שדה ריק</span>
+    </div>
+
+    <div class="table-cap">books.csv - כפילות על CAT-1001</div>
+    <div class="table-scroll">
+      <table class="data">
+        <thead>
+          <tr><th></th><th>book_id</th><th>author_name</th><th>title</th><th>publication_year</th><th>catalog_number</th></tr>
+        </thead>
+        <tbody>
+          <tr class="dup-keep"><td class="idx">0</td><td>82471</td><td>Justin Cook</td><td>Rise of the Fallen</td><td>2008.0</td><td>CAT-1001</td></tr>
+          <tr><td class="idx">1</td><td>48525</td><td>Teresa Olson</td><td>Dreams of Steel</td><td>1969.0</td><td>CAT-1002</td></tr>
+          <tr class="dup-remove"><td class="idx">2</td><td>90114</td><td class="nan">NaN</td><td>Rise of the Fallen</td><td class="nan">NaN</td><td>CAT-1001</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      מכיוון ש־<code>book_id = 90114</code> נמחק ו־<code>book_id = 82471</code> נשמר, כל מכירה בקובץ
+      <code>books_sales.csv</code> שהתייחסה ל־<code>90114</code> ממופה מחדש:
+    </p>
+    <div style="text-align:center; margin:6px 0 18px">
+      <span class="arrow-map"><span class="id-old">book_id 90114</span> → <span class="id-new">book_id 82471</span></span>
+    </div>
+
+    <div class="table-cap">books_sales.csv - לפני ← אחרי</div>
+    <div class="table-scroll">
+      <table class="data">
+        <thead>
+          <tr><th></th><th>sale_date</th><th>book_id (before)</th><th>book_id (after)</th><th>store_name</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="idx">0</td><td>20/04/2024</td><td class="id-old">90114</td><td class="id-new">82471</td><td>Marshall-Moore</td></tr>
+          <tr><td class="idx">1</td><td>01/08/2024</td><td>82471</td><td>82471</td><td>Price Ltd</td></tr>
+          <tr><td class="idx">2</td><td>30/12/2023</td><td class="id-old">90114</td><td class="id-new">82471</td><td>Jenkins-Munoz</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout green">
+      <strong>תוצאה:</strong> טבלת הספרים מכילה כעת שורה אחת לכל ספר אמיתי, וכל המכירות מצביעות על ה־
+      <code>book_id</code> ששרד - אף מכירה אינה נותרת מצביעה על ספר שנמחק
+    </div>
+  </div>
+
+  <!-- ══ REFERENCE ══ -->
+  <div class="section">
+    <div class="section-label">מקור</div>
+    <h2>צריכים את דרך הפתרון שלב אחר שלב?</h2>
+    <p>הרמז המפורט - כיצד למצוא כפילויות, לספור שדות מלאים, לבחור את השורה שנשמרת ולמפות מחדש את המכירות - נמצא בעמוד הבא.<br> דוגמה פתורה מלאה במחברת הייחוס:</p>
+    <div class="callout blue">
+      <strong>פתרון לדוגמה:</strong>
+      <a href="https://github.com/pythonai211225-rgb/exam_prep/blob/main/exam_rehearsal1.ipynb"
+         target="_blank" rel="noopener" style="color:var(--blue)">
+        github.com/pythonai211225-rgb/exam_prep/blob/main/exam_rehearsal1.ipynb
+      </a>
+    </div>
+  </div>
+
+  <!-- ══ PAGE NAV ══ -->
+  <div class="lesson-nav">
+    <a class="btn-prev" href="01-seaborn-he.html">→ 01 · Seaborn</a>
+    <a class="btn-next" href="03-solution-steps-he.html">← 03 · שלבי פתרון</a>
+  </div>
+
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

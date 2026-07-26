@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>תרגילי חזרה 03 - שלבי פתרון</title>
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    /* ── RTL overrides ── */
+    body { direction: rtl; }
+    .callout { border-left: none; border-right: 4px solid var(--accent); border-radius: 12px 0 0 12px; }
+    .callout.blue   { border-right-color: var(--blue); }
+    .callout.green  { border-right-color: var(--green); }
+    .callout.purple { border-right-color: var(--purple); }
+    .callout.yellow { border-right-color: var(--yellow); }
+    .steps li { padding: 14px 60px 14px 18px; }
+    .steps li::before { left: auto; right: 18px; }
+    .lesson-nav .btn-next { margin-left: 0; margin-right: auto; }
+
+    /* ── tables ── */
+    table.data { width: 100%; border-collapse: collapse; font-size: .82rem; margin: 8px 0 4px; font-family: 'Courier New', monospace; direction: ltr; }
+    table.data thead th {
+      background: rgba(139,92,246,.12); color: var(--purple); font-weight: 700; text-align: left;
+      padding: 9px 12px; border-bottom: 2px solid rgba(139,92,246,.28); white-space: nowrap;
+    }
+    table.data td { padding: 8px 12px; color: var(--text); border-bottom: 1px solid var(--border); white-space: nowrap; }
+    table.data td.idx { color: var(--muted); font-weight: 700; }
+    .id-old { color: #ef4444; font-weight: 700; }
+    .id-new { color: #10b981; font-weight: 700; }
+    .table-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; padding: 6px 12px 10px; margin: 18px 0 22px; background: var(--surface); }
+    .table-cap { font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding: 8px 2px 2px; }
+    .fn-hint { display:inline-block; font-family:'Courier New',monospace; font-size:.78rem; color:var(--green); background:rgba(16,185,129,.1); border:1px solid rgba(16,185,129,.22); border-radius:5px; padding:1px 7px; margin-top:6px; direction:ltr; }
+    .phase-badge { display:inline-flex; align-items:center; gap:8px; font-size:.7rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase; padding:4px 13px; border-radius:999px; margin-bottom:14px; }
+    .dict-box { font-family:'Courier New',monospace; font-size:.85rem; background:#010409; border:1px solid var(--border); border-radius:12px; padding:16px 20px; margin:8px 0 22px; color:var(--text); overflow-x:auto; direction:ltr; }
+    .dict-box .id-old { color:#ef4444; } .dict-box .id-new { color:#10b981; }
+  </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">→ ספריות Python</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item" href="01-seaborn-he.html">01 · Seaborn</a>
+    <a class="nav-item" href="02-pandas-he.html">02 · Pandas</a>
+    <a class="nav-item active" href="03-solution-steps-he.html">03 · שלבי פתרון</a>
+    <a class="nav-item flag" href="03-solution-steps.html" title="English version"><svg class="flag-svg" viewBox="0 0 38 26" width="22" height="15" aria-label="English"><rect width="38" height="26" fill="#b22234"/><g fill="#fff"><rect y="2" width="38" height="2"/><rect y="6" width="38" height="2"/><rect y="10" width="38" height="2"/><rect y="14" width="38" height="2"/><rect y="18" width="38" height="2"/><rect y="22" width="38" height="2"/></g><rect width="16" height="14" fill="#3c3b6e"/></svg></a>
+  </div>
+</nav>
+
+<main>
+
+  <!-- ══ HERO ══ -->
+  <div class="hero">
+    <div class="topic-label"><span class="dot"></span>תרגיל חזרה למבחן · חלק 3</div>
+    <h1>שלבי הפתרון - תוכנית העבודה</h1>
+    <p>
+      תוכנית שלב אחר שלב לתרגיל ה־Pandas מהעמוד הקודם: כיצד למצוא את הספרים הכפולים, להחליט איזו שורה
+      לשמור, ולמפות מחדש כל מכירה לספר ששרד. אלו <strong>רמזים</strong> - כלי ה־pandas שדרושים בכל שלב,
+      לא הקוד המלא
+    </p>
+    <div class="hero-pills">
+      <span class="tag purple">שלב א' · ניקוי הספרים</span>
+      <span class="tag green">שלב ב' · תיקון המכירות</span>
+    </div>
+  </div>
+
+  <!-- ══ TERMINOLOGY NOTE ══ -->
+  <div class="section">
+    <div class="section-label">לפני שמתחילים</div>
+    <h2>המזהה שמקשר בין שני הקבצים</h2>
+    <p>
+      כל ספר מזוהה לפי <code>book_id</code>, וכל שורה בקובץ <code>books_sales.csv</code> מצביעה על ספר דרך
+      אותו <code>book_id</code>.<br> לכן כאשר ספר כפול נמחק, ה־<code>book_id</code> שלו נעלם - וכל מכירה שעדיין
+      מצביעה עליו חייבת להיות מופנית מחדש ל־<code>book_id</code> שנשמר. כפילות מזוהה לפי
+      <code>catalog_number</code> חוזר
+    </p>
+  </div>
+
+  <!-- ══ PHASE A ══ -->
+  <div class="section">
+    <span class="phase-badge" style="color:var(--purple);background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.28)">שלב א' · ניקוי טבלת הספרים</span>
+    <h2><code>books.csv</code> - הסרת הכפילויות</h2>
+
+    <ul class="steps">
+      <li>
+        <strong>מציאת הספרים הכפולים.</strong>
+        <span class="sub">מצאו כל ספר שה־<code>catalog_number</code> שלו מופיע יותר מפעם אחת. הציגו את <em>כל</em> השורות הכפולות (לא רק את התוספות), ואז מיינו לפי <code>catalog_number</code> כך שכל זוג כפילות ישב יחד</span>
+        <span class="fn-hint">df.duplicated(subset='catalog_number', keep=False)</span>
+      </li>
+      <li>
+        <strong>ספירת השדות המלאים בכל שורה.</strong>
+        <span class="sub">לכל שורה, ספרו כמה ערכים <em>אינם</em> ריקים (Not-NaN). הוסיפו עמודת עזר חדשה - למשל <code>non_nan_count</code> - המחזיקה את הספירה הזו לכל שורה</span>
+        <span class="fn-hint">df.notna().sum(axis=1)</span>
+      </li>
+      <li>
+        <strong>שמירת השורה המלאה יותר.</strong>
+        <span class="sub">לכל <code>catalog_number</code> כפול, שמרו את השורה עם ה־<code>non_nan_count</code> ה<em>גבוה</em> ביותר (הכי הרבה שדות מלאים). השורה השנייה - זו עם יותר <code>NaN</code> - היא זו שנמחקת</span>
+        <span class="fn-hint">sort_values + drop_duplicates(keep='first')</span>
+      </li>
+    </ul>
+  </div>
+
+  <!-- ══ PHASE B ══ -->
+  <div class="section">
+    <span class="phase-badge" style="color:var(--green);background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.28)">שלב ב' · תיקון טבלת המכירות</span>
+    <h2><code>books_sales.csv</code> - הפניית המכירות מחדש</h2>
+
+    <p>
+      המטרה: כל <code>book_id</code> של ספר <em>שנמחק</em> חייב להיות מוחלף ב־<code>book_id</code> של הספר
+      ש<em>נשמר</em> עבור אותו <code>catalog_number</code>
+    </p>
+
+    <ul class="steps" style="counter-reset: step 3">
+      <li>
+        <strong>שיוך כל ספר שנמחק לספר שנשמר.</strong>
+        <span class="sub">בצעו <em>מיזוג פנימי (inner join)</em> בין השורות שנמחקו לבין השורות שנשמרו לפי <code>catalog_number</code>. כל זוג נותן שני מזהים לאותו ספר - הישן והחדש</span>
+        <span class="fn-hint">pd.merge(removed, kept, on='catalog_number', how='inner')</span>
+      </li>
+      <li>
+        <strong>קריאת המזהה הישן והחדש.</strong>
+        <span class="sub">מהטבלה הממוזגת, קחו את <code>book_id_removed</code> (המזהה הישן שנמחק) ואת <code>book_id_kept</code> (המזהה ששרד) לכל זוג כפילות</span>
+      </li>
+      <li>
+        <strong>בניית מילון מיפוי ישן ← חדש.</strong>
+        <span class="sub">הפכו את שתי העמודות למילון: כל <code>book_id</code> שנמחק ממופה ל־<code>book_id</code> שנשמר</span>
+        <span class="fn-hint">dict(zip(book_id_removed, book_id_kept))</span>
+      </li>
+      <li>
+        <strong>החלת המילון על טבלת המכירות.</strong>
+        <span class="sub">עברו על <code>books_sales.csv</code> והחליפו כל <code>book_id</code> ישן באמצעות המילון. מזהים שאינם במילון נשארים ללא שינוי. כעת כל מכירה משויכת רק לספר ששרד</span>
+        <span class="fn-hint">sales['book_id'].replace(mapping)</span>
+      </li>
+    </ul>
+  </div>
+
+  <!-- ══ MAPPING ILLUSTRATION ══ -->
+  <div class="section">
+    <div class="section-label">המיפוי</div>
+    <h2>מה המיזוג מייצר</h2>
+    <p>המיזוג הפנימי לפי <code>catalog_number</code> משייך כל ספר שנמחק לספר שנשמר במקומו:</p>
+
+    <div class="table-cap">merged on catalog_number</div>
+    <div class="table-scroll">
+      <table class="data">
+        <thead>
+          <tr><th>catalog_number</th><th>book_id_removed</th><th>book_id_kept</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>CAT-1001</td><td class="id-old">90114</td><td class="id-new">82471</td></tr>
+          <tr><td>CAT-1004</td><td class="id-old">77320</td><td class="id-new">91385</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>שהופך למילון ההחלפה המשמש על טבלת המכירות:</p>
+    <div class="dict-box">
+      mapping = { <span class="id-old">90114</span>: <span class="id-new">82471</span>, <span class="id-old">77320</span>: <span class="id-new">91385</span> }
+    </div>
+
+    <div class="callout green">
+      <strong>סיום:</strong> לאחר <code>replace(mapping)</code>, אף מכירה בקובץ <code>books_sales.csv</code>
+      אינה מצביעה על ספר שנמחק - כל מכירה מופנית ל־<code>book_id</code> ששרד
+    </div>
+  </div>
+
+  <!-- ══ REFERENCE ══ -->
+  <div class="section">
+    <div class="section-label">מקור</div>
+    <h2>דוגמה פתורה מלאה</h2>
+    <p>ראו את מחברת הפתרון המלאה:</p>
+    <div class="callout blue">
+      <strong>פתרון לדוגמה:</strong>
+      <a href="https://github.com/pythonai211225-rgb/exam_prep/blob/main/exam_rehearsal1.ipynb"
+         target="_blank" rel="noopener" style="color:var(--blue)">
+        github.com/pythonai211225-rgb/exam_prep/blob/main/exam_rehearsal1.ipynb
+      </a>
+    </div>
+  </div>
+
+  <!-- ══ PAGE NAV ══ -->
+  <div class="lesson-nav">
+    <a class="btn-prev" href="02-pandas-he.html">→ 02 · Pandas</a>
+    <a class="btn-next" href="../index.html">← חזרה לספריות Python</a>
+  </div>
+
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

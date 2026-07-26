@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Exam Rehearsal 03 - Solution Steps</title>
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    table.data {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .82rem;
+      margin: 8px 0 4px;
+      font-family: 'Courier New', monospace;
+    }
+    table.data thead th {
+      background: rgba(139,92,246,.12);
+      color: var(--purple);
+      font-weight: 700;
+      text-align: left;
+      padding: 9px 12px;
+      border-bottom: 2px solid rgba(139,92,246,.28);
+      white-space: nowrap;
+    }
+    table.data td { padding: 8px 12px; color: var(--text); border-bottom: 1px solid var(--border); white-space: nowrap; }
+    table.data td.idx { color: var(--muted); font-weight: 700; }
+    .id-old { color: #ef4444; font-weight: 700; }
+    .id-new { color: #10b981; font-weight: 700; }
+    .table-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; padding: 6px 12px 10px; margin: 18px 0 22px; background: var(--surface); }
+    .table-cap { font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding: 8px 2px 2px; }
+    .fn-hint { display:inline-block; font-family:'Courier New',monospace; font-size:.78rem; color:var(--green); background:rgba(16,185,129,.1); border:1px solid rgba(16,185,129,.22); border-radius:5px; padding:1px 7px; margin-top:6px; }
+    .phase-badge { display:inline-flex; align-items:center; gap:8px; font-size:.7rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase; padding:4px 13px; border-radius:999px; margin-bottom:14px; }
+    .dict-box { font-family:'Courier New',monospace; font-size:.85rem; background:#010409; border:1px solid var(--border); border-radius:12px; padding:16px 20px; margin:8px 0 22px; color:var(--text); overflow-x:auto; }
+    .dict-box .id-old { color:#ef4444; } .dict-box .id-new { color:#10b981; }
+  </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">← Python Libs</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item" href="01-seaborn.html">01 · Seaborn</a>
+    <a class="nav-item" href="02-pandas.html">02 · Pandas</a>
+    <a class="nav-item active" href="03-solution-steps.html">03 · Solution Steps</a>
+    <a class="nav-item flag" href="03-solution-steps-he.html" title="Hebrew version"><svg class="flag-svg" viewBox="0 0 40 30" width="22" height="16" aria-label="Hebrew"><rect width="40" height="30" fill="#fff"/><rect y="3" width="40" height="4" fill="#0038b8"/><rect y="23" width="40" height="4" fill="#0038b8"/><polygon points="20,9.5 15.24,17.75 24.76,17.75" fill="none" stroke="#0038b8" stroke-width="1.3"/><polygon points="20,20.5 15.24,12.25 24.76,12.25" fill="none" stroke="#0038b8" stroke-width="1.3"/></svg></a>
+  </div>
+</nav>
+
+<main>
+
+  <!-- ══ HERO ══ -->
+  <div class="hero">
+    <div class="topic-label"><span class="dot"></span>Exam Rehearsal · Part 3</div>
+    <h1>Solution Steps - The Work Plan</h1>
+    <p>
+      A step-by-step plan for the Pandas exercise on the previous page: how to find the duplicate books, decide
+      which row to keep, and remap every sale to the surviving book. These are <strong>hints</strong> - the
+      pandas tools you need at each step, not the full code
+    </p>
+    <div class="hero-pills">
+      <span class="tag purple">Phase A · clean books</span>
+      <span class="tag green">Phase B · repair sales</span>
+    </div>
+  </div>
+
+  <!-- ══ TERMINOLOGY NOTE ══ -->
+  <div class="section">
+    <div class="section-label">Before you start</div>
+    <h2>The id that links the two files</h2>
+    <p>
+      Each book is identified by <code>book_id</code>, and every row in <code>books_sales.csv</code> points at a
+      book through that same <code>book_id</code>.<br> So when a duplicate book is removed, its <code>book_id</code>
+      disappears - and any sale still pointing at it must be redirected to the <code>book_id</code> that was kept.
+      A duplicate is detected by a repeated <code>catalog_number</code>
+    </p>
+  </div>
+
+  <!-- ══ PHASE A ══ -->
+  <div class="section">
+    <span class="phase-badge" style="color:var(--purple);background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.28)">Phase A · Clean the books table</span>
+    <h2><code>books.csv</code> - remove the duplicates</h2>
+
+    <ul class="steps">
+      <li>
+        <strong>Find the duplicate books.</strong>
+        <span class="sub">Find every book whose <code>catalog_number</code> appears more than once. Show <em>all</em> the duplicate rows (not just the extras), then sort by <code>catalog_number</code> so each duplicate pair sits together</span>
+        <span class="fn-hint">df.duplicated(subset='catalog_number', keep=False)</span>
+      </li>
+      <li>
+        <strong>Count the filled fields in each row.</strong>
+        <span class="sub">For every row, count how many values are <em>not</em> empty (Not-NaN). Add a new helper column - e.g. <code>non_nan_count</code> - holding that count per row</span>
+        <span class="fn-hint">df.notna().sum(axis=1)</span>
+      </li>
+      <li>
+        <strong>Keep the more complete row.</strong>
+        <span class="sub">For each duplicated <code>catalog_number</code>, keep the row with the <em>highest</em> <code>non_nan_count</code> (most filled fields). The other row - the one with more <code>NaN</code>s - is the one to remove</span>
+        <span class="fn-hint">sort_values + drop_duplicates(keep='first')</span>
+      </li>
+    </ul>
+  </div>
+
+  <!-- ══ PHASE B ══ -->
+  <div class="section">
+    <span class="phase-badge" style="color:var(--green);background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.28)">Phase B · Repair the sales table</span>
+    <h2><code>books_sales.csv</code> - redirect the sales</h2>
+
+    <p>
+      Goal: every <code>book_id</code> of a <em>removed</em> book must be replaced with the <code>book_id</code>
+      of the book that was <em>kept</em> for the same <code>catalog_number</code>
+    </p>
+
+    <ul class="steps" style="counter-reset: step 3">
+      <li>
+        <strong>Pair each removed book with its kept book.</strong>
+        <span class="sub">Do an <em>inner join</em> between the removed rows and the kept rows on <code>catalog_number</code>. Each pair gives you two ids for the same book - the old one and the new one</span>
+        <span class="fn-hint">pd.merge(removed, kept, on='catalog_number', how='inner')</span>
+      </li>
+      <li>
+        <strong>Read off the old id and the new id.</strong>
+        <span class="sub">From the merged table, take <code>book_id_removed</code> (the old, deleted id) and <code>book_id_kept</code> (the surviving id) for every duplicate pair</span>
+      </li>
+      <li>
+        <strong>Build a mapping from old id → new id.</strong>
+        <span class="sub">Turn those two columns into a dictionary: each removed <code>book_id</code> maps to the kept <code>book_id</code></span>
+        <span class="fn-hint">dict(zip(book_id_removed, book_id_kept))</span>
+      </li>
+      <li>
+        <strong>Apply the mapping to the sales table.</strong>
+        <span class="sub">Go over <code>books_sales.csv</code> and replace every old <code>book_id</code> using the mapping. Ids that are not in the mapping stay unchanged. Now every sale is attributed to a surviving book only</span>
+        <span class="fn-hint">sales['book_id'].replace(mapping)</span>
+      </li>
+    </ul>
+  </div>
+
+  <!-- ══ MAPPING ILLUSTRATION ══ -->
+  <div class="section">
+    <div class="section-label">The mapping</div>
+    <h2>What the merge produces</h2>
+    <p>The inner join on <code>catalog_number</code> pairs each removed book with the book kept in its place:</p>
+
+    <div class="table-cap">merged on catalog_number</div>
+    <div class="table-scroll">
+      <table class="data">
+        <thead>
+          <tr><th>catalog_number</th><th>book_id_removed</th><th>book_id_kept</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>CAT-1001</td><td class="id-old">90114</td><td class="id-new">82471</td></tr>
+          <tr><td>CAT-1004</td><td class="id-old">77320</td><td class="id-new">91385</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>Which becomes the replacement mapping used on the sales table:</p>
+    <div class="dict-box">
+      mapping = { <span class="id-old">90114</span>: <span class="id-new">82471</span>, <span class="id-old">77320</span>: <span class="id-new">91385</span> }
+    </div>
+
+    <div class="callout green">
+      <strong>Done:</strong> After <code>replace(mapping)</code>, no sale in <code>books_sales.csv</code> points at
+      a deleted book - every sale is redirected to the surviving <code>book_id</code>
+    </div>
+  </div>
+
+  <!-- ══ REFERENCE ══ -->
+  <div class="section">
+    <div class="section-label">Reference</div>
+    <h2>Full worked example</h2>
+    <p>See the complete solution notebook:</p>
+    <div class="callout blue">
+      <strong>Example solution:</strong>
+      <a href="https://github.com/pythonai211225-rgb/exam_prep/blob/main/exam_rehearsal1.ipynb"
+         target="_blank" rel="noopener" style="color:var(--blue)">
+        github.com/pythonai211225-rgb/exam_prep/blob/main/exam_rehearsal1.ipynb
+      </a>
+    </div>
+  </div>
+
+  <!-- ══ PAGE NAV ══ -->
+  <div class="lesson-nav">
+    <a class="btn-prev" href="02-pandas.html">← 02 · Pandas</a>
+    <a class="btn-next" href="../index.html">Back to Python Libs →</a>
+  </div>
+
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Exam Rehearsal 02 - Pandas</title>
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    /* ── data-table styling for this page ── */
+    table.data {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .82rem;
+      margin: 8px 0 4px;
+      font-family: 'Courier New', monospace;
+    }
+    table.data thead th {
+      background: rgba(59,130,246,.12);
+      color: var(--blue);
+      font-weight: 700;
+      text-align: left;
+      padding: 9px 12px;
+      border-bottom: 2px solid rgba(59,130,246,.28);
+      white-space: nowrap;
+    }
+    table.data td {
+      padding: 8px 12px;
+      color: var(--text);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    table.data td.idx { color: var(--muted); font-weight: 700; }
+    .nan { color: #ef4444; font-style: italic; opacity: .85; }
+    tr.dup-keep    { background: rgba(16,185,129,.10); }
+    tr.dup-remove  { background: rgba(239,68,68,.10); }
+    tr.dup-remove td:not(.idx) { text-decoration: line-through; opacity: .7; }
+    .table-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; padding: 6px 12px 10px; margin: 18px 0 22px; background: var(--surface); }
+    .table-cap { font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding: 8px 2px 2px; }
+    .legend-row { display: flex; flex-wrap: wrap; gap: 14px; margin: 14px 0 4px; font-size: .8rem; }
+    .legend-row span { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); }
+    .swatch { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
+    .arrow-map { display: inline-flex; align-items: center; gap: 8px; font-family: 'Courier New', monospace; font-weight: 700; }
+    .id-old { color: #ef4444; }
+    .id-new { color: #10b981; }
+  </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">← Python Libs</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item" href="01-seaborn.html">01 · Seaborn</a>
+    <a class="nav-item active" href="02-pandas.html">02 · Pandas</a>
+    <a class="nav-item" href="03-solution-steps.html">03 · Solution Steps</a>
+    <a class="nav-item flag" href="02-pandas-he.html" title="Hebrew version"><svg class="flag-svg" viewBox="0 0 40 30" width="22" height="16" aria-label="Hebrew"><rect width="40" height="30" fill="#fff"/><rect y="3" width="40" height="4" fill="#0038b8"/><rect y="23" width="40" height="4" fill="#0038b8"/><polygon points="20,9.5 15.24,17.75 24.76,17.75" fill="none" stroke="#0038b8" stroke-width="1.3"/><polygon points="20,20.5 15.24,12.25 24.76,12.25" fill="none" stroke="#0038b8" stroke-width="1.3"/></svg></a>
+  </div>
+</nav>
+
+<main>
+
+  <!-- ══ HERO ══ -->
+  <div class="hero">
+    <div class="topic-label"><span class="dot"></span>Exam Rehearsal · Part 2</div>
+    <h1>Pandas Rehearsal - Deduplicate Books &amp; Fix Sales</h1>
+    <p>
+      Two CSV files describe a bookstore. The <code>books.csv</code> file lists books, but some appear
+      <strong>twice</strong>. The <code>books_sales.csv</code> file records sales that point at books by their id.
+      Your job: remove the duplicate books, then repair the sales file so every sale points at the correct
+      remaining book
+    </p>
+    <div class="hero-pills">
+      <span class="tag blue">duplicated()</span>
+      <span class="tag green">isna() / notna()</span>
+      <span class="tag purple">merge()</span>
+      <span class="tag yellow">map() / replace()</span>
+    </div>
+  </div>
+
+  <!-- ══ DATA FILES ══ -->
+  <div class="section">
+    <div class="section-label">Datasets</div>
+    <h2>The two files</h2>
+    <p>Download both files from the repository:</p>
+
+    <div class="dl-row">
+      <a class="dl-btn" href="files/books.csv" download>
+        <span class="ico">⬇</span> Download <span class="fname">books.csv</span>
+      </a>
+      <a class="dl-btn" href="files/books_sales.csv" download>
+        <span class="ico">⬇</span> Download <span class="fname">books_sales.csv</span>
+      </a>
+    </div>
+
+    <div class="table-cap">books.csv - list of books</div>
+    <div class="table-scroll">
+      <table class="data">
+        <thead>
+          <tr><th></th><th>book_id</th><th>author_name</th><th>title</th><th>publication_year</th><th>catalog_number</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="idx">0</td><td>82471</td><td>Justin Cook</td><td>Rise of the Fallen</td><td>2008.0</td><td>CAT-1001</td></tr>
+          <tr><td class="idx">1</td><td>48525</td><td>Teresa Olson</td><td>Dreams of Steel</td><td>1969.0</td><td>CAT-1002</td></tr>
+          <tr><td class="idx">2</td><td>85837</td><td>Cindy Hickman</td><td>Memories of Tomorrow</td><td>1998.0</td><td>CAT-1003</td></tr>
+          <tr><td class="idx">3</td><td>91385</td><td>Theresa Shaw</td><td>Secrets of the Mind</td><td>1984.0</td><td>CAT-1004</td></tr>
+          <tr><td class="idx">4</td><td>39428</td><td>James White</td><td>Shadows of Time</td><td>2004.0</td><td>CAT-1005</td></tr>
+          <tr><td class="idx">5</td><td>54092</td><td>Leah Jackson</td><td>Winds of Change</td><td>1958.0</td><td>CAT-1006</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="table-cap">books_sales.csv - sales pointing at books by book_id</div>
+    <div class="table-scroll">
+      <table class="data">
+        <thead>
+          <tr><th></th><th>sale_date</th><th>book_id</th><th>sale_price</th><th>store_name</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="idx">0</td><td>20/04/2024</td><td>12863</td><td>39.37</td><td>Marshall-Moore</td></tr>
+          <tr><td class="idx">1</td><td>01/08/2024</td><td>12863</td><td>76.76</td><td>Price Ltd</td></tr>
+          <tr><td class="idx">2</td><td>30/12/2023</td><td>12863</td><td>13.97</td><td>Jenkins-Munoz</td></tr>
+          <tr><td class="idx">3</td><td>31/05/2024</td><td>14187</td><td>76.16</td><td>Jackson and Sons</td></tr>
+          <tr><td class="idx">4</td><td>26/04/2023</td><td>14187</td><td>45.11</td><td>Clark-Walker</td></tr>
+          <tr><td class="idx">…</td><td>…</td><td>…</td><td>…</td><td>…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══ THE TASK ══ -->
+  <div class="section">
+    <div class="section-label">The Task</div>
+    <h2>What you need to do</h2>
+    <p>
+      Some books appear in duplicate.<br> You can spot a duplicate because the same
+      <code>catalog_number</code> shows up <strong>twice</strong> in <code>books.csv</code>
+    </p>
+
+    <ul class="steps">
+      <li>
+        <strong>Remove duplicate books.</strong>
+        <span class="sub">For each duplicated <code>catalog_number</code>, delete the row that has <em>more empty (NaN)</em> fields. Keep the row that is more complete</span>
+      </li>
+      <li>
+        <strong>Fix the sales file.</strong>
+        <span class="sub">In <code>books_sales.csv</code>, every sale that pointed at a <em>deleted</em> <code>book_id</code> must now point at the <code>book_id</code> that was <em>kept</em></span>
+      </li>
+    </ul>
+
+    <div class="callout">
+      <strong>Worked example:</strong> Suppose the books table has a duplicate for the book with
+      <code>book_id = 3</code> and <code>book_id = 5</code> (same <code>catalog_number</code>), and row
+      <code>5</code> has more <code>NaN</code> columns:
+      <ol style="margin:10px 0 0 18px; color:var(--muted)">
+        <li>Delete the book with <code>book_id = 5</code> from <code>books.csv</code></li>
+        <li>In <code>books_sales.csv</code>, replace every <code>book_id = 5</code> with <code>book_id = 3</code></li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- ══ EXPECTED RESULT ══ -->
+  <div class="section">
+    <div class="section-label">Expected Result</div>
+    <h2>What the fix looks like</h2>
+    <p>
+      Here is a focused example.<br> Rows <code>0</code> and <code>2</code> below share the same
+      <code>catalog_number</code> (<code>CAT-1001</code>) - they are the same book. Row <code>2</code> has two
+      empty fields, so it is the one to remove; row <code>0</code> is kept
+    </p>
+
+    <div class="legend-row">
+      <span><span class="swatch" style="background:rgba(16,185,129,.35)"></span> kept (more complete)</span>
+      <span><span class="swatch" style="background:rgba(239,68,68,.35)"></span> removed (more NaN)</span>
+      <span><span class="nan">NaN</span> = empty field</span>
+    </div>
+
+    <div class="table-cap">books.csv - duplicate on CAT-1001</div>
+    <div class="table-scroll">
+      <table class="data">
+        <thead>
+          <tr><th></th><th>book_id</th><th>author_name</th><th>title</th><th>publication_year</th><th>catalog_number</th></tr>
+        </thead>
+        <tbody>
+          <tr class="dup-keep"><td class="idx">0</td><td>82471</td><td>Justin Cook</td><td>Rise of the Fallen</td><td>2008.0</td><td>CAT-1001</td></tr>
+          <tr><td class="idx">1</td><td>48525</td><td>Teresa Olson</td><td>Dreams of Steel</td><td>1969.0</td><td>CAT-1002</td></tr>
+          <tr class="dup-remove"><td class="idx">2</td><td>90114</td><td class="nan">NaN</td><td>Rise of the Fallen</td><td class="nan">NaN</td><td>CAT-1001</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      Because <code>book_id = 90114</code> is removed and <code>book_id = 82471</code> is kept, every sale in
+      <code>books_sales.csv</code> that referenced <code>90114</code> is remapped:
+    </p>
+    <div style="text-align:center; margin:6px 0 18px">
+      <span class="arrow-map"><span class="id-old">book_id 90114</span> → <span class="id-new">book_id 82471</span></span>
+    </div>
+
+    <div class="table-cap">books_sales.csv - before → after</div>
+    <div class="table-scroll">
+      <table class="data">
+        <thead>
+          <tr><th></th><th>sale_date</th><th>book_id (before)</th><th>book_id (after)</th><th>store_name</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="idx">0</td><td>20/04/2024</td><td class="id-old">90114</td><td class="id-new">82471</td><td>Marshall-Moore</td></tr>
+          <tr><td class="idx">1</td><td>01/08/2024</td><td>82471</td><td>82471</td><td>Price Ltd</td></tr>
+          <tr><td class="idx">2</td><td>30/12/2023</td><td class="id-old">90114</td><td class="id-new">82471</td><td>Jenkins-Munoz</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout green">
+      <strong>Result:</strong> The books table now has one row per real book, and all sales point at the surviving
+      <code>book_id</code> - no sale is left pointing at a deleted book
+    </div>
+  </div>
+
+  <!-- ══ REFERENCE ══ -->
+  <div class="section">
+    <div class="section-label">Reference</div>
+    <h2>Need the step-by-step approach?</h2>
+    <p>The detailed hint - how to find duplicates, count filled fields, pick the row to keep, and remap the sales - is on the next page.<br> A full worked example is in the reference notebook:</p>
+    <div class="callout blue">
+      <strong>Example solution:</strong>
+      <a href="https://github.com/pythonai211225-rgb/exam_prep/blob/main/exam_rehearsal1.ipynb"
+         target="_blank" rel="noopener" style="color:var(--blue)">
+        github.com/pythonai211225-rgb/exam_prep/blob/main/exam_rehearsal1.ipynb
+      </a>
+    </div>
+  </div>
+
+  <!-- ══ PAGE NAV ══ -->
+  <div class="lesson-nav">
+    <a class="btn-prev" href="01-seaborn.html">← 01 · Seaborn</a>
+    <a class="btn-next" href="03-solution-steps.html">03 · Solution Steps →</a>
+  </div>
+
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
