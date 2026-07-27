@@ -1,0 +1,2182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Logistic Regression — Sigmoid, Log-Odds, Softmax &amp; the Confusion Matrix</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded',function(){renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'\\(',right:'\\)',display:false}],throwOnError:false});});</script>
+  <style>
+    .page-layout { display:flex; height:calc(100vh - 54px); overflow:hidden; }
+    .sidebar { width:230px; min-width:230px; height:100%; overflow-y:auto; background:#0a0e14; border-right:1px solid var(--border); display:flex; flex-direction:column; scrollbar-width:thin; scrollbar-color:var(--border) transparent; flex-shrink:0; }
+    .sidebar-head { padding:20px 18px 14px; font-size:.65rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--border); }
+    .sidebar-nav { padding:8px 0; flex:1; }
+    .s-item { display:flex; align-items:center; gap:11px; padding:10px 18px; cursor:pointer; background:none; border:none; border-left:3px solid transparent; width:100%; text-align:left; transition:background .18s,border-color .18s; }
+    .s-item:hover { background:rgba(255,255,255,.04); }
+    .s-item.active { background:rgba(250,204,21,.08); border-left-color:var(--accent); }
+    .s-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; transition:transform .2s; }
+    .s-item.active .s-dot { transform:scale(1.45); box-shadow:0 0 8px currentColor; }
+    .s-num { font-size:.62rem; color:var(--border); font-family:'Courier New',monospace; font-weight:700; min-width:18px; }
+    .s-item.active .s-num { color:var(--accent); }
+    .s-label { font-size:.79rem; color:var(--muted); font-family:'Courier New',monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .s-item.active .s-label { color:var(--text); }
+    .s-item.done .s-label::after { content:' ✓'; color:var(--green); font-size:.7rem; }
+    .side-sep { border:none; border-top:1px solid var(--border); margin:14px 16px 6px; }
+    .side-part { padding:2px 18px 6px; font-size:.6rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:var(--accent); font-family:'Courier New',monospace; }
+
+    .panel-viewport { flex:1; overflow-y:auto; overflow-x:hidden; position:relative; }
+    .panel { display:none; flex-direction:column; min-height:100%; padding:40px 52px 100px; max-width:820px; margin:0 auto; animation:fadeIn .35s ease; }
+    .panel.active { display:flex; }
+    @keyframes fadeIn { from{opacity:0;transform:translateX(28px)} to{opacity:1;transform:translateX(0)} }
+    .panel.exit { display:flex; animation:fadeOut .25s ease forwards; }
+    @keyframes fadeOut { from{opacity:1;transform:translateX(0)} to{opacity:0;transform:translateX(-28px)} }
+
+    .m-hero { position:relative; height:200px; border-radius:18px; overflow:hidden; margin-bottom:26px; flex-shrink:0; }
+    .m-hero img { width:100%; height:100%; object-fit:cover; filter:brightness(.5) saturate(.8); transition:filter .45s; }
+    .panel.active .m-hero img { filter:brightness(.6) saturate(1.1); }
+    .m-hero-ov { position:absolute; inset:0; padding:26px 30px; display:flex; flex-direction:column; justify-content:flex-end; background:linear-gradient(0deg,rgba(0,0,0,.78) 0%,rgba(0,0,0,.15) 55%,transparent 100%); }
+    .m-breadcrumb { font-size:.62rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:rgba(255,255,255,.4); margin-bottom:5px; }
+    .m-name { font-size:1.7rem; font-weight:900; color:#fff; font-family:'Courier New',monospace; }
+    .m-tagline { font-size:.86rem; color:rgba(255,255,255,.62); margin-top:4px; }
+
+    .pills { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 20px; align-items:center; }
+    .pill { padding:5px 14px; border-radius:999px; font-size:.7rem; font-weight:700; letter-spacing:.06em; }
+    .pill-sig { font-family:'Courier New',monospace; font-size:.74rem; letter-spacing:0; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.12); color:var(--text); }
+    .pill-ret { background:rgba(16,185,129,.1); border:1px solid rgba(16,185,129,.3); color:var(--green); font-family:'Courier New',monospace; letter-spacing:0; }
+    .pill-note { background:rgba(249,115,22,.1); border:1px solid rgba(249,115,22,.3); color:var(--orange); font-family:'Courier New',monospace; font-size:.7rem; }
+    .pill-param { position:relative; cursor:help; transition:filter .18s; }
+    .pill-param:hover { filter:brightness(1.3); }
+    .pill-param .balloon { position:absolute; bottom:calc(100% + 14px); left:50%; transform:translateX(-50%) translateY(6px); width:230px; background:linear-gradient(155deg,#0e2845 0%,#071a2e 100%); border:1.5px solid rgba(240,182,62,.65); border-radius:14px; padding:13px 16px 11px; box-shadow:0 0 0 1px rgba(240,182,62,.1),0 18px 48px rgba(0,0,0,.72),0 0 36px rgba(240,182,62,.07); opacity:0; pointer-events:none; transition:opacity .22s ease,transform .22s ease; z-index:300; }
+    .pill-param:hover .balloon { opacity:1; transform:translateX(-50%) translateY(0); animation:balloonFloat 3s ease-in-out infinite; }
+    @keyframes balloonFloat { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(-5px)} }
+    .balloon-title { font-family:'Courier New',monospace; font-size:.7rem; font-weight:800; color:#f0b63e; letter-spacing:.04em; margin-bottom:6px; display:flex; align-items:center; gap:6px; }
+    .balloon-title::before { content:''; display:inline-block; width:7px; height:7px; border-radius:50%; background:#f0b63e; box-shadow:0 0 6px rgba(240,182,62,.7); flex-shrink:0; }
+    .balloon-body { font-size:.76rem; color:rgba(230,237,243,.78); line-height:1.6; font-family:'Segoe UI',system-ui,sans-serif; font-weight:400; }
+    .pill-param .balloon::after { content:''; position:absolute; bottom:-10px; left:50%; transform:translateX(-50%); border-left:10px solid transparent; border-right:10px solid transparent; border-top:10px solid rgba(240,182,62,.65); }
+    .pill-param .balloon::before { content:''; position:absolute; bottom:-8px; left:50%; transform:translateX(-50%); border-left:9px solid transparent; border-right:9px solid transparent; border-top:9px solid #071a2e; z-index:1; }
+
+    .m-desc { font-size:.95rem; color:var(--muted); line-height:1.75; margin-bottom:14px; }
+    .m-desc code { font-family:'Courier New',monospace; font-size:.88em; padding:1px 6px; border-radius:4px; background:rgba(255,255,255,.06); }
+
+    .demo-box { background:#060a10; border:1px solid var(--border); border-radius:14px; padding:22px 22px 18px; margin-top:20px; flex-shrink:0; display:flex; flex-direction:column; }
+    .demo-lbl { font-size:.64rem; font-weight:800; letter-spacing:.13em; text-transform:uppercase; color:var(--muted); margin-bottom:18px; display:flex; align-items:center; gap:8px; }
+    .demo-lbl::before { content:''; width:3px; height:12px; border-radius:2px; background:var(--accent); flex-shrink:0; }
+    .demo-controls { display:flex; flex-wrap:wrap; gap:18px; align-items:flex-end; margin-bottom:18px; }
+    .ctrl { display:flex; flex-direction:column; gap:5px; }
+    .ctrl label { font-size:.69rem; color:var(--muted); font-weight:600; }
+    .ctrl input[type=range] { -webkit-appearance:none; width:190px; height:4px; background:var(--border); border-radius:2px; outline:none; cursor:pointer; }
+    .ctrl input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:15px; height:15px; background:var(--accent); border-radius:50%; cursor:pointer; box-shadow:0 0 6px rgba(250,204,21,.5); }
+    .ctrl .cval { font-size:.7rem; color:var(--accent); font-family:'Courier New',monospace; font-weight:700; text-align:center; }
+    .demo-canvas-wrap { background:#020509; border-radius:10px; padding:14px; overflow:hidden; min-height:72px; order:4; }
+    canvas { display:block; margin:0 auto; }
+    .demo-out { font-family:'Courier New',monospace; font-size:.8rem; color:#10b981; line-height:1.65; margin-top:0; margin-bottom:14px; padding:11px 15px; background:rgba(16,185,129,.05); border:1px solid rgba(16,185,129,.18); border-radius:8px; white-space:pre-wrap; order:3; }
+
+    .panel-nav { display:flex; justify-content:space-between; align-items:center; margin-top:40px; padding-top:24px; border-top:1px solid var(--border); flex-shrink:0; }
+    .pnav-btn { display:flex; align-items:center; gap:9px; padding:10px 22px; border-radius:10px; border:1px solid var(--border); background:transparent; color:var(--muted); font-size:.83rem; font-weight:700; cursor:pointer; transition:color .2s,border-color .2s,background .2s; }
+    .pnav-btn:hover:not(:disabled) { color:var(--text); border-color:var(--accent); background:rgba(250,204,21,.06); }
+    .pnav-btn:disabled { opacity:.28; cursor:default; }
+    .pnav-btn.next { background:rgba(250,204,21,.08); border-color:rgba(250,204,21,.35); color:var(--accent); }
+    .pnav-btn.next:hover { background:rgba(250,204,21,.16); border-color:var(--accent); }
+    .pnav-dots { display:flex; gap:7px; align-items:center; flex-wrap:wrap; justify-content:center; }
+    .pnav-dot { width:7px; height:7px; border-radius:50%; background:var(--border); transition:background .2s,transform .2s; cursor:pointer; border:none; padding:0; }
+    .pnav-dot.active { background:var(--accent); transform:scale(1.4); }
+
+    .overview-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:14px; margin-top:24px; }
+    .ov-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px 16px 16px; cursor:pointer; transition:border-color .2s,box-shadow .2s,transform .18s; display:flex; flex-direction:column; gap:8px; }
+    .ov-card:hover { transform:translateY(-3px); border-color:rgba(250,204,21,.4); box-shadow:0 8px 28px rgba(250,204,21,.08); }
+    .ov-card-num { font-size:.62rem; color:var(--muted); font-weight:800; letter-spacing:.1em; }
+    .ov-card-name { font-size:.9rem; font-family:'Courier New',monospace; font-weight:700; }
+    .ov-card-desc { font-size:.77rem; color:var(--muted); line-height:1.5; }
+
+    @media(max-width:700px){.sidebar{display:none}.panel{padding:20px 16px 80px}}
+    .katex { color: var(--text); }
+    .katex-display { margin: 6px 0; overflow-x: auto; overflow-y: hidden; padding: 3px 0; }
+    .eq-box { background:rgba(59,130,246,.05); border:1px solid rgba(59,130,246,.2); border-radius:12px; padding:16px 20px; margin:16px 0; font-size:1.05rem; }
+    .eq-box.big { font-size:1.35rem; padding:24px 20px; }
+    .eq-box.small { font-size:.95rem; padding:14px 18px; }
+    .exercise-header{display:flex;align-items:flex-start;gap:16px;margin-bottom:24px;padding:20px;background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.2);border-radius:14px;position:relative;overflow:hidden;}
+    .exercise-header::before{content:'';position:absolute;top:-40px;right:-40px;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,rgba(251,191,36,.1) 0%,transparent 70%);pointer-events:none;}
+    .exercise-badge{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;font-size:1.8rem;font-weight:800;color:#0d1a2e;background:linear-gradient(135deg,#fbbf24,#f59e0b);box-shadow:0 6px 18px rgba(251,191,36,.35);flex-shrink:0;}
+    .ex-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px 16px;margin-bottom:14px;transition:border-color .2s;}
+    .ex-card:hover{border-color:rgba(250,204,21,.3);}
+    .ex-q-head{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+    .ex-num{font-size:.68rem;font-weight:800;letter-spacing:.1em;padding:3px 10px;border-radius:6px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--muted);font-family:'Courier New',monospace;}
+    .ex-task{font-size:.88rem;color:var(--muted);margin-bottom:10px;line-height:1.6;}
+    .ex-task code{font-family:'Courier New',monospace;font-size:.85em;padding:1px 6px;border-radius:4px;background:rgba(255,255,255,.06);}
+    details.hint{margin-top:10px;}
+    details.hint summary{cursor:pointer;font-size:.78rem;color:var(--accent);font-weight:700;}
+
+    /* ── confusion matrix grid ── */
+    .cm-grid { display:grid; gap:6px; margin:4px auto 2px; }
+    .cm-grid.binary { grid-template-columns:96px 1fr 1fr; max-width:460px; }
+    .cm-grid.multi  { grid-template-columns:96px 1fr 1fr 1fr; max-width:560px; }
+    .cm-cell { border-radius:10px; padding:12px 8px; text-align:center; border:1px solid var(--border); background:rgba(255,255,255,.02); }
+    .cm-cell.head { background:rgba(59,130,246,.08); border-color:rgba(59,130,246,.25); color:var(--blue); font-family:'Courier New',monospace; font-size:.7rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; display:flex; align-items:center; justify-content:center; }
+    .cm-cell.corner { background:transparent; border-color:transparent; }
+    .cm-cell.hit  { background:rgba(16,185,129,.09); border-color:rgba(16,185,129,.35); }
+    .cm-cell.miss { background:rgba(244,63,94,.09);  border-color:rgba(244,63,94,.35); }
+    .cm-val { font-size:1.7rem; font-weight:900; font-family:'Courier New',monospace; line-height:1.1; color:var(--text); }
+    .cm-cell.hit  .cm-val { color:var(--green); }
+    .cm-cell.miss .cm-val { color:#f43f5e; }
+    .cm-tag { font-size:.6rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin-top:2px; }
+
+    .metric-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin:18px 0; }
+    .metric { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px 12px; text-align:center; }
+    .metric .mlabel { font-size:.63rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); }
+    .metric .mval { font-size:1.7rem; font-weight:900; font-family:'Courier New',monospace; margin:4px 0 2px; }
+    .metric .msub { font-size:.72rem; color:var(--muted); line-height:1.45; }
+  </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">← Python Libs</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item active" href="index.html">01</a>
+  </div>
+</nav>
+
+<div class="page-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-head">Logistic Regression</div>
+    <nav class="sidebar-nav">
+      <button class="s-item active" data-panel="0" onclick="goTo(0)"><span class="s-num">00</span><span class="s-dot" style="background:#8b5cf6"></span><span class="s-label">Overview</span></button>
+      <button class="s-item" data-panel="1" onclick="goTo(1)"><span class="s-num">01</span><span class="s-dot" style="background:#facc15"></span><span class="s-label">The sigmoid</span></button>
+      <button class="s-item" data-panel="2" onclick="goTo(2)"><span class="s-num">02</span><span class="s-dot" style="background:#06b6d4"></span><span class="s-label">1 feature → n</span></button>
+      <button class="s-item" data-panel="3" onclick="goTo(3)"><span class="s-num">03</span><span class="s-dot" style="background:#3b82f6"></span><span class="s-label">Decision boundary</span></button>
+      <button class="s-item" data-panel="4" onclick="goTo(4)"><span class="s-num">04</span><span class="s-dot" style="background:#ec4899"></span><span class="s-label">Fit in sklearn</span></button>
+      <button class="s-item" data-panel="5" onclick="goTo(5)"><span class="s-num">05</span><span class="s-dot" style="background:#f43f5e"></span><span class="s-label">predict &amp; proba</span></button>
+      <button class="s-item" data-panel="17" onclick="goTo(17)"><span class="s-num">06</span><span class="s-dot" style="background:#14b8a6"></span><span class="s-label">Solvers</span></button>
+      <button class="s-item" data-panel="6" onclick="goTo(6)"><span class="s-num">07</span><span class="s-dot" style="background:#f97316"></span><span class="s-label">Many features</span></button>
+      <button class="s-item" data-panel="9" onclick="goTo(9)"><span class="s-num">08</span><span class="s-dot" style="background:#3b82f6"></span><span class="s-label">Confusion matrix</span></button>
+      <button class="s-item" data-panel="10" onclick="goTo(10)"><span class="s-num">09</span><span class="s-dot" style="background:#8b5cf6"></span><span class="s-label">Precision &amp; recall</span></button>
+      <button class="s-item" data-panel="8" onclick="goTo(8)"><span class="s-num">10</span><span class="s-dot" style="background:#10b981"></span><span class="s-label">Multinomial</span></button>
+      <button class="s-item" data-panel="11" onclick="goTo(11)"><span class="s-num">11</span><span class="s-dot" style="background:#fbbf24"></span><span class="s-label">Exercises</span></button>
+      <hr class="side-sep">
+      <div class="side-part">Appendix</div>
+      <button class="s-item" data-panel="12" onclick="goTo(12)"><span class="s-num">A1</span><span class="s-dot" style="background:#f97316"></span><span class="s-label">Euler's number e</span></button>
+      <button class="s-item" data-panel="13" onclick="goTo(13)"><span class="s-num">A2</span><span class="s-dot" style="background:#f43f5e"></span><span class="s-label">Why "logistic"?</span></button>
+      <button class="s-item" data-panel="14" onclick="goTo(14)"><span class="s-num">A3</span><span class="s-dot" style="background:#8b5cf6"></span><span class="s-label">Log loss</span></button>
+      <button class="s-item" data-panel="15" onclick="goTo(15)"><span class="s-num">A4</span><span class="s-dot" style="background:#10b981"></span><span class="s-label">Odds &amp; log-odds</span></button>
+      <button class="s-item" data-panel="16" onclick="goTo(16)"><span class="s-num">A5</span><span class="s-dot" style="background:#3b82f6"></span><span class="s-label">Boundary mathematics</span></button>
+      <button class="s-item" data-panel="7" onclick="goTo(7)"><span class="s-num">A6</span><span class="s-dot" style="background:#06b6d4"></span><span class="s-label">Multinomial &amp; softmax</span></button>
+    </nav>
+  </aside>
+
+  <!-- PANEL VIEWPORT -->
+  <div class="panel-viewport" id="viewport">
+
+    <!-- ══ PANEL 0: Overview ══ -->
+    <div class="panel active" id="panel-0">
+      <div class="hero" style="margin-bottom:36px;">
+        <span class="topic-label"><span class="dot"></span>Logistic Regression · Deck 09</span>
+        <h1>Logistic Regression</h1>
+        <p>Linear regression predicts a <strong>number</strong>. Logistic regression predicts a <strong>probability</strong> — and from it a <strong>class</strong>: pass/fail, spam/not-spam. One function does the magic:</p>
+        <div class="demo-canvas-wrap" style="background:#020509;border-radius:12px;padding:14px;position:relative;z-index:1;"><canvas id="cv-overview" height="260"></canvas></div>
+      </div>
+      <div class="overview-grid" style="margin-top:0;">
+        <div class="ov-card" onclick="goTo(1)"><div class="ov-card-num">01 / 11</div><div class="ov-card-name" style="color:#facc15">The sigmoid</div><div class="ov-card-desc">σ(z) = 1 / (1 + e⁻ᶻ) — any number squeezed into 0…1.</div></div>
+        <div class="ov-card" onclick="goTo(2)"><div class="ov-card-num">02 / 11</div><div class="ov-card-name" style="color:#06b6d4">1 feature → n</div><div class="ov-card-desc">One weight per column, exactly like multiple linear regression.</div></div>
+        <div class="ov-card" onclick="goTo(3)"><div class="ov-card-num">03 / 11</div><div class="ov-card-name" style="color:#3b82f6">Decision boundary</div><div class="ov-card-desc">Where p = 0.5, and how to move the threshold.</div></div>
+        <div class="ov-card" onclick="goTo(4)"><div class="ov-card-num">04 / 11</div><div class="ov-card-name" style="color:#ec4899">Fit in sklearn</div><div class="ov-card-desc">LogisticRegression on real numbers — intercept_ and coef_.</div></div>
+        <div class="ov-card" onclick="goTo(5)"><div class="ov-card-num">05 / 11</div><div class="ov-card-name" style="color:#f43f5e">predict &amp; proba</div><div class="ov-card-desc">The class, both probabilities, and the formula by hand.</div></div>
+        <div class="ov-card" onclick="goTo(17)"><div class="ov-card-num">06 / 11</div><div class="ov-card-name" style="color:#14b8a6">Solvers</div><div class="ov-card-desc">Compare all six optimizers and learn when to choose each one.</div></div>
+        <div class="ov-card" onclick="goTo(6)"><div class="ov-card-num">07 / 11</div><div class="ov-card-name" style="color:#f97316">Many features</div><div class="ov-card-desc">Three columns, three weights, one z.</div></div>
+        <div class="ov-card" onclick="goTo(9)"><div class="ov-card-num">08 / 11</div><div class="ov-card-name" style="color:#3b82f6">Confusion matrix</div><div class="ov-card-desc">TP, TN, FP, FN — and a live threshold slider.</div></div>
+        <div class="ov-card" onclick="goTo(10)"><div class="ov-card-num">09 / 11</div><div class="ov-card-name" style="color:#8b5cf6">Precision &amp; recall</div><div class="ov-card-desc">Four numbers, four metrics, one accuracy trap.</div></div>
+        <div class="ov-card" onclick="goTo(8)"><div class="ov-card-num">10 / 11</div><div class="ov-card-name" style="color:#10b981">Multinomial</div><div class="ov-card-desc">Fit three classes and inspect one coefficient row per class.</div></div>
+        <div class="ov-card" onclick="goTo(11)"><div class="ov-card-num">11 / 11</div><div class="ov-card-name" style="color:#fbbf24">Exercises</div><div class="ov-card-desc">Your turn — fit, threshold, and evaluate.</div></div>
+        <div class="ov-card" onclick="goTo(12)"><div class="ov-card-num">APPENDIX A1</div><div class="ov-card-name" style="color:#f97316">Euler's number e</div><div class="ov-card-desc">2.71828… — the constant hiding inside np.exp.</div></div>
+        <div class="ov-card" onclick="goTo(13)"><div class="ov-card-num">APPENDIX A2</div><div class="ov-card-name" style="color:#f43f5e">Why "logistic"?</div><div class="ov-card-desc">Where the name comes from — and why a classifier is a regression.</div></div>
+        <div class="ov-card" onclick="goTo(14)"><div class="ov-card-num">APPENDIX A3</div><div class="ov-card-name" style="color:#8b5cf6">Log loss</div><div class="ov-card-desc">The cost function — why MSE is not allowed here.</div></div>
+        <div class="ov-card" onclick="goTo(15)"><div class="ov-card-num">APPENDIX A4</div><div class="ov-card-name" style="color:#10b981">Odds &amp; log-odds</div><div class="ov-card-desc">The logit — the straight line hiding inside the S.</div></div>
+        <div class="ov-card" onclick="goTo(16)"><div class="ov-card-num">APPENDIX A5</div><div class="ov-card-name" style="color:#3b82f6">Boundary mathematics</div><div class="ov-card-desc">The formulas behind probability thresholds and decision boundaries.</div></div>
+        <div class="ov-card" onclick="goTo(7)"><div class="ov-card-num">APPENDIX A6</div><div class="ov-card-name" style="color:#06b6d4">Multinomial &amp; softmax</div><div class="ov-card-desc">Three classes or more — softmax instead of sigmoid.</div></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" disabled>← Prev</button>
+        <div class="pnav-dots" id="dots-0"></div>
+        <button class="pnav-btn next" onclick="goTo(1)">The sigmoid →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 1: The sigmoid ══ -->
+    <div class="panel" id="panel-1">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1509228468518-180dd4864904?w=900&q=75&fit=crop&h=200" alt="An S-shaped curve" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Logistic Regression 01 / 11 · The Function</div>
+          <div class="m-name">The sigmoid</div>
+          <div class="m-tagline">Any number in the world, squeezed into 0 … 1</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">sigma = 1 / (1 + np.exp(-z))</span>
+        <span class="pill pill-param" style="background:rgba(59,130,246,.1);color:var(--blue);border:1px solid rgba(59,130,246,.28);">z
+          <span class="balloon"><span class="balloon-title">z — the score</span><span class="balloon-body">The linear part, \(\beta_0 + \beta_1 x\). Any real number from −∞ to +∞.</span></span>
+        </span>
+        <span class="pill pill-ret">→ a probability in [0, 1]</span>
+      </div>
+      <p class="m-desc">A straight line can output <code>1.7</code> or <code>-0.4</code>, and there is no such thing as a probability of 170%. The sigmoid fixes that: feed it <strong>any</strong> real number and it returns something strictly between 0 and 1.</p>
+      <p class="m-desc" style="font-size:.86rem;">The <code>e</code> inside is <strong>Euler's number</strong>, ≈ 2.71828 — a constant like π. If it is new to you, read <a onclick="goTo(12)" style="color:var(--accent);cursor:pointer;font-weight:700;">Appendix A1 — Euler's number e</a> first, and <a onclick="goTo(13)" style="color:var(--accent);cursor:pointer;font-weight:700;">Appendix A2</a> explains where the name "logistic regression" comes from.</p>
+      <div class="eq-box big" style="text-align:center;">
+        $$\sigma(z) = \frac{1}{1 + e^{-z}}$$
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue">z</th><th class="blue">e⁻ᶻ</th><th class="blue">σ(z)</th><th class="blue">reading</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>−6</td><td>403.43</td><td>0.0025</td><td>almost certainly class 0</td></tr>
+          <tr class="show"><td>−2</td><td>7.389</td><td>0.1192</td><td>likely 0</td></tr>
+          <tr class="show"><td>−1</td><td>2.718</td><td>0.2689</td><td>leaning 0</td></tr>
+          <tr class="show"><td>0</td><td>1.000</td><td>0.5000</td><td>a perfect coin flip</td></tr>
+          <tr class="show"><td>1</td><td>0.3679</td><td>0.7311</td><td>leaning 1</td></tr>
+          <tr class="show"><td>2</td><td>0.1353</td><td>0.8808</td><td>likely 1</td></tr>
+          <tr class="show"><td>6</td><td>0.0025</td><td>0.9975</td><td>almost certainly class 1</td></tr>
+        </tbody>
+      </table>
+      <p class="m-desc">In a model, <code>z</code> is never a bare number — it is the <strong>line</strong> \(z = \beta_0 + \beta_1 x\). Substitute it and you get the formula the code below actually computes:</p>
+      <div class="eq-box big" style="text-align:center;">
+        $$\sigma(x) = \frac{1}{1 + e^{-(\beta_0 + \beta_1 x)}}$$
+      </div>
+      <p class="m-desc">Line up the two forms and the code stops looking mysterious — <code>np.exp(-(b0 + b1*x))</code> <em>is</em> \(e^{-(\beta_0 + \beta_1 x)}\):</p>
+      <table class="dt">
+        <thead><tr><th class="blue">Maths</th><th class="blue">Python</th><th class="blue">What it is</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>\(z = \beta_0 + \beta_1 x\)</td><td><code>b0 + b1 * x</code></td><td>The linear part — the score</td></tr>
+          <tr class="show"><td>\(e^{-z} = e^{-(\beta_0 + \beta_1 x)}\)</td><td><code>np.exp(-(b0 + b1 * x))</code></td><td>Euler's number raised to minus the score</td></tr>
+          <tr class="show"><td>\(1 + e^{-(\beta_0 + \beta_1 x)}\)</td><td><code>denom</code></td><td>The denominator — always &gt; 1</td></tr>
+          <tr class="show"><td>\(\sigma(x) = \frac{1}{1 + e^{-(\beta_0+\beta_1 x)}}\)</td><td><code>1 / denom</code></td><td>The probability, in [0, 1]</td></tr>
+        </tbody>
+      </table>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — draw the S</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> numpy <span class="kw">as</span> <span class="lib">np</span>
+<span class="kw">import</span> matplotlib.pyplot <span class="kw">as</span> <span class="lib">plt</span>
+
+b0, b1 = -<span class="num">4.0</span>, <span class="num">1.0</span>
+x = <span class="lib">np</span>.<span class="fn">linspace</span>(-<span class="num">10</span>, <span class="num">10</span>, <span class="num">500</span>)
+
+denom   = <span class="num">1</span> + <span class="lib">np</span>.<span class="fn">exp</span>( -(b0 + b1 * x) )     <span class="cm"># e is here</span>
+sigmoid = <span class="num">1</span> / denom
+
+<span class="lib">plt</span>.<span class="fn">plot</span>(x, sigmoid, linewidth=<span class="num">3</span>)
+<span class="lib">plt</span>.<span class="fn">axhline</span>(<span class="num">0.5</span>, linestyle=<span class="str">'--'</span>, color=<span class="str">'orange'</span>)
+<span class="lib">plt</span>.<span class="fn">xlabel</span>(<span class="str">'x'</span>); <span class="lib">plt</span>.<span class="fn">ylabel</span>(<span class="str">'sigmoid(x)'</span>)
+<span class="lib">plt</span>.<span class="fn">grid</span>(<span class="cls">True</span>)
+<span class="lib">plt</span>.<span class="fn">show</span>()</pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — drag β₀ and β₁ and watch the S move and steepen</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>β₀ — intercept (shifts left/right)</label><input type="range" min="-8" max="8" value="-4" step="0.5" id="sg-b0" oninput="drawSig()"><span class="cval" id="sg-b0v">-4.0</span></div>
+          <div class="ctrl"><label>β₁ — weight (steepness &amp; direction)</label><input type="range" min="-3" max="3" value="1" step="0.1" id="sg-b1" oninput="drawSig()"><span class="cval" id="sg-b1v">1.0</span></div>
+        </div>
+        <div class="demo-out" id="out-sig"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-sig" height="290"></canvas></div>
+      </div>
+      <div class="callout green">
+        💡 <strong>Three facts to memorise:</strong> \(\sigma(0) = 0.5\) exactly · the curve is symmetric, \(\sigma(-z) = 1 - \sigma(z)\) · it <em>never</em> reaches 0 or 1, it only gets arbitrarily close.
+      </div>
+      <div class="callout orange">
+        ⚠️ Set β₁ to <strong>0</strong> in the demo and the S becomes a flat line — a model with no weight ignores the feature and predicts the same probability for everyone.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(0)">← Overview</button>
+        <div class="pnav-dots" id="dots-1"></div>
+        <button class="pnav-btn next" onclick="goTo(2)">1 feature → n →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 2: 1 feature to n ══ -->
+    <div class="panel" id="panel-2">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1518186285589-2f7649de83e0?w=900&q=75&fit=crop&h=200" alt="Columns of data" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Logistic Regression 02 / 11 · The Model</div>
+          <div class="m-name">One feature → n features</div>
+          <div class="m-tagline">Keep the line inside, wrap the sigmoid outside</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">z = β₀ + β₁x₁ + … + βₙxₙ</span>
+        <span class="pill pill-param" style="background:rgba(16,185,129,.1);color:var(--green);border:1px solid rgba(16,185,129,.28);">β₀
+          <span class="balloon"><span class="balloon-title">β₀ — intercept</span><span class="balloon-body">The bias. Shifts the whole S left or right. In sklearn: <code>model.intercept_</code>.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(59,130,246,.1);color:var(--blue);border:1px solid rgba(59,130,246,.28);">βⱼ
+          <span class="balloon"><span class="balloon-title">βⱼ — one weight per feature</span><span class="balloon-body">Controls how strongly feature j pushes toward class 1. In sklearn: <code>model.coef_</code>.</span></span>
+        </span>
+        <span class="pill pill-ret">→ p̂ = σ(z)</span>
+      </div>
+      <p class="m-desc">With <strong>one</strong> feature the model is the line you already know, wrapped in the sigmoid:</p>
+      <div class="eq-box big" style="text-align:center;">
+        $$P(y = 1 \mid x) = \frac{1}{1 + e^{-(\beta_0 + \beta_1 x)}}$$
+      </div>
+      <p class="m-desc">Adding features changes <strong>nothing</strong> about the sigmoid — only the inside grows, one weight per column, exactly like multiple linear regression:</p>
+      <div class="eq-box" style="text-align:center;">
+        $$P(y = 1 \mid X) = \frac{1}{1 + e^{-(\beta_0 + \beta_1 x_1 + \beta_2 x_2 + \dots + \beta_n x_n)}}$$
+      </div>
+      <p class="m-desc">It reads more cleanly in two steps — a score \(z\), then the squash:</p>
+      <div class="eq-box small" style="text-align:center;">
+        $$z = \beta_0 + \sum_{j=1}^{n}\beta_j x_j = \beta_0 + \boldsymbol{\beta}^{T}\mathbf{x} \qquad\Longrightarrow\qquad \hat{p} = \sigma(z)$$
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue">Symbol</th><th class="blue">Name</th><th class="blue">Meaning</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>xⱼ</td><td>feature</td><td>One measured input column (age, income, hours…)</td></tr>
+          <tr class="show"><td>β₀</td><td>intercept / bias</td><td>Shifts the S — <code>model.intercept_</code></td></tr>
+          <tr class="show"><td>βⱼ</td><td>coefficient / weight</td><td>How steeply feature j pushes toward class 1 — <code>model.coef_</code></td></tr>
+          <tr class="show"><td>z</td><td>logit / score</td><td>The linear part, any real number</td></tr>
+          <tr class="show"><td>p̂</td><td>probability</td><td>Always in [0, 1] — <code>model.predict_proba</code></td></tr>
+        </tbody>
+      </table>
+      <div class="grid-2">
+        <div class="callout green" style="margin:0;">📈 <strong>β₁ &gt; 0</strong> — the S rises: bigger x → higher chance of class 1.</div>
+        <div class="callout orange" style="margin:0;">📉 <strong>β₁ &lt; 0</strong> — the S falls: bigger x → lower chance of class 1.</div>
+      </div>
+      <div class="callout blue">
+        💡 <strong>Why it is a "linear classifier":</strong> z is <em>always</em> a straight-line combination of the features. One feature → the boundary is a point; two features → a line on the plane; n features → a flat hyperplane. The S-shape lives in the <strong>output</strong>, never in the boundary.
+      </div>
+      <div class="callout purple">
+        🧠 <strong>Scale your columns.</strong> If one feature runs 0–60 and another 0–2000, the raw weights are not comparable and the solver works harder. <code>StandardScaler</code> before <code>fit</code> is standard practice once you leave toy data.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(1)">← The sigmoid</button>
+        <div class="pnav-dots" id="dots-2"></div>
+        <button class="pnav-btn next" onclick="goTo(3)">Decision boundary →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 3: Decision boundary — simple version ══ -->
+    <div class="panel" id="panel-3">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1477346611705-65d1883cee1e?w=900&q=75&fit=crop&h=200" alt="A dividing line" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Logistic Regression 03 / 11 · The Simple Idea</div>
+          <div class="m-name">Decision boundary</div>
+          <div class="m-tagline">The probability required before the answer becomes True</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">probability below threshold → False</span>
+        <span class="pill pill-note">probability at/above threshold → True</span>
+        <span class="pill pill-ret">→ compare p with a percentage</span>
+      </div>
+      <p class="m-desc"><strong>First the sigmoid calculates a probability.</strong> Then we compare that probability with a chosen threshold. If the threshold is <strong>70%</strong>, a probability of 69% returns <code>False</code>, while 70% or 85% returns <code>True</code>. The threshold is a percentage—it is not the input \(x\).</p>
+      <table class="dt">
+        <thead><tr><th class="blue">Input x</th><th class="blue">Probability from sigmoid</th><th class="blue">Compare with 70%</th><th class="blue">Answer</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>25</td><td>11.9%</td><td>11.9% &lt; 70%</td><td><code>False</code></td></tr>
+          <tr class="show"><td>50</td><td>50.0%</td><td>50.0% &lt; 70%</td><td><code>False</code></td></tr>
+          <tr class="show"><td>65</td><td>76.9%</td><td>76.9% ≥ 70%</td><td><code>True</code></td></tr>
+          <tr class="show"><td>85</td><td>94.3%</td><td>94.3% ≥ 70%</td><td><code>True</code></td></tr>
+        </tbody>
+      </table>
+      <div class="callout green">
+        🚪 Think of 70% as the door. The sigmoid must produce at least 70% before the prediction may walk through and become <code>True</code>. Moving the threshold changes the decision rule, not the sigmoid curve.
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — probability first, threshold second</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">def</span> <span class="fn">probability</span>(x):
+    z = -<span class="num">4</span> + <span class="num">0.08</span> * x
+    <span class="kw">return</span> <span class="num">1</span> / (<span class="num">1</span> + np.<span class="fn">exp</span>(-z))
+
+<span class="kw">def</span> <span class="fn">is_true</span>(x, threshold=<span class="num">0.70</span>):
+    p = <span class="fn">probability</span>(x)
+    <span class="kw">return</span> p &gt;= threshold
+
+<span class="fn">print</span>(<span class="fn">probability</span>(<span class="num">50</span>))       <span class="cm"># 0.500 → 50.0%</span>
+<span class="fn">print</span>(<span class="fn">is_true</span>(<span class="num">50</span>, <span class="num">0.70</span>))     <span class="cm"># False</span>
+<span class="fn">print</span>(<span class="fn">probability</span>(<span class="num">65</span>))       <span class="cm"># 0.769 → 76.9%</span>
+<span class="fn">print</span>(<span class="fn">is_true</span>(<span class="num">65</span>, <span class="num">0.70</span>))     <span class="cm"># True</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Move the probability threshold left or right, then test any x</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>probability threshold</label><input type="range" min="20" max="90" value="70" step="1" id="simple-boundary" oninput="drawSimpleBoundary()"><span class="cval" id="simple-boundary-v">70%</span></div>
+          <div class="ctrl"><label>input x to test</label><input type="range" min="0" max="100" value="45" step="1" id="simple-x" oninput="drawSimpleBoundary()"><span class="cval" id="simple-x-v">45</span></div>
+        </div>
+        <div class="demo-out" id="out-simple-boundary"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-simple-boundary" height="180"></canvas></div>
+      </div>
+      <div class="callout blue">
+        📘 This page teaches only the decision logic. The derivation involving the sigmoid, \(z\), probability thresholds, log-odds, and formulas is kept in <strong>Appendix A5: Boundary mathematics</strong>.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(2)">← 1 feature → n</button>
+        <div class="pnav-dots" id="dots-3"></div>
+        <button class="pnav-btn next" onclick="goTo(4)">Fit in sklearn →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 16: Decision boundary mathematics ══ -->
+    <div class="panel" id="panel-16">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1477346611705-65d1883cee1e?w=900&q=75&fit=crop&h=200" alt="A dividing line" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Appendix · A5 / A6 · The Mathematics</div>
+          <div class="m-name">Decision boundary mathematics</div>
+          <div class="m-tagline">The full sigmoid, score, and threshold derivation</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">ŷ = 1 if p̂ ≥ 0.5 else 0</span>
+        <span class="pill pill-param" style="background:rgba(244,63,94,.1);color:#f43f5e;border:1px solid rgba(244,63,94,.28);">threshold
+          <span class="balloon"><span class="balloon-title">threshold</span><span class="balloon-body">The probability at which you switch your answer from 0 to 1. Default 0.5 — but it is a <strong>business</strong> choice, not a mathematical one.</span></span>
+        </span>
+        <span class="pill pill-ret">→ x = −β₀ / β₁</span>
+      </div>
+      <p class="m-desc">Eventually somebody needs a yes or a no. We get it by comparing the probability to a <strong>threshold</strong>, by default <code>0.5</code>:</p>
+      <div class="eq-box" style="text-align:center;">
+        $$\hat{y} = \begin{cases} 1 & \hat{p} \ge 0.5 \\[4pt] 0 & \hat{p} &lt; 0.5\end{cases}$$
+      </div>
+      <p class="m-desc"><strong>Why does the default boundary use \(z=0\)?</strong> The default rule changes from class 0 to class 1 when the predicted probability reaches \(0.5\). Now substitute \(z=0\) into the sigmoid:</p>
+      <div class="eq-box" style="text-align:center;">
+        $$\begin{aligned}
+        \sigma(z)&=\frac{1}{1+e^{-z}}\\
+        \sigma(0)&=\frac{1}{1+e^{-0}}\\
+        &=\frac{1}{1+e^0}\\
+        &=\frac{1}{1+1}\\
+        &=\frac{1}{2}=0.5
+        \end{aligned}$$
+      </div>
+      <p class="m-desc">So \(z=0\) is not chosen randomly. It is the raw score that the sigmoid converts to exactly \(0.5\). Because the sigmoid always increases:</p>
+      <table class="dt">
+        <thead><tr><th class="blue">Raw score</th><th class="blue">Probability</th><th class="blue">Default prediction</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>\(z&lt;0\)</td><td>\(\hat p&lt;0.5\)</td><td>Class 0</td></tr>
+          <tr class="show"><td>\(z=0\)</td><td>\(\hat p=0.5\)</td><td>The switching point</td></tr>
+          <tr class="show"><td>\(z&gt;0\)</td><td>\(\hat p&gt;0.5\)</td><td>Class 1</td></tr>
+        </tbody>
+      </table>
+      <div class="callout blue">
+        🚪 <strong>The decision boundary is the switching point.</strong> On one side the model predicts class 0; on the other side it predicts class 1. With the default probability threshold \(0.5\), that switch occurs at \(z=0\).
+      </div>
+      <p class="m-desc">The score is \(z=\beta_0+\beta_1x\). Therefore, to find the input \(x\) located exactly on the boundary, set its score to 0 and solve:</p>
+      <div class="eq-box big" style="text-align:center;">
+        $$\beta_0 + \beta_1 x = 0 \quad\Longrightarrow\quad x = -\frac{\beta_0}{\beta_1}$$
+      </div>
+      <p class="m-desc">Want a different cut-off, say 70%? Invert the logit and solve for x:</p>
+      <div class="eq-box" style="text-align:center;">
+        $$x_{(p)} = \frac{\ln\!\left(\frac{p}{1-p}\right) - \beta_0}{\beta_1}$$
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — the x behind any probability</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">def</span> <span class="fn">x_for_probability</span>(p, b0, b1):
+    <span class="str">"""The x at which the model predicts probability p."""</span>
+    <span class="kw">return</span> (<span class="lib">np</span>.<span class="fn">log</span>(p / (<span class="num">1</span> - p)) - b0) / b1
+
+<span class="fn">print</span>(<span class="fn">x_for_probability</span>(<span class="num">0.50</span>, b0, b1))   <span class="cm"># 25.36  ← the boundary</span>
+<span class="fn">print</span>(<span class="fn">x_for_probability</span>(<span class="num">0.70</span>, b0, b1))   <span class="cm"># 42.90</span></pre>
+      </div>
+      <p class="m-desc"><strong>Worked example — at what age is the risk exactly 70%?</strong> Using the fitted battery model \(\beta_0 = -1.2249\), \(\beta_1 = 0.0483\), work backwards through the sigmoid in four steps.</p>
+
+      <table class="dt">
+        <thead><tr><th class="blue">Step</th><th class="blue">What we do</th><th class="blue">Result</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>1 · the target</td><td>We want \(p = 0.70\)</td><td>p = 0.70</td></tr>
+          <tr class="show"><td>2 · to odds</td><td>\(\dfrac{p}{1-p} = \dfrac{0.7}{0.3}\)</td><td>2.3333 ("7 to 3")</td></tr>
+          <tr class="show"><td>3 · to log-odds</td><td>\(z = \ln(2.3333)\)</td><td>0.8473</td></tr>
+          <tr class="show"><td>4 · solve the line</td><td>\(\beta_0 + \beta_1 x = 0.8473\)</td><td>x = 42.90 months</td></tr>
+        </tbody>
+      </table>
+
+      <p class="m-desc">Step 4 in full — isolate <code>x</code> and put the numbers in:</p>
+      <div class="eq-box" style="text-align:center;">
+        $$x = \frac{\ln\!\left(\frac{0.7}{0.3}\right) - \beta_0}{\beta_1} = \frac{0.8473 - (-1.2249)}{0.0483}$$
+      </div>
+      <div class="eq-box big" style="text-align:center;">
+        $$x = \frac{2.0722}{0.0483} = 42.90 \text{ months}$$
+      </div>
+
+      <p class="m-desc"><strong>Check it forwards</strong> — feed 42.90 back into the sigmoid and 0.70 must come out:</p>
+      <div class="eq-box" style="text-align:center;">
+        $$z = -1.2249 + 0.0483 \times 42.90 = 0.8473$$
+      </div>
+      <div class="eq-box" style="text-align:center;">
+        $$\sigma(0.8473) = \frac{1}{1 + e^{-0.8473}} = \frac{1}{1 + 0.4286} = \frac{1}{1.4286} = 0.70 \;\checkmark$$
+      </div>
+
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — the same example, both directions</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="cm"># backwards: which age gives 70%?</span>
+x70 = (<span class="lib">np</span>.<span class="fn">log</span>(<span class="num">0.7</span> / <span class="num">0.3</span>) - b0) / b1
+<span class="fn">print</span>(<span class="str">f'70% at {x70:.2f} months'</span>)          <span class="cm"># 70% at 42.90 months</span>
+
+<span class="cm"># forwards: check that age really gives 70%</span>
+z = b0 + b1 * x70
+<span class="fn">print</span>(<span class="str">f'z        = {z:.4f}'</span>)                <span class="cm"># z        = 0.8473</span>
+<span class="fn">print</span>(<span class="str">f'sigma(z) = {1 / (1 + np.exp(-z)):.4f}'</span>)  <span class="cm"># sigma(z) = 0.7000</span>
+
+<span class="cm"># and sklearn agrees</span>
+<span class="fn">print</span>(model.<span class="fn">predict_proba</span>([[x70]]))        <span class="cm"># [[0.3 0.7]]</span></pre>
+      </div>
+      <div class="callout blue">
+        💡 <strong>Why 2.3333 and not 0.7?</strong> The line lives on the <em>log-odds</em> scale, not the probability scale. You cannot plug 0.70 straight into \(\beta_0 + \beta_1 x\) — you must convert probability → odds → log-odds first. That conversion is exactly what steps 2 and 3 do, and it is why the odds appendix matters.
+      </div>
+
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — the two dotted lines: threshold across, boundary down</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>threshold on the probability</label><input type="range" min="0.05" max="0.95" value="0.5" step="0.01" id="bd-t" oninput="drawBoundMath()"><span class="cval" id="bd-tv">0.50</span></div>
+        </div>
+        <div class="demo-out" id="out-bound"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-bound" height="300"></canvas></div>
+      </div>
+      <div class="callout green">
+        💡 <strong>Read the picture:</strong> the <span style="color:var(--accent)">dotted horizontal</span> line is the threshold you chose; where it crosses the S, the <span style="color:#f43f5e">dotted vertical</span> line drops to the x-axis and marks the boundary. Everything <strong>right</strong> of it is predicted 1, everything <strong>left</strong> of it 0. Drag the slider and watch the vertical line slide — at 0.5 it lands exactly on \(-\beta_0/\beta_1 = 25.36\).
+      </div>
+      <div class="callout orange">
+        ⚠️ <strong>0.5 is a default, not a law.</strong> If a missed positive is expensive — a failing backup battery, a fraudulent transaction, a disease — lower the threshold to 0.3 so the model shouts sooner. You catch more true positives <em>and</em> collect more false alarms.
+      </div>
+      <div class="callout blue">
+        💡 That trade is exactly what the <strong>confusion matrix</strong> measures — in topic 08 you can drag the threshold and watch the four counts move in real time. The logit formula used above is derived in <strong>Appendix A4, Odds &amp; log-odds</strong>.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(15)">← Odds &amp; log-odds</button>
+        <div class="pnav-dots" id="dots-16"></div>
+        <button class="pnav-btn next" onclick="goTo(7)">Multinomial &amp; softmax →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 4: LogisticRegression ══ -->
+    <div class="panel" id="panel-4">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1518133910546-b6c2fb7d79e3?w=900&q=75&fit=crop&h=200" alt="Batteries" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Logistic Regression 04 / 11 · The Fit</div>
+          <div class="m-name">LogisticRegression</div>
+          <div class="m-tagline">Ten scooter batteries — will this one fail the load test?</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">from sklearn.linear_model import LogisticRegression</span>
+        <span class="pill pill-param" style="background:rgba(139,92,246,.1);color:var(--purple);border:1px solid rgba(139,92,246,.28);">solver
+          <span class="balloon"><span class="balloon-title">solver='liblinear'</span><span class="balloon-body">The optimisation algorithm. <code>liblinear</code> is reliable on small binary problems; <code>lbfgs</code> is the default and handles multi-class.</span></span>
+        </span>
+        <span class="pill pill-ret">→ intercept_ , coef_</span>
+      </div>
+      <p class="m-desc">The feature is the battery's <strong>age in months</strong>; the label is <strong>1 if it failed the load test</strong>, 0 if it passed. Note row 7 — a 36-month battery that passed anyway. Real data is never perfectly separable.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — fit a binary classifier</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> numpy <span class="kw">as</span> <span class="lib">np</span>
+<span class="kw">from</span> sklearn.linear_model <span class="kw">import</span> <span class="cls">LogisticRegression</span>
+
+<span class="cm"># age of the battery in months</span>
+age    = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">4</span>, <span class="num">8</span>, <span class="num">12</span>, <span class="num">18</span>, <span class="num">24</span>, <span class="num">30</span>, <span class="num">36</span>, <span class="num">42</span>, <span class="num">48</span>, <span class="num">54</span>]).<span class="fn">reshape</span>(-<span class="num">1</span>, <span class="num">1</span>)
+<span class="cm"># 1 = failed the load test, 0 = passed</span>
+failed = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">0</span>, <span class="num">0</span>,  <span class="num">0</span>,  <span class="num">0</span>,  <span class="num">0</span>,  <span class="num">1</span>,  <span class="num">0</span>,  <span class="num">1</span>,  <span class="num">1</span>,  <span class="num">1</span>])
+
+model = <span class="cls">LogisticRegression</span>(solver=<span class="str">'liblinear'</span>)
+model.<span class="fn">fit</span>(age, failed)
+
+b0 = model.intercept_[<span class="num">0</span>]
+b1 = model.coef_[<span class="num">0</span>][<span class="num">0</span>]
+
+<span class="fn">print</span>(<span class="str">'b0 ='</span>, b0)     <span class="cm"># -1.2249451678135732</span>
+<span class="fn">print</span>(<span class="str">'b1 ='</span>, b1)     <span class="cm"># 0.0482986174968558</span></pre>
+      </div>
+      <div class="eq-box big" style="text-align:center;">
+        $$P(\text{fail} \mid x) = \frac{1}{1 + e^{-(-1.2249 \,+\, 0.0483\,x)}}$$
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue">Code</th><th class="blue">What it does</th></tr></thead>
+        <tbody>
+          <tr class="show"><td><code>.reshape(-1, 1)</code></td><td>sklearn wants X 2-D: one row per sample, one column per feature</td></tr>
+          <tr class="show"><td><code>solver='liblinear'</code></td><td>Which optimisation algorithm searches for the β's</td></tr>
+          <tr class="show"><td><code>model.intercept_</code></td><td>An <em>array</em> holding β₀ — take <code>[0]</code> in the binary case</td></tr>
+          <tr class="show"><td><code>model.coef_</code></td><td>2-D array, shape (classes, features) — here <code>[0][0]</code> is β₁</td></tr>
+        </tbody>
+      </table>
+      <div class="demo-box">
+        <div class="demo-lbl">The fitted S — green dots passed, red dots failed</div>
+        <div class="demo-out" id="out-fit"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-fit" height="290"></canvas></div>
+      </div>
+      <div class="callout green">
+        💡 β₁ = +0.0483 is positive → the S <strong>rises</strong> → older battery, higher risk. The yellow line marks where the probability crosses 0.5: <strong>x = −β₀/β₁ = 25.36 months</strong>.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(3)">← Decision boundary</button>
+        <div class="pnav-dots" id="dots-4"></div>
+        <button class="pnav-btn next" onclick="goTo(5)">predict &amp; proba →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 5: predict & proba ══ -->
+    <div class="panel" id="panel-5">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=900&q=75&fit=crop&h=200" alt="Reading results" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Logistic Regression 05 / 11 · The Output</div>
+          <div class="m-name">predict &amp; predict_proba</div>
+          <div class="m-tagline">The class, the probability, and the formula by hand</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-param" style="background:rgba(59,130,246,.1);color:var(--blue);border:1px solid rgba(59,130,246,.28);">predict
+          <span class="balloon"><span class="balloon-title">model.predict(X)</span><span class="balloon-body">Returns the <strong>class</strong> — 0 or 1 — by comparing the probability to 0.5.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(16,185,129,.1);color:var(--green);border:1px solid rgba(16,185,129,.28);">predict_proba
+          <span class="balloon"><span class="balloon-title">model.predict_proba(X)</span><span class="balloon-body">Returns <strong>one column per class</strong>: [P(0), P(1)], in the order of <code>model.classes_</code>. Each row sums to 1.</span></span>
+        </span>
+        <span class="pill pill-ret">→ [[0.4088, 0.5912]]</span>
+      </div>
+      <p class="m-desc">Three ways to ask the same question about a <strong>33-month</strong> battery — by hand, as a class, and as probabilities:</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — the three answers</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>x = <span class="num">33</span>
+
+<span class="cm"># 1) by hand, straight from the formula</span>
+p = <span class="num">1</span> / (<span class="num">1</span> + <span class="lib">np</span>.<span class="fn">exp</span>(-(b0 + b1 * x)))
+<span class="fn">print</span>(<span class="str">f'manual : {p * 100:.2f}%'</span>)          <span class="cm"># manual : 59.12%</span>
+
+<span class="cm"># 2) the class decision — 0 or 1</span>
+<span class="fn">print</span>(<span class="str">'predict:'</span>, model.<span class="fn">predict</span>([[<span class="num">33</span>]]))       <span class="cm"># [1]</span>
+
+<span class="cm"># 3) the probability of BOTH classes — [P(0), P(1)]</span>
+<span class="fn">print</span>(<span class="str">'proba  :'</span>, model.<span class="fn">predict_proba</span>([[<span class="num">33</span>]])) <span class="cm"># [[0.40880462 0.59119538]]</span></pre>
+      </div>
+      <div class="callout blue">
+        💡 The hand-made number and sklearn's agree to every decimal — <code>predict_proba</code> <strong>is</strong> the sigmoid formula, nothing more. And <code>predict</code> is just <code>predict_proba</code> plus a 0.5 comparison. The two columns always sum to 1: 0.4088 + 0.5912 = 1.
+      </div>
+      <p class="m-desc">Now run <strong>both</strong> over the whole dataset and print them beside the truth. This table is the bridge to the confusion matrix:</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — predict and predict_proba on every row</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>proba = model.<span class="fn">predict_proba</span>(age)   <span class="cm"># shape (10, 2): [P(pass), P(fail)]</span>
+pred  = model.<span class="fn">predict</span>(age)         <span class="cm"># shape (10,) : 0 or 1</span>
+
+<span class="fn">print</span>(<span class="str">'classes_:'</span>, model.classes_)   <span class="cm"># [0 1]</span>
+
+<span class="kw">for</span> a, pr, yhat, y <span class="kw">in</span> <span class="fn">zip</span>(age.<span class="fn">flatten</span>(), proba, pred, failed):
+    <span class="fn">print</span>(<span class="str">f'{a:&gt;3} months  P(pass)={pr[0]:.4f}  P(fail)={pr[1]:.4f}'</span>
+          <span class="str">f'  predict={yhat}  actual={y}'</span>)</pre>
+      </div>
+      <div class="demo-out" style="order:0;margin:0 0 16px;">classes_: [0 1]
+  4 months  P(pass)=0.7373  P(fail)=0.2627  predict=0  actual=0
+  8 months  P(pass)=0.6982  P(fail)=0.3018  predict=0  actual=0
+ 12 months  P(pass)=0.6560  P(fail)=0.3440  predict=0  actual=0
+ 18 months  P(pass)=0.5880  P(fail)=0.4120  predict=0  actual=0
+ 24 months  P(pass)=0.5164  P(fail)=0.4836  predict=0  actual=0
+ 30 months  P(pass)=0.4442  P(fail)=0.5558  predict=1  actual=1
+ 36 months  P(pass)=0.3743  P(fail)=0.6257  predict=1  actual=0   &lt;-- the one mistake
+ 42 months  P(pass)=0.3093  P(fail)=0.6907  predict=1  actual=1
+ 48 months  P(pass)=0.2510  P(fail)=0.7490  predict=1  actual=1
+ 54 months  P(pass)=0.2005  P(fail)=0.7995  predict=1  actual=1</div>
+
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — pick an age, read predict and predict_proba</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>battery age (months)</label><input type="range" min="0" max="70" value="33" step="1" id="pp-x" oninput="drawPP()"><span class="cval" id="pp-xv">33</span></div>
+        </div>
+        <div class="demo-out" id="out-pp"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-pp" height="280"></canvas></div>
+      </div>
+      <div class="callout green">
+        💡 Watch the moment <code>predict</code> flips: between 24 months (P(fail) = 0.4836) and 30 months (0.5558) — exactly where the probability crosses <strong>0.5</strong>, the boundary at 25.4 months.
+      </div>
+      <div class="callout purple">
+        🧠 <strong>Never throw the probability away.</strong> "Fail" tells a technician nothing about urgency; "67% chance of failing" lets them sort a whole warehouse by risk. Grab just the yes-column with <code>model.predict_proba(X)[:, 1]</code>.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(4)">← Fit in sklearn</button>
+        <div class="pnav-dots" id="dots-5"></div>
+        <button class="pnav-btn next" onclick="goTo(17)">Solvers →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 17: Solvers ══ -->
+    <div class="panel" id="panel-17">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1518770660439-4636190af475?w=900&q=75&fit=crop&h=200" alt="Computer components representing optimization engines" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Logistic Regression 06 / 11 · Training Algorithms</div>
+          <div class="m-name">Solvers</div>
+          <div class="m-tagline">Six routes to the same goal — finding weights that make better predictions</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">solver='lbfgs'</span>
+        <span class="pill pill-note">method used during model.fit</span>
+        <span class="pill pill-ret">→ fitted intercept_ and coef_</span>
+      </div>
+      <p class="m-desc">When you call <code>model.fit(X, y)</code>, sklearn must repeatedly adjust the model's weights until its predictions are as good as possible. A <strong>solver</strong> is simply the method it uses to find those weights. Think of six people trying different routes to reach the bottom of the same valley.</p>
+      <div class="callout green">
+        ✅ <strong>Beginner rule:</strong> use <code>lbfgs</code>. You usually do not need to select a solver yourself. Read the rest of this page so you recognize the names and know when a different choice becomes useful.
+      </div>
+
+      <h3 style="margin:24px 0 12px;">First: what are L1, L2, and Elastic-Net?</h3>
+      <div class="callout purple">
+        🎓 <strong>The prediction task is: will this student pass the exam—YES or NO?</strong><br><br>
+        The model receives three columns about each student:<br>
+        1. <strong>Study hours</strong> — probably useful.<br>
+        2. <strong>Attendance</strong> — probably useful.<br>
+        3. <strong>Uses a blue notebook</strong> — probably unrelated to passing.
+      </div>
+      <p class="m-desc">Suppose the training class is tiny, and by coincidence every student with a blue notebook passed. The model may incorrectly learn, “Blue notebooks cause success!” L1 and L2 help prevent the model from trusting accidental patterns like this too strongly.</p>
+
+      <h3 style="margin:24px 0 12px;">What is a weight?</h3>
+      <p class="m-desc">A <strong>weight</strong> is the number multiplied by a column. A larger positive weight gives that column more influence on the PASS score:</p>
+      <div class="eq-box small" style="text-align:center;">
+        $$\text{PASS score} = (\text{study hours}\times 2) + (\text{attendance}\times 1.5) + (\text{blue notebook}\times 3)$$
+      </div>
+      <p class="m-desc">For the blue-notebook column, YES is stored as 1 and NO as 0. With weight 3, a blue notebook adds \(1\times3=3\) points—even though notebook color should not decide whether someone passes.</p>
+
+      <table class="dt">
+        <thead><tr><th class="blue">Training rule</th><th class="blue">Study-hours weight</th><th class="blue">Attendance weight</th><th class="blue">Blue-notebook weight</th><th class="blue">What happened?</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>None</td><td>+8</td><td>+6</td><td>+5</td><td>The model became too confident and trusted notebook color</td></tr>
+          <tr class="show"><td>L2</td><td>+2.0</td><td>+1.5</td><td>+0.3</td><td>All three weights became smaller; notebook color has little effect</td></tr>
+          <tr class="show"><td>L1</td><td>+2.3</td><td>+1.7</td><td>0</td><td>Notebook color now adds exactly nothing to the score</td></tr>
+          <tr class="show"><td>Elastic-Net</td><td>+2.0</td><td>+1.5</td><td>0</td><td>Useful weights became smaller and notebook color became zero</td></tr>
+        </tbody>
+      </table>
+      <p class="m-desc" style="font-size:.78rem;">These numbers are a made-up teaching example. Real weights are learned from your own data.</p>
+      <div class="grid-2">
+        <div class="callout blue" style="margin:0;"><strong>L2 = make all weights smaller</strong><br>Study hours, attendance, and notebook color all remain in the calculation, but none can receive an enormous weight. Notebook color might still add a tiny amount.</div>
+        <div class="callout orange" style="margin:0;"><strong>L1 = allow some weights to become exactly 0</strong><br>If the notebook weight becomes 0, then <code>blue_notebook × 0 = 0</code>. Blue and non-blue notebooks produce no difference in the prediction. That is what “ignore the column” means.</div>
+        <div class="callout purple" style="margin:0;"><strong>Elastic-Net = use both rules</strong><br>It can make the notebook weight exactly 0 like L1, while also keeping the study and attendance weights smaller like L2.</div>
+        <div class="callout green" style="margin:0;"><strong>None = do not limit the weights</strong><br>The model may learn very large weights from coincidences in the training students and then make poor predictions for new students.</div>
+      </div>
+
+      <h3 style="margin:24px 0 12px;">When should we make a weight smaller, and when should we make it zero?</h3>
+      <div class="callout blue">
+        <strong>Choose L2 when you want to KEEP the columns.</strong><br><br>
+        Example: your model uses study hours, attendance, and previous grade. All three clearly relate to passing. You want the model to use all three—but not become too confident about any one of them. L2 keeps every column and makes the weights more reasonable.<br><br>
+        <strong>Simple meaning: “Keep every employee, but do not let anyone become the boss of everything.”</strong>
+      </div>
+      <div class="callout orange">
+        <strong>Choose L1 when you WANT the model to REMOVE some columns.</strong><br><br>
+        Example: an email model has 10,000 word columns: “meeting,” “prize,” “banana,” “invoice,” and thousands more. Many words may be useless. L1 can give useless words a weight of 0, so they no longer affect the prediction.<br><br>
+        <strong>Simple meaning: “Keep the useful employees; send unnecessary employees home.”</strong>
+      </div>
+      <div class="callout purple">
+        <strong>Choose Elastic-Net when you want BOTH behaviors.</strong><br><br>
+        Example: a survey has 500 questions. You want the model to remove questions that add no value, but you also want the remaining question weights kept under control. Elastic-Net can make some weights zero and make the remaining weights smaller.<br><br>
+        <strong>Simple meaning: “Send unnecessary employees home, then stop the remaining employees from taking over.”</strong>
+      </div>
+      <div class="callout green">
+        🤖 <strong>You do not manually choose which column becomes zero.</strong> You choose L1, then sklearn studies the training data and decides which weights to reduce to zero. Always test the finished model on new data: with too little data, L1 can accidentally remove a useful column.
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue">What do you want?</th><th class="blue">Choose</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>Keep all columns, but reduce overconfidence</td><td><strong>L2</strong></td></tr>
+          <tr class="show"><td>Remove columns that do not help</td><td><strong>L1</strong></td></tr>
+          <tr class="show"><td>Remove some columns and reduce the remaining weights</td><td><strong>Elastic-Net</strong></td></tr>
+          <tr class="show"><td>You are a beginner or are unsure</td><td><strong>L2</strong> — the default</td></tr>
+        </tbody>
+      </table>
+      <div class="callout blue">
+        ✅ <strong>What should a beginner choose?</strong> Do nothing. <code>LogisticRegression()</code> already uses L2. Use L1 only when you deliberately want the model to switch some columns off. Elastic-Net is for later, when you understand why you need both behaviors.
+      </div>
+      <p class="m-desc"><code>C</code> only controls how strongly sklearn applies this rule. For now, leave it at its normal value: <code>C=1.0</code>.</p>
+
+      <table class="dt">
+        <thead><tr><th class="blue">Solver</th><th class="blue">Weight rules it can use</th><th class="blue">3+ classes?</th><th class="blue">Choose it when…</th><th class="blue">Watch out for…</th></tr></thead>
+        <tbody>
+          <tr class="show"><td><code>lbfgs</code></td><td>L2 or none</td><td>Yes</td><td>You want a dependable default</td><td>Very large datasets may take longer</td></tr>
+          <tr class="show"><td><code>liblinear</code></td><td>L1 or L2</td><td>Not directly</td><td>Your data is small, binary, or needs L1</td><td>It handles 3+ classes differently</td></tr>
+          <tr class="show"><td><code>newton-cg</code></td><td>L2 or none</td><td>Yes</td><td>You need a very accurate final answer</td><td>Training steps require more work</td></tr>
+          <tr class="show"><td><code>newton-cholesky</code></td><td>L2 or none</td><td>Yes</td><td>You have many rows but few columns</td><td>Many columns can consume huge memory</td></tr>
+          <tr class="show"><td><code>sag</code></td><td>L2 or none</td><td>Yes</td><td>You have a very large dataset</td><td>Columns must first use similar scales</td></tr>
+          <tr class="show"><td><code>saga</code></td><td>L1, L2, mix, or none</td><td>Yes</td><td>Data is large or you need L1/the mix</td><td>Scale columns; it may need more rounds</td></tr>
+        </tbody>
+      </table>
+
+      <div class="grid-2">
+        <div class="callout blue" style="margin:0;"><strong>lbfgs — start here</strong><br>It makes careful, reliable adjustments without using too much memory. It works well for ordinary small and medium datasets and is sklearn's default.</div>
+        <div class="callout orange" style="margin:0;"><strong>liblinear — small binary problems</strong><br>It works well when there are only two classes and not many rows. It is also one of two choices that can make weights exactly zero with L1.</div>
+        <div class="callout purple" style="margin:0;"><strong>newton-cg — careful but costly</strong><br>It studies the shape of the error before choosing each move. This can reach a precise answer, but each move takes more computation.</div>
+        <div class="callout green" style="margin:0;"><strong>newton-cholesky — many rows, few columns</strong><br>It examines all weight relationships at once. This is fast when columns are few, but memory use rises very quickly as columns and classes increase.</div>
+        <div class="callout blue" style="margin:0;"><strong>sag — learn from small batches</strong><br>Instead of processing every row for every move, it updates using rows gradually. This can be fast on huge datasets when columns are scaled similarly.</div>
+        <div class="callout orange" style="margin:0;"><strong>saga — SAG with more options</strong><br>It is designed for large data and is the only solver supporting the L1/L2 mixture. It can also ignore unhelpful features by making weights zero.</div>
+      </div>
+
+      <h3 style="margin:24px 0 12px;">Quick choice guide</h3>
+      <p class="m-desc"><strong>Scaling</strong> means converting columns with different units to similar numerical ranges. For example, age might be 18–90 while yearly income is 20,000–500,000. <code>StandardScaler</code> prevents the large income numbers from dominating the solver's steps.</p>
+      <table class="dt">
+        <thead><tr><th class="blue">Your situation</th><th class="blue">Choose</th><th class="blue">Example</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>You are learning or have no special requirement</td><td><code>lbfgs</code></td><td>5,000 customers with 20 facts about each</td></tr>
+          <tr class="show"><td>Small two-class data; you want unused columns removed</td><td><code>liblinear</code> + L1</td><td>800 patients with 60 test results</td></tr>
+          <tr class="show"><td>Hundreds of thousands or millions of rows</td><td><code>sag</code> or <code>saga</code></td><td>2 million clicks with 100 scaled columns</td></tr>
+          <tr class="show"><td>You want some weights to become exactly zero</td><td><code>saga</code> + L1</td><td>Email classification with thousands of word columns</td></tr>
+          <tr class="show"><td>Many rows but only a small number of columns</td><td><code>newton-cholesky</code></td><td>500,000 rows with 30 columns</td></tr>
+          <tr class="show"><td>You need an unusually precise fitted model</td><td><code>newton-cg</code></td><td>A scientific analysis where training time is less important</td></tr>
+        </tbody>
+      </table>
+
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — practical solver choices</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">from</span> sklearn.pipeline <span class="kw">import</span> make_pipeline
+<span class="kw">from</span> sklearn.preprocessing <span class="kw">import</span> StandardScaler
+<span class="kw">from</span> sklearn.linear_model <span class="kw">import</span> LogisticRegression
+
+<span class="cm"># dependable default</span>
+default_model = <span class="cls">LogisticRegression</span>(solver=<span class="str">'lbfgs'</span>, max_iter=<span class="num">1000</span>)
+
+<span class="cm"># large data: scaling is essential for sag and saga</span>
+large_model = <span class="fn">make_pipeline</span>(
+    <span class="cls">StandardScaler</span>(),
+    <span class="cls">LogisticRegression</span>(solver=<span class="str">'saga'</span>, penalty=<span class="str">'l2'</span>, max_iter=<span class="num">2000</span>)
+)
+
+<span class="cm"># L1: allow the model to ignore columns by setting their weights to zero</span>
+sparse_model = <span class="fn">make_pipeline</span>(
+    <span class="cls">StandardScaler</span>(),
+    <span class="cls">LogisticRegression</span>(solver=<span class="str">'saga'</span>, penalty=<span class="str">'l1'</span>, C=<span class="num">0.5</span>, max_iter=<span class="num">2000</span>)
+)
+
+<span class="cm"># Elastic-Net: combine zeroing some weights with gently shrinking the rest</span>
+elastic_model = <span class="cls">LogisticRegression</span>(
+    solver=<span class="str">'saga'</span>, penalty=<span class="str">'elasticnet'</span>,
+    l1_ratio=<span class="num">0.5</span>, max_iter=<span class="num">2000</span>  <span class="cm"># 50% L1 + 50% L2</span>
+)</pre>
+      </div>
+      <div class="callout orange">
+        ⚠️ <strong>If sklearn says the model did not converge:</strong> it stopped before finding a stable answer. First scale the columns and increase <code>max_iter</code>, which means “allow more adjustment rounds.” Only then consider changing the solver.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(5)">← predict &amp; proba</button>
+        <div class="pnav-dots" id="dots-17"></div>
+        <button class="pnav-btn next" onclick="goTo(6)">Many features →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 6: Many features ══ -->
+    <div class="panel" id="panel-6">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=900&q=75&fit=crop&h=200" alt="A table of many columns" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Logistic Regression 07 / 11 · More Columns</div>
+          <div class="m-name">Many features in code</div>
+          <div class="m-tagline">Three columns, three weights, still one z</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">coef_ = [[β₁, β₂, β₃]]</span>
+        <span class="pill pill-note">3 features</span>
+        <span class="pill pill-ret">→ one probability</span>
+      </div>
+      <p class="m-desc">Same batteries, now described by three columns: <strong>age (months)</strong>, <strong>number of deep discharges</strong> and <strong>average winter temperature (°C)</strong>. The call to <code>fit</code> does not change at all.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — three features</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="cm">#                 age  discharges  temp</span>
+X = <span class="lib">np</span>.<span class="fn">array</span>([[  <span class="num">4</span>,   <span class="num">1</span>,  <span class="num">12</span>],
+              [  <span class="num">8</span>,   <span class="num">2</span>,   <span class="num">9</span>],
+              [ <span class="num">12</span>,   <span class="num">0</span>,  <span class="num">14</span>],
+              [ <span class="num">18</span>,   <span class="num">3</span>,   <span class="num">6</span>],
+              [ <span class="num">24</span>,   <span class="num">2</span>,  <span class="num">11</span>],
+              [ <span class="num">30</span>,   <span class="num">5</span>,   <span class="num">4</span>],
+              [ <span class="num">36</span>,   <span class="num">1</span>,  <span class="num">13</span>],
+              [ <span class="num">42</span>,   <span class="num">6</span>,   <span class="num">3</span>],
+              [ <span class="num">48</span>,   <span class="num">4</span>,   <span class="num">7</span>],
+              [ <span class="num">54</span>,   <span class="num">7</span>,   <span class="num">2</span>]])
+
+failed = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">0</span>, <span class="num">0</span>, <span class="num">0</span>, <span class="num">0</span>, <span class="num">0</span>, <span class="num">1</span>, <span class="num">0</span>, <span class="num">1</span>, <span class="num">1</span>, <span class="num">1</span>])
+
+model = <span class="cls">LogisticRegression</span>(solver=<span class="str">'liblinear'</span>)
+model.<span class="fn">fit</span>(X, failed)
+
+<span class="fn">print</span>(<span class="str">'intercept:'</span>, model.intercept_)  <span class="cm"># [-0.08334286]</span>
+<span class="fn">print</span>(<span class="str">'coef     :'</span>, model.coef_)       <span class="cm"># [[0.19289523 0.00895832 -0.83277508]]</span></pre>
+      </div>
+      <div class="eq-box" style="text-align:center;">
+        $$z = -0.0833 + 0.1929\,\text{age} + 0.0090\,\text{discharges} - 0.8328\,\text{temp}$$
+      </div>
+      <p class="m-desc">Predict for a battery that is <strong>26 months</strong> old, has <strong>3</strong> deep discharges and lived through an <strong>8 °C</strong> winter — by hand and with sklearn:</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — predict, predict_proba and the hand calculation</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>test = <span class="lib">np</span>.<span class="fn">array</span>([[<span class="num">26</span>, <span class="num">3</span>, <span class="num">8</span>]])
+
+z = model.intercept_[<span class="num">0</span>] + (model.coef_[<span class="num">0</span>] * test[<span class="num">0</span>]).<span class="fn">sum</span>()
+<span class="fn">print</span>(<span class="str">'z    :'</span>, z)                        <span class="cm"># -1.7033926002083035</span>
+<span class="fn">print</span>(<span class="str">'sigma:'</span>, <span class="num">1</span> / (<span class="num">1</span> + <span class="lib">np</span>.<span class="fn">exp</span>(-z)))       <span class="cm"># 0.15402269123581963</span>
+<span class="fn">print</span>(<span class="str">'proba:'</span>, model.<span class="fn">predict_proba</span>(test))  <span class="cm"># [[0.84597731 0.15402269]]</span>
+<span class="fn">print</span>(<span class="str">'pred :'</span>, model.<span class="fn">predict</span>(test))        <span class="cm"># [0]</span></pre>
+      </div>
+      <div class="eq-box small" style="text-align:center;">
+        $$z = -0.0833 + 0.1929(26) + 0.0090(3) - 0.8328(8) = -1.7034 \;\Rightarrow\; \hat{p} = 0.1540$$
+      </div>
+      <p class="m-desc">Each weight is a <strong>log-odds change per unit</strong>, so \(e^{\beta}\) is the odds multiplier:</p>
+      <table class="dt">
+        <thead><tr><th class="blue">Feature</th><th class="blue">β</th><th class="blue">e^β</th><th class="blue">Effect of +1 unit on the odds of failing</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>age (months)</td><td>+0.1929</td><td>1.213</td><td>×1.21 — each extra month raises the risk</td></tr>
+          <tr class="show"><td>deep discharges</td><td>+0.0090</td><td>1.009</td><td>×1.01 — almost no effect on its own</td></tr>
+          <tr class="show"><td>winter temp (°C)</td><td>−0.8328</td><td>0.435</td><td>×0.44 — a warmer winter roughly halves the odds</td></tr>
+        </tbody>
+      </table>
+      <div class="callout orange">
+        ⚠️ <strong>Ten rows, three features.</strong> These weights are unstable: age and temperature move together in this data, so the fit hands most of the credit to one of them. Interpret coefficients only with enough rows and features that are not strongly correlated.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(17)">← Solvers</button>
+        <div class="pnav-dots" id="dots-6"></div>
+        <button class="pnav-btn next" onclick="goTo(9)">Confusion matrix →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 7: Multinomial & softmax ══ -->
+    <div class="panel" id="panel-7">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1464802686167-b939a6910659?w=900&q=75&fit=crop&h=200" alt="Three of something" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Appendix · A6 / A6 · Three Classes or More</div>
+          <div class="m-name">Multinomial &amp; softmax</div>
+          <div class="m-tagline">The sigmoid's big brother</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">softmax(z)_c = e^{z_c} / Σ e^{z_j}</span>
+        <span class="pill pill-note">OvR vs multinomial</span>
+        <span class="pill pill-ret">→ k probabilities summing to 1</span>
+      </div>
+      <p class="m-desc"><strong>Binary</strong> = exactly two labels. <strong>Multinomial</strong> = three or more mutually exclusive labels — a plant is wilted <em>or</em> green <em>or</em> flowering, never two at once.</p>
+      <table class="dt">
+        <thead><tr><th class="blue"></th><th class="blue">Binary</th><th class="blue">Multinomial</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>Classes</td><td>2</td><td>3 or more</td></tr>
+          <tr class="show"><td>predict_proba</td><td>2 columns</td><td>one column per class</td></tr>
+          <tr class="show"><td>Squashing function</td><td>sigmoid</td><td>softmax</td></tr>
+          <tr class="show"><td>Rows in coef_</td><td>1</td><td>one per class</td></tr>
+          <tr class="show"><td>Confusion matrix</td><td>2 × 2</td><td>k × k</td></tr>
+        </tbody>
+      </table>
+      <p class="m-desc">sklearn can reach a multi-class answer two different ways:</p>
+      <div class="grid-2">
+        <div class="callout blue" style="margin:0;">🔁 <strong>One-vs-Rest (OvR)</strong> — train k separate binary models ("wilted vs everything else", …) and keep the loudest. Simple, but the k probabilities do not naturally sum to 1. <code>liblinear</code> can only do this.</div>
+        <div class="callout green" style="margin:0;">🎯 <strong>Multinomial (softmax)</strong> — one model with k score-lines trained together, then one softmax. Better calibrated, and what the default <code>lbfgs</code> solver uses automatically for 3+ classes.</div>
+      </div>
+      <p class="m-desc">With k classes there is <strong>one z per class</strong>, each with its own row of weights:</p>
+      <div class="eq-box small" style="text-align:center;">
+        $$z_c = \beta_{0,c} + \beta_{1,c}x_1 + \dots + \beta_{n,c}x_n \qquad c = 1 \dots k$$
+      </div>
+      <p class="m-desc">Softmax turns those raw scores into probabilities: exponentiate each (making it positive), divide by the total (making them sum to 1).</p>
+      <div class="eq-box big" style="text-align:center;">
+        $$P(y = c \mid \mathbf{x}) = \frac{e^{z_c}}{\displaystyle\sum_{j=1}^{k} e^{z_j}}$$
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — move the three scores, watch softmax redistribute the probability</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>z₁ — wilted</label><input type="range" min="-4" max="4" value="0.2" step="0.1" id="sm-z0" oninput="drawSoftmax()"><span class="cval" id="sm-z0v">0.2</span></div>
+          <div class="ctrl"><label>z₂ — green</label><input type="range" min="-4" max="4" value="2.1" step="0.1" id="sm-z1" oninput="drawSoftmax()"><span class="cval" id="sm-z1v">2.1</span></div>
+          <div class="ctrl"><label>z₃ — flowered</label><input type="range" min="-4" max="4" value="-2.3" step="0.1" id="sm-z2" oninput="drawSoftmax()"><span class="cval" id="sm-z2v">-2.3</span></div>
+        </div>
+        <div class="demo-out" id="out-softmax"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-softmax" height="230"></canvas></div>
+      </div>
+      <p class="m-desc">For k = 2, softmax <strong>collapses back into the plain sigmoid</strong> — the binary case is not a different model:</p>
+      <div class="eq-box small" style="text-align:center;">
+        $$\frac{e^{z_1}}{e^{z_0} + e^{z_1}} = \frac{1}{1 + e^{-(z_1 - z_0)}} = \sigma(z_1 - z_0)$$
+      </div>
+      <div class="callout purple">
+        🧠 <strong>Not multi-<em>label</em>.</strong> Multinomial = pick exactly one of k. Multi-label = a photo can be "cat" <em>and</em> "outdoors" <em>and</em> "night" at once — a different problem, solved with k independent binary models.
+      </div>
+      <div class="callout orange">
+        ⚠️ The cost generalises too: binary log loss becomes <strong>categorical cross-entropy</strong>, \(J = -\frac{1}{m}\sum_i\sum_c y_{i,c}\ln(\hat{p}_{i,c})\), where \(y_{i,c}\) is 1 only for the true class of row i.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(16)">← Boundary mathematics</button>
+        <div class="pnav-dots" id="dots-7"></div>
+        <button class="pnav-btn next" onclick="goTo(0)" style="background:rgba(139,92,246,.1);border-color:rgba(139,92,246,.4);color:var(--purple);">&#8635; Back to Overview</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 8: Multinomial ══ -->
+    <div class="panel" id="panel-8">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1518133910546-b6c2fb7d79e3?w=900&q=75&fit=crop&h=200" alt="Potted plants" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Logistic Regression 10 / 11 · Three Classes in Code</div>
+          <div class="m-name">Multinomial</div>
+          <div class="m-tagline">18 potted plants — wilted, green or flowered</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">LogisticRegression(max_iter=1000)</span>
+        <span class="pill pill-note">3 classes · 2 features</span>
+        <span class="pill pill-ret">→ coef_ has 3 rows</span>
+      </div>
+      <p class="m-desc">Two features — <strong>hours of daylight</strong> and <strong>water per day (ml)</strong> — and three outcomes: <code>0 = wilted</code>, <code>1 = green</code>, <code>2 = flowered</code>.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — a 3-class model</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="cm">#              daylight  water</span>
+X = <span class="lib">np</span>.<span class="fn">array</span>([[ <span class="num">2</span>,  <span class="num">40</span>], [ <span class="num">3</span>,  <span class="num">30</span>], [ <span class="num">3</span>,  <span class="num">90</span>], [ <span class="num">4</span>,  <span class="num">60</span>], [ <span class="num">5</span>,  <span class="num">45</span>], [ <span class="num">4</span>, <span class="num">120</span>],
+              [ <span class="num">6</span>,  <span class="num">80</span>], [ <span class="num">7</span>, <span class="num">110</span>], [ <span class="num">8</span>,  <span class="num">70</span>], [ <span class="num">6</span>, <span class="num">150</span>], [ <span class="num">9</span>,  <span class="num">95</span>], [ <span class="num">5</span>, <span class="num">130</span>],
+              [<span class="num">10</span>, <span class="num">180</span>], [<span class="num">11</span>, <span class="num">160</span>], [<span class="num">12</span>, <span class="num">210</span>], [ <span class="num">9</span>, <span class="num">230</span>], [<span class="num">11</span>, <span class="num">120</span>], [ <span class="num">8</span>, <span class="num">200</span>]])
+
+<span class="cm"># 0 = wilted, 1 = green, 2 = flowered</span>
+y = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">0</span>, <span class="num">0</span>, <span class="num">0</span>, <span class="num">0</span>, <span class="num">0</span>, <span class="num">1</span>,
+              <span class="num">1</span>, <span class="num">1</span>, <span class="num">1</span>, <span class="num">1</span>, <span class="num">1</span>, <span class="num">0</span>,
+              <span class="num">2</span>, <span class="num">2</span>, <span class="num">2</span>, <span class="num">2</span>, <span class="num">2</span>, <span class="num">1</span>])
+
+model = <span class="cls">LogisticRegression</span>(max_iter=<span class="num">1000</span>)   <span class="cm"># lbfgs → softmax for 3+ classes</span>
+model.<span class="fn">fit</span>(X, y)
+
+<span class="fn">print</span>(<span class="str">'classes   :'</span>, model.classes_)     <span class="cm"># [0 1 2]</span>
+<span class="fn">print</span>(<span class="str">'intercepts:'</span>, model.intercept_)   <span class="cm"># [ 10.4206  3.0786 -13.4992]</span>
+<span class="fn">print</span>(<span class="str">'coef      :'</span>, model.coef_)</pre>
+      </div>
+      <div class="demo-out" style="order:0;margin:0 0 16px;">classes   : [0 1 2]
+intercepts: [ 10.4206   3.0786 -13.4992]
+coef      : [[-1.0436 -0.0294]     &lt;- class 0, wilted
+             [-0.147   0.001 ]     &lt;- class 1, green
+             [ 1.1906  0.0284]]    &lt;- class 2, flowered</div>
+      <div class="callout blue">
+        💡 <code>coef_</code> now has <strong>three rows</strong> — one score-line per class — each with two weights, one per feature. Read the daylight column: strongly negative for wilted (−1.04), strongly positive for flowered (+1.19). Exactly what the biology suggests.
+      </div>
+      <p class="m-desc">Predict for a plant getting <strong>7 hours</strong> of daylight and <strong>100 ml</strong> of water — <code>predict</code>, <code>predict_proba</code>, and then softmax by hand:</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — predict, proba, and softmax by hand</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>test = <span class="lib">np</span>.<span class="fn">array</span>([[<span class="num">7</span>, <span class="num">100</span>]])
+
+<span class="fn">print</span>(<span class="str">'proba:'</span>, model.<span class="fn">predict_proba</span>(test).<span class="fn">round</span>(<span class="num">4</span>))  <span class="cm"># [[0.1212 0.8689 0.0099]]</span>
+<span class="fn">print</span>(<span class="str">'pred :'</span>, model.<span class="fn">predict</span>(test))                <span class="cm"># [1]  → green</span>
+
+<span class="cm"># the same result, by hand</span>
+z = model.intercept_ + model.coef_ @ <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">7</span>, <span class="num">100</span>])
+<span class="fn">print</span>(<span class="str">'z      :'</span>, z.<span class="fn">round</span>(<span class="num">4</span>))          <span class="cm"># [ 0.1777  2.1472 -2.3249]</span>
+
+e = <span class="lib">np</span>.<span class="fn">exp</span>(z)
+<span class="fn">print</span>(<span class="str">'softmax:'</span>, (e / e.<span class="fn">sum</span>()).<span class="fn">round</span>(<span class="num">4</span>))  <span class="cm"># [0.1212 0.8689 0.0099]</span></pre>
+      </div>
+      <div class="eq-box small" style="text-align:center;">
+        $$P(\text{green}) = \frac{e^{2.1472}}{e^{0.1777} + e^{2.1472} + e^{-2.3249}} = \frac{8.5609}{9.8531} = 0.8689$$
+      </div>
+      <div class="callout green">
+        ✅ The three probabilities sum to 0.1212 + 0.8689 + 0.0099 = <strong>1.0</strong>, and <code>predict</code> simply returns the index of the largest — class <strong>1, green</strong>. Your hand calculation and sklearn agree exactly.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(10)">← Precision &amp; recall</button>
+        <div class="pnav-dots" id="dots-8"></div>
+        <button class="pnav-btn next" onclick="goTo(11)">Exercises →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 9: Confusion matrix ══ -->
+    <div class="panel" id="panel-9">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1543286386-2e659306cd6c?w=900&q=75&fit=crop&h=200" alt="A grid" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Logistic Regression 08 / 11 · The Scoreboard</div>
+          <div class="m-name">Confusion matrix</div>
+          <div class="m-tagline">Not just how many mistakes — which kind</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">confusion_matrix(y_true, y_pred)</span>
+        <span class="pill pill-param" style="background:rgba(244,63,94,.1);color:#f43f5e;border:1px solid rgba(244,63,94,.28);">order
+          <span class="balloon"><span class="balloon-title">y_true first!</span><span class="balloon-body">Swap the arguments and the matrix comes out transposed — silently turning your FP into FN.</span></span>
+        </span>
+        <span class="pill pill-ret">→ rows = truth, cols = prediction</span>
+      </div>
+      <p class="m-desc">Accuracy alone hides <em>which</em> mistakes a classifier makes. The confusion matrix lays every prediction on a grid: <strong>rows are the truth, columns are the guess</strong>, and the diagonal is what you want.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — the battery model's matrix</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">from</span> sklearn.metrics <span class="kw">import</span> <span class="fn">confusion_matrix</span>
+
+pred = model.<span class="fn">predict</span>(age)
+<span class="fn">print</span>(<span class="fn">confusion_matrix</span>(failed, pred))
+
+<span class="cm"># [[5 1]</span>
+<span class="cm">#  [0 4]]</span></pre>
+      </div>
+      <div class="cm-grid binary">
+        <div class="cm-cell corner"></div>
+        <div class="cm-cell head">pred 0<br>pass</div>
+        <div class="cm-cell head">pred 1<br>fail</div>
+        <div class="cm-cell head">actual 0</div>
+        <div class="cm-cell hit"><div class="cm-val">5</div><div class="cm-tag">True Negative</div></div>
+        <div class="cm-cell miss"><div class="cm-val">1</div><div class="cm-tag">False Positive</div></div>
+        <div class="cm-cell head">actual 1</div>
+        <div class="cm-cell miss"><div class="cm-val">0</div><div class="cm-tag">False Negative</div></div>
+        <div class="cm-cell hit"><div class="cm-val">4</div><div class="cm-tag">True Positive</div></div>
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue">Cell</th><th class="blue">Name</th><th class="blue">In our batteries</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>TN = 5</td><td>True Negative</td><td>Healthy batteries correctly cleared</td></tr>
+          <tr class="show"><td>FP = 1</td><td>False Positive · type I</td><td>The 36-month battery: we said "fail", it was fine — a wasted replacement</td></tr>
+          <tr class="show"><td>FN = 0</td><td>False Negative · type II</td><td>None — no failing battery slipped through, the expensive kind of miss</td></tr>
+          <tr class="show"><td>TP = 4</td><td>True Positive</td><td>Failing batteries correctly caught</td></tr>
+        </tbody>
+      </table>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — drag the threshold and watch the four counts move</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>threshold on P(fail)</label><input type="range" min="0.05" max="0.95" value="0.5" step="0.01" id="cm-t" oninput="drawCM()"><span class="cval" id="cm-tv">0.50</span></div>
+        </div>
+        <div class="demo-out" id="out-cm"></div>
+        <div class="demo-canvas-wrap" style="padding:18px 14px;"><div id="cm-render"></div></div>
+      </div>
+      <div class="callout orange">
+        ⚠️ <strong>The two mistakes are not equally expensive.</strong> A false alarm costs one battery; a missed failure strands a rider on the road. Lower the threshold in the demo and watch FN drop to zero while FP climbs — that trade <em>is</em> the threshold decision.
+      </div>
+      <div class="callout blue">
+        💡 <strong>Argument order:</strong> <code>confusion_matrix(y_true, y_pred)</code> — truth first. And for three classes it simply becomes 3 × 3, same rule: row = truth, column = prediction.
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — the 3-class matrix, 18 plants</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>pred3 = model.<span class="fn">predict</span>(X)
+<span class="fn">print</span>(<span class="fn">confusion_matrix</span>(y, pred3))
+<span class="fn">print</span>(<span class="str">'accuracy:'</span>, <span class="fn">accuracy_score</span>(y, pred3))
+
+<span class="cm"># [[5 1 0]</span>
+<span class="cm">#  [1 6 0]</span>
+<span class="cm">#  [0 0 5]]</span>
+<span class="cm"># accuracy: 0.8888888888888888</span></pre>
+      </div>
+      <div class="cm-grid multi">
+        <div class="cm-cell corner"></div>
+        <div class="cm-cell head">pred<br>wilted</div>
+        <div class="cm-cell head">pred<br>green</div>
+        <div class="cm-cell head">pred<br>flowered</div>
+        <div class="cm-cell head">actual<br>wilted</div>
+        <div class="cm-cell hit"><div class="cm-val">5</div></div>
+        <div class="cm-cell miss"><div class="cm-val">1</div></div>
+        <div class="cm-cell"><div class="cm-val">0</div></div>
+        <div class="cm-cell head">actual<br>green</div>
+        <div class="cm-cell miss"><div class="cm-val">1</div></div>
+        <div class="cm-cell hit"><div class="cm-val">6</div></div>
+        <div class="cm-cell"><div class="cm-val">0</div></div>
+        <div class="cm-cell head">actual<br>flowered</div>
+        <div class="cm-cell"><div class="cm-val">0</div></div>
+        <div class="cm-cell"><div class="cm-val">0</div></div>
+        <div class="cm-cell hit"><div class="cm-val">5</div></div>
+      </div>
+      <div class="callout green">
+        ✅ <strong>What the shape tells us:</strong> both errors are <em>wilted ↔ green</em> confusions — neighbouring classes with a genuinely fuzzy border. The <strong>flowered</strong> row and column are perfectly clean, and nothing was ever confused between the two extremes. That is a healthy-looking matrix.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(6)">← Many features</button>
+        <div class="pnav-dots" id="dots-9"></div>
+        <button class="pnav-btn next" onclick="goTo(10)">Precision &amp; recall →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 10: Precision & recall ══ -->
+    <div class="panel" id="panel-10">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1504639725590-34d0984388bd?w=900&q=75&fit=crop&h=200" alt="Measuring quality" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Logistic Regression 09 / 11 · The Metrics</div>
+          <div class="m-name">Precision &amp; recall</div>
+          <div class="m-tagline">Four numbers, four metrics, one famous trap</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">classification_report(y_true, y_pred)</span>
+        <span class="pill pill-note">accuracy can lie</span>
+        <span class="pill pill-ret">→ precision · recall · F1</span>
+      </div>
+      <div class="callout purple">
+        🎉 <strong>The Dog Party Problem:</strong> ten guests enter a dogs-only party: <strong>6 dogs 🐶</strong> and <strong>4 cats 🐱 wearing fake moustaches</strong>. A robot must shout “CAT!” whenever it sees a cat.
+      </div>
+      <div class="demo-out" style="order:0;margin:0 0 16px;text-align:center;font-size:1.08rem;line-height:2;">REAL GUESTS:       🐱 🐱 🐱 🐱   🐶 🐶 🐶 🐶 🐶 🐶
+ROBOT SHOUTS CAT:  🐱 🐱 🐱 🐱   🐶
+                                      ↑
+                              one innocent dog!</div>
+      <p class="m-desc">The robot caught <strong>all 4 cats</strong>, but falsely accused <strong>1 dog</strong>. The same result can look excellent or annoying depending on the question. That is why one metric is not enough.</p>
+
+      <div class="callout blue">
+        📊 <strong>Accuracy: “How many total guesses were correct?”</strong><br>
+        The robot handled 10 guests and was correct about 9. Accuracy = <strong>9 ÷ 10 = 90%</strong>.<br><br>
+        Use it when both mistakes matter about equally and the groups are not extremely uneven.
+      </div>
+      <div class="callout orange">
+        🚨 <strong>Precision: “When the robot shouted CAT, how often was it right?”</strong><br>
+        It shouted CAT 5 times; only 4 were cats. Precision = <strong>4 ÷ 5 = 80%</strong>.<br><br>
+        Care about precision when <strong>false alarms are painful</strong>. Imagine airport security opening five suitcases and finding a sandwich in only one—everyone is late and grumpy.
+      </div>
+      <div class="callout green">
+        🕵️ <strong>Recall: “Of all the cats that entered, how many did it find?”</strong><br>
+        There were 4 real cats and it found all 4. Recall = <strong>4 ÷ 4 = 100%</strong>.<br><br>
+        Care about recall when <strong>missing one is dangerous</strong>: disease screening, smoke alarms, or fraud detection. A false alarm may be better than missing the real danger.
+      </div>
+      <div class="callout purple">
+        ⚖️ <strong>F1: “Are precision and recall both behaving?”</strong><br>
+        Shouting CAT at everybody gives perfect recall but terrible precision. Shouting only once may give perfect precision but miss three cats. F1 becomes high only when <strong>both</strong> scores are reasonably high.
+      </div>
+      <div class="callout blue">
+        🔢 <strong>Support is not a grade.</strong> It is simply the number of real examples. Cat support is <strong>4</strong>; dog support is <strong>6</strong>. A perfect score based on 2 examples is less convincing than one based on 20,000.
+      </div>
+
+      <div class="metric-row">
+        <div class="metric"><div class="mlabel">Accuracy</div><div class="mval" style="color:var(--blue)">0.900</div><div class="msub">9 of 10 rows correct</div></div>
+        <div class="metric"><div class="mlabel">Precision</div><div class="mval" style="color:#f43f5e">0.800</div><div class="msub">4 of 5 CAT alarms were right</div></div>
+        <div class="metric"><div class="mlabel">Recall</div><div class="mval" style="color:var(--green)">1.000</div><div class="msub">all 4 real cats were caught</div></div>
+        <div class="metric"><div class="mlabel">F1</div><div class="mval" style="color:var(--accent)">0.889</div><div class="msub">both scores together</div></div>
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — sklearn does the arithmetic</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">from</span> sklearn.metrics <span class="kw">import</span> <span class="fn">accuracy_score</span>, <span class="fn">classification_report</span>
+
+<span class="fn">print</span>(<span class="str">'accuracy:'</span>, <span class="fn">accuracy_score</span>(failed, pred))
+<span class="fn">print</span>(<span class="fn">classification_report</span>(failed, pred, digits=<span class="num">3</span>))</pre>
+      </div>
+      <div class="demo-out" style="order:0;margin:0 0 16px;">accuracy: 0.9
+              precision    recall  f1-score   support
+
+           0      1.000     0.833     0.909         6
+           1      0.800     1.000     0.889         4
+
+    accuracy                          0.900        10
+   macro avg      0.900     0.917     0.899        10
+weighted avg      0.920     0.900     0.901        10</div>
+      <h3 style="margin:24px 0 12px;">The shortest way to remember</h3>
+      <table class="dt">
+        <thead><tr><th class="blue">Metric</th><th class="blue">Ask this</th><th class="blue">Example</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>Accuracy</td><td>How many guesses were right overall?</td><td>A normal quiz: total correct answers</td></tr>
+          <tr class="show"><td>Precision</td><td>Can I trust the alarm when it rings?</td><td>Do not send real email to spam</td></tr>
+          <tr class="show"><td>Recall</td><td>Did we find nearly every real danger?</td><td>Do not miss disease, fire, or fraud</td></tr>
+          <tr class="show"><td>F1</td><td>Are precision and recall both good?</td><td>One score when both mistakes matter</td></tr>
+          <tr class="show"><td>Support</td><td>How many real examples were tested?</td><td>Always check before trusting a score</td></tr>
+        </tbody>
+      </table>
+      <h3 style="margin:24px 0 12px;">Only now, the formulas</h3>
+      <p class="m-desc">Remember the questions—not the letters. The formulas are only shorthand:</p>
+      <div class="grid-2">
+        <div class="eq-box small" style="text-align:center;margin:0;">$$\text{Accuracy} = \frac{\text{all correct guesses}}{\text{all guesses}}$$</div>
+        <div class="eq-box small" style="text-align:center;margin:0;">$$\text{Precision} = \frac{\text{correct alarms}}{\text{all alarms}}$$</div>
+        <div class="eq-box small" style="text-align:center;margin:0;">$$\text{Recall} = \frac{\text{real dangers found}}{\text{all real dangers}}$$</div>
+        <div class="eq-box small" style="text-align:center;margin:0;">$$F_1 = \text{one balance of precision and recall}$$</div>
+      </div>
+      <div class="callout green">
+        🌼 <strong>What about three classes?</strong> Ask the same questions one class at a time. For “flowered,” pretend flowered is CAT and everything else is NOT CAT. Then repeat for “green” and “wilted.” That is why <code>classification_report</code> prints one row for each class.
+      </div>
+      <div class="callout orange">
+        ⚠️ <strong>The accuracy trap:</strong> imagine 100 suitcases and only 1 contains a forbidden banana 🍌. A lazy robot says “SAFE” to every suitcase. It gets 99 answers right, so accuracy is <strong>99%</strong>—but it misses the only banana! Its recall for bananas is <strong>0%</strong>. A big accuracy number is not automatically a useful model.
+      </div>
+      <div class="callout purple">
+        🧠 <strong>One final fairness rule:</strong> test the model on rows it did not study. Testing on its training rows is like giving a student the same exam they memorized. Use <code>train_test_split</code>, then calculate the scores from <code>y_test</code>.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(9)">← Confusion matrix</button>
+        <div class="pnav-dots" id="dots-10"></div>
+        <button class="pnav-btn next" onclick="goTo(8)">Multinomial →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 11: Exercises ══ -->
+    <div class="panel" id="panel-11">
+      <div class="exercise-header">
+        <div class="exercise-badge">✏️</div>
+        <div>
+          <div class="m-breadcrumb" style="color:var(--muted)">Logistic Regression 11 / 11 · Practice</div>
+          <div style="font-size:1.4rem;font-weight:900;font-family:'Courier New',monospace;">Exercises — Targil</div>
+          <div style="font-size:.85rem;color:var(--muted);margin-top:4px;">Part A is binary, Part B is multi-class. Work in a Jupyter notebook.</div>
+        </div>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">DATA A</span><strong>Night screen time vs oversleeping</strong></div>
+        <div class="ex-task">
+          <strong>X</strong> = minutes of phone screen time after 23:00 · <strong>Y</strong> = 1 if the alarm was slept through, 0 if not.
+          <div class="code-wrap" style="margin-top:10px;"><pre>x = np.array([<span class="num">5</span>, <span class="num">15</span>, <span class="num">25</span>, <span class="num">35</span>, <span class="num">45</span>, <span class="num">55</span>, <span class="num">65</span>, <span class="num">75</span>, <span class="num">85</span>, <span class="num">95</span>]).reshape(-<span class="num">1</span>, <span class="num">1</span>)
+y = np.array([<span class="num">0</span>,  <span class="num">0</span>,  <span class="num">0</span>,  <span class="num">0</span>,  <span class="num">1</span>,  <span class="num">0</span>,  <span class="num">1</span>,  <span class="num">1</span>,  <span class="num">1</span>,  <span class="num">1</span>])   <span class="cm"># overslept</span></pre></div>
+        </div>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q1</span><strong>Fit and write the equation</strong></div>
+        <div class="ex-task">Fit a <code>LogisticRegression(solver='liblinear')</code>. Print β₀ and β₁, then write the full probability equation in a markdown cell.</div>
+        <details class="hint"><summary>Hint</summary><div class="ex-task" style="margin-top:8px;"><code>b0 = model.intercept_[0]</code>, <code>b1 = model.coef_[0][0]</code>. The equation is <code>P = 1 / (1 + np.exp(-(b0 + b1*x)))</code>.</div></details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q2</span><strong>Draw the curve</strong></div>
+        <div class="ex-task">Plot your fitted sigmoid over <code>np.linspace(0, 120, 500)</code> and scatter the ten real points on top in a different colour. Add a dashed line at 0.5.</div>
+        <details class="hint"><summary>Hint</summary><div class="ex-task" style="margin-top:8px;"><code>plt.scatter(x, y, color='red')</code> then <code>plt.axhline(0.5, linestyle='--')</code>.</div></details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q3</span><strong>predict and predict_proba</strong></div>
+        <div class="ex-task">What is the probability of oversleeping after <strong>40</strong> minutes? After <strong>70</strong>? Compute each one <strong>twice</strong> — by hand with <code>np.exp</code> and with <code>predict_proba</code> — and print <code>predict</code> as well. Then print all ten rows with both probabilities next to the true label.</div>
+        <details class="hint"><summary>Hint</summary><div class="ex-task" style="margin-top:8px;"><code>model.predict_proba([[40]])</code> gives <code>[[P(0), P(1)]]</code>; the second column must equal your hand calculation.</div></details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q4</span><strong>Two functions</strong></div>
+        <div class="ex-task">(a) <code>risk(x)</code> → the probability in percent. (b) <code>minutes_for(p)</code> → the screen time at which the model reaches probability <code>p</code>. Use it to find the 50% point and the 80% point.</div>
+        <details class="hint"><summary>Hint</summary><div class="ex-task" style="margin-top:8px;">Invert the logit: <code>(np.log(p/(1-p)) - b0) / b1</code>. The 50% answer must equal <code>-b0/b1</code>.</div></details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q5</span><strong>Your own threshold</strong></div>
+        <div class="ex-task">Write <code>warn(x)</code> that prints <strong>YES</strong> when the risk is 65% or higher and <strong>NO</strong> otherwise. Run it on 20, 45, 60 and 90 minutes.</div>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q6</span><strong>Confusion matrix by hand</strong></div>
+        <div class="ex-task">Predict all ten rows and print the <code>confusion_matrix</code>. State how many TP, TN, FP and FN you got, compute accuracy, precision, recall and F1 <strong>from those four numbers yourself</strong>, then check them against <code>classification_report</code>.</div>
+        <details class="hint"><summary>Hint</summary><div class="ex-task" style="margin-top:8px;">The matrix reads <code>[[TN, FP], [FN, TP]]</code>. Precision = TP/(TP+FP), Recall = TP/(TP+FN).</div></details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">DATA B</span><strong>Coffee order size — 3 classes</strong></div>
+        <div class="ex-task">
+          <strong>X</strong> = [hours slept last night, hours until the next deadline] · <strong>Y</strong> = 0 small, 1 medium, 2 large.
+          <div class="code-wrap" style="margin-top:10px;"><pre>X = np.array([[<span class="num">8</span>, <span class="num">72</span>], [<span class="num">7</span>, <span class="num">60</span>], [<span class="num">8</span>, <span class="num">48</span>], [<span class="num">7</span>, <span class="num">40</span>],
+              [<span class="num">6</span>, <span class="num">36</span>], [<span class="num">6</span>, <span class="num">24</span>], [<span class="num">5</span>, <span class="num">30</span>], [<span class="num">5</span>, <span class="num">18</span>],
+              [<span class="num">4</span>, <span class="num">12</span>], [<span class="num">3</span>,  <span class="num">8</span>], [<span class="num">4</span>,  <span class="num">6</span>], [<span class="num">2</span>,  <span class="num">3</span>]])
+
+y = np.array([<span class="num">0</span>, <span class="num">0</span>, <span class="num">0</span>, <span class="num">0</span>, <span class="num">1</span>, <span class="num">1</span>, <span class="num">1</span>, <span class="num">1</span>, <span class="num">2</span>, <span class="num">2</span>, <span class="num">2</span>, <span class="num">2</span>])</pre></div>
+        </div>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q7</span><strong>Fit the multinomial model</strong></div>
+        <div class="ex-task">Fit <code>LogisticRegression(max_iter=1000)</code>. Print <code>classes_</code>, <code>intercept_</code> and <code>coef_</code>, and explain in one sentence why <code>coef_</code> has three rows.</div>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q8</span><strong>Softmax by hand</strong></div>
+        <div class="ex-task">For a student who slept <strong>5</strong> hours with a deadline <strong>20</strong> hours away: compute the three z scores with <code>intercept_ + coef_ @ x</code>, apply softmax yourself with <code>np.exp</code>, and verify your numbers match <code>predict_proba</code> and sum to 1. Also print <code>predict</code>.</div>
+        <details class="hint"><summary>Hint</summary><div class="ex-task" style="margin-top:8px;"><code>e = np.exp(z)</code> → <code>e / e.sum()</code>. <code>predict</code> is the <code>argmax</code> of that vector.</div></details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q9</span><strong>3 × 3 confusion matrix</strong></div>
+        <div class="ex-task">Print the confusion matrix and <code>classification_report(..., target_names=['small','medium','large'])</code>. Which two sizes does the model confuse, and why does that make sense?</div>
+      </div>
+
+      <div class="ex-card" style="border-color:rgba(250,204,21,.35);background:rgba(250,204,21,.05)">
+        <div class="ex-q-head"><span class="ex-num">SUBMIT</span><strong>How to hand it in</strong></div>
+        <div class="ex-task">
+          1. Push your <code>.ipynb</code> to a GitHub repository.<br>
+          2. Send the link to
+          <a href="mailto:pythonai211225+logistic@gmail.com" style="color:var(--accent);font-weight:800;">pythonai211225+logistic@gmail.com</a>
+        </div>
+      </div>
+
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(8)">← Multinomial</button>
+        <div class="pnav-dots" id="dots-11"></div>
+        <button class="pnav-btn next" onclick="goTo(12)">Appendix: Euler's number e →</button>
+      </div>
+    </div>
+    <!-- ══ PANEL 13: Why logistic ══ -->
+    <div class="panel" id="panel-13">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1532012197267-da84d127e765?w=900&q=75&fit=crop&h=200" alt="Old mathematics books" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Appendix · A2 / A6 · The Name</div>
+          <div class="m-name">Why "logistic regression"?</div>
+          <div class="m-tagline">Two confusing words, both with a good reason</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">courbe logistique — Verhulst, 1845</span>
+        <span class="pill pill-note">logit — Berkson, 1944</span>
+        <span class="pill pill-ret">→ a regression on the log-odds</span>
+      </div>
+      <p class="m-desc"><strong>Start with the simple answer:</strong> logistic regression produces a probability, such as “there is a 70% chance this email is spam.” We can then turn that probability into a class such as spam or not spam.</p>
+
+      <div class="callout blue">
+        📈 <strong>Why “logistic”?</strong> The method uses the <strong>logistic function</strong>, the S-shaped curve also called the sigmoid. It turns any number into a value between 0 and 1, so it is useful for probabilities.
+      </div>
+      <div class="eq-box" style="text-align:center;">
+        $$p = \frac{1}{1 + e^{-z}}$$
+      </div>
+      <p class="m-desc"><strong>Read it in words:</strong> first, the model looks at the input information and combines it into one number called \(z\)<br>For example, when predicting whether a student will pass, the model may combine study hours, attendance, and previous grades into this one number. This number \(z\) is called the <strong>raw score</strong>. It summarizes whether the information points more toward class 0 or class 1, but it is <strong>not a probability yet</strong>. The sigmoid formula then squeezes \(z\) into a probability \(p\). A very negative \(z\) gives a probability near 0, \(z=0\) gives 0.5, and a very positive \(z\) gives a probability near 1.</p>
+
+      <div class="callout green">
+        📐 <strong>Why “regression”?</strong> Before making the S-shaped probability, the model calculates a straight-line score, just like linear regression:
+      </div>
+      <div class="eq-box big" style="text-align:center;">
+        $$z = \beta_0 + \beta_1 x$$
+      </div>
+      <div class="callout blue">
+        🔢 <strong>What is the score \(z\)?</strong> It is the model’s first calculation: one number that summarizes the evidence from the input. It is sometimes called the <strong>raw score</strong> or <strong>linear score</strong>. It is <em>not</em> a probability yet, so it may be any number—negative, zero, or positive.
+      </div>
+      <p class="m-desc">For example, suppose \(z=-2+0.5x\). If \(x=6\), then \(z=-2+0.5(6)=1\). Now put \(z=1\) into the sigmoid formula:</p>
+      <div class="eq-box" style="text-align:center;">
+        $$p=\frac{1}{1+e^{-z}}
+        =\frac{1}{1+e^{-1}}
+        \approx\frac{1}{1+0.368}
+        =\frac{1}{1.368}
+        \approx0.731$$
+      </div>
+      <p class="m-desc">So the conversion is: \(z=1\) → \(e^{-1}\approx0.368\) → \(1+0.368=1.368\) → \(1\div1.368\approx0.731\). Therefore, the raw score 1 becomes a probability of about <strong>73.1%</strong>.</p>
+      <table class="dt">
+        <thead><tr><th class="blue">Score \(z\)</th><th class="blue">What it suggests</th><th class="blue">Probability after sigmoid</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>negative</td><td>More evidence for class 0</td><td>Below 0.5</td></tr>
+          <tr class="show"><td>0</td><td>The model is exactly in the middle</td><td>Exactly 0.5</td></tr>
+          <tr class="show"><td>positive</td><td>More evidence for class 1</td><td>Above 0.5</td></tr>
+        </tbody>
+      </table>
+      <p class="m-desc">Here \(x\) is the input, \(\beta_1\) controls how strongly the input changes the score, and \(\beta_0\) is the starting score when \(x=0\). Then the sigmoid turns \(z\) into \(p\). Finally, we may predict class 1 when \(p \ge 0.5\): <strong>input → raw score \(z\) → probability \(p\) → class</strong>.</p>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(12)">← Euler's number e</button>
+        <div class="pnav-dots" id="dots-13"></div>
+        <button class="pnav-btn next" onclick="goTo(14)">Log loss →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 12: Euler number e ══ -->
+    <div class="panel" id="panel-12">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1509228627152-72ae9ae6848d?w=900&q=75&fit=crop&h=200" alt="Mathematical constants" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Appendix · A1 / A6 · The Constant</div>
+          <div class="m-name">Euler's number e</div>
+          <div class="m-tagline">2.718281828… — a constant, exactly like π</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">math.e · np.exp(z)</span>
+        <span class="pill pill-param" style="background:rgba(249,115,22,.1);color:var(--orange);border:1px solid rgba(249,115,22,.28);">e
+          <span class="balloon"><span class="balloon-title">e — Euler's number</span><span class="balloon-body">A fixed constant ≈ <strong>2.71828</strong>, pronounced "Oiler's number". Not a variable, not something the model learns.</span></span>
+        </span>
+        <span class="pill pill-ret">→ always positive</span>
+      </div>
+      <p class="m-desc"><strong>Start here:</strong> \(e\) is simply a fixed number, approximately <strong>2.718</strong>. It is pronounced “Euler” like <strong>Oiler</strong>. It is not a variable, and the model does not learn it. Just as \(\pi\) naturally appears with circles, \(e\) naturally appears when something grows or shrinks continuously.</p>
+      <div class="eq-box" style="text-align:center;">
+        $$e \approx 2.718 \qquad e^2 \approx 7.389 \qquad e^0 = 1 \qquad e^{-2}=\frac{1}{e^2}\approx0.135$$
+      </div>
+      <p class="m-desc"><strong>What does the small raised number mean?</strong> It is an exponent. \(e^2\) means \(e\times e\). A negative exponent means “take the reciprocal,” so \(e^{-2}=1/e^2\). In Python, <code>np.exp(z)</code> means \(e^z\).</p>
+      <div class="callout blue">
+        🪜 <strong>Optional deeper idea: where does 2.718… come from?</strong> Imagine starting with $1 and earning 100% interest. If interest is added once, you finish with $2. If it is divided into more and more tiny payments during the year, the result gets closer and closer to $2.718.
+      </div>
+      <div class="eq-box big" style="text-align:center;">
+        $$e = \lim_{n \to \infty}\left(1 + \frac{1}{n}\right)^{n} \approx 2.718281828459045$$
+      </div>
+      <p class="m-desc"><strong>Read the limit formula in words:</strong> \(n\) is the number of compounding steps. “\(n\to\infty\)” means try larger and larger values of \(n\)—10, 1,000, one million, and so on. A <strong>limit</strong> is the value the results approach. We never need to reach infinity; we watch the numbers settle closer and closer to \(2.71828\).</p>
+      <table class="dt">
+        <thead><tr><th class="blue">n</th><th class="blue">(1 + 1/n)ⁿ</th><th class="blue">getting closer to e</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>1</td><td>2.0000</td><td>far</td></tr>
+          <tr class="show"><td>10</td><td>2.5937</td><td>closer</td></tr>
+          <tr class="show"><td>1,000</td><td>2.7169</td><td>very close</td></tr>
+          <tr class="show"><td>1,000,000</td><td>2.7183</td><td>essentially e</td></tr>
+        </tbody>
+      </table>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — e in NumPy</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> math
+<span class="kw">import</span> numpy <span class="kw">as</span> <span class="lib">np</span>
+
+<span class="fn">print</span>(math.e)          <span class="cm"># 2.718281828459045</span>
+<span class="fn">print</span>(<span class="lib">np</span>.<span class="fn">exp</span>(<span class="num">1</span>))       <span class="cm"># 2.718281828459045   e¹</span>
+<span class="fn">print</span>(<span class="lib">np</span>.<span class="fn">exp</span>(<span class="num">0</span>))       <span class="cm"># 1.0                 anything⁰ = 1</span>
+<span class="fn">print</span>(<span class="lib">np</span>.<span class="fn">exp</span>(-<span class="num">2</span>))      <span class="cm"># 0.1353352832366127  = 1 / e²</span>
+
+<span class="cm"># vectorised — e raised to a whole array at once</span>
+<span class="fn">print</span>(<span class="lib">np</span>.<span class="fn">exp</span>(<span class="lib">np</span>.<span class="fn">array</span>([-<span class="num">2</span>, <span class="num">0</span>, <span class="num">2</span>])))   <span class="cm"># [0.1353 1. 7.389]</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">e<sup>z</sup> — never negative, never zero</div>
+        <div class="demo-out" id="out-exp"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-exp" height="260"></canvas></div>
+      </div>
+      <div class="callout purple">
+        🧠 <strong>Why the sigmoid uses \(e\):</strong> \(e^z\) is always positive. In the sigmoid, that keeps \(1+e^{-z}\) positive and safely turns every score into a number between 0 and 1. At a more advanced level, \(e^z\) is also smooth and has a simple slope, which makes training easier.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(11)">← Exercises</button>
+        <div class="pnav-dots" id="dots-12"></div>
+        <button class="pnav-btn next" onclick="goTo(13)">Why "logistic"? →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 15: Odds & log-odds ══ -->
+    <div class="panel" id="panel-15">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1501139083538-0139583c060f?w=900&q=75&fit=crop&h=200" alt="Dice and odds" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Appendix · A4 / A6 · The Interpretation</div>
+          <div class="m-name">Odds &amp; log-odds</div>
+          <div class="m-tagline">The straight line hiding inside the S</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">odds = p / (1 − p)</span>
+        <span class="pill pill-note">logit = ln(odds)</span>
+        <span class="pill pill-ret">→ eᵝ = odds multiplier</span>
+      </div>
+      <p class="m-desc"><strong>Probability</strong> and <strong>odds</strong> are two ways to describe the same chance. Probability asks, “Out of all cases, how many succeed?” Odds ask, “How many successes are there for each failure?”</p>
+      <div class="callout blue">
+        🎲 <strong>Example:</strong> if 8 out of 10 students pass, the probability of passing is \(8/10=0.8\). There are 8 passes and 2 failures, so the odds are \(8/2=4\), spoken as “4 to 1.”
+      </div>
+      <div class="eq-box" style="text-align:center;">
+        $$\text{odds}=\frac{\text{probability of success}}{\text{probability of failure}}
+        =\frac{p}{1-p}$$
+      </div>
+      <p class="m-desc">Why is the bottom \(1-p\)? The two possible outcomes have probabilities that add to 1. If \(p=0.8\), failure has probability \(1-0.8=0.2\), so the odds are \(0.8/0.2=4\).</p>
+      <p class="m-desc"><strong>What are log-odds?</strong> Log-odds are simply the result of taking the natural logarithm of the odds. It is a new way to write the same probability—not a new prediction and not a different kind of chance.</p>
+      <div class="eq-box big" style="text-align:center;">
+        $$\text{log-odds}=\ln(\text{odds})=\ln\!\left(\frac{p}{1-p}\right)$$
+      </div>
+      <div class="callout blue">
+        🧮 <strong>One complete example:</strong> suppose \(p=0.8\). First calculate the odds: \(0.8/(1-0.8)=0.8/0.2=4\). Then take the natural logarithm: \(\ln(4)\approx1.386\). Therefore, probability 0.8, odds 4, and log-odds 1.386 all describe the <strong>same chance</strong>.
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue">Probability</th><th class="blue">Odds</th><th class="blue">Log-odds</th><th class="blue">Simple meaning</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>0.20</td><td>0.25</td><td>−1.386</td><td>Class 0 is more likely</td></tr>
+          <tr class="show"><td>0.50</td><td>1</td><td>0</td><td>Both classes are equally likely</td></tr>
+          <tr class="show"><td>0.80</td><td>4</td><td>+1.386</td><td>Class 1 is more likely</td></tr>
+        </tbody>
+      </table>
+      <p class="m-desc"><strong>Why do we use log-odds?</strong> A straight-line calculation such as \(\beta_0+\beta_1x\) may produce any number: \(-5\), \(0\), \(8\), and so on. A probability cannot do that; it must stay between 0 and 1. Therefore, we cannot directly say that an unrestricted straight line is a probability.</p>
+      <div class="callout green">
+        🌉 <strong>Log-odds provide the bridge.</strong> Probability is restricted to 0–1, but log-odds can be any number from very negative to very positive. That means the model can use a simple straight line for the log-odds, and the sigmoid can safely convert that line back into a probability.
+      </div>
+      <p class="m-desc">The direction is easy to remember: a negative log-odds value means \(p&lt;0.5\); log-odds 0 means \(p=0.5\); and a positive log-odds value means \(p&gt;0.5\).</p>
+      <div class="eq-box small" style="text-align:center;">
+        $$\begin{aligned}
+        \text{inputs} &\longrightarrow \text{straight-line score }z=\text{log-odds}\\
+        &\longrightarrow \text{sigmoid}\longrightarrow \text{probability }p
+        \end{aligned}$$
+      </div>
+      <p class="m-desc"><strong>What does \(\ln\) do here?</strong> Odds range from just above 0 to extremely large positive numbers. The logarithm rearranges that range around 0: odds below 1 become negative, odds of 1 become 0, and odds above 1 become positive. This produces the unrestricted scale needed by the straight-line score.</p>
+      <p class="m-desc">So logistic regression represents the log-odds with a straight line:</p>
+      <div class="eq-box big" style="text-align:center;">
+        $$\underbrace{\ln\!\left(\frac{p}{1-p}\right)}_{\text{log-odds}}
+        =\underbrace{\beta_0+\beta_1x}_{\text{straight-line score }z}$$
+      </div>
+      <div class="callout purple">
+        🧠 <strong>Advanced connection:</strong> the raw score \(z\) and the log-odds are the same number.
+        $$\ln\!\left(\frac{p}{1-p}\right)=z=\beta_0+\beta_1x$$
+      </div>
+      <p class="m-desc"><strong>The history, if you are curious:</strong> Pierre François Verhulst used an S-shaped “logistic curve” in 1845 to describe population growth that slows near a maximum. Joseph Berkson later formed the word <em>logit</em> from “logistic unit.” Here, a <strong>logistic unit</strong> means one value on the logistic model’s transformed scale—the log-odds scale. It is not a physical unit such as a meter or a kilogram. For example, probability \(p=0.5\) has logit 0, while \(p\approx0.731\) has logit 1. The word <em>logit</em> was created by joining <strong>log</strong>istic and un<strong>it</strong>.</p>
+      <table class="dt">
+        <thead><tr><th class="blue">Word</th><th class="blue">Comes from</th><th class="blue">Meaning here</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>logistic</td><td>Verhulst's <em>courbe logistique</em>, 1845</td><td>The S-shaped curve that saturates — our sigmoid</td></tr>
+          <tr class="show"><td>logit</td><td>Berkson, 1944 — "logistic unit"</td><td>The log-odds \(\ln\frac{p}{1-p}\), the thing we fit a line to</td></tr>
+          <tr class="show"><td>regression</td><td>Ordinary least-squares tradition</td><td>We fit \(\beta\)'s to a continuous quantity — the log-odds</td></tr>
+          <tr class="show"><td>sigmoid</td><td>Greek <em>sigma</em> + <em>-oid</em> = "S-shaped"</td><td>A description of the shape, not a different function</td></tr>
+        </tbody>
+      </table>
+      <div class="callout orange">
+        ⚠️ <strong>Not logistics.</strong> Nothing to do with warehouses, trucks or supply chains. The two English words only look alike; the model was named after a growth curve from demography.
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue">Quantity</th><th class="blue">Range</th><th class="blue">Formula</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>Probability p</td><td>0 … 1</td><td>\(\sigma(z)\)</td></tr>
+          <tr class="show"><td>Odds</td><td>0 … +∞</td><td>\(\frac{p}{1-p} = e^{z}\)</td></tr>
+          <tr class="show"><td>Log-odds (logit)</td><td>−∞ … +∞</td><td>\(\ln\frac{p}{1-p} = z\)</td></tr>
+        </tbody>
+      </table>
+      <div class="demo-box">
+        <div class="demo-lbl">Conversion map — choose p and see its matching score z</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>probability p</label><input type="range" min="0.01" max="0.99" value="0.5" step="0.01" id="od-p" oninput="drawOdds()"><span class="cval" id="od-pv">0.50</span></div>
+        </div>
+        <div class="demo-out" id="out-odds"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-odds" height="250"></canvas></div>
+      </div>
+      <div class="callout blue">
+        📊 <strong>How to read the graph above:</strong> the horizontal x-axis is the probability \(p\), from almost 0 on the left to almost 1 on the right. The vertical y-axis is the corresponding <strong>log-odds</strong>. It is not the true label \(y\).
+        <br><br>
+        The curve always goes upward: a larger probability means larger odds, so it also means larger log-odds. At \(p=0.5\), the log-odds are 0. Moving left toward \(p=0\) makes the log-odds very negative; moving right toward \(p=1\) makes them very positive.
+      </div>
+      <div class="callout orange">
+        <strong>Why is the graph so low near \(p=0\)?</strong> The graph actually begins at \(p=0.01\), not at exactly 0. At \(p=0.01\):
+        $$\text{odds}=\frac{0.01}{0.99}\approx0.0101
+        \qquad
+        \text{log-odds}=\ln(0.0101)\approx-4.60$$
+        The probability is extremely small, so the odds are also extremely small. The logarithm writes that strong evidence for class 0 as a large negative number. As \(p\) gets closer to 0, the log-odds keep falling toward \(-\infty\). At exactly \(p=0\), \(\ln(0)\) is not a finite number.
+      </div>
+      <div class="callout green">
+        🔁 <strong>Why do we call \(z\) a score?</strong> First, the model multiplies each input by its learned coefficient and adds the results:
+        $$z=\beta_0+\beta_1x_1+\beta_2x_2+\cdots$$
+        This final weighted total is called the <strong>raw score</strong>. The word “score” is only a name for the model’s number before it becomes a probability. A positive \(z\) is evidence toward class 1, a negative \(z\) is evidence toward class 0, and \(z=0\) is the middle.
+        <br><br>
+        <strong>Where does \(z\) appear in the sigmoid?</strong> The exponent of \(e\) is actually <strong>\(-z\)</strong>, not \(z\):
+        $$z\;\longrightarrow\;p=\frac{1}{1+e^{-z}}$$
+        The minus sign is essential. When \(z\) becomes larger, \(-z\) becomes smaller, \(e^{-z}\) becomes smaller, and the final probability becomes larger:
+        $$\begin{aligned}
+        z=-1&:\quad p=\frac{1}{1+e^{1}}\approx0.269\\
+        z=0&:\quad p=\frac{1}{1+e^{0}}=0.500\\
+        z=1&:\quad p=\frac{1}{1+e^{-1}}\approx0.731
+        \end{aligned}$$
+        So \(z\) is the score produced by the linear model; \(-z\) is the exponent used by this particular way of writing the sigmoid.
+        <br><br>
+        Log-odds perform the reverse conversion:
+        $$p\;\longrightarrow\;z=\ln\!\left(\frac{p}{1-p}\right)$$
+      </div>
+      <p class="m-desc"><strong>Why is the connection between \(p\) and \(z\) useful?</strong> The model performs its simple straight-line calculation on the \(z\) scale, but people usually want a probability on the \(p\) scale. The graph connects those two views. It lets us see what a raw model score means as a probability—for example, \(z=0\) means \(p=0.5\), while \(z\approx1.386\) means \(p=0.8\).</p>
+      <p class="m-desc"><strong>What does this graph teach us?</strong> It is a <strong>conversion map</strong> between the internal score \(z\) and the probability \(p\). It does not show accuracy, loss, time, or the true label. It shows that every probability corresponds to one score:</p>
+      <table class="dt">
+        <thead><tr><th class="blue">Probability \(p\)</th><th class="blue">Score \(z\) = log-odds</th><th class="blue">Meaning</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>close to 0</td><td>very negative</td><td>Strong prediction for class 0</td></tr>
+          <tr class="show"><td>0.5</td><td>0</td><td>No preference between the classes</td></tr>
+          <tr class="show"><td>close to 1</td><td>very positive</td><td>Strong prediction for class 1</td></tr>
+        </tbody>
+      </table>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(14)">← Log loss</button>
+        <div class="pnav-dots" id="dots-15"></div>
+        <button class="pnav-btn next" onclick="goTo(16)">Boundary mathematics →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 14: Log loss ══ -->
+    <div class="panel" id="panel-14">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1504639725590-34d0984388bd?w=900&q=75&fit=crop&h=200" alt="Measuring error" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Appendix · A3 / A6 · The Cost</div>
+          <div class="m-name">Log loss</div>
+          <div class="m-tagline">How the model is punished for being confidently wrong</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">binary cross-entropy</span>
+        <span class="pill pill-note">not MSE</span>
+        <span class="pill pill-ret">→ minimised by the solver</span>
+      </div>
+      <div class="callout green">
+        ✅ <strong>Why is the loss function needed?</strong> It is how the model learns. The loss tells the model whether its current coefficients produce good or bad predictions. The training algorithm repeatedly changes the coefficients to make the loss smaller.
+      </div>
+      <p class="m-desc"><strong>Does the loss find the correct \(z\)?</strong> Indirectly, yes—but the model does not learn a separate \(z\) by itself. It learns the coefficients \(\beta_0,\beta_1,\ldots\). For each input row, those coefficients produce its score \(z\). Changing the coefficients changes \(z\), which changes the probability, which changes the loss.</p>
+      <div class="eq-box small" style="text-align:center;">
+        $$\begin{aligned}
+        \text{coefficients }\beta &\longrightarrow \text{score }z\\
+        &\longrightarrow \text{probability }\hat p\\
+        &\longrightarrow \text{loss}\\
+        &\longrightarrow \text{adjust the coefficients}
+        \end{aligned}$$
+      </div>
+      <p class="m-desc"><strong>The training loop, step by step:</strong></p>
+      <table class="dt">
+        <thead><tr><th class="blue">Step</th><th class="blue">What happens</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>1</td><td>Start with temporary values for the coefficients \(\beta\).</td></tr>
+          <tr class="show"><td>2</td><td>Use them to calculate a score \(z=\beta_0+\beta_1x\) for every training row.</td></tr>
+          <tr class="show"><td>3</td><td>Use the sigmoid to convert each \(z\) into a predicted probability \(\hat p\).</td></tr>
+          <tr class="show"><td>4</td><td>Compare each prediction with the true answer and calculate the loss.</td></tr>
+          <tr class="show"><td>5</td><td>Adjust the coefficients in a direction that lowers the loss, then repeat.</td></tr>
+        </tbody>
+      </table>
+      <p class="m-desc"><strong>When does training stop?</strong> It stops when further coefficient changes no longer reduce the loss very much, or when the solver reaches its allowed number of steps. The coefficients are what the model stores. Later, it uses those coefficients to calculate the appropriate \(z\) for any input it receives.</p>
+      <p class="m-desc"><strong>What exactly is loss?</strong> It is a number that measures how wrong a probability prediction is. Small loss is good; large loss is bad. During prediction on new data, the model only calculates \(z\), probability, and class—the true answer is unknown, so loss is mainly used during training and evaluation.</p>
+      <div class="callout blue">
+        🎯 Suppose the true answer is 1. Predicting 0.9 is good, predicting 0.5 is unsure, and predicting 0.01 is confidently wrong. Log loss gives them a tiny, medium, and very large penalty.
+      </div>
+      <p class="m-desc">For one example there are only two cases. The symbol \(\hat p\), pronounced “p-hat,” means the model’s predicted probability for class 1:</p>
+      <div class="grid-2">
+        <div class="callout green" style="margin:0;"><strong>If the truth is \(y=1\):</strong><br>loss \(=-\ln(\hat p)\)<br>The loss approaches 0 when \(\hat p\) approaches 1.</div>
+        <div class="callout orange" style="margin:0;"><strong>If the truth is \(y=0\):</strong><br>loss \(=-\ln(1-\hat p)\)<br>The loss approaches 0 when \(\hat p\) approaches 0.</div>
+      </div>
+      <p class="m-desc"><strong>Why a logarithm?</strong> It gives a small penalty for a correct, confident prediction and a rapidly growing penalty for a wrong, confident prediction.</p>
+      <p class="m-desc"><strong>What is \(J\)?</strong> Each training row receives its own loss. \(J\) is the <strong>average loss across all training rows</strong>. It gives the model one overall number describing how bad its current predictions are.</p>
+      <div class="callout green">
+        📉 <strong>The direction is important:</strong> when predicted probabilities move toward the correct answers, their losses decrease, so \(J\) decreases. Training tries to make \(J\) as small as possible. The theoretical ideal \(J=0\) is approached when every prediction approaches the correct answer with 100% confidence.
+      </div>
+      <p class="m-desc"><strong>Now combine both label cases.</strong> The following formula selects the correct loss rule for every row, adds all row losses, and divides by the number of rows to produce \(J\):</p>
+      <div class="eq-box" style="text-align:center;">
+        $$J = -\frac{1}{m}\sum_{i=1}^{m}\Big[\, y_i \ln(\hat{p}_i) + (1 - y_i)\ln(1 - \hat{p}_i)\,\Big]$$
+      </div>
+      <p class="m-desc"><strong>Symbol guide:</strong> \(J\) is the average loss; \(m\) is the number of training rows; \(\sum\) means “add”; \(i\) identifies one row; \(y_i\) is its true label (0 or 1); and \(\hat p_i\) is its predicted probability. If \(y_i=1\), the second term becomes zero. If \(y_i=0\), the first term becomes zero.</p>
+      <div class="callout blue">
+        🧮 <strong>Example showing \(J\) decreasing:</strong> imagine two rows whose true labels are \([1,0]\).
+        <br><br>
+        Predictions \([0.60,0.40]\) give
+        \(J=[-\ln(0.60)-\ln(1-0.40)]/2\approx0.511\).
+        <br><br>
+        Better predictions \([0.90,0.10]\) move toward the true labels and give
+        \(J=[-\ln(0.90)-\ln(1-0.10)]/2\approx0.105\).
+        <br><br>
+        The predictions improved, so \(J\) fell from \(0.511\) to \(0.105\). The solver keeps adjusting the coefficients in order to create this downward movement.
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue">predicted p̂</th><th class="blue">cost if y = 1</th><th class="blue">cost if y = 0</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>0.99</td><td>0.0101</td><td>4.6052</td></tr>
+          <tr class="show"><td>0.90</td><td>0.1054</td><td>2.3026</td></tr>
+          <tr class="show"><td>0.70</td><td>0.3567</td><td>1.2040</td></tr>
+          <tr class="show"><td>0.50</td><td>0.6931</td><td>0.6931</td></tr>
+          <tr class="show"><td>0.10</td><td>2.3026</td><td>0.1054</td></tr>
+          <tr class="show"><td>0.01</td><td>4.6052</td><td>0.0101</td></tr>
+        </tbody>
+      </table>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — move the prediction and watch the two costs</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>predicted probability p̂</label><input type="range" min="0.01" max="0.99" value="0.7" step="0.01" id="ll-p" oninput="drawLoss()"><span class="cval" id="ll-pv">0.70</span></div>
+        </div>
+        <div class="demo-out" id="out-loss"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-loss" height="270"></canvas></div>
+      </div>
+      <div class="callout orange">
+        ⚠️ <strong>What does “the loss approaches infinity” mean?</strong> As a wrong prediction gets closer to complete confidence—for example, \(\hat p\) gets closer to 0 when the truth is 1—the penalty grows without a maximum. It does not suddenly become “infinity”; it simply keeps growing.
+      </div>
+      <div class="callout purple">
+        🧠 <strong>Advanced training detail:</strong> sklearn repeatedly adjusts the coefficients to make \(J\) smaller. This search algorithm is called a <strong>solver</strong> (for example, <code>lbfgs</code> or <code>liblinear</code>). A <em>ConvergenceWarning</em> means the solver stopped before it was satisfied; increasing <code>max_iter</code> gives it more adjustment steps.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(13)">← Why "logistic"?</button>
+        <div class="pnav-dots" id="dots-14"></div>
+        <button class="pnav-btn next" onclick="goTo(15)">Odds &amp; log-odds →</button>
+      </div>
+    </div>
+
+
+  </div><!-- /panel-viewport -->
+</div><!-- /page-layout -->
+
+<script>
+const $ = id => document.getElementById(id);
+const TOTAL = 18;
+const LABELS = ['Overview','The sigmoid','1 feature \u2192 n','Decision boundary',
+                'Fit in sklearn','predict & proba','Many features','Multinomial & softmax',
+                'Multinomial','Confusion matrix','Precision & recall','Exercises',
+                'Euler\'s number e','Why \"logistic\"?','Log loss','Odds & log-odds',
+                'Boundary mathematics','Solvers'];
+const CURRICULUM_ORDER = [0,1,2,3,4,5,17,6,9,10,8,11,12,13,14,15,16,7];
+
+let current = 0;
+
+function goTo(idx) {
+  if (idx === current) return;
+  const oldP = $('panel-' + current), newP = $('panel-' + idx);
+  if (current > 0) document.querySelector(`[data-panel="${current}"]`).classList.add('done');
+  oldP.classList.remove('active'); oldP.classList.add('exit');
+  setTimeout(() => oldP.classList.remove('exit'), 280);
+  current = idx;
+  newP.classList.add('active');
+  $('viewport').scrollTop = 0;
+  document.querySelectorAll('.s-item').forEach(b => b.classList.toggle('active', +b.dataset.panel === idx));
+  updateDots();
+  const draws = [drawOverview, drawSig, null, drawSimpleBoundary, drawFit, drawPP, null, drawSoftmax,
+                 null, drawCM, null, null, drawExp, null, drawLoss, drawOdds, drawBoundMath, null];
+  if (draws[idx]) setTimeout(draws[idx], 60);
+}
+
+function updateDots() {
+  for (let i = 0; i < TOTAL; i++) {
+    const cont = $('dots-' + i); if (!cont) continue;
+    cont.innerHTML = '';
+    for (const d of CURRICULUM_ORDER) {
+      const btn = document.createElement('button');
+      btn.className = 'pnav-dot' + (d === current ? ' active' : '');
+      btn.title = LABELS[d]; btn.onclick = () => goTo(d);
+      cont.appendChild(btn);
+    }
+  }
+}
+
+$('viewport').addEventListener('scroll', () => {
+  const el = $('viewport');
+  $('progress').style.width = (el.scrollTop / (el.scrollHeight - el.clientHeight) * 100) + '%';
+});
+
+function cp(btn) {
+  navigator.clipboard.writeText(btn.closest('.code-wrap').querySelector('pre').innerText.trim()).then(() => {
+    btn.textContent = '✓ copied'; setTimeout(() => btn.textContent = 'copy', 1600);
+  });
+}
+
+/* ══════════ shared cartesian plot helper ══════════ */
+const COL = { grid:'rgba(230,237,243,.07)', axis:'rgba(230,237,243,.45)', tick:'rgba(230,237,243,.4)',
+              accent:'#facc15', blue:'#3b82f6', green:'#10b981', red:'#f43f5e', cyan:'#06b6d4', orange:'#f97316', purple:'#8b5cf6', surface:'#020509' };
+
+function plotSetup(cvId, XMIN, XMAX, YMIN, YMAX, xstep = 2, ystep) {
+  const cv = $(cvId), ctx = cv.getContext('2d');
+  const wrap = cv.parentElement;
+  cv.width = Math.min(wrap.clientWidth - 28 || 560, 640);
+  const W = cv.width, H = cv.height;
+  const sx = x => (x - XMIN) / (XMAX - XMIN) * W;
+  const sy = y => H - (y - YMIN) / (YMAX - YMIN) * H;
+  if (!ystep) ystep = xstep;
+  ctx.clearRect(0, 0, W, H);
+  ctx.strokeStyle = COL.grid; ctx.lineWidth = 1;
+  for (let gx = Math.ceil(XMIN / xstep) * xstep; gx <= XMAX; gx += xstep) { ctx.beginPath(); ctx.moveTo(sx(gx), 0); ctx.lineTo(sx(gx), H); ctx.stroke(); }
+  for (let gy = Math.ceil(YMIN / ystep) * ystep; gy <= YMAX; gy += ystep) { ctx.beginPath(); ctx.moveTo(0, sy(gy)); ctx.lineTo(W, sy(gy)); ctx.stroke(); }
+  ctx.strokeStyle = COL.axis; ctx.setLineDash([5, 4]); ctx.lineWidth = 1;
+  if (YMIN <= 0 && YMAX >= 0) { ctx.beginPath(); ctx.moveTo(0, sy(0)); ctx.lineTo(W, sy(0)); ctx.stroke(); }
+  if (XMIN <= 0 && XMAX >= 0) { ctx.beginPath(); ctx.moveTo(sx(0), 0); ctx.lineTo(sx(0), H); ctx.stroke(); }
+  ctx.setLineDash([]);
+  ctx.fillStyle = COL.tick; ctx.font = '10px Courier New'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  const yb = (YMIN <= 0 && YMAX >= 0) ? 0 : YMIN;
+  for (let gx = Math.ceil(XMIN / xstep) * xstep; gx <= XMAX; gx += xstep) if (Math.abs(gx) > 1e-9 && sx(gx) > 14 && sx(gx) < W - 14) ctx.fillText(Math.round(gx * 100) / 100, sx(gx), sy(yb) + 4);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  const xb = (XMIN <= 0 && XMAX >= 0) ? 0 : XMIN;
+  for (let gy = Math.ceil(YMIN / ystep) * ystep; gy <= YMAX; gy += ystep) if (Math.abs(gy) > 1e-9 && sy(gy) > 10 && sy(gy) < H - 10) ctx.fillText(Math.round(gy * 100) / 100, sx(xb) + 5, sy(gy));
+  return { ctx, sx, sy, W, H, XMIN, XMAX, YMIN, YMAX };
+}
+
+function haloText(ctx, txt, x, y, color) {
+  ctx.lineWidth = 4; ctx.lineJoin = 'round'; ctx.strokeStyle = COL.surface;
+  ctx.strokeText(txt, x, y);
+  ctx.fillStyle = color; ctx.fillText(txt, x, y);
+}
+
+function plotPoint(p, x, y, color, label, r = 5) {
+  const { ctx, sx, sy } = p;
+  ctx.beginPath(); ctx.arc(sx(x), sy(y), r, 0, Math.PI * 2);
+  ctx.fillStyle = color; ctx.fill();
+  ctx.lineWidth = 2; ctx.strokeStyle = COL.surface; ctx.stroke();
+  if (label) { ctx.font = 'bold 11px Courier New'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; haloText(ctx, label, sx(x) + 9, sy(y) - 7, color); }
+}
+
+/* draw any function y = f(x), clipped to the box */
+function plotFunc(p, f, color, label, width = 2.5, dash = null) {
+  const { ctx, sx, sy, XMIN, XMAX } = p;
+  ctx.save();
+  ctx.beginPath(); ctx.rect(0, 0, p.W, p.H); ctx.clip();
+  ctx.strokeStyle = color; ctx.lineWidth = width;
+  if (dash) ctx.setLineDash(dash);
+  ctx.beginPath();
+  const N = 300;
+  for (let i = 0; i <= N; i++) {
+    const x = XMIN + (XMAX - XMIN) * i / N;
+    const px = sx(x), py = sy(f(x));
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+  if (label) {
+    ctx.font = 'bold 11px Courier New'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+    haloText(ctx, label, sx(XMIN + (XMAX - XMIN) * 0.04), 18, color);
+  }
+}
+
+function hline(p, y, color, dash = [6, 5]) {
+  const { ctx, sy, W } = p;
+  ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = 1.6; ctx.setLineDash(dash);
+  ctx.beginPath(); ctx.moveTo(0, sy(y)); ctx.lineTo(W, sy(y)); ctx.stroke(); ctx.restore();
+}
+function vline(p, x, color, dash = [6, 5]) {
+  const { ctx, sx, H } = p;
+  ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = 1.6; ctx.setLineDash(dash);
+  ctx.beginPath(); ctx.moveTo(sx(x), 0); ctx.lineTo(sx(x), H); ctx.stroke(); ctx.restore();
+}
+
+const sigma = z => 1 / (1 + Math.exp(-z));
+const f2 = v => v.toFixed(2);
+const f4 = v => v.toFixed(4);
+
+/* ══════════ the battery dataset — real sklearn output ══════════ */
+const AGE    = [4, 8, 12, 18, 24, 30, 36, 42, 48, 54];
+const FAILED = [0, 0,  0,  0,  0,  1,  0,  1,  1,  1];
+const B0 = -1.2249451678135732, B1 = 0.0482986174968558;
+const pFail = x => sigma(B0 + B1 * x);
+
+/* ═══ PANEL 0: overview ═══ */
+function drawOverview() {
+  const p = plotSetup('cv-overview', -8, 8, -0.08, 1.12, 2, 0.25);
+  hline(p, 0.5, 'rgba(250,204,21,.45)');
+  hline(p, 1, 'rgba(230,237,243,.2)');
+  plotFunc(p, z => sigma(z), COL.blue, 'σ(z) = 1 / (1 + e^-z)', 3.4);
+  plotPoint(p, 0, 0.5, COL.red, '(0, 0.5)', 6);
+}
+
+/* ═══ PANEL 2: e^z ═══ */
+function drawExp() {
+  const p = plotSetup('cv-exp', -3, 3, -0.5, 8, 1, 1);
+  plotFunc(p, x => Math.exp(x), COL.orange, 'e^x  — always > 0', 3);
+  plotPoint(p, 0, 1, COL.accent, 'e⁰ = 1', 5);
+  plotPoint(p, 1, Math.E, COL.green, 'e¹ = 2.718', 5);
+  $('out-exp').textContent =
+`e^x never touches zero and never goes negative
+e^-3 = ${Math.exp(-3).toFixed(4)}   e^0 = 1   e^1 = ${Math.E.toFixed(4)}   e^3 = ${Math.exp(3).toFixed(4)}
+that is why 1 + e^-z can never be 0 — the sigmoid is always safe to divide`;
+}
+
+/* ═══ PANEL 3: sigmoid (interactive) ═══ */
+function drawSig() {
+  const b0 = +$('sg-b0').value, b1 = +$('sg-b1').value;
+  $('sg-b0v').textContent = b0.toFixed(1); $('sg-b1v').textContent = b1.toFixed(1);
+  const p = plotSetup('cv-sig', -10, 10, -0.08, 1.12, 2, 0.25);
+  hline(p, 0.5, 'rgba(250,204,21,.45)');
+  plotFunc(p, x => sigma(b0 + b1 * x), COL.accent, `σ(${f2(b0)} + ${f2(b1)}·x)`, 3.2);
+  let msg;
+  if (Math.abs(b1) < 1e-9) {
+    msg = `β₁ = 0 → the feature is ignored, every x gives the same p = ${f4(sigma(b0))}`;
+  } else {
+    const xb = -b0 / b1;
+    vline(p, xb, COL.red);
+    plotPoint(p, xb, 0.5, COL.red, `x = ${f2(xb)}`, 6);
+    msg = `boundary  x = -β₀/β₁ = ${f2(xb)}   (where p = 0.5)
+direction ${b1 > 0 ? 'β₁ > 0 → S rises: bigger x, higher P(class 1)' : 'β₁ < 0 → S falls: bigger x, lower P(class 1)'}
+steepness |β₁| = ${Math.abs(b1).toFixed(1)} → ${Math.abs(b1) > 1.5 ? 'a sharp switch, very confident' : Math.abs(b1) > 0.5 ? 'a normal S' : 'a lazy, stretched S — unsure'}`;
+  }
+  $('out-sig').textContent = `p(x) = 1 / (1 + e^-(${f2(b0)} + ${f2(b1)}·x))\n` + msg;
+}
+
+/* ═══ PANEL 5: odds ═══ */
+function drawOdds() {
+  const pr = +$('od-p').value;
+  $('od-pv').textContent = pr.toFixed(2);
+  const p = plotSetup('cv-odds', 0.01, 0.99, -5, 5, 0.2, 1);
+  hline(p, 0, 'rgba(230,237,243,.25)', [4, 4]);
+  plotFunc(p, v => Math.log(v / (1 - v)), COL.green, 'logit = ln(p / (1-p))', 3);
+  const lg = Math.log(pr / (1 - pr));
+  plotPoint(p, pr, Math.max(-5, Math.min(5, lg)), COL.accent, `p = ${pr.toFixed(2)}`, 6);
+  p.ctx.save();
+  p.ctx.font = 'bold 11px Courier New';
+  p.ctx.fillStyle = COL.accent;
+  p.ctx.textAlign = 'right';
+  p.ctx.textBaseline = 'bottom';
+  haloText(p.ctx, 'x: probability p', p.W - 8, p.H - 7, COL.accent);
+  p.ctx.save();
+  p.ctx.translate(13, p.H / 2);
+  p.ctx.rotate(-Math.PI / 2);
+  p.ctx.textAlign = 'center';
+  p.ctx.textBaseline = 'top';
+  haloText(p.ctx, 'y: log-odds', 0, 0, COL.green);
+  p.ctx.restore();
+  p.ctx.restore();
+  const meaning = pr < 0.5
+    ? 'negative score → prediction leans toward class 0'
+    : pr > 0.5
+      ? 'positive score → prediction leans toward class 1'
+      : 'score 0 → both classes are equally likely';
+  $('out-odds').textContent =
+`probability p = ${pr.toFixed(2)}
+odds         = p / (1 - p) = ${(pr / (1 - pr)).toFixed(4)}   ("${(pr / (1 - pr)).toFixed(2)} to 1")
+log-odds     = ln(odds)    = ${lg.toFixed(4)}   ← this is the matching score z
+meaning      = ${meaning}
+
+This graph is only converting p ↔ z. It is not measuring model quality.`;
+}
+
+/* ═══ PANEL 7: log loss ═══ */
+function drawLoss() {
+  const ph = +$('ll-p').value;
+  $('ll-pv').textContent = ph.toFixed(2);
+  const p = plotSetup('cv-loss', 0.01, 0.99, 0, 5, 0.2, 1);
+  plotFunc(p, v => -Math.log(v), COL.green, 'cost if y = 1:  -ln(p)', 2.8);
+  plotFunc(p, v => -Math.log(1 - v), COL.red, 'cost if y = 0:  -ln(1-p)', 2.8);
+  vline(p, ph, 'rgba(250,204,21,.5)');
+  plotPoint(p, ph, Math.min(5, -Math.log(ph)), COL.green, null, 5);
+  plotPoint(p, ph, Math.min(5, -Math.log(1 - ph)), COL.red, null, 5);
+  $('out-loss').textContent =
+`predicted p̂ = ${ph.toFixed(2)}
+if the true label is 1 → cost = -ln(${ph.toFixed(2)})   = ${(-Math.log(ph)).toFixed(4)}
+if the true label is 0 → cost = -ln(1-${ph.toFixed(2)}) = ${(-Math.log(1 - ph)).toFixed(4)}
+being confident and wrong is punished hardest — the cost runs off to infinity`;
+}
+
+/* ═══ probability threshold — fixed sigmoid, threshold from 20% to 90% ═══ */
+function drawSimpleBoundary() {
+  const thresholdPercent = +$('simple-boundary').value;
+  const threshold = thresholdPercent / 100;
+  const x = +$('simple-x').value;
+  const slope = 0.08;
+  const midpoint = 50;
+  const sigmoid = value => 1 / (1 + Math.exp(-slope * (value - midpoint)));
+  const thresholdX = midpoint + Math.log(threshold / (1 - threshold)) / slope;
+  const probability = sigmoid(x);
+  const answer = probability >= threshold;
+  $('simple-boundary-v').textContent = thresholdPercent + '%';
+  $('simple-x-v').textContent = x;
+
+  const cv = $('cv-simple-boundary'), ctx = cv.getContext('2d');
+  cv.width = Math.min(cv.parentElement.clientWidth - 28 || 560, 640);
+  const W = cv.width, H = cv.height;
+  const left = 44, right = W - 20, top = 20, bottom = H - 30;
+  const sx = value => left + value / 100 * (right - left);
+  const sy = probability => bottom - probability * (bottom - top);
+  ctx.clearRect(0, 0, W, H);
+
+  ctx.strokeStyle = COL.grid; ctx.lineWidth = 1;
+  for (const p of [0, 0.5, 1]) {
+    ctx.beginPath(); ctx.moveTo(left, sy(p)); ctx.lineTo(right, sy(p)); ctx.stroke();
+    ctx.fillStyle = COL.tick; ctx.font = '10px Courier New'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.fillText(Math.round(p * 100) + '%', left - 7, sy(p));
+  }
+  for (let value = 0; value <= 100; value += 20) {
+    ctx.fillStyle = COL.tick; ctx.font = '11px Courier New'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText(value, sx(value), bottom + 8);
+  }
+
+  ctx.strokeStyle = COL.red; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
+  ctx.beginPath(); ctx.moveTo(sx(thresholdX), top); ctx.lineTo(sx(thresholdX), bottom); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.font = 'bold 11px Courier New'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  haloText(ctx, `threshold ${thresholdPercent}%`, sx(thresholdX), top + 3, COL.red);
+  ctx.beginPath(); ctx.arc(sx(thresholdX), sy(threshold), 5, 0, Math.PI * 2);
+  ctx.fillStyle = COL.red; ctx.fill();
+
+  ctx.strokeStyle = COL.accent; ctx.lineWidth = 3;
+  ctx.beginPath();
+  for (let value = 0; value <= 100; value += 0.5) {
+    const px = sx(value), py = sy(sigmoid(value));
+    if (value === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  ctx.strokeStyle = answer ? COL.green : COL.red; ctx.lineWidth = 1.5; ctx.setLineDash([3, 3]);
+  ctx.beginPath(); ctx.moveTo(sx(x), bottom); ctx.lineTo(sx(x), sy(probability)); ctx.lineTo(left, sy(probability)); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.beginPath(); ctx.arc(sx(x), sy(probability), 7, 0, Math.PI * 2);
+  ctx.fillStyle = answer ? COL.green : COL.red; ctx.fill();
+  ctx.lineWidth = 2; ctx.strokeStyle = COL.surface; ctx.stroke();
+  ctx.textBaseline = 'bottom';
+  haloText(ctx, `x=${x}, p=${(probability * 100).toFixed(1)}%`, sx(x), sy(probability) - 10, answer ? COL.green : COL.red);
+
+  $('out-simple-boundary').textContent =
+`probability threshold = ${thresholdPercent}%
+threshold crossing     = x ${thresholdX.toFixed(1)}
+input x              = ${x}
+predicted probability = ${(probability * 100).toFixed(1)}%
+
+Is the probability at least ${thresholdPercent}%?
+${(probability * 100).toFixed(1)}% >= ${thresholdPercent}%  →  ${answer ? 'True' : 'False'}
+
+Python: probability >= ${threshold.toFixed(2)} returns ${answer ? 'True' : 'False'}`;
+}
+
+/* ═══ mathematical decision boundary — dotted threshold and sigmoid ═══ */
+function drawBoundMath() {
+  const t = +$('bd-t').value;
+  $('bd-tv').textContent = t.toFixed(2);
+  const p = plotSetup('cv-bound', 0, 70, -0.08, 1.12, 10, 0.25);
+  const xb = (Math.log(t / (1 - t)) - B0) / B1;       // x where p(x) = t
+
+  // shade the two decision regions
+  const { ctx, sx, sy, W, H } = p;
+  ctx.save();
+  ctx.fillStyle = 'rgba(16,185,129,.06)'; ctx.fillRect(0, 0, Math.max(0, sx(xb)), H);
+  ctx.fillStyle = 'rgba(244,63,94,.07)';  ctx.fillRect(Math.max(0, sx(xb)), 0, W - Math.max(0, sx(xb)), H);
+  ctx.restore();
+
+  plotFunc(p, x => pFail(x), COL.blue, 'P(fail) = σ(β₀ + β₁x)', 3.2);
+  hline(p, t, COL.accent, [7, 5]);        // the threshold, dotted
+  vline(p, xb, COL.red, [7, 5]);          // the boundary, dotted
+  plotPoint(p, xb, t, COL.accent, `p = ${t.toFixed(2)}`, 6);
+  plotPoint(p, xb, 0, COL.red, `x = ${f2(xb)}`, 5);
+
+  ctx.font = 'bold 11px Courier New'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  if (sx(xb) > 70) haloText(ctx, 'predict 0', sx(xb) / 2, 8, COL.green);
+  if (sx(xb) < W - 70) haloText(ctx, 'predict 1', (sx(xb) + W) / 2, 8, COL.red);
+
+  $('out-bound').textContent =
+`threshold p = ${t.toFixed(2)}
+boundary  x = (ln(p/(1-p)) - b0) / b1 = ${f2(xb)} months
+x < ${f2(xb)} → predict 0 (pass)      x ≥ ${f2(xb)} → predict 1 (fail)
+${Math.abs(t - 0.5) < 1e-9 ? 'at p = 0.5 this is simply -b0/b1 = 25.36' : 'at p = 0.5 it would be -b0/b1 = 25.36'}`;
+}
+
+/* ═══ the fitted battery model ═══ */
+function drawFit() {
+  const p = plotSetup('cv-fit', 0, 70, -0.08, 1.12, 10, 0.25);
+  hline(p, 0.5, 'rgba(250,204,21,.45)');
+  plotFunc(p, x => pFail(x), COL.blue, 'P(fail) = σ(-1.2249 + 0.0483x)', 3.2);
+  const xb = -B0 / B1;
+  vline(p, xb, COL.red);
+  for (let i = 0; i < AGE.length; i++) plotPoint(p, AGE[i], FAILED[i], FAILED[i] ? COL.red : COL.green, null, 6);
+  plotPoint(p, xb, 0.5, COL.accent, `boundary ${f2(xb)} mo`, 6);
+  $('out-fit').textContent =
+`b0 = -1.2249451678135732      b1 = 0.0482986174968558
+P(fail | x) = 1 / (1 + e^-(-1.2249 + 0.0483·x))
+boundary  x = -b0/b1 = ${f2(xb)} months  → left of it predict 0, right of it predict 1
+the green dot at 36 months sits on the WRONG side — that is the model's one mistake`;
+}
+
+/* ═══ PANEL 9: predict / predict_proba (interactive) ═══ */
+function drawPP() {
+  const x = +$('pp-x').value;
+  $('pp-xv').textContent = x;
+  const p = plotSetup('cv-pp', 0, 70, -0.08, 1.12, 10, 0.25);
+  hline(p, 0.5, 'rgba(250,204,21,.45)');
+  plotFunc(p, v => pFail(v), COL.blue, 'the fitted sigmoid', 3);
+  for (let i = 0; i < AGE.length; i++) plotPoint(p, AGE[i], FAILED[i], FAILED[i] ? COL.red : COL.green, null, 5);
+  const pf = pFail(x);
+  vline(p, x, 'rgba(250,204,21,.5)');
+  plotPoint(p, x, pf, COL.accent, `${(pf * 100).toFixed(1)}%`, 7);
+  $('out-pp').textContent =
+`x = ${x} months
+manual : 1 / (1 + np.exp(-(b0 + b1*${x}))) = ${f4(pf)}  →  ${(pf * 100).toFixed(2)}%
+proba  : model.predict_proba([[${x}]]) = [[${f4(1 - pf)} ${f4(pf)}]]   ← [P(pass), P(fail)]
+predict: model.predict([[${x}]]) = [${pf >= 0.5 ? 1 : 0}]   (P(fail) ${pf >= 0.5 ? '≥' : '<'} 0.5)`;
+}
+
+/* ═══ PANEL 11: softmax (interactive) ═══ */
+function drawSoftmax() {
+  const z = [+$('sm-z0').value, +$('sm-z1').value, +$('sm-z2').value];
+  ['sm-z0v', 'sm-z1v', 'sm-z2v'].forEach((id, i) => $(id).textContent = z[i].toFixed(1));
+  const ex = z.map(Math.exp), s = ex.reduce((a, b) => a + b, 0), pr = ex.map(v => v / s);
+
+  const cv = $('cv-softmax'), ctx = cv.getContext('2d');
+  cv.width = Math.min(cv.parentElement.clientWidth - 28 || 560, 640);
+  const W = cv.width, H = cv.height;
+  ctx.clearRect(0, 0, W, H);
+  const names = ['wilted', 'green', 'flowered'], cols = [COL.orange, COL.green, COL.purple];
+  const bw = Math.min(120, (W - 80) / 3), gap = (W - bw * 3) / 4, base = H - 34, top = 24;
+  for (let i = 0; i < 3; i++) {
+    const x = gap + i * (bw + gap), h = pr[i] * (base - top);
+    ctx.fillStyle = 'rgba(255,255,255,.04)';
+    ctx.fillRect(x, top, bw, base - top);
+    ctx.fillStyle = cols[i];
+    ctx.fillRect(x, base - h, bw, h);
+    ctx.font = 'bold 13px Courier New'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    haloText(ctx, (pr[i] * 100).toFixed(1) + '%', x + bw / 2, base - h - 6, cols[i]);
+    ctx.fillStyle = 'rgba(230,237,243,.65)'; ctx.textBaseline = 'top'; ctx.font = '11px Courier New';
+    ctx.fillText(names[i], x + bw / 2, base + 6);
+    ctx.fillText('z = ' + z[i].toFixed(1), x + bw / 2, base + 20);
+  }
+  $('out-softmax').textContent =
+`z        = [${z.map(v => v.toFixed(2)).join(', ')}]
+e^z      = [${ex.map(v => v.toFixed(4)).join(', ')}]     sum = ${s.toFixed(4)}
+softmax  = [${pr.map(f4).join(', ')}]     total = ${pr.reduce((a, b) => a + b, 0).toFixed(4)}
+predict  = class ${pr.indexOf(Math.max(...pr))} (${names[pr.indexOf(Math.max(...pr))]}) — the biggest z always wins`;
+}
+
+/* ═══ PANEL 13: confusion matrix (interactive threshold) ═══ */
+function drawCM() {
+  const t = +$('cm-t').value;
+  $('cm-tv').textContent = t.toFixed(2);
+  let TP = 0, TN = 0, FP = 0, FN = 0;
+  for (let i = 0; i < AGE.length; i++) {
+    const yhat = pFail(AGE[i]) >= t ? 1 : 0, y = FAILED[i];
+    if (y === 1 && yhat === 1) TP++;
+    else if (y === 0 && yhat === 0) TN++;
+    else if (y === 0 && yhat === 1) FP++;
+    else FN++;
+  }
+  const cell = (v, kind, tag) =>
+    `<div class="cm-cell ${kind}"><div class="cm-val">${v}</div><div class="cm-tag">${tag}</div></div>`;
+  $('cm-render').innerHTML =
+    `<div class="cm-grid binary" style="margin:0 auto;">
+      <div class="cm-cell corner"></div>
+      <div class="cm-cell head">pred 0</div>
+      <div class="cm-cell head">pred 1</div>
+      <div class="cm-cell head">actual 0</div>
+      ${cell(TN, TN ? 'hit' : '', 'TN')}
+      ${cell(FP, FP ? 'miss' : '', 'FP')}
+      <div class="cm-cell head">actual 1</div>
+      ${cell(FN, FN ? 'miss' : '', 'FN')}
+      ${cell(TP, TP ? 'hit' : '', 'TP')}
+    </div>`;
+  const acc = (TP + TN) / 10;
+  const prec = (TP + FP) ? TP / (TP + FP) : 0;
+  const rec = (TP + FN) ? TP / (TP + FN) : 0;
+  const f1 = (prec + rec) ? 2 * prec * rec / (prec + rec) : 0;
+  $('out-cm').textContent =
+`threshold = ${t.toFixed(2)}   → predict 1 when P(fail) ≥ ${t.toFixed(2)}
+TP=${TP}  TN=${TN}  FP=${FP}  FN=${FN}
+accuracy=${acc.toFixed(3)}  precision=${prec.toFixed(3)}  recall=${rec.toFixed(3)}  f1=${f1.toFixed(3)}
+lower the threshold → recall up, precision down. raise it → the opposite.`;
+}
+
+/* first paint */
+updateDots();
+drawOverview();
+window.addEventListener('resize', () => {
+  const draws = [drawOverview, drawSig, null, drawSimpleBoundary, drawFit, drawPP, null, drawSoftmax,
+                 null, drawCM, null, null, drawExp, null, drawLoss, drawOdds, drawBoundMath, null];
+  if (draws[current]) draws[current]();
+});
+</script>
+</body>
+</html>

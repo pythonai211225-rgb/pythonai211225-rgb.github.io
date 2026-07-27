@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 13 - Logistic Regression, the Sigmoid and the Confusion Matrix</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      renderMathInElement(document.body, {
+        delimiters: [
+          { left: '$$', right: '$$', display: true },
+          { left: '\\(', right: '\\)', display: false }
+        ],
+        throwOnError: false
+      });
+    });
+  </script>
+  <style>
+    :root {
+      --bg: #f8fbff;
+      --surface: #ffffff;
+      --ink: #142033;
+      --muted: #52657d;
+      --blue: #2563eb;
+      --blue-dark: #143b73;
+      --cyan: #e7fbff;
+      --green: #0f9f6e;
+      --orange: #f97316;
+      --red: #dc2626;
+      --border: #bfd0ea;
+      --code-bg: #101a2c;
+      --code-text: #dceaff;
+      --soft-blue: #eef6ff;
+      --soft-green: #effbf5;
+      --soft-orange: #fff7ed;
+      --soft-red: #fef2f2;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Trebuchet MS", "Lucida Sans", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 10%, #e9f7ff 0%, transparent 34%),
+        radial-gradient(circle at 88% 18%, #effbf5 0%, transparent 32%),
+        linear-gradient(180deg, var(--bg) 0%, #ffffff 56%, #f1f8ff 100%);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 28px 20px 60px; }
+    .layout { display: grid; grid-template-columns: 250px 1fr; gap: 22px; align-items: start; }
+
+    .side-nav {
+      position: sticky; top: 20px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 18px 14px;
+      box-shadow: 0 4px 16px rgba(37,99,235,.08);
+    }
+    .side-title { font-size: .8rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--blue); margin: 0 0 10px; }
+    .part-label { display: block; padding: 8px 4px 4px; font-size: .7rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--green); }
+    .topic-link {
+      display: block; width: 100%; border: 1px solid transparent; border-radius: 9px;
+      padding: 7px 10px; background: transparent; color: var(--muted); cursor: pointer;
+      text-align: left; font: inherit; margin: 2px 0; transition: .16s ease;
+    }
+    .topic-link:hover { background: #f0f7ff; color: var(--blue-dark); border-color: var(--border); }
+    .topic-link.active { background: #e9f1ff; color: var(--blue-dark); border-color: var(--blue); font-weight: 700; }
+    .side-divider { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+
+    .nav-back {
+      display: inline-block; margin-top: 8px; padding: 10px 16px; border-radius: 10px;
+      border: 1px solid var(--border); background: var(--soft-blue); color: var(--blue-dark);
+      text-decoration: none; font-weight: 700;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, var(--surface) 0%, var(--soft-blue) 54%, var(--soft-green) 100%);
+      border: 1px solid var(--border); border-radius: 16px; padding: 28px;
+      box-shadow: 0 12px 30px rgba(37,99,235,.12); margin-bottom: 22px;
+    }
+    .tag { display: inline-block; padding: 5px 12px; border-radius: 999px; background: #e7fbff; color: #0f766e; font-weight: 800; font-size: .82rem; border: 1px solid #99e6ef; }
+    h1 { margin: 14px 0 10px; color: var(--blue-dark); font-size: clamp(2rem, 5vw, 3.2rem); line-height: 1.05; }
+    .hero p { max-width: 820px; color: var(--muted); font-size: 1.06rem; }
+    .hero-chips { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .hero-chip { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: .78rem; font-weight: 700; background: rgba(20,184,166,.1); color: #0f766e; border: 1px solid rgba(20,184,166,.3); }
+
+    .card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      padding: 22px; margin-bottom: 16px; box-shadow: 0 7px 22px rgba(37,99,235,.08);
+    }
+    .topic-panel { display: none; }
+    .topic-panel.active { display: block; }
+    .step-title { margin: 0 0 12px; color: var(--blue-dark); font-size: 1.25rem; }
+
+    .formula-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 16px 0; }
+    .formula { border: 1px solid var(--border); border-radius: 10px; padding: 14px; background: #fbfdff; }
+    .formula.wide { grid-column: 1 / -1; }
+    .formula strong { color: var(--blue-dark); display: block; margin-bottom: 4px; }
+    code { font-family: Consolas, "Courier New", monospace; }
+
+    .math-card {
+      border: 1px solid #b7c8e4; border-radius: 12px;
+      background: linear-gradient(135deg, #ffffff 0%, #f1f7ff 100%);
+      padding: 18px; margin: 18px 0; text-align: center;
+    }
+    .math-formula { display: block; color: var(--blue-dark); font-family: "Cambria Math", "Times New Roman", serif; font-size: clamp(1.25rem, 3vw, 2rem); line-height: 1.7; overflow-x: auto; padding: 2px 0; }
+    .math-caption { color: var(--muted); margin: 8px 0 0; font-size: .95rem; }
+    .math-formula.compact { font-size: clamp(.88rem, 1.8vw, 1.2rem); }
+    .math-formula.no-scroll, .math-formula.no-scroll .katex-display { overflow-x: hidden; }
+    .math-formula.no-scroll { font-size: clamp(.7rem, 1.45vw, 1rem); }
+
+    .katex { color: var(--blue-dark); }
+    .katex-display { margin: 6px 0; overflow-x: auto; overflow-y: hidden; padding: 3px 0; }
+    .data-table .katex, .math-caption .katex, p .katex { font-size: 1em; }
+
+    .resource-link { display: inline-block; color: var(--blue-dark); font-weight: 800; text-decoration: none; border-bottom: 2px solid rgba(37,99,235,.35); }
+    .resource-link:hover { color: var(--blue); border-bottom-color: var(--blue); }
+    .resource-links { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 4px; }
+
+    .code {
+      background: var(--code-bg); color: var(--code-text); border-radius: 10px;
+      border: 1px solid #304563; padding: 16px 18px; overflow-x: auto; margin: 12px 0;
+      font-size: .95rem; line-height: 1.5; white-space: pre;
+    }
+    .output {
+      background: #f7fbff; color: #1a2d49; border: 1px solid var(--border);
+      border-left: 5px solid var(--blue); border-radius: 10px; padding: 12px 14px;
+      overflow-x: auto; margin: 8px 0 16px; font-family: Consolas, "Courier New", monospace; white-space: pre-wrap;
+    }
+    .output.warn { border-left-color: var(--red); background: var(--soft-red); }
+
+    .graph-preview {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #fbfdff;
+      padding: 14px;
+      margin: 18px 0;
+    }
+
+    .graph-preview svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      max-height: 360px;
+    }
+
+    .graph-title {
+      font-weight: 800;
+      color: var(--blue-dark);
+      margin: 0 0 8px;
+    }
+
+    .note { background: var(--soft-orange); border: 1px solid #fed7aa; border-left: 5px solid var(--orange); border-radius: 10px; padding: 12px 14px; margin: 12px 0; }
+    .note.blue { background: var(--soft-blue); border-color: #bcd4f6; border-left-color: var(--blue); }
+    .note.red { background: var(--soft-red); border-color: #fecaca; border-left-color: var(--red); }
+    .note.green { background: var(--soft-green); border-color: #b6ebd4; border-left-color: var(--green); }
+
+    .task-box { border: 1px solid var(--border); border-left: 5px solid var(--blue); border-radius: 10px; padding: 14px 16px; margin: 12px 0; background: #fbfdff; }
+    .task-num { font-weight: 900; color: var(--blue); text-transform: uppercase; letter-spacing: .08em; font-size: .78rem; }
+    .big-result { font-weight: 900; color: var(--blue-dark); font-size: 1.1rem; letter-spacing: .04em; text-transform: uppercase; margin-bottom: 8px; }
+
+    .data-table { width: 100%; border-collapse: collapse; margin: 16px 0; background: #fbfdff; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .data-table th { background: var(--soft-blue); color: var(--blue-dark); text-align: left; padding: 10px 14px; font-size: .9rem; border-bottom: 2px solid var(--border); }
+    .data-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); font-family: Consolas, "Courier New", monospace; }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table td.term { font-family: inherit; font-weight: 700; color: var(--blue-dark); }
+
+    .split-cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0; }
+    .split-cmp .box { border-radius: 12px; padding: 16px; text-align: center; }
+    .split-cmp .box.good { background: var(--soft-green); border: 1px solid #b6ebd4; }
+    .split-cmp .box.bad { background: var(--soft-red); border: 1px solid #fecaca; }
+    .split-cmp .box .label { font-size: .8rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+    .split-cmp .box .num { font-size: 2rem; font-weight: 900; margin: 6px 0; font-family: Consolas, monospace; }
+    .split-cmp .box.good .num { color: var(--green); }
+    .split-cmp .box.bad .num { color: var(--red); }
+    .split-cmp .box .sub { font-size: .82rem; color: var(--muted); }
+
+    /* confusion matrix grid */
+    .cm-wrap { display: grid; grid-template-columns: auto 1fr 1fr; gap: 6px; margin: 16px 0; max-width: 620px; }
+    .cm-cell { border-radius: 10px; padding: 14px 10px; text-align: center; font-family: Consolas, monospace; }
+    .cm-cell.head { background: var(--soft-blue); border: 1px solid var(--border); color: var(--blue-dark); font-weight: 800; font-family: inherit; font-size: .86rem; }
+    .cm-cell.corner { background: transparent; border: none; }
+    .cm-cell.ok { background: #dcf5ea; border: 1px solid #b6ebd4; }
+    .cm-cell.bad { background: #fde8e8; border: 1px solid #fecaca; }
+    .cm-cell .n { display: block; font-size: 1.7rem; font-weight: 900; }
+    .cm-cell.ok .n { color: var(--green); }
+    .cm-cell.bad .n { color: var(--red); }
+    .cm-cell .t { display: block; font-family: inherit; font-size: .76rem; color: var(--muted); }
+
+    .footer { text-align: center; color: var(--muted); font-size: .9rem; margin-top: 18px; }
+    .task-list { margin: 6px 0 0; padding-left: 20px; }
+    .task-list li { margin: 4px 0; }
+
+    @media (max-width: 820px) {
+      .layout { grid-template-columns: 1fr; }
+      .side-nav { position: static; }
+      .wrap { padding: 18px 12px 44px; }
+      .formula-strip, .split-cmp { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="layout">
+    <aside class="side-nav">
+      <p class="side-title">Lesson 13</p>
+      <span class="part-label">The S-Curve</span>
+      <button class="topic-link active" data-target="topic-github">1. GitHub Repo</button>
+      <button class="topic-link" data-target="topic-1">2. Yes / No questions</button>
+      <button class="topic-link" data-target="topic-2">3. The number e</button>
+      <button class="topic-link" data-target="topic-3">4. The sigmoid formula</button>
+      <button class="topic-link" data-target="topic-4">5. Drawing a sigmoid</button>
+      <span class="part-label">sklearn</span>
+      <button class="topic-link" data-target="topic-5">6. LogisticRegression</button>
+      <button class="topic-link" data-target="topic-6">7. The fitted equation</button>
+      <button class="topic-link" data-target="topic-7">8. The answer for x = 3</button>
+      <span class="part-label">Scoring</span>
+      <button class="topic-link" data-target="topic-8">9. Confusion matrix</button>
+      <button class="topic-link" data-target="topic-9">10. Heatmap of the matrix</button>
+      <span class="part-label">Class Exercise</span>
+      <button class="topic-link" data-target="topic-10">11. Loan data - solved</button>
+      <span class="part-label">Practice</span>
+      <button class="topic-link" data-target="topic-11">12. Homework</button>
+      <hr class="side-divider">
+      <a class="nav-back" href="../../index.html">Back to Python libs</a>
+    </aside>
+
+    <main>
+      <section class="hero">
+        <span class="tag">Lesson - July 26, 2026</span>
+        <h1>Logistic Regression, the Sigmoid &amp; the Confusion Matrix</h1>
+        <p>Until now every model gave us a <strong>number</strong> - a price, a running time. Today the answer became <strong>yes or no</strong>: will the student pass, will the customer repay the loan? A straight line cannot answer that, so we met the <strong>sigmoid</strong> - an S-shaped curve that always lands between 0 and 1, so we can read it as a <strong>percentage</strong>. We fitted our first <code>LogisticRegression</code>, asked it for probabilities, and then counted its right and wrong answers in a <strong>confusion matrix</strong>.</p>
+        <div class="hero-chips">
+          <span class="hero-chip">sigmoid</span>
+          <span class="hero-chip">Euler's number e</span>
+          <span class="hero-chip">LogisticRegression</span>
+          <span class="hero-chip">predict_proba</span>
+          <span class="hero-chip">confusion_matrix</span>
+          <span class="hero-chip">seaborn heatmap</span>
+        </div>
+      </section>
+
+      <!-- ═══ 1. GITHUB ═══ -->
+      <section class="card topic-panel active" id="topic-github">
+        <h2 class="step-title">Open Class Code</h2>
+        <p>Open the original notebook from today's class on GitHub: <code>log_26_07_2026.ipynb</code>.</p>
+        <div class="resource-links">
+          <a class="resource-link" href="https://github.com/pythonai211225-rgb/26.07.2026" target="_blank" rel="noopener">
+            pythonai211225-rgb/26.07.2026
+          </a>
+        </div>
+        <div class="note blue">This repository contains the class code for July 26, 2026.</div>
+        <p>The imports we started with - the same four we always use, and <code>math</code> later on:</p>
+        <pre class="code"><code>import numpy as np
+import pandas as pd
+from IPython.display import display
+import matplotlib.pyplot as plt
+import seaborn as sns</code></pre>
+      </section>
+
+      <!-- ═══ 2. YES / NO ═══ -->
+      <section class="card topic-panel" id="topic-1">
+        <h2 class="step-title">Yes / No questions need a new kind of model</h2>
+        <p>Linear regression answers <em>"how much?"</em> - a price of 1550, a running time of 62 seconds. But many real questions have only <strong>two possible answers</strong>:</p>
+        <table class="data-table">
+          <thead><tr><th>Question</th><th>Answer = 1</th><th>Answer = 0</th></tr></thead>
+          <tbody>
+            <tr><td class="term">Did the student pass the exam?</td><td>passed</td><td>failed</td></tr>
+            <tr><td class="term">Will the customer repay the loan?</td><td>repaid</td><td>did not repay</td></tr>
+            <tr><td class="term">Is this email spam?</td><td>spam</td><td>not spam</td></tr>
+          </tbody>
+        </table>
+        <p>We still have one input <code>x</code> (hours studied, annual income) but the output <code>y</code> is only <strong>0 or 1</strong>. A straight line is the wrong tool here for one simple reason: <strong>a line never stops</strong>. Push <code>x</code> far enough and the line gives 1.4 or −3.2 - and there is no such thing as a 140% chance of passing.</p>
+        <div class="note red"><strong>The problem with a line:</strong> its output runs from −∞ to +∞. We need something whose output can <strong>never leave the range 0 … 1</strong>, so we can read the answer as a probability.</div>
+        <div class="note green"><strong>The fix:</strong> take the same line \(\beta_0 + \beta_1 x\) we already know how to build, and squeeze it through a function that flattens both ends. That function is the <strong>sigmoid</strong>, and the whole method is called <strong>logistic regression</strong>.</div>
+      </section>
+
+      <!-- ═══ 3. THE NUMBER e ═══ -->
+      <section class="card topic-panel" id="topic-2">
+        <h2 class="step-title">First, the number e</h2>
+        <pre class="code"><code>'''
+In math, e is a famous number called Euler's number (pronounced "Oiler's number").
+It is a constant - a fixed number like pi (π) - that is roughly equal to 2.71828
+'''</code></pre>
+        <p>That is really all you need for today: <strong>e is just a fixed number</strong>, about <code>2.71828</code>, exactly like π is about <code>3.14159</code>. It is not a variable and it is not something the model learns.</p>
+        <pre class="code"><code>import math
+
+print(math.e)        # 2.718281828459045
+print(np.exp(1))     # 2.718281828459045   ← same thing
+print(np.exp(2))     # 7.38905609893065    ← e × e
+print(np.exp(0))     # 1.0                 ← anything to the power 0 is 1
+print(np.exp(-3))    # 0.049787068367863944  ← small, but still positive</code></pre>
+        <table class="data-table">
+          <thead><tr><th>Code</th><th>Means</th><th>Value</th></tr></thead>
+          <tbody>
+            <tr><td class="term">math.e</td><td>the constant itself</td><td>2.71828…</td></tr>
+            <tr><td class="term">np.exp(z)</td><td>\(e^z\) - e raised to the power z</td><td>depends on z</td></tr>
+            <tr><td class="term">np.exp(-z)</td><td>\(e^{-z}\) - the same, negative power</td><td>always &gt; 0</td></tr>
+          </tbody>
+        </table>
+        <div class="note blue"><strong>The one property that matters:</strong> \(e^{\text{anything}}\) is <strong>always positive</strong> - never zero, never negative. That is exactly what makes the sigmoid safe, as the next panel shows.</div>
+        <div class="note"><code>np.exp</code> works on a whole array at once. Give it 500 x-values and it returns 500 results - no loop needed.</div>
+      </section>
+
+      <!-- ═══ 4. THE SIGMOID FORMULA ═══ -->
+      <section class="card topic-panel" id="topic-3">
+        <h2 class="step-title">The sigmoid formula</h2>
+        <div class="math-card">
+          <span class="math-formula">
+            $$P(Y = 1 \mid X) = \frac{1}{1 + e^{-(\beta_0 + \beta_1 X)}}$$
+          </span>
+          <p class="math-caption">The probability that the answer is <strong>yes</strong>, given the input X.</p>
+        </div>
+        <p>Read it from the inside out - it is the straight line you already know, wrapped in two extra steps:</p>
+        <table class="data-table">
+          <thead><tr><th>Piece</th><th>Name</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td class="term">\(\beta_0 + \beta_1 X\)</td><td>the line</td><td>Exactly the linear model from Lesson 10 - an intercept plus a slope times X. It can be any number, positive or negative.</td></tr>
+            <tr><td class="term">\(e^{-(\dots)}\)</td><td>the squeeze</td><td>Always positive, so the denominator is always bigger than 1.</td></tr>
+            <tr><td class="term">\(\frac{1}{1 + \dots}\)</td><td>the flip</td><td>1 divided by something bigger than 1 - so the result always lands strictly between 0 and 1.</td></tr>
+            <tr><td class="term">\(P(Y = 1 \mid X)\)</td><td>the answer</td><td>The chance of "yes". Multiply by 100 and you have a percentage.</td></tr>
+          </tbody>
+        </table>
+        <p>Why can it never escape 0 … 1? Follow three cases:</p>
+        <div class="formula-strip">
+          <div class="formula"><strong>Line = 0</strong> \(e^{0} = 1\), so we get \(1/(1+1) = 0.5\) - a perfect 50/50 coin flip.</div>
+          <div class="formula"><strong>Line very positive</strong> \(e^{-\text{big}}\) is almost 0, so we get \(1/(1+0) \approx 1\) - almost certainly yes.</div>
+          <div class="formula"><strong>Line very negative</strong> \(e^{+\text{big}}\) is huge, so we get \(1/\text{huge} \approx 0\) - almost certainly no.</div>
+        </div>
+        <div class="note green"><strong>The 0.5 line is the border.</strong> Whenever \(\beta_0 + \beta_1 x = 0\) the sigmoid gives exactly 0.5. That x is the point where the model switches its answer from "no" to "yes".</div>
+        <div class="note">The name comes from the Greek letter sigma - the curve is shaped like a stretched <strong>S</strong>.</div>
+      </section>
+
+      <!-- ═══ 5. DRAWING A SIGMOID ═══ -->
+      <section class="card topic-panel" id="topic-4">
+        <h2 class="step-title">Drawing a sigmoid by hand</h2>
+        <p>Before letting sklearn find the numbers, we <strong>picked</strong> two of our own - \(\beta_0 = -11.052\) and \(\beta_1 = 2.197\) - and just plotted the formula, exactly like we plotted a parabola last lesson.</p>
+        <pre class="code"><code>import numpy as np
+import matplotlib.pyplot as plt
+import math
+
+x = np.linspace(1, 10, 500)
+
+# e = 2.718281828459045  --- or math.e
+b0 = -11.052
+b1 = 2.197
+
+denom = 1 + np.exp( -(b0 + b1 * x) )
+sigmoid = 1 / denom
+plt.plot(x, sigmoid, linewidth = 3)
+plt.xlabel('x')
+plt.ylabel('sigmoid(x)')
+plt.grid(True)
+
+plt.show()</code></pre>
+
+        <div class="math-card">
+          <span class="math-formula compact">
+            $$y = \frac{1}{1 + e^{-(-11.052 \,+\, 2.197x)}}$$
+          </span>
+        </div>
+
+        <div class="graph-preview">
+          <p class="graph-title">The S-curve: flat, steep, flat</p>
+          <svg viewBox="0 0 720 360" role="img" aria-label="Sigmoid curve rising from 0 to 1 with its steepest point near x equals 5">
+            <rect x="44" y="26" width="620" height="288" fill="#ffffff" stroke="#bfd0ea"/>
+            <g stroke="#e1e9f5" stroke-width="1">
+              <line x1="44" y1="292" x2="664" y2="292"/><line x1="44" y1="243" x2="664" y2="243"/>
+              <line x1="44" y1="219" x2="664" y2="219"/><line x1="44" y1="170" x2="664" y2="170"/>
+              <line x1="44" y1="121" x2="664" y2="121"/><line x1="44" y1="97" x2="664" y2="97"/>
+              <line x1="44" y1="48" x2="664" y2="48"/>
+              <line x1="113" y1="26" x2="113" y2="314"/><line x1="182" y1="26" x2="182" y2="314"/>
+              <line x1="251" y1="26" x2="251" y2="314"/><line x1="320" y1="26" x2="320" y2="314"/>
+              <line x1="389" y1="26" x2="389" y2="314"/><line x1="458" y1="26" x2="458" y2="314"/>
+              <line x1="527" y1="26" x2="527" y2="314"/><line x1="596" y1="26" x2="596" y2="314"/>
+            </g>
+            <line x1="44" y1="292" x2="664" y2="292" stroke="#1f2937" stroke-width="2"/>
+            <line x1="44" y1="314" x2="44" y2="26" stroke="#1f2937" stroke-width="2"/>
+            <line x1="44" y1="170" x2="664" y2="170" stroke="#0f9f6e" stroke-width="2" stroke-dasharray="6 5"/>
+            <path d="M 44 292 L 54 292 L 64 292 L 74 292 L 83 292 L 93 292 L 103 292 L 113 292 L 123 292 L 133 291 L 142 291 L 152 291 L 162 291 L 172 290 L 182 289 L 192 288 L 201 287 L 211 285 L 221 283 L 231 279 L 241 275 L 251 269 L 261 262 L 270 252 L 280 241 L 290 227 L 300 211 L 310 193 L 320 174 L 329 155 L 339 137 L 349 120 L 359 105 L 369 92 L 379 82 L 388 74 L 398 67 L 408 63 L 418 59 L 428 56 L 438 54 L 447 52 L 457 51 L 467 50 L 477 50 L 487 49 L 497 49 L 507 49 L 516 48 L 526 48 L 536 48 L 546 48 L 556 48 L 566 48 L 575 48 L 585 48 L 595 48 L 605 48 L 615 48 L 625 48 L 634 48 L 644 48 L 654 48 L 664 48"
+                  fill="none" stroke="#1d4ed8" stroke-width="5"/>
+            <text x="20" y="296" fill="#52657d" font-size="13">0.0</text>
+            <text x="20" y="174" fill="#52657d" font-size="13">0.5</text>
+            <text x="20" y="52" fill="#52657d" font-size="13">1.0</text>
+            <text x="108" y="332" fill="#52657d" font-size="13">2</text>
+            <text x="246" y="332" fill="#52657d" font-size="13">4</text>
+            <text x="315" y="332" fill="#52657d" font-size="13">5</text>
+            <text x="384" y="332" fill="#52657d" font-size="13">6</text>
+            <text x="522" y="332" fill="#52657d" font-size="13">8</text>
+            <text x="655" y="332" fill="#52657d" font-size="13">10</text>
+            <text x="470" y="230" fill="#0f9f6e" font-size="14" font-weight="bold">0.5 border - the model changes its mind here</text>
+          </svg>
+        </div>
+
+        <div class="note blue"><strong>Where is the border?</strong> Solve \(-11.052 + 2.197x = 0\) and you get \(x = 11.052 / 2.197 \approx 5.03\). Look at the graph: that is exactly where the blue curve crosses the green 0.5 line.</div>
+        <div class="note">Notice the shape: almost flat below x = 3 (answer is "no" no matter what), very steep around x = 5 (the model is unsure - small changes in x matter a lot), almost flat again above x = 7 ("yes" no matter what).</div>
+      </section>
+
+      <!-- ═══ 6. LOGISTIC REGRESSION ═══ -->
+      <section class="card topic-panel" id="topic-5">
+        <h2 class="step-title">LogisticRegression - let sklearn find β₀ and β₁</h2>
+        <p>Now the real thing. We give sklearn nine students: <code>X</code> is something like hours studied, <code>Y</code> is 0 = failed, 1 = passed. Then <code>fit</code> searches for the \(\beta_0\) and \(\beta_1\) whose S-curve fits the data best.</p>
+        <pre class="code"><code>from sklearn.linear_model import LogisticRegression
+
+X = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9]).reshape(-1, 1)
+Y = np.array([0, 0, 0, 0, 1, 1, 1, 1, 1])
+
+model = LogisticRegression(solver='liblinear')
+model.fit(X, Y)
+
+b0 = model.intercept_[0]
+b1 = model.coef_[0][0]
+
+print(b0)
+print(b1)</code></pre>
+        <div class="output">-1.0375713764547307
+0.3815562393392072</div>
+
+        <table class="data-table">
+          <thead><tr><th>X (hours)</th><th>Y (0 = failed, 1 = passed)</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>0</td></tr>
+            <tr><td>2</td><td>0</td></tr>
+            <tr><td>3</td><td>0</td></tr>
+            <tr><td>4</td><td>0</td></tr>
+            <tr><td>5</td><td>1</td></tr>
+            <tr><td>6</td><td>1</td></tr>
+            <tr><td>7</td><td>1</td></tr>
+            <tr><td>8</td><td>1</td></tr>
+            <tr><td>9</td><td>1</td></tr>
+          </tbody>
+        </table>
+
+        <table class="data-table">
+          <thead><tr><th>Line of code</th><th>Why</th></tr></thead>
+          <tbody>
+            <tr><td class="term">.reshape(-1, 1)</td><td>sklearn wants X as a table with one column, not a flat list - the same rule as in linear regression.</td></tr>
+            <tr><td class="term">solver='liblinear'</td><td>The <em>solver</em> is the search engine that hunts for the best β values. <code>liblinear</code> is a solid choice for small data like ours.</td></tr>
+            <tr><td class="term">model.intercept_[0]</td><td>β₀. It comes wrapped in an array, so we take item <code>[0]</code>.</td></tr>
+            <tr><td class="term">model.coef_[0][0]</td><td>β₁. Wrapped twice (one row, one column), so we take <code>[0][0]</code>.</td></tr>
+          </tbody>
+        </table>
+        <div class="note blue"><strong>Same names as before.</strong> <code>intercept_</code> and <code>coef_</code> are exactly the attributes we read from <code>LinearRegression</code>. Only the shape of the model around them changed - the numbers now go inside a sigmoid instead of straight into a line.</div>
+      </section>
+
+      <!-- ═══ 7. THE FITTED EQUATION ═══ -->
+      <section class="card topic-panel" id="topic-6">
+        <h2 class="step-title">The fitted equation and its graph</h2>
+        <p>Put the two learned numbers into the formula and the model is now a concrete equation we can write on the board:</p>
+        <div class="math-card">
+          <span class="math-formula compact">
+            $$P(Y = 1 \mid x) = \frac{1}{1 + e^{-(-1.0376 \,+\, 0.3816x)}}$$
+          </span>
+          <p class="math-caption">β₀ = −1.0376 &nbsp;·&nbsp; β₁ = +0.3816</p>
+        </div>
+        <p>Plotting it over a very wide range shows the same S shape as before - just stretched, because \(\beta_1\) is small:</p>
+        <pre class="code"><code>x = np.linspace(-50, 50, 500)
+
+denom = 1 + np.exp( -(b0 + b1 * x) )
+sigmoid = 1 / denom
+plt.plot(x, sigmoid, linewidth = 3)
+plt.xlabel('x')
+plt.ylabel('sigmoid(x)')
+plt.grid(True)
+plt.show()</code></pre>
+
+        <div class="graph-preview">
+          <p class="graph-title">The fitted curve over x = −50 … 50</p>
+          <svg viewBox="0 0 720 360" role="img" aria-label="The fitted sigmoid plotted from minus fifty to fifty">
+            <rect x="44" y="26" width="620" height="288" fill="#ffffff" stroke="#bfd0ea"/>
+            <g stroke="#e1e9f5" stroke-width="1">
+              <line x1="44" y1="292" x2="664" y2="292"/><line x1="44" y1="243" x2="664" y2="243"/>
+              <line x1="44" y1="219" x2="664" y2="219"/><line x1="44" y1="170" x2="664" y2="170"/>
+              <line x1="44" y1="121" x2="664" y2="121"/><line x1="44" y1="97" x2="664" y2="97"/>
+              <line x1="44" y1="48" x2="664" y2="48"/>
+              <line x1="168" y1="26" x2="168" y2="314"/><line x1="292" y1="26" x2="292" y2="314"/>
+              <line x1="416" y1="26" x2="416" y2="314"/><line x1="540" y1="26" x2="540" y2="314"/>
+            </g>
+            <line x1="44" y1="292" x2="664" y2="292" stroke="#1f2937" stroke-width="2"/>
+            <line x1="354" y1="314" x2="354" y2="26" stroke="#1f2937" stroke-width="2"/>
+            <path d="M 44 292 L 54 292 L 64 292 L 74 292 L 83 292 L 93 292 L 103 292 L 113 292 L 123 292 L 133 292 L 142 292 L 152 292 L 162 292 L 172 292 L 182 292 L 192 292 L 201 292 L 211 292 L 221 292 L 231 292 L 241 292 L 251 292 L 261 292 L 270 292 L 280 291 L 290 290 L 300 289 L 310 286 L 320 282 L 329 274 L 339 262 L 349 241 L 359 213 L 369 178 L 379 141 L 388 110 L 398 86 L 408 70 L 418 61 L 428 55 L 438 52 L 447 50 L 457 49 L 467 49 L 477 48 L 487 48 L 497 48 L 507 48 L 516 48 L 526 48 L 536 48 L 546 48 L 556 48 L 566 48 L 575 48 L 585 48 L 595 48 L 605 48 L 615 48 L 625 48 L 634 48 L 644 48 L 654 48 L 664 48"
+                  fill="none" stroke="#1d4ed8" stroke-width="5"/>
+            <text x="20" y="296" fill="#52657d" font-size="13">0.0</text>
+            <text x="20" y="52" fill="#52657d" font-size="13">1.0</text>
+            <text x="150" y="332" fill="#52657d" font-size="13">-30</text>
+            <text x="278" y="332" fill="#52657d" font-size="13">-10</text>
+            <text x="406" y="332" fill="#52657d" font-size="13">10</text>
+            <text x="530" y="332" fill="#52657d" font-size="13">30</text>
+          </svg>
+        </div>
+
+        <p>Zooming into the range where our nine students actually live (x = 0 … 10) is far more useful. Red dots are the students who failed, green dots the ones who passed:</p>
+
+        <div class="graph-preview">
+          <p class="graph-title">The fitted curve with the nine students</p>
+          <svg viewBox="0 0 720 360" role="img" aria-label="The fitted sigmoid between zero and ten with the nine training points and the 0.5 border">
+            <rect x="44" y="26" width="620" height="288" fill="#ffffff" stroke="#bfd0ea"/>
+            <g stroke="#e1e9f5" stroke-width="1">
+              <line x1="44" y1="292" x2="664" y2="292"/><line x1="44" y1="243" x2="664" y2="243"/>
+              <line x1="44" y1="219" x2="664" y2="219"/><line x1="44" y1="121" x2="664" y2="121"/>
+              <line x1="44" y1="97" x2="664" y2="97"/><line x1="44" y1="48" x2="664" y2="48"/>
+              <line x1="106" y1="26" x2="106" y2="314"/><line x1="168" y1="26" x2="168" y2="314"/>
+              <line x1="230" y1="26" x2="230" y2="314"/><line x1="292" y1="26" x2="292" y2="314"/>
+              <line x1="354" y1="26" x2="354" y2="314"/><line x1="416" y1="26" x2="416" y2="314"/>
+              <line x1="478" y1="26" x2="478" y2="314"/><line x1="540" y1="26" x2="540" y2="314"/>
+              <line x1="602" y1="26" x2="602" y2="314"/>
+            </g>
+            <line x1="44" y1="292" x2="664" y2="292" stroke="#1f2937" stroke-width="2"/>
+            <line x1="44" y1="314" x2="44" y2="26" stroke="#1f2937" stroke-width="2"/>
+            <line x1="44" y1="170" x2="664" y2="170" stroke="#0f9f6e" stroke-width="2" stroke-dasharray="6 5"/>
+            <line x1="213" y1="314" x2="213" y2="26" stroke="#f97316" stroke-width="2" stroke-dasharray="4 4"/>
+            <path d="M 44 228 L 54 225 L 64 222 L 74 219 L 83 216 L 93 213 L 103 210 L 113 206 L 123 203 L 133 199 L 142 196 L 152 192 L 162 189 L 172 185 L 182 182 L 192 178 L 201 174 L 211 170 L 221 167 L 231 163 L 241 159 L 251 156 L 261 152 L 270 149 L 280 145 L 290 141 L 300 138 L 310 135 L 320 131 L 329 128 L 339 125 L 349 122 L 359 118 L 369 115 L 379 113 L 388 110 L 398 107 L 408 104 L 418 102 L 428 99 L 438 97 L 447 95 L 457 92 L 467 90 L 477 88 L 487 86 L 497 84 L 507 82 L 516 81 L 526 79 L 536 77 L 546 76 L 556 74 L 566 73 L 575 72 L 585 70 L 595 69 L 605 68 L 615 67 L 625 66 L 634 65 L 644 64 L 654 63 L 664 62"
+                  fill="none" stroke="#1d4ed8" stroke-width="5"/>
+            <g stroke="#ffffff" stroke-width="3">
+              <circle cx="106" cy="292" r="8" fill="#dc2626"/>
+              <circle cx="168" cy="292" r="8" fill="#dc2626"/>
+              <circle cx="230" cy="292" r="8" fill="#dc2626"/>
+              <circle cx="292" cy="292" r="8" fill="#dc2626"/>
+              <circle cx="354" cy="48" r="8" fill="#0f9f6e"/>
+              <circle cx="416" cy="48" r="8" fill="#0f9f6e"/>
+              <circle cx="478" cy="48" r="8" fill="#0f9f6e"/>
+              <circle cx="540" cy="48" r="8" fill="#0f9f6e"/>
+              <circle cx="602" cy="48" r="8" fill="#0f9f6e"/>
+            </g>
+            <circle cx="230" cy="163" r="7" fill="#ffffff" stroke="#1d4ed8" stroke-width="4"/>
+            <text x="20" y="296" fill="#52657d" font-size="13">0</text>
+            <text x="20" y="174" fill="#52657d" font-size="13">.5</text>
+            <text x="20" y="52" fill="#52657d" font-size="13">1</text>
+            <text x="103" y="332" fill="#52657d" font-size="13">1</text>
+            <text x="227" y="332" fill="#f97316" font-size="13" font-weight="bold">3</text>
+            <text x="351" y="332" fill="#52657d" font-size="13">5</text>
+            <text x="475" y="332" fill="#52657d" font-size="13">7</text>
+            <text x="599" y="332" fill="#52657d" font-size="13">9</text>
+            <text x="248" y="150" fill="#1d4ed8" font-size="14" font-weight="bold">x = 3 → 0.5267</text>
+          </svg>
+        </div>
+
+        <div class="note"><strong>Why is the curve so gentle?</strong> Nine points is very little data, so the model stays cautious - it never claims 99% certainty inside our range. With more data the S would get steeper.</div>
+        <div class="note blue"><strong>Where does it cross 0.5?</strong> Solve \(-1.0376 + 0.3816x = 0\) → \(x = 1.0376 / 0.3816 \approx 2.72\). Every x above 2.72 gets the answer "yes".</div>
+      </section>
+
+      <!-- ═══ 8. THE ANSWER FOR X = 3 ═══ -->
+      <section class="card topic-panel" id="topic-7">
+        <h2 class="step-title">What is the answer for x = 3?</h2>
+        <p>Two ways to ask the same question: <strong>solve the formula ourselves</strong>, or <strong>ask the model</strong>. They must agree - and they do, to the last decimal.</p>
+        <pre class="code"><code># what is the answer for x = 3?
+# 1 solve for x = 3
+# 2 predict
+
+print('x=3: ', f'{1 /  (1 + np.exp( -(b0 + b1 * 3) )) * 100:.2f}%')
+print('x=3: ', model.predict([[3]]))
+print('x=3:  [[no/yes]] =', model.predict_proba([[3]]))</code></pre>
+        <div class="output">x=3:  52.67%
+x=3:  [1]
+x=3:  [[no/yes]] = [[0.47325123 0.52674877]]</div>
+
+        <p>The hand calculation, step by step:</p>
+        <div class="math-card">
+          <span class="math-formula compact no-scroll">
+            $$-1.0376 + 0.3816 \times 3 = 0.1071 \quad\longrightarrow\quad \frac{1}{1 + e^{-0.1071}} = 0.5267 = \boxed{52.67\%}$$
+          </span>
+        </div>
+
+        <table class="data-table">
+          <thead><tr><th>Method</th><th>Gives</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td class="term">the formula by hand</td><td>0.5267</td><td>52.67% chance of "yes"</td></tr>
+            <tr><td class="term">model.predict([[3]])</td><td>[1]</td><td>The final decision: yes. It simply checks whether the probability is at least 0.5.</td></tr>
+            <tr><td class="term">model.predict_proba([[3]])</td><td>[[0.4733 0.5267]]</td><td>Two columns: <strong>[P(no), P(yes)]</strong>. They always add up to 1.</td></tr>
+          </tbody>
+        </table>
+
+        <div class="split-cmp">
+          <div class="box bad">
+            <div class="label">P(no) - column 0</div>
+            <div class="num">0.4733</div>
+            <div class="sub">47.33% chance of failing</div>
+          </div>
+          <div class="box good">
+            <div class="label">P(yes) - column 1</div>
+            <div class="num">0.5267</div>
+            <div class="sub">52.67% chance of passing</div>
+          </div>
+        </div>
+
+        <div class="note red"><strong>Look carefully - the model is wrong here.</strong> In our data the student with x = 3 actually <em>failed</em> (y = 0), but the model answers 1. And no wonder: 52.67% is barely above the 50% border. The model is basically saying "I have no idea, slightly leaning yes".</div>
+        <div class="note green"><strong>The habit to build:</strong> always look at <code>predict_proba</code>, not only <code>predict</code>. "Yes" and "yes, 52%" are very different pieces of news, and only the probability tells you how much to trust the answer.</div>
+      </section>
+
+      <!-- ═══ 9. CONFUSION MATRIX ═══ -->
+      <section class="card topic-panel" id="topic-8">
+        <h2 class="step-title">Counting mistakes - the confusion matrix</h2>
+        <p>In linear regression we measured error with MSE and R². Those make no sense for yes/no answers - an answer is simply <strong>right or wrong</strong>. So we count the four possible situations in a small 2×2 table called the <strong>confusion matrix</strong>.</p>
+        <pre class="code"><code>from sklearn.metrics import confusion_matrix
+
+pred = model.predict(X)
+print(pred)                            # [0 0 1 1 1 1 1 1 1]
+print(confusion_matrix(Y, pred))</code></pre>
+        <div class="output">[0 0 1 1 1 1 1 1 1]
+[[2 2]
+ [0 5]]</div>
+
+        <div class="cm-wrap">
+          <div class="cm-cell corner"></div>
+          <div class="cm-cell head">model said 0 (no)</div>
+          <div class="cm-cell head">model said 1 (yes)</div>
+          <div class="cm-cell head">really 0 (failed)</div>
+          <div class="cm-cell ok"><span class="n">2</span><span class="t">correct "no" - students 1 and 2</span></div>
+          <div class="cm-cell bad"><span class="n">2</span><span class="t">wrong "yes" - students 3 and 4</span></div>
+          <div class="cm-cell head">really 1 (passed)</div>
+          <div class="cm-cell bad"><span class="n">0</span><span class="t">wrong "no" - none</span></div>
+          <div class="cm-cell ok"><span class="n">5</span><span class="t">correct "yes" - students 5 to 9</span></div>
+        </div>
+
+        <p><strong>How to read any confusion matrix:</strong> rows are the <em>truth</em>, columns are the <em>model's answer</em>. So the diagonal (top-left and bottom-right) holds the <strong>correct</strong> answers, and everything off the diagonal is a <strong>mistake</strong>.</p>
+        <table class="data-table">
+          <thead><tr><th>Cell</th><th>Row / Column</th><th>Count here</th></tr></thead>
+          <tbody>
+            <tr><td class="term">top-left</td><td>really 0, said 0</td><td>2 - correct</td></tr>
+            <tr><td class="term">top-right</td><td>really 0, said 1</td><td>2 - false alarm</td></tr>
+            <tr><td class="term">bottom-left</td><td>really 1, said 0</td><td>0 - a miss</td></tr>
+            <tr><td class="term">bottom-right</td><td>really 1, said 1</td><td>5 - correct</td></tr>
+          </tbody>
+        </table>
+
+        <div class="split-cmp">
+          <div class="box good">
+            <div class="label">Correct answers</div>
+            <div class="num">7 / 9</div>
+            <div class="sub">2 + 5 on the diagonal</div>
+          </div>
+          <div class="box bad">
+            <div class="label">Mistakes</div>
+            <div class="num">2 / 9</div>
+            <div class="sub">both are "said yes, really no"</div>
+          </div>
+        </div>
+        <p>Seven right out of nine is an accuracy of <strong>0.778</strong>. And the matrix tells us <em>which</em> kind of mistake we make: this model is too generous - it hands out "pass" to students 3 and 4 who actually failed, and it never wrongly fails anyone.</p>
+        <div class="note blue"><strong>This is why the matrix beats a single score.</strong> "78% accurate" hides the story; the four cells show it. Depending on the problem, one of the two mistakes is usually far more expensive than the other.</div>
+      </section>
+
+      <!-- ═══ 10. HEATMAP ═══ -->
+      <section class="card topic-panel" id="topic-9">
+        <h2 class="step-title">Drawing the matrix as a heatmap</h2>
+        <p>Numbers in brackets are hard to read out loud. <code>seaborn</code> turns the same 2×2 table into a coloured picture in five lines - dark squares mean big counts.</p>
+        <pre class="code"><code>import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.metrics import confusion_matrix
+
+y_true = [0, 1, 1]        # 0 = Fail, 1 = Pass
+y_pred = [0, 1, 1]
+
+cm = confusion_matrix(y_true, y_pred)
+
+sns.heatmap(cm,
+            annot=True,                                   # write the number inside each square
+            cmap='Blues',                                 # white → dark blue
+            xticklabels=['Predicted: Fail', 'Predicted: Pass'],
+            yticklabels=['Actual: Fail', 'Actual: Pass'])
+plt.xlabel('Predicted')
+plt.ylabel('Actual')
+plt.title('Confusion Matrix Heatmap')
+plt.show()</code></pre>
+        <div class="output">[[1 0]
+ [0 2]]</div>
+
+        <div class="cm-wrap">
+          <div class="cm-cell corner"></div>
+          <div class="cm-cell head">Predicted: Fail</div>
+          <div class="cm-cell head">Predicted: Pass</div>
+          <div class="cm-cell head">Actual: Fail</div>
+          <div class="cm-cell ok" style="background:#7fb3d9;border-color:#5b9bd0"><span class="n" style="color:#ffffff">1</span><span class="t" style="color:#f4faff">medium blue</span></div>
+          <div class="cm-cell ok" style="background:#f4f9fe;border-color:#d7e7f7"><span class="n" style="color:#7f9bb8">0</span><span class="t">almost white</span></div>
+          <div class="cm-cell head">Actual: Pass</div>
+          <div class="cm-cell ok" style="background:#f4f9fe;border-color:#d7e7f7"><span class="n" style="color:#7f9bb8">0</span><span class="t">almost white</span></div>
+          <div class="cm-cell ok" style="background:#0b3169;border-color:#0b3169"><span class="n" style="color:#ffffff">2</span><span class="t" style="color:#cfe1f8">darkest - the biggest count</span></div>
+        </div>
+
+        <table class="data-table">
+          <thead><tr><th>Argument</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td class="term">annot=True</td><td>Prints the actual count inside each square. Without it you only see colours.</td></tr>
+            <tr><td class="term">cmap='Blues'</td><td>The colour scale: small counts almost white, large counts dark blue.</td></tr>
+            <tr><td class="term">xticklabels</td><td>Names for the columns - what the model predicted.</td></tr>
+            <tr><td class="term">yticklabels</td><td>Names for the rows - what really happened.</td></tr>
+          </tbody>
+        </table>
+        <div class="note green"><strong>Both off-diagonal squares are 0 here</strong> - every answer was correct. That is exactly what a perfect model looks like: colour only on the diagonal, white everywhere else.</div>
+        <div class="note"><strong>Always label the axes.</strong> A confusion matrix without <code>xticklabels</code> / <code>yticklabels</code> is a puzzle - nobody remembers which side is the truth and which is the prediction.</div>
+      </section>
+
+      <!-- ═══ 11. CLASS EXERCISE - SOLVED ═══ -->
+      <section class="card topic-panel" id="topic-10">
+        <h2 class="step-title">The exercise we did in class - loan data, solved</h2>
+        <p>The second dataset from class: a person's <strong>annual income</strong> and whether they <strong>repaid the loan</strong>. Here is the whole thing worked out, so you can check what we did together.</p>
+
+        <pre class="code"><code># Data: Annual income and loan repayment (1=yes, 0=no)
+X = np.array([30, 35, 40, 45, 50, 55, 60, 65, 70, 75]).reshape(-1, 1)
+Y = np.array([0,   0,  0,  0,  0,  1,  0,  1,  1,  1])</code></pre>
+        <div class="note">Row 60 → 0 is not a typo. Someone earning 60 did <em>not</em> repay, even though their neighbours at 55 and 65 did. Real data always has a row like this, and the model will not manage to get everything right.</div>
+
+        <p><strong>Step 1 - fit the model and read the two numbers.</strong></p>
+        <pre class="code"><code>model = LogisticRegression(solver='liblinear')
+model.fit(X, Y)
+
+b0 = model.intercept_[0]
+b1 = model.coef_[0][0]
+print(b0)      # -0.8903752693886728
+print(b1)      #  0.016113005194360465</code></pre>
+
+        <div class="math-card">
+          <span class="math-formula compact">
+            $$P(Y = 1 \mid x) = \frac{1}{1 + e^{-(-0.8904 \,+\, 0.0161x)}}$$
+          </span>
+          <p class="math-caption">β₁ = 0.0161 is <strong>tiny</strong> - so this S-curve is almost flat.</p>
+        </div>
+
+        <p><strong>Step 2 - draw it.</strong> Same three lines as before, plus <code>plt.scatter</code> to drop the real people on top.</p>
+        <pre class="code"><code>x = np.linspace(25, 80, 500)
+sigmoid = 1 / (1 + np.exp( -(b0 + b1 * x) ))
+
+plt.plot(x, sigmoid, linewidth=3)
+plt.scatter(X.flatten(), Y, color='red', s=60, zorder=5)
+plt.axhline(0.5, color='green', linestyle='--')
+plt.xlabel('annual income')
+plt.ylabel('P(repaid)')
+plt.grid(True)
+plt.show()</code></pre>
+
+        <div class="graph-preview">
+          <p class="graph-title">Almost a straight line - the model is barely confident about anyone</p>
+          <svg viewBox="0 0 720 360" role="img" aria-label="A very flat sigmoid over incomes 25 to 80 with the ten data points at 0 and 1">
+            <rect x="44" y="26" width="620" height="288" fill="#ffffff" stroke="#bfd0ea"/>
+            <g stroke="#e1e9f5" stroke-width="1">
+              <line x1="44" y1="292" x2="664" y2="292"/><line x1="44" y1="231" x2="664" y2="231"/>
+              <line x1="44" y1="109" x2="664" y2="109"/><line x1="44" y1="48" x2="664" y2="48"/>
+              <line x1="100" y1="26" x2="100" y2="314"/><line x1="213" y1="26" x2="213" y2="314"/>
+              <line x1="326" y1="26" x2="326" y2="314"/><line x1="439" y1="26" x2="439" y2="314"/>
+              <line x1="551" y1="26" x2="551" y2="314"/>
+            </g>
+            <line x1="44" y1="292" x2="664" y2="292" stroke="#1f2937" stroke-width="2"/>
+            <line x1="44" y1="314" x2="44" y2="26" stroke="#1f2937" stroke-width="2"/>
+            <line x1="44" y1="170" x2="664" y2="170" stroke="#0f9f6e" stroke-width="2" stroke-dasharray="6 5"/>
+            <path d="M 44 199 L 57 198 L 69 197 L 82 196 L 95 195 L 107 194 L 120 193 L 133 192 L 145 191 L 158 190 L 171 189 L 183 187 L 196 186 L 208 185 L 221 184 L 234 183 L 246 182 L 259 181 L 272 180 L 284 179 L 297 178 L 310 177 L 322 175 L 335 174 L 348 173 L 360 172 L 373 171 L 386 170 L 398 169 L 411 168 L 424 167 L 436 166 L 449 164 L 462 163 L 474 162 L 487 161 L 500 160 L 512 159 L 525 158 L 537 157 L 550 156 L 563 155 L 575 154 L 588 152 L 601 151 L 613 150 L 626 149 L 639 148 L 651 147 L 664 146"
+                  fill="none" stroke="#1d4ed8" stroke-width="5"/>
+            <g stroke="#ffffff" stroke-width="3">
+              <circle cx="100" cy="292" r="8" fill="#dc2626"/>
+              <circle cx="157" cy="292" r="8" fill="#dc2626"/>
+              <circle cx="213" cy="292" r="8" fill="#dc2626"/>
+              <circle cx="269" cy="292" r="8" fill="#dc2626"/>
+              <circle cx="326" cy="292" r="8" fill="#dc2626"/>
+              <circle cx="382" cy="48" r="8" fill="#0f9f6e"/>
+              <circle cx="439" cy="292" r="8" fill="#dc2626"/>
+              <circle cx="495" cy="48" r="8" fill="#0f9f6e"/>
+              <circle cx="551" cy="48" r="8" fill="#0f9f6e"/>
+              <circle cx="608" cy="48" r="8" fill="#0f9f6e"/>
+            </g>
+            <line x1="385" y1="314" x2="385" y2="26" stroke="#f97316" stroke-width="2" stroke-dasharray="4 4"/>
+            <text x="20" y="296" fill="#52657d" font-size="13">0</text>
+            <text x="20" y="174" fill="#52657d" font-size="13">.5</text>
+            <text x="20" y="52" fill="#52657d" font-size="13">1</text>
+            <text x="94" y="332" fill="#52657d" font-size="13">30</text>
+            <text x="207" y="332" fill="#52657d" font-size="13">40</text>
+            <text x="320" y="332" fill="#52657d" font-size="13">50</text>
+            <text x="433" y="332" fill="#52657d" font-size="13">60</text>
+            <text x="545" y="332" fill="#52657d" font-size="13">70</text>
+            <text x="395" y="212" fill="#f97316" font-size="14" font-weight="bold">border at income ≈ 55.26</text>
+          </svg>
+        </div>
+
+        <p><strong>Step 3 - the two probabilities we were asked for.</strong></p>
+        <pre class="code"><code>def percent(x):
+    return 1 / (1 + np.exp( -(b0 + b1 * x) )) * 100
+
+print(f'{percent(49):.2f}%')      # 47.48%
+print(f'{percent(55):.2f}%')      # 49.90%</code></pre>
+        <div class="output">47.48%
+49.90%</div>
+
+        <p><strong>Step 4 - the whole table.</strong> Look at the middle column: every single probability sits between 0.40 and 0.58. The model is unsure about <em>everybody</em>.</p>
+        <table class="data-table">
+          <thead><tr><th>income</th><th>P(repaid)</th><th>predict</th><th>really</th></tr></thead>
+          <tbody>
+            <tr><td>30</td><td>0.3996</td><td>0</td><td>0 ✔</td></tr>
+            <tr><td>35</td><td>0.4191</td><td>0</td><td>0 ✔</td></tr>
+            <tr><td>40</td><td>0.4388</td><td>0</td><td>0 ✔</td></tr>
+            <tr><td>45</td><td>0.4588</td><td>0</td><td>0 ✔</td></tr>
+            <tr><td>50</td><td>0.4788</td><td>0</td><td>0 ✔</td></tr>
+            <tr><td>55</td><td>0.4990</td><td>0</td><td>1 ✘ missed</td></tr>
+            <tr><td>60</td><td>0.5191</td><td>1</td><td>0 ✘ false alarm</td></tr>
+            <tr><td>65</td><td>0.5392</td><td>1</td><td>1 ✔</td></tr>
+            <tr><td>70</td><td>0.5591</td><td>1</td><td>1 ✔</td></tr>
+            <tr><td>75</td><td>0.5789</td><td>1</td><td>1 ✔</td></tr>
+          </tbody>
+        </table>
+        <div class="note red"><strong>Income 55 is painfully close.</strong> Its probability is 0.4990 - four ten-thousandths below the border - so <code>predict</code> says 0 while the person actually repaid. That is how thin the line between "yes" and "no" can be.</div>
+
+        <p><strong>Step 5 - which income gives exactly 70%?</strong> Turn the formula around. If \(p = 0.7\) then \(\beta_0 + \beta_1 x = \ln\!\left(\frac{0.7}{0.3}\right)\), so:</p>
+        <div class="math-card">
+          <span class="math-formula compact no-scroll">
+            $$x = \frac{\ln(0.7/0.3) - \beta_0}{\beta_1} = \frac{0.8473 + 0.8904}{0.0161} \approx 107.84$$
+          </span>
+        </div>
+        <pre class="code"><code>import math
+
+x70 = (math.log(0.7 / 0.3) - b0) / b1
+print(x70)                # 107.84289515304447
+print(percent(x70))       # 70.00000000000003   ← check it
+
+def yes_no(x):
+    if percent(x) >= 70:
+        print('YES')
+    else:
+        print('NO')
+
+yes_no(50)       # NO
+yes_no(120)      # YES</code></pre>
+        <div class="note"><strong>107.84 is outside our data!</strong> Our incomes only go up to 75, so the model never reaches 70% confidence for anyone we actually have. That is honest behaviour, not a bug - with data this mixed up, it refuses to be sure.</div>
+
+        <p><strong>Step 6 - the confusion matrix.</strong></p>
+        <pre class="code"><code>from sklearn.metrics import confusion_matrix
+
+pred = model.predict(X)
+print(confusion_matrix(Y, pred))
+'''
+Confusion Matrix:
+[[5 1]
+ [1 3]]
+'''</code></pre>
+        <div class="cm-wrap">
+          <div class="cm-cell corner"></div>
+          <div class="cm-cell head">said 0 (no)</div>
+          <div class="cm-cell head">said 1 (yes)</div>
+          <div class="cm-cell head">really 0</div>
+          <div class="cm-cell ok"><span class="n">5</span><span class="t">correct - 30, 35, 40, 45, 50</span></div>
+          <div class="cm-cell bad"><span class="n">1</span><span class="t">false alarm - income 60</span></div>
+          <div class="cm-cell head">really 1</div>
+          <div class="cm-cell bad"><span class="n">1</span><span class="t">missed - income 55</span></div>
+          <div class="cm-cell ok"><span class="n">3</span><span class="t">correct - 65, 70, 75</span></div>
+        </div>
+        <div class="split-cmp">
+          <div class="box good">
+            <div class="label">Correct answers</div>
+            <div class="num">8 / 10</div>
+            <div class="sub">accuracy 0.80</div>
+          </div>
+          <div class="box bad">
+            <div class="label">Mistakes</div>
+            <div class="num">2 / 10</div>
+            <div class="sub">one of each kind - 55 and 60</div>
+          </div>
+        </div>
+        <div class="note green"><strong>The two mistakes are exactly the two odd rows</strong> - the person at 55 who repaid and the person at 60 who did not. Everything else follows the pattern and the model gets it right.</div>
+      </section>
+
+      <!-- ═══ 12. HOMEWORK ═══ -->
+      <section class="card topic-panel" id="topic-11">
+        <h2 class="step-title">Homework - Targil</h2>
+        <p><strong>New data, not the one from class.</strong> <code>X</code> is how many <strong>hours of driving practice</strong> a learner had, <code>Y</code> is whether they <strong>passed the driving test</strong> (1 = passed, 0 = failed). Write everything in a Jupyter notebook.</p>
+
+        <pre class="code"><code>import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import confusion_matrix
+
+# Hours of driving practice and the driving test result (1=passed, 0=failed)
+X = np.array([5, 10, 15, 20, 25, 30, 35, 40, 45, 50]).reshape(-1, 1)
+Y = np.array([0,  0,  0,  0,  1,  0,  1,  1,  1,  1])</code></pre>
+
+        <table class="data-table">
+          <thead><tr><th>X (hours of practice)</th><th>Y (1 = passed, 0 = failed)</th></tr></thead>
+          <tbody>
+            <tr><td>5</td><td>0</td></tr>
+            <tr><td>10</td><td>0</td></tr>
+            <tr><td>15</td><td>0</td></tr>
+            <tr><td>20</td><td>0</td></tr>
+            <tr><td>25</td><td>1</td></tr>
+            <tr><td>30</td><td>0</td></tr>
+            <tr><td>35</td><td>1</td></tr>
+            <tr><td>40</td><td>1</td></tr>
+            <tr><td>45</td><td>1</td></tr>
+            <tr><td>50</td><td>1</td></tr>
+          </tbody>
+        </table>
+        <div class="note">Notice the learner with 30 hours who still failed. Just like income 60 in class, this one row is what stops the model from being perfect - do not "fix" it.</div>
+
+        <div class="task-box">
+          <div class="task-num">Question 1 - build the model</div>
+          <p>Create the model with <code>LogisticRegression(solver='liblinear')</code> and <code>fit</code> it on the data above. Print <code>intercept_</code> and <code>coef_</code>.</p>
+        </div>
+
+        <div class="task-box">
+          <div class="task-num">Question 2 - write the equation</div>
+          <p>Using your two numbers, write out the fitted equation \(P(Y=1 \mid x) = 1 / (1 + e^{-(\beta_0 + \beta_1 x)})\) in a markdown cell.</p>
+        </div>
+
+        <div class="task-box">
+          <div class="task-num">Question 3 - draw the graph</div>
+          <p>Plot the sigmoid with <code>np.linspace</code> and <code>plt.plot</code>, add the ten real learners with <code>plt.scatter</code>, and draw the 0.5 border with <code>plt.axhline(0.5)</code>.</p>
+        </div>
+
+        <div class="task-box">
+          <div class="task-num">Question 4 - two probabilities, two ways</div>
+          <p>What is the probability of passing after <strong>22</strong> hours? And after <strong>38</strong> hours? Print each one <strong>twice</strong> - once with the formula and <code>np.exp</code>, once with <code>predict_proba</code> - and check that the two match.</p>
+        </div>
+
+        <div class="task-box">
+          <div class="task-num">Question 5 - a percentage function</div>
+          <p>Write a function that gets <code>x</code> and <strong>returns</strong> the probability as a percentage. Use it to print the percentage for all ten rows next to the true answer.</p>
+        </div>
+
+        <div class="task-box">
+          <div class="task-num">Question 6 - where is the 50% border?</div>
+          <p>Find the number of hours where the probability is exactly <strong>50%</strong> (solve \(\beta_0 + \beta_1 x = 0\)). Then find the hours that give <strong>70%</strong>. Is the 70% point inside our data range this time, or outside it like in class?</p>
+        </div>
+
+        <div class="task-box">
+          <div class="task-num">Question 7 - a YES / NO function</div>
+          <p>Using your answer to Question 6, write a function that gets <code>x</code> and prints <strong>YES</strong> for 70% and above, <strong>NO</strong> for less. Test it on 20, 33 and 45 hours.</p>
+        </div>
+
+        <div class="task-box">
+          <div class="task-num">Question 8 - confusion matrix + heatmap</div>
+          <p>Print the <code>confusion_matrix</code> of your model on this data, draw it as a <code>seaborn</code> heatmap with proper <code>xticklabels</code> and <code>yticklabels</code>, and write one sentence saying <strong>which rows</strong> the model got wrong and <strong>which kind</strong> of mistake each one is.</p>
+        </div>
+
+        <div class="big-result" style="margin-top:20px">Submission</div>
+        <div class="card" style="background:var(--cyan);border-color:var(--blue);margin-top:0">
+          <ol class="task-list" style="margin:0">
+            <li><strong>Upload to GitHub:</strong> Add your <code>.ipynb</code> file to a repository and push it.</li>
+            <li>
+              <strong>Send the link</strong> to your repository or notebook to:<br>
+              <a href="mailto:pythonai211225+logistic1@gmail.com"
+                 style="color:var(--blue-dark);font-weight:800;font-size:1.05rem;word-break:break-all">
+                pythonai211225+logistic1@gmail.com
+              </a>
+            </li>
+          </ol>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="footer">Lesson 13 - July 26, 2026 - Logistic Regression, the Sigmoid &amp; the Confusion Matrix</div>
+</div>
+
+<script>
+  const links = document.querySelectorAll('.topic-link');
+  const panels = document.querySelectorAll('.topic-panel');
+
+  function showTopic(id) {
+    panels.forEach(panel => panel.classList.toggle('active', panel.id === id));
+    links.forEach(link => link.classList.toggle('active', link.dataset.target === id));
+  }
+
+  links.forEach(link => {
+    if (link.dataset.target) {
+      link.addEventListener('click', () => {
+        showTopic(link.dataset.target);
+        location.hash = link.dataset.target;
+      });
+    }
+  });
+
+  const hash = location.hash.replace('#', '');
+  if (hash && document.getElementById(hash)) showTopic(hash);
+</script>
+</body>
+</html>
