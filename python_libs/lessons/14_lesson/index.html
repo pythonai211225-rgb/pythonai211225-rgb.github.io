@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 14 - Accuracy, Precision, Recall and the F1-Score</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      renderMathInElement(document.body, {
+        delimiters: [
+          { left: '$$', right: '$$', display: true },
+          { left: '\\(', right: '\\)', display: false }
+        ],
+        throwOnError: false
+      });
+    });
+  </script>
+  <style>
+    :root {
+      --bg: #f8fbff;
+      --surface: #ffffff;
+      --ink: #142033;
+      --muted: #52657d;
+      --blue: #2563eb;
+      --blue-dark: #143b73;
+      --cyan: #e7fbff;
+      --green: #0f9f6e;
+      --orange: #f97316;
+      --red: #dc2626;
+      --border: #bfd0ea;
+      --code-bg: #101a2c;
+      --code-text: #dceaff;
+      --soft-blue: #eef6ff;
+      --soft-green: #effbf5;
+      --soft-orange: #fff7ed;
+      --soft-red: #fef2f2;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Trebuchet MS", "Lucida Sans", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 10%, #e9f7ff 0%, transparent 34%),
+        radial-gradient(circle at 88% 18%, #effbf5 0%, transparent 32%),
+        linear-gradient(180deg, var(--bg) 0%, #ffffff 56%, #f1f8ff 100%);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 28px 20px 60px; }
+    .layout { display: grid; grid-template-columns: 250px 1fr; gap: 22px; align-items: start; }
+
+    .side-nav {
+      position: sticky; top: 20px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 18px 14px;
+      box-shadow: 0 4px 16px rgba(37,99,235,.08);
+    }
+    .side-title { font-size: .8rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--blue); margin: 0 0 10px; }
+    .part-label { display: block; padding: 8px 4px 4px; font-size: .7rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--green); }
+    .topic-link {
+      display: block; width: 100%; border: 1px solid transparent; border-radius: 9px;
+      padding: 7px 10px; background: transparent; color: var(--muted); cursor: pointer;
+      text-align: left; font: inherit; margin: 2px 0; transition: .16s ease;
+    }
+    .topic-link:hover { background: #f0f7ff; color: var(--blue-dark); border-color: var(--border); }
+    .topic-link.active { background: #e9f1ff; color: var(--blue-dark); border-color: var(--blue); font-weight: 700; }
+    .side-divider { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+
+    .nav-back {
+      display: inline-block; margin-top: 8px; padding: 10px 16px; border-radius: 10px;
+      border: 1px solid var(--border); background: var(--soft-blue); color: var(--blue-dark);
+      text-decoration: none; font-weight: 700;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, var(--surface) 0%, var(--soft-blue) 54%, var(--soft-green) 100%);
+      border: 1px solid var(--border); border-radius: 16px; padding: 28px;
+      box-shadow: 0 12px 30px rgba(37,99,235,.12); margin-bottom: 22px;
+    }
+    .tag { display: inline-block; padding: 5px 12px; border-radius: 999px; background: #e7fbff; color: #0f766e; font-weight: 800; font-size: .82rem; border: 1px solid #99e6ef; }
+    h1 { margin: 14px 0 10px; color: var(--blue-dark); font-size: clamp(2rem, 5vw, 3.2rem); line-height: 1.05; }
+    .hero p { max-width: 820px; color: var(--muted); font-size: 1.06rem; }
+    .hero-chips { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .hero-chip { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: .78rem; font-weight: 700; background: rgba(20,184,166,.1); color: #0f766e; border: 1px solid rgba(20,184,166,.3); }
+
+    .card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      padding: 22px; margin-bottom: 16px; box-shadow: 0 7px 22px rgba(37,99,235,.08);
+    }
+    .topic-panel { display: none; }
+    .topic-panel.active { display: block; }
+    .step-title { margin: 0 0 12px; color: var(--blue-dark); font-size: 1.25rem; }
+
+    .formula-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 16px 0; }
+    .formula { border: 1px solid var(--border); border-radius: 10px; padding: 14px; background: #fbfdff; }
+    .formula.wide { grid-column: 1 / -1; }
+    .formula strong { color: var(--blue-dark); display: block; margin-bottom: 4px; }
+    code { font-family: Consolas, "Courier New", monospace; }
+
+    .math-card {
+      border: 1px solid #b7c8e4; border-radius: 12px;
+      background: linear-gradient(135deg, #ffffff 0%, #f1f7ff 100%);
+      padding: 18px; margin: 18px 0; text-align: center;
+    }
+    .math-formula { display: block; color: var(--blue-dark); font-family: "Cambria Math", "Times New Roman", serif; font-size: clamp(1.25rem, 3vw, 2rem); line-height: 1.7; overflow-x: auto; padding: 2px 0; }
+    .math-caption { color: var(--muted); margin: 8px 0 0; font-size: .95rem; }
+    .math-formula.compact { font-size: clamp(.88rem, 1.8vw, 1.2rem); }
+    .math-formula.no-scroll, .math-formula.no-scroll .katex-display { overflow-x: hidden; }
+    .math-formula.no-scroll { font-size: clamp(.7rem, 1.45vw, 1rem); }
+
+    .katex { color: var(--blue-dark); }
+    .katex-display { margin: 6px 0; overflow-x: auto; overflow-y: hidden; padding: 3px 0; }
+    .data-table .katex, .math-caption .katex, p .katex { font-size: 1em; }
+
+    .resource-link { display: inline-block; color: var(--blue-dark); font-weight: 800; text-decoration: none; border-bottom: 2px solid rgba(37,99,235,.35); }
+    .resource-link:hover { color: var(--blue); border-bottom-color: var(--blue); }
+    .resource-links { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 4px; }
+
+    .code {
+      background: var(--code-bg); color: var(--code-text); border-radius: 10px;
+      border: 1px solid #304563; padding: 16px 18px; overflow-x: auto; margin: 12px 0;
+      font-size: .95rem; line-height: 1.5; white-space: pre;
+    }
+    .output {
+      background: #f7fbff; color: #1a2d49; border: 1px solid var(--border);
+      border-left: 5px solid var(--blue); border-radius: 10px; padding: 12px 14px;
+      overflow-x: auto; margin: 8px 0 16px; font-family: Consolas, "Courier New", monospace; white-space: pre-wrap;
+    }
+    .output.warn { border-left-color: var(--red); background: var(--soft-red); }
+
+    .graph-preview {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #fbfdff;
+      padding: 14px;
+      margin: 18px 0;
+    }
+
+    .graph-preview svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      max-height: 360px;
+    }
+
+    .graph-title {
+      font-weight: 800;
+      color: var(--blue-dark);
+      margin: 0 0 8px;
+    }
+
+    .note { background: var(--soft-orange); border: 1px solid #fed7aa; border-left: 5px solid var(--orange); border-radius: 10px; padding: 12px 14px; margin: 12px 0; }
+    .note.blue { background: var(--soft-blue); border-color: #bcd4f6; border-left-color: var(--blue); }
+    .note.red { background: var(--soft-red); border-color: #fecaca; border-left-color: var(--red); }
+    .note.green { background: var(--soft-green); border-color: #b6ebd4; border-left-color: var(--green); }
+
+    .task-box { border: 1px solid var(--border); border-left: 5px solid var(--blue); border-radius: 10px; padding: 14px 16px; margin: 12px 0; background: #fbfdff; }
+    .task-num { font-weight: 900; color: var(--blue); text-transform: uppercase; letter-spacing: .08em; font-size: .78rem; }
+    .big-result { font-weight: 900; color: var(--blue-dark); font-size: 1.1rem; letter-spacing: .04em; text-transform: uppercase; margin-bottom: 8px; }
+
+    .data-table { width: 100%; border-collapse: collapse; margin: 16px 0; background: #fbfdff; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .data-table th { background: var(--soft-blue); color: var(--blue-dark); text-align: left; padding: 10px 14px; font-size: .9rem; border-bottom: 2px solid var(--border); }
+    .data-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); font-family: Consolas, "Courier New", monospace; }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table td.term { font-family: inherit; font-weight: 700; color: var(--blue-dark); }
+
+    .split-cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0; }
+    .split-cmp .box { border-radius: 12px; padding: 16px; text-align: center; }
+    .split-cmp .box.good { background: var(--soft-green); border: 1px solid #b6ebd4; }
+    .split-cmp .box.bad { background: var(--soft-red); border: 1px solid #fecaca; }
+    .split-cmp .box .label { font-size: .8rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+    .split-cmp .box .num { font-size: 2rem; font-weight: 900; margin: 6px 0; font-family: Consolas, monospace; }
+    .split-cmp .box.good .num { color: var(--green); }
+    .split-cmp .box.bad .num { color: var(--red); }
+    .split-cmp .box .sub { font-size: .82rem; color: var(--muted); }
+
+    /* confusion matrix grid */
+    .cm-wrap { display: grid; grid-template-columns: auto 1fr 1fr; gap: 6px; margin: 16px 0; max-width: 620px; }
+    .cm-cell { border-radius: 10px; padding: 14px 10px; text-align: center; font-family: Consolas, monospace; }
+    .cm-cell.head { background: var(--soft-blue); border: 1px solid var(--border); color: var(--blue-dark); font-weight: 800; font-family: inherit; font-size: .86rem; }
+    .cm-cell.corner { background: transparent; border: none; }
+    .cm-cell.ok { background: #dcf5ea; border: 1px solid #b6ebd4; }
+    .cm-cell.bad { background: #fde8e8; border: 1px solid #fecaca; }
+    .cm-cell .n { display: block; font-size: 1.7rem; font-weight: 900; }
+    .cm-cell.ok .n { color: var(--green); }
+    .cm-cell.bad .n { color: var(--red); }
+    .cm-cell .t { display: block; font-family: inherit; font-size: .76rem; color: var(--muted); }
+
+    .footer { text-align: center; color: var(--muted); font-size: .9rem; margin-top: 18px; }
+    .task-list { margin: 6px 0 0; padding-left: 20px; }
+    .task-list li { margin: 4px 0; }
+
+    @media (max-width: 820px) {
+      .layout { grid-template-columns: 1fr; }
+      .side-nav { position: static; }
+      .wrap { padding: 18px 12px 44px; }
+      .formula-strip, .split-cmp { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="layout">
+    <aside class="side-nav">
+      <p class="side-title">Lesson 14</p>
+      <span class="part-label">Class Code</span>
+      <button class="topic-link active" data-target="topic-github">1. GitHub Repo</button>
+      <span class="part-label">Scoring a Classifier</span>
+      <button class="topic-link" data-target="topic-1">2. The four cells again</button>
+      <button class="topic-link" data-target="topic-2">3. Accuracy</button>
+      <button class="topic-link" data-target="topic-3">4. Precision</button>
+      <button class="topic-link" data-target="topic-4">5. Recall</button>
+      <button class="topic-link" data-target="topic-5">6. Specificity</button>
+      <button class="topic-link" data-target="topic-6">7. F1-Score</button>
+      <button class="topic-link" data-target="topic-7">8. Which score when?</button>
+      <span class="part-label">Class Exercise</span>
+      <button class="topic-link" data-target="topic-8">9. The dataset</button>
+      <button class="topic-link" data-target="topic-9">10. Fit - b0 and b1</button>
+      <button class="topic-link" data-target="topic-10">11. x for 50% and 70%</button>
+      <button class="topic-link" data-target="topic-11">12. The confusion matrix</button>
+      <button class="topic-link" data-target="topic-12">13. Drawing the matrix</button>
+      <button class="topic-link" data-target="topic-13">14. All the scores</button>
+      <hr class="side-divider">
+      <a class="nav-back" href="../../index.html">Back to Python libs</a>
+    </aside>
+
+    <main>
+      <section class="hero">
+        <span class="tag">Lesson - July 29, 2026</span>
+        <h1>Scoring a Classifier: Accuracy, Precision, Recall &amp; F1</h1>
+        <p>Last lesson we built a <code>LogisticRegression</code> and counted its right and wrong answers in a <strong>confusion matrix</strong>. Today we turned those four counts into <strong>numbers you can compare</strong>. One model, five different scores - and each one answers a different question. Then we solved the class exercise end to end: fit the model, read <code>b0</code> and <code>b1</code>, find the number of minutes that gives a 50% and a 70% chance, build the confusion matrix, draw it, and compute every score both <strong>by hand</strong> and with the <strong>ready-made sklearn function</strong>.</p>
+        <div class="hero-chips">
+          <span class="hero-chip">confusion_matrix</span>
+          <span class="hero-chip">accuracy</span>
+          <span class="hero-chip">precision</span>
+          <span class="hero-chip">recall</span>
+          <span class="hero-chip">specificity</span>
+          <span class="hero-chip">F1-score</span>
+          <span class="hero-chip">classification_report</span>
+        </div>
+      </section>
+
+      <!-- ═══ 1. GITHUB ═══ -->
+      <section class="card topic-panel active" id="topic-github">
+        <h2 class="step-title">Open Class Code</h2>
+        <p>Open the original notebook from today's class on GitHub: <code>log_29_07_2026.ipynb</code>.</p>
+        <div class="resource-links">
+          <a class="resource-link" href="https://github.com/pythonai211225-rgb/29.07.2026/blob/main/log_29_07_2026.ipynb" target="_blank" rel="noopener">
+            pythonai211225-rgb/29.07.2026
+          </a>
+        </div>
+        <div class="note blue">This repository contains the class code for July 29, 2026.</div>
+        <p>The imports we started with:</p>
+        <pre class="code"><code>import numpy as np
+import pandas as pd
+from IPython.display import display
+import matplotlib.pyplot as plt
+import seaborn as sns</code></pre>
+        <p>And the three we added from <code>sklearn</code> once the exercise started:</p>
+        <pre class="code"><code>from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import accuracy_score</code></pre>
+      </section>
+
+      <!-- ═══ 2. THE FOUR CELLS ═══ -->
+      <section class="card topic-panel" id="topic-1">
+        <h2 class="step-title">Everything today comes from four numbers</h2>
+        <p>Every score in this lesson is built from the same 2×2 table. There is nothing else. If you can name the four cells, you can derive every formula on this page from memory.</p>
+
+        <div class="cm-wrap">
+          <div class="cm-cell corner"></div>
+          <div class="cm-cell head">Model said <strong>0</strong> (No)</div>
+          <div class="cm-cell head">Model said <strong>1</strong> (Yes)</div>
+          <div class="cm-cell head">Truth is <strong>0</strong> (No)</div>
+          <div class="cm-cell ok"><span class="n">TN</span><span class="t">True Negative - said no, really no</span></div>
+          <div class="cm-cell bad"><span class="n">FP</span><span class="t">False Positive - said yes, really no</span></div>
+          <div class="cm-cell head">Truth is <strong>1</strong> (Yes)</div>
+          <div class="cm-cell bad"><span class="n">FN</span><span class="t">False Negative - said no, really yes</span></div>
+          <div class="cm-cell ok"><span class="n">TP</span><span class="t">True Positive - said yes, really yes</span></div>
+        </div>
+
+        <div class="note blue"><strong>How to read the two letters.</strong> The <em>second</em> letter is what the model said (P = positive = 1, N = negative = 0). The <em>first</em> letter says whether it was right (T = true) or wrong (F = false). So <code>FN</code> = the model said <em>negative</em> and it was <em>false</em> - it missed a real yes.</div>
+
+        <p>In Python, the four numbers come straight out of the matrix:</p>
+        <pre class="code"><code>cm = confusion_matrix(y_true, y_pred)
+print(cm)
+# [[TN FP]
+#  [FN TP]]
+
+tn, fp, fn, tp = cm.ravel()   # unpack in exactly this order</code></pre>
+        <div class="note"><strong>Remember the order:</strong> <code>ravel()</code> flattens the matrix row by row, so it always gives <code>tn, fp, fn, tp</code> - not the order you would guess. Getting this wrong silently swaps precision and specificity.</div>
+      </section>
+
+      <!-- ═══ 3. ACCURACY ═══ -->
+      <section class="card topic-panel" id="topic-2">
+        <h2 class="step-title">Accuracy - what fraction did it get right?</h2>
+        <p>The simplest question: out of all the answers, how many were correct? The correct answers are the two cells on the diagonal, <code>TP</code> and <code>TN</code>.</p>
+
+        <div class="math-card">
+          <span class="math-formula">
+            $$\text{Accuracy} = \frac{TP + TN}{TP + TN + FP + FN}$$
+          </span>
+          <p class="math-caption">Correct answers divided by all answers.</p>
+        </div>
+
+        <pre class="code"><code># by hand
+accuracy = (tp + tn) / (tp + tn + fp + fn)
+
+# with sklearn
+from sklearn.metrics import accuracy_score
+accuracy = accuracy_score(y_true, y_pred)</code></pre>
+
+        <div class="note red"><strong>Accuracy lies when the classes are unbalanced.</strong> Imagine 1000 patients, 20 of them sick. A model that says "healthy" to everybody gets 980/1000 = <strong>98% accuracy</strong> - and finds not a single sick person. That is why we never stop at accuracy.</div>
+        <p>This is exactly the case we looked at in class, and it is why the next four scores exist: each of them ignores part of the table on purpose, so a model cannot hide behind one big number.</p>
+      </section>
+
+      <!-- ═══ 4. PRECISION ═══ -->
+      <section class="card topic-panel" id="topic-3">
+        <h2 class="step-title">Precision - when it says "yes", how often is it right?</h2>
+        <p>Precision looks only at the <strong>column where the model said 1</strong>. It ignores everything the model called 0.</p>
+
+        <div class="math-card">
+          <span class="math-formula">
+            $$\text{Precision} = \frac{TP}{TP + FP}$$
+          </span>
+          <p class="math-caption">Out of everything the model flagged as positive, how much really was.</p>
+        </div>
+
+        <pre class="code"><code># by hand
+precision = tp / (tp + fp)
+
+# with sklearn
+from sklearn.metrics import precision_score
+precision = precision_score(y_true, y_pred)</code></pre>
+
+        <div class="note blue"><strong>Precision is about false alarms.</strong> A spam filter with low precision throws real emails into the spam folder. Every <code>FP</code> costs you something - so when the <em>cost of a false alarm is high</em>, precision is the score you optimise.</div>
+        <div class="note"><strong>Cheating precision is easy:</strong> a model that says "yes" only once, on the single case it is most sure about, gets precision = 1.0. That is why precision is never read alone - it is always read next to recall.</div>
+      </section>
+
+      <!-- ═══ 5. RECALL ═══ -->
+      <section class="card topic-panel" id="topic-4">
+        <h2 class="step-title">Recall - out of all the real 1s, how many did it find?</h2>
+        <p>Recall looks only at the <strong>row where the truth is 1</strong>. It ignores everything that was really 0.</p>
+
+        <div class="math-card">
+          <span class="math-formula">
+            $$\text{Recall} = \frac{TP}{TP + FN}$$
+          </span>
+          <p class="math-caption">Out of everything that really was positive, how much the model caught.</p>
+        </div>
+
+        <pre class="code"><code># by hand
+recall = tp / (tp + fn)
+
+# with sklearn
+from sklearn.metrics import recall_score
+recall = recall_score(y_true, y_pred)</code></pre>
+
+        <div class="note blue"><strong>Recall is about misses.</strong> A cancer test with low recall sends sick people home. Every <code>FN</code> is someone you failed to find - so when the <em>cost of missing a case is high</em>, recall is the score you optimise.</div>
+
+        <div class="split-cmp">
+          <div class="box good">
+            <div class="label">Precision asks</div>
+            <div class="num" style="font-size:1.1rem">TP / (TP + FP)</div>
+            <div class="sub">"When I shout, am I right?"<br>column of predicted 1s</div>
+          </div>
+          <div class="box bad">
+            <div class="label">Recall asks</div>
+            <div class="num" style="font-size:1.1rem">TP / (TP + FN)</div>
+            <div class="sub">"Did I shout every time I should have?"<br>row of real 1s</div>
+          </div>
+        </div>
+
+        <div class="note"><strong>They pull against each other.</strong> Say "yes" more often and recall goes up while precision goes down. Say "yes" less often and the opposite happens. You cannot max both - you choose which mistake you can afford.</div>
+        <p>Recall also goes by two other names you will meet in books and papers: <strong>sensitivity</strong> and <strong>true positive rate (TPR)</strong>. Same formula, three names.</p>
+      </section>
+
+      <!-- ═══ 6. SPECIFICITY ═══ -->
+      <section class="card topic-panel" id="topic-5">
+        <h2 class="step-title">Specificity - how good is the model at finding 0s?</h2>
+        <p>Everything so far has been about the 1s. <strong>Specificity</strong> (also called the <strong>true negative rate</strong>) is recall's mirror image: it looks only at the <strong>row where the truth is 0</strong>.</p>
+
+        <div class="math-card">
+          <span class="math-formula">
+            $$\text{Specificity} = \frac{TN}{TN + FP}$$
+          </span>
+          <p class="math-caption">Out of everything that really was negative, how much the model correctly left alone.</p>
+        </div>
+
+        <pre class="code"><code># by hand
+specificity = tn / (tn + fp)
+
+# with sklearn - there is no specificity_score.
+# Specificity IS recall, measured on class 0:
+from sklearn.metrics import recall_score
+specificity = recall_score(y_true, y_pred, pos_label=0)</code></pre>
+
+        <div class="note blue"><strong>There is no <code>specificity_score</code> in sklearn.</strong> You either compute it from the four cells, or you use the trick above: flip which class counts as "positive" with <code>pos_label=0</code> and recall becomes specificity.</div>
+
+        <p>Back to the 1000-patient example from class - the model that calls everybody healthy, on data with 20 sick people:</p>
+        <div class="math-card">
+          <span class="math-formula compact">
+            $$\text{Specificity} = \frac{TN}{TN + FP} = \frac{0}{0 + 20} = 0$$
+          </span>
+          <p class="math-caption">Accuracy said 98%. Specificity says 0. One number caught what the other hid.</p>
+        </div>
+        <div class="note green"><strong>Recall and specificity together cover the whole table.</strong> Recall grades the model on the real 1s, specificity grades it on the real 0s. If both are high, there is nowhere left for the model to hide.</div>
+      </section>
+
+      <!-- ═══ 7. F1 ═══ -->
+      <section class="card topic-panel" id="topic-6">
+        <h2 class="step-title">F1-Score - one number for precision and recall</h2>
+        <p>Precision and recall trade against each other, so comparing two models means comparing two pairs of numbers. <strong>F1</strong> squeezes both into one, using the <em>harmonic</em> mean instead of the ordinary average.</p>
+
+        <div class="math-card">
+          <span class="math-formula">
+            $$F_1 = 2 \times \frac{\text{Precision} \times \text{Recall}}{\text{Precision} + \text{Recall}}$$
+          </span>
+          <p class="math-caption">1 is the best possible score, 0 is the worst.</p>
+        </div>
+
+        <pre class="code"><code># by hand
+f1 = 2 * (precision * recall) / (precision + recall)
+
+# with sklearn
+from sklearn.metrics import f1_score
+f1 = f1_score(y_true, y_pred)</code></pre>
+
+        <div class="note"><strong>Why not just average them?</strong> Take precision = 1.0 and recall = 0.0 - a model that made one lucky guess and missed everything else. The ordinary average gives a flattering 0.5. The harmonic mean gives <code>2 × (1 × 0) / (1 + 0) = 0</code>. F1 punishes the weaker of the two, so you cannot buy a good score by maxing one side.</div>
+
+        <table class="data-table">
+          <thead><tr><th>Precision</th><th>Recall</th><th>Plain average</th><th>F1 (harmonic)</th></tr></thead>
+          <tbody>
+            <tr><td>1.00</td><td>0.00</td><td>0.50</td><td>0.00</td></tr>
+            <tr><td>0.90</td><td>0.10</td><td>0.50</td><td>0.18</td></tr>
+            <tr><td>0.60</td><td>0.40</td><td>0.50</td><td>0.48</td></tr>
+            <tr><td>0.50</td><td>0.50</td><td>0.50</td><td>0.50</td></tr>
+          </tbody>
+        </table>
+        <div class="note green">All four rows have the same plain average. Only F1 tells them apart - and it is only equal to the average when precision and recall are balanced.</div>
+      </section>
+
+      <!-- ═══ 8. WHICH SCORE WHEN ═══ -->
+      <section class="card topic-panel" id="topic-7">
+        <h2 class="step-title">Which score should you actually look at?</h2>
+        <p>All five scores come from the same four numbers - the difference is which part of the table each one chooses to ignore. Pick by asking which mistake hurts more in your problem.</p>
+
+        <table class="data-table">
+          <thead><tr><th>Score</th><th>Answers the question</th><th>Use it when</th></tr></thead>
+          <tbody>
+            <tr><td class="term">Accuracy</td><td>How much did it get right overall?</td><td>The classes are roughly balanced</td></tr>
+            <tr><td class="term">Precision</td><td>When it says yes, is it right?</td><td>A false alarm is expensive</td></tr>
+            <tr><td class="term">Recall</td><td>Did it find all the real yeses?</td><td>A miss is expensive</td></tr>
+            <tr><td class="term">Specificity</td><td>Is it good at spotting the noes?</td><td>The 0s are the class you care about</td></tr>
+            <tr><td class="term">F1</td><td>Are precision and recall both decent?</td><td>You need one number to rank models</td></tr>
+          </tbody>
+        </table>
+
+        <div class="note blue"><strong>One line gives you nearly all of them.</strong> <code>classification_report</code> prints precision, recall and F1 for <em>both</em> classes, plus accuracy, in a single table:</div>
+        <pre class="code"><code>from sklearn.metrics import classification_report
+print(classification_report(y_true, y_pred,
+                            target_names=['no (0)', 'yes (1)']))</code></pre>
+        <div class="note">In that printout, the <strong>recall on the row for class 0 is the specificity</strong>. That is the fastest way to read it off without computing anything.</div>
+      </section>
+
+      <!-- ═══ 9. THE DATASET ═══ -->
+      <section class="card topic-panel" id="topic-8">
+        <h2 class="step-title">The class exercise - the data</h2>
+        <p>Twelve people. For each one we know how many <strong>minutes of exercise</strong> they did that day, and whether they <strong>hit 10,000 steps</strong> (1 = yes, 0 = no). The question: can we predict the second column from the first?</p>
+
+        <table class="data-table">
+          <thead><tr><th>x (minutes)</th><th>y (hit 10k steps)</th></tr></thead>
+          <tbody>
+            <tr><td>5</td><td>0</td></tr>
+            <tr><td>12</td><td>0</td></tr>
+            <tr><td>18</td><td>0</td></tr>
+            <tr><td>22</td><td>0</td></tr>
+            <tr><td>28</td><td>0</td></tr>
+            <tr><td>35</td><td>0</td></tr>
+            <tr><td>42</td><td>0</td></tr>
+            <tr><td>48</td><td>1</td></tr>
+            <tr><td>55</td><td>1</td></tr>
+            <tr><td>63</td><td>1</td></tr>
+            <tr><td>72</td><td>1</td></tr>
+            <tr><td>85</td><td>1</td></tr>
+          </tbody>
+        </table>
+
+        <pre class="code"><code>x = np.array([5, 12, 18, 22, 28, 35, 42, 48, 55, 63, 72, 85])
+y = np.array([0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  1,  1])
+
+df = pd.DataFrame({'x': x, 'y': y})
+X  = df[['x']]      # double brackets - sklearn wants a 2D table
+display(df)</code></pre>
+
+        <div class="note blue"><strong>Look at the data before you fit anything.</strong> Every row up to 42 minutes is a 0, every row from 48 minutes up is a 1. The switch happens once and never goes back - the two groups do not overlap at all. Keep that in mind, because it decides everything that follows.</div>
+
+        <div class="task-box">
+          <span class="task-num">The task</span>
+          <ul class="task-list">
+            <li>Fit a <code>LogisticRegression</code> and print <code>b0</code> and <code>b1</code></li>
+            <li>Find the x that gives a 50% chance, and the x that gives a 70% chance</li>
+            <li>Print the confusion matrix</li>
+            <li>From the matrix compute accuracy, precision, recall, true-negative rate and F1-score</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- ═══ 10. FIT ═══ -->
+      <section class="card topic-panel" id="topic-9">
+        <h2 class="step-title">Step 1 - fit the model and read the two numbers</h2>
+        <pre class="code"><code>from sklearn.linear_model import LogisticRegression
+
+model = LogisticRegression()
+model.fit(X, df['y'])
+
+b0 = model.intercept_[0]
+b1 = model.coef_[0][0]
+
+print("b0 =", b0)
+print("b1 =", b1)</code></pre>
+        <div class="output">b0 = -31.0898276876013
+b1 = 0.6908823082158431</div>
+
+        <p>Those two numbers are the whole model. Put them back into the sigmoid we learned last lesson:</p>
+        <div class="math-card">
+          <span class="math-formula compact">
+            $$P(y = 1 \mid x) = \frac{1}{1 + e^{-(-31.09 \,+\, 0.6909\,x)}}$$
+          </span>
+          <p class="math-caption">x = minutes of exercise, output = the chance of hitting 10,000 steps.</p>
+        </div>
+
+        <div class="note"><strong>b1 is enormous.</strong> In last lesson's loan example <code>b1</code> was about 0.016; here it is 0.69, more than forty times bigger. <code>b1</code> controls how steep the S is, and because our two groups never overlap, sklearn is free to make the curve almost a vertical wall. Nothing in the data punishes it for being that confident.</div>
+
+        <div class="graph-preview">
+          <p class="graph-title">The fitted sigmoid - practically a step at 45 minutes</p>
+          <svg viewBox="0 0 760 350" role="img" aria-label="Fitted sigmoid curve, an almost vertical step at 45 minutes">
+            <line x1="70" y1="300" x2="700" y2="300" stroke="#bfd0ea" stroke-width="1.5"/>
+            <line x1="70" y1="40" x2="70" y2="300" stroke="#bfd0ea" stroke-width="1.5"/>
+            <line x1="70" y1="170" x2="700" y2="170" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="5 5"/>
+            <text x="708" y="174" font-size="12" fill="#52657d">0.5</text>
+            <polyline fill="none" stroke="#2563eb" stroke-width="2.6"
+              points="70,300 111,300 152,300 192,300 233,300 274,300 297,300 310,299 319,298 328,296 333,294 337,290 342,285 346,276 351,264 356,246 360,223 365,196 369,165 374,135 378,109 383,88 387,72 392,61 396,53 401,49 405,45 410,43 414,42 419,41 428,41 442,40 473,40 528,40 600,40 700,40"/>
+            <line x1="368" y1="40" x2="368" y2="300" stroke="#0f9f6e" stroke-width="1.4" stroke-dasharray="4 4"/>
+            <text x="374" y="330" font-size="12" fill="#0f9f6e" font-weight="700">x = 45.0 → 50%</text>
+            <g fill="#dc2626">
+              <circle cx="103" cy="300" r="5"/><circle cx="150" cy="300" r="5"/><circle cx="189" cy="300" r="5"/>
+              <circle cx="216" cy="300" r="5"/><circle cx="256" cy="300" r="5"/><circle cx="302" cy="300" r="5"/>
+              <circle cx="349" cy="300" r="5"/>
+            </g>
+            <g fill="#0f9f6e">
+              <circle cx="388" cy="40" r="5"/><circle cx="435" cy="40" r="5"/><circle cx="488" cy="40" r="5"/>
+              <circle cx="547" cy="40" r="5"/><circle cx="634" cy="40" r="5"/>
+            </g>
+            <text x="70" y="322" font-size="12" fill="#52657d">0</text>
+            <text x="197" y="322" font-size="12" fill="#52657d">20</text>
+            <text x="329" y="322" font-size="12" fill="#52657d">40</text>
+            <text x="462" y="322" font-size="12" fill="#52657d">60</text>
+            <text x="595" y="322" font-size="12" fill="#52657d">80</text>
+            <text x="330" y="345" font-size="13" fill="#142033" font-weight="700">minutes of exercise</text>
+            <text x="30" y="46" font-size="12" fill="#52657d">1.0</text>
+            <text x="30" y="304" font-size="12" fill="#52657d">0.0</text>
+          </svg>
+        </div>
+        <p>Red dots are the people who did not hit 10k, green dots are the ones who did. The curve hugs 0 all the way to 42 minutes, jumps almost vertically, and hugs 1 from 48 minutes onward.</p>
+      </section>
+
+      <!-- ═══ 11. X FOR PROBABILITY ═══ -->
+      <section class="card topic-panel" id="topic-10">
+        <h2 class="step-title">Step 2 - how many minutes give a 50% chance? A 70% chance?</h2>
+        <p>Normally we go <em>forwards</em>: give the model an x, get a probability. Here we go <strong>backwards</strong>: we name the probability and ask which x produces it. That means solving the sigmoid for x.</p>
+
+        <p>Start from the sigmoid, and flip it step by step:</p>
+        <div class="math-card">
+          <span class="math-formula compact no-scroll">
+            $$p = \frac{1}{1 + e^{-(b_0 + b_1 x)}} \;\Longrightarrow\; \frac{p}{1-p} = e^{\,b_0 + b_1 x} \;\Longrightarrow\; \ln\!\left(\frac{p}{1-p}\right) = b_0 + b_1 x$$
+          </span>
+          <p class="math-caption">and one last move gets x on its own:</p>
+          <span class="math-formula compact">
+            $$x = \frac{\ln\!\left(\dfrac{p}{1-p}\right) - b_0}{b_1}$$
+          </span>
+        </div>
+
+        <div class="note blue"><strong>That fraction <code>p / (1 - p)</code> has a name: the <em>odds</em>.</strong> A probability of 0.75 is odds of 3 - "three to one". Take the natural log of the odds and you get the <strong>log-odds</strong>, and the whole point of logistic regression is that the log-odds is a plain straight line: <code>b0 + b1·x</code>. The sigmoid is just that line folded into the 0-1 range.</div>
+
+        <p>That is exactly the helper function we were given in the notebook:</p>
+        <pre class="code"><code>def x_for_probability(p, b0, b1):
+    """The x at which the model predicts probability p."""
+    return (np.log(p / (1 - p)) - b0) / b1
+
+print("50%:", x_for_probability(0.5, b0, b1))
+print("70%:", x_for_probability(0.7, b0, b1))</code></pre>
+        <div class="output">50%: 45.000179217048824
+70%: 46.226578924077494</div>
+
+        <div class="split-cmp">
+          <div class="box good">
+            <div class="label">50% chance</div>
+            <div class="num">45.0</div>
+            <div class="sub">minutes of exercise</div>
+          </div>
+          <div class="box good" style="background:var(--soft-blue);border-color:#bcd4f6">
+            <div class="label">70% chance</div>
+            <div class="num" style="color:var(--blue)">46.2</div>
+            <div class="sub">minutes of exercise</div>
+          </div>
+        </div>
+
+        <p>The 50% point is worth a second look. At p = 0.5 the odds are <code>0.5 / 0.5 = 1</code>, and <code>ln(1) = 0</code>, so the formula collapses to:</p>
+        <div class="math-card">
+          <span class="math-formula compact">
+            $$x_{50\%} = \frac{0 - b_0}{b_1} = -\frac{b_0}{b_1} = \frac{31.0898}{0.6909} \approx 45.0$$
+          </span>
+          <p class="math-caption">The 50% point is always just -b0/b1. No logarithm needed.</p>
+        </div>
+
+        <div class="note red"><strong>Only 1.2 minutes separate "coin flip" from "70% likely".</strong> That is the steep <code>b1</code> showing up again. With perfectly separated data the model is certain about everything except a razor-thin band around 45 minutes - it goes from 11% at 42 minutes to 89% at 48 minutes. Do not read that as real-world confidence; read it as "twelve tidy rows".</div>
+      </section>
+
+      <!-- ═══ 12. CONFUSION MATRIX ═══ -->
+      <section class="card topic-panel" id="topic-11">
+        <h2 class="step-title">Step 3 - predict, then build the confusion matrix</h2>
+        <pre class="code"><code>from sklearn.metrics import confusion_matrix
+
+y_pred = model.predict(X)
+cm = confusion_matrix(df['y'], y_pred)
+print(cm)
+
+tn, fp, fn, tp = cm.ravel()
+print("TN =", tn, " FP =", fp, " FN =", fn, " TP =", tp)</code></pre>
+        <div class="output">[[7 0]
+ [0 5]]
+TN = 7  FP = 0  FN = 0  TP = 5</div>
+
+        <div class="cm-wrap">
+          <div class="cm-cell corner"></div>
+          <div class="cm-cell head">Predicted: no 10k</div>
+          <div class="cm-cell head">Predicted: hit 10k</div>
+          <div class="cm-cell head">Actual: no 10k</div>
+          <div class="cm-cell ok"><span class="n">7</span><span class="t">TN - correctly said no</span></div>
+          <div class="cm-cell ok" style="background:#f4f9fe;border-color:#d7e7f7"><span class="n" style="color:#7f9bb8">0</span><span class="t">FP - no false alarms</span></div>
+          <div class="cm-cell head">Actual: hit 10k</div>
+          <div class="cm-cell ok" style="background:#f4f9fe;border-color:#d7e7f7"><span class="n" style="color:#7f9bb8">0</span><span class="t">FN - nothing missed</span></div>
+          <div class="cm-cell ok"><span class="n">5</span><span class="t">TP - correctly said yes</span></div>
+        </div>
+
+        <div class="note green"><strong>Both off-diagonal cells are 0 - twelve out of twelve correct.</strong> That is not luck and it is not a great model: it is what happens when the two classes never overlap. The straight line 42 → 48 has a clean gap in it, and any threshold inside that gap separates the data perfectly.</div>
+      </section>
+
+      <!-- ═══ 13. DRAWING ═══ -->
+      <section class="card topic-panel" id="topic-12">
+        <h2 class="step-title">Step 4 - draw the confusion matrix</h2>
+        <p>There are two ways to turn those four numbers into a picture. The first is the <code>seaborn</code> heatmap we used last lesson:</p>
+
+        <pre class="code"><code>import seaborn as sns
+import matplotlib.pyplot as plt
+
+plt.figure(figsize=(4.6, 4))
+sns.heatmap(cm,
+            annot=True,                  # write the count inside each square
+            fmt='d',                     # as a whole number, not 7.0
+            cmap='Blues',                # white → dark blue
+            cbar=False,                  # no colour bar on the side
+            xticklabels=['pred: no 10k', 'pred: hit 10k'],
+            yticklabels=['true: no 10k', 'true: hit 10k'])
+plt.xlabel('Predicted')
+plt.ylabel('Actual')
+plt.title('Confusion Matrix - 10k steps')
+plt.tight_layout()
+plt.show()</code></pre>
+
+        <div class="note"><code>fmt='d'</code> matters here. Without it seaborn prints <code>7</code> as <code>7.0</code>, and on bigger matrices you get things like <code>1.2e+02</code> inside the squares.</div>
+
+        <div class="graph-preview">
+          <p class="graph-title">What the heatmap looks like</p>
+          <div class="cm-wrap" style="max-width:520px">
+            <div class="cm-cell corner"></div>
+            <div class="cm-cell head">pred: no 10k</div>
+            <div class="cm-cell head">pred: hit 10k</div>
+            <div class="cm-cell head">true: no 10k</div>
+            <div class="cm-cell ok" style="background:#08306b;border-color:#08306b"><span class="n" style="color:#ffffff">7</span><span class="t" style="color:#cfe1f8">darkest - the biggest count</span></div>
+            <div class="cm-cell ok" style="background:#f7fbff;border-color:#dbeaf7"><span class="n" style="color:#8ba7c4">0</span><span class="t">white - empty cell</span></div>
+            <div class="cm-cell head">true: hit 10k</div>
+            <div class="cm-cell ok" style="background:#f7fbff;border-color:#dbeaf7"><span class="n" style="color:#8ba7c4">0</span><span class="t">white - empty cell</span></div>
+            <div class="cm-cell ok" style="background:#2f7ebd;border-color:#2f7ebd"><span class="n" style="color:#ffffff">5</span><span class="t" style="color:#eef6ff">medium blue</span></div>
+          </div>
+        </div>
+        <p>Colour only on the diagonal, white in both corners - that is the visual signature of a model that got everything right. The moment you see colour off the diagonal, you are looking at mistakes.</p>
+
+        <p>The second way is sklearn's own display object, which draws the matrix for you - no seaborn needed:</p>
+        <pre class="code"><code>from sklearn.metrics import ConfusionMatrixDisplay
+
+disp = ConfusionMatrixDisplay(confusion_matrix=cm,
+                              display_labels=['no 10k', 'hit 10k'])
+disp.plot(cmap='Blues')
+plt.title('Confusion Matrix')
+plt.show()</code></pre>
+        <div class="note blue"><strong>Even shorter:</strong> <code>ConfusionMatrixDisplay.from_estimator(model, X, df['y'])</code> fits the matrix and draws it in one line, straight from the model - you never build <code>cm</code> yourself.</div>
+      </section>
+
+      <!-- ═══ 14. ALL SCORES ═══ -->
+      <section class="card topic-panel" id="topic-13">
+        <h2 class="step-title">Step 5 - every score, by hand and by sklearn</h2>
+        <p>The task asked for the scores <strong>from the confusion matrix</strong>, so we compute them from <code>tn, fp, fn, tp</code> first - and then check each one against the ready-made sklearn function.</p>
+
+        <pre class="code"><code>tn, fp, fn, tp = cm.ravel()          # 7, 0, 0, 5
+
+# ── by hand, straight from the four cells ──────────────
+accuracy    = (tp + tn) / (tp + tn + fp + fn)
+precision   = tp / (tp + fp)
+recall      = tp / (tp + fn)
+specificity = tn / (tn + fp)          # true negative rate
+f1          = 2 * (precision * recall) / (precision + recall)
+
+print("accuracy    =", accuracy)
+print("precision   =", precision)
+print("recall      =", recall)
+print("specificity =", specificity)
+print("f1-score    =", f1)</code></pre>
+        <div class="output">accuracy    = 1.0
+precision   = 1.0
+recall      = 1.0
+specificity = 1.0
+f1-score    = 1.0</div>
+
+        <p>Now the same five numbers using the functions sklearn already gives us:</p>
+        <pre class="code"><code>from sklearn.metrics import (accuracy_score, precision_score,
+                             recall_score, f1_score)
+
+print("accuracy    =", accuracy_score(df['y'], y_pred))
+print("precision   =", precision_score(df['y'], y_pred))
+print("recall      =", recall_score(df['y'], y_pred))
+print("specificity =", recall_score(df['y'], y_pred, pos_label=0))
+print("f1-score    =", f1_score(df['y'], y_pred))</code></pre>
+        <div class="output">accuracy    = 1.0
+precision   = 1.0
+recall      = 1.0
+specificity = 1.0
+f1-score    = 1.0</div>
+
+        <p>And all of it at once, with <code>classification_report</code>:</p>
+        <pre class="code"><code>from sklearn.metrics import classification_report
+
+print(classification_report(df['y'], y_pred,
+                            target_names=['no 10k (0)', 'hit 10k (1)']))</code></pre>
+        <div class="output">              precision    recall  f1-score   support
+
+  no 10k (0)       1.00      1.00      1.00         7
+ hit 10k (1)       1.00      1.00      1.00         5
+
+    accuracy                           1.00        12
+   macro avg       1.00      1.00      1.00        12
+weighted avg       1.00      1.00      1.00        12</div>
+
+        <table class="data-table">
+          <thead><tr><th>Score</th><th>From the matrix</th><th>Value</th></tr></thead>
+          <tbody>
+            <tr><td class="term">Accuracy</td><td>(5 + 7) / 12</td><td>1.0</td></tr>
+            <tr><td class="term">Precision</td><td>5 / (5 + 0)</td><td>1.0</td></tr>
+            <tr><td class="term">Recall</td><td>5 / (5 + 0)</td><td>1.0</td></tr>
+            <tr><td class="term">Specificity</td><td>7 / (7 + 0)</td><td>1.0</td></tr>
+            <tr><td class="term">F1-Score</td><td>2 × (1 × 1) / (1 + 1)</td><td>1.0</td></tr>
+          </tbody>
+        </table>
+
+        <div class="note red"><strong>A perfect score is a warning, not a trophy.</strong> Every score is 1.0 because the classes were perfectly separable and because we scored the model on <em>the same twelve rows we trained it on</em>. Both of those are things you will never get in real data. The exercise was about the mechanics; the last topic shows what these numbers look like once the data gets messy.</div>
+      </section>
+
+      <!-- ═══ 15. FULL SOLUTION ═══ -->
+      <section class="card topic-panel" id="topic-14" hidden>
+        <h2 class="step-title">The full solution in one block</h2>
+        <p>Everything above, in the order you would actually write it in the notebook:</p>
+
+        <pre class="code"><code>import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import (confusion_matrix, accuracy_score,
+                             precision_score, recall_score, f1_score,
+                             classification_report)
+
+# ── the data ───────────────────────────────────────────
+x = np.array([5, 12, 18, 22, 28, 35, 42, 48, 55, 63, 72, 85])
+y = np.array([0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  1,  1])
+df = pd.DataFrame({'x': x, 'y': y})
+X  = df[['x']]
+
+# ── fit ────────────────────────────────────────────────
+model = LogisticRegression()
+model.fit(X, df['y'])
+
+b0 = model.intercept_[0]
+b1 = model.coef_[0][0]
+print("b0 =", b0)                       # -31.0898276876013
+print("b1 =", b1)                       #   0.6908823082158431
+
+# ── the x for a wanted probability ─────────────────────
+def x_for_probability(p, b0, b1):
+    """The x at which the model predicts probability p."""
+    return (np.log(p / (1 - p)) - b0) / b1
+
+print("50% at", x_for_probability(0.5, b0, b1), "minutes")   # 45.0002
+print("70% at", x_for_probability(0.7, b0, b1), "minutes")   # 46.2266
+
+# ── predict and build the matrix ───────────────────────
+y_pred = model.predict(X)
+cm = confusion_matrix(df['y'], y_pred)
+print(cm)                               # [[7 0]
+                                        #  [0 5]]
+tn, fp, fn, tp = cm.ravel()
+
+# ── the scores, from the matrix ────────────────────────
+accuracy    = (tp + tn) / (tp + tn + fp + fn)
+precision   = tp / (tp + fp)
+recall      = tp / (tp + fn)
+specificity = tn / (tn + fp)
+f1          = 2 * (precision * recall) / (precision + recall)
+
+print(f"accuracy    = {accuracy:.4f}")
+print(f"precision   = {precision:.4f}")
+print(f"recall      = {recall:.4f}")
+print(f"specificity = {specificity:.4f}")
+print(f"f1-score    = {f1:.4f}")
+
+# ── the same scores, from sklearn ──────────────────────
+print(f"accuracy    = {accuracy_score(df['y'], y_pred):.4f}")
+print(f"precision   = {precision_score(df['y'], y_pred):.4f}")
+print(f"recall      = {recall_score(df['y'], y_pred):.4f}")
+print(f"specificity = {recall_score(df['y'], y_pred, pos_label=0):.4f}")
+print(f"f1-score    = {f1_score(df['y'], y_pred):.4f}")
+print(classification_report(df['y'], y_pred,
+                            target_names=['no 10k (0)', 'hit 10k (1)']))
+
+# ── draw the matrix ────────────────────────────────────
+plt.figure(figsize=(4.6, 4))
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', cbar=False,
+            xticklabels=['pred: no 10k', 'pred: hit 10k'],
+            yticklabels=['true: no 10k', 'true: hit 10k'])
+plt.xlabel('Predicted')
+plt.ylabel('Actual')
+plt.title('Confusion Matrix - 10k steps')
+plt.tight_layout()
+plt.show()</code></pre>
+
+        <div class="big-result">Answers</div>
+        <div class="task-box">
+          <span class="task-num">Results</span>
+          <ul class="task-list">
+            <li><strong>b0</strong> = -31.0898, <strong>b1</strong> = 0.6909</li>
+            <li><strong>50%</strong> at 45.00 minutes, <strong>70%</strong> at 46.23 minutes</li>
+            <li><strong>Confusion matrix</strong> = [[7, 0], [0, 5]] - TN=7, FP=0, FN=0, TP=5</li>
+            <li><strong>Accuracy</strong> 1.0, <strong>Precision</strong> 1.0, <strong>Recall</strong> 1.0, <strong>Specificity</strong> 1.0, <strong>F1</strong> 1.0</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- ═══ 16. OVERLAP ═══ -->
+      <section class="card topic-panel" id="topic-15" hidden>
+        <h2 class="step-title">What the same code does on messy data</h2>
+        <p>The exercise gave every score a value of 1.0, which teaches you the formulas but not what they <em>feel</em> like. So let's break the data on purpose: one person exercised 35 minutes and still hit 10k, another did 48 minutes and did not. Two rows flipped, nothing else touched.</p>
+
+        <pre class="code"><code>x = np.array([5, 12, 18, 22, 28, 35, 42, 48, 55, 63, 72, 85])
+y = np.array([0,  0,  0,  0,  0,  1,  0,  0,  1,  1,  1,  1])
+#                                 ↑           ↑
+#                          35 → hit 10k   48 → did not</code></pre>
+
+        <p>The same three lines of fitting code now give completely different coefficients:</p>
+        <div class="output">b0 = -5.989846084408856
+b1 =  0.13169491568388295
+50% at 45.4827 minutes
+70% at 51.9165 minutes</div>
+
+        <div class="note blue"><strong><code>b1</code> dropped from 0.69 to 0.13 - the curve got five times gentler.</strong> Two contradicting rows are enough to make the model admit it is unsure, and now the gap between 50% and 70% is a realistic <strong>6.4 minutes</strong> instead of 1.2.</div>
+
+        <div class="graph-preview">
+          <p class="graph-title">A real S-curve - the model is no longer certain</p>
+          <svg viewBox="0 0 760 350" role="img" aria-label="Gentler sigmoid curve fitted on overlapping data">
+            <line x1="70" y1="300" x2="700" y2="300" stroke="#bfd0ea" stroke-width="1.5"/>
+            <line x1="70" y1="40" x2="70" y2="300" stroke="#bfd0ea" stroke-width="1.5"/>
+            <line x1="70" y1="170" x2="700" y2="170" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="5 5"/>
+            <text x="708" y="174" font-size="12" fill="#52657d">0.5</text>
+            <polyline fill="none" stroke="#2563eb" stroke-width="2.6"
+              points="70,299 100,299 130,298 160,296 190,293 210,290 230,285 250,279 270,269 290,257 310,241 330,221 350,197 370,172 390,147 410,123 430,102 450,85 470,72 490,63 510,56 530,51 550,47 570,45 590,43 610,42 630,42 650,41 670,41 700,40"/>
+            <line x1="372" y1="40" x2="372" y2="300" stroke="#0f9f6e" stroke-width="1.4" stroke-dasharray="4 4"/>
+            <line x1="414" y1="40" x2="414" y2="300" stroke="#f97316" stroke-width="1.4" stroke-dasharray="2 4"/>
+            <text x="150" y="330" font-size="12" fill="#0f9f6e" font-weight="700">45.5 → 50%</text>
+            <text x="430" y="330" font-size="12" fill="#f97316" font-weight="700">51.9 → 70%</text>
+            <g fill="#dc2626">
+              <circle cx="103" cy="300" r="5"/><circle cx="150" cy="300" r="5"/><circle cx="189" cy="300" r="5"/>
+              <circle cx="216" cy="300" r="5"/><circle cx="256" cy="300" r="5"/>
+              <circle cx="349" cy="300" r="5"/><circle cx="388" cy="300" r="5"/>
+            </g>
+            <g fill="#0f9f6e">
+              <circle cx="302" cy="40" r="5"/><circle cx="435" cy="40" r="5"/><circle cx="488" cy="40" r="5"/>
+              <circle cx="547" cy="40" r="5"/><circle cx="634" cy="40" r="5"/>
+            </g>
+            <text x="70" y="322" font-size="12" fill="#52657d">0</text>
+            <text x="197" y="322" font-size="12" fill="#52657d">20</text>
+            <text x="329" y="322" font-size="12" fill="#52657d">40</text>
+            <text x="462" y="322" font-size="12" fill="#52657d">60</text>
+            <text x="595" y="322" font-size="12" fill="#52657d">80</text>
+            <text x="30" y="46" font-size="12" fill="#52657d">1.0</text>
+            <text x="30" y="304" font-size="12" fill="#52657d">0.0</text>
+          </svg>
+        </div>
+        <p>Look at the green dot sitting on the left at 35 minutes and the red dot at 48 - those are the two rows the model cannot satisfy, and they are exactly the two it will get wrong.</p>
+
+        <div class="output">[[6 1]
+ [1 4]]
+TN = 6  FP = 1  FN = 1  TP = 4</div>
+
+        <div class="cm-wrap">
+          <div class="cm-cell corner"></div>
+          <div class="cm-cell head">Predicted: no 10k</div>
+          <div class="cm-cell head">Predicted: hit 10k</div>
+          <div class="cm-cell head">Actual: no 10k</div>
+          <div class="cm-cell ok"><span class="n">6</span><span class="t">TN</span></div>
+          <div class="cm-cell bad"><span class="n">1</span><span class="t">FP - the 48-minute person</span></div>
+          <div class="cm-cell head">Actual: hit 10k</div>
+          <div class="cm-cell bad"><span class="n">1</span><span class="t">FN - the 35-minute person</span></div>
+          <div class="cm-cell ok"><span class="n">4</span><span class="t">TP</span></div>
+        </div>
+
+        <p>Now the five formulas finally do some work:</p>
+        <table class="data-table">
+          <thead><tr><th>Score</th><th>From the matrix</th><th>Value</th></tr></thead>
+          <tbody>
+            <tr><td class="term">Accuracy</td><td>(4 + 6) / 12</td><td>0.8333</td></tr>
+            <tr><td class="term">Precision</td><td>4 / (4 + 1)</td><td>0.8000</td></tr>
+            <tr><td class="term">Recall</td><td>4 / (4 + 1)</td><td>0.8000</td></tr>
+            <tr><td class="term">Specificity</td><td>6 / (6 + 1)</td><td>0.8571</td></tr>
+            <tr><td class="term">F1-Score</td><td>2 × (0.8 × 0.8) / (0.8 + 0.8)</td><td>0.8000</td></tr>
+          </tbody>
+        </table>
+
+        <div class="note green"><strong>Five different numbers from the same twelve rows.</strong> Accuracy is the most flattering, specificity is higher than recall because the model does better on the 0s than on the 1s, and F1 lands exactly on 0.8 - which is what happens when precision and recall are equal. This is what a normal, honest result looks like.</div>
+        <div class="note"><strong>The takeaway from the whole lesson:</strong> the confusion matrix is the data, the five scores are five different questions you can ask it. Never report just one - report the matrix, then the score that matches the mistake you care about.</div>
+      </section>
+
+    </main>
+  </div>
+
+  <div class="footer">Lesson 14 - July 29, 2026 - Accuracy, Precision, Recall, Specificity &amp; F1-Score</div>
+</div>
+
+<script>
+  const links = document.querySelectorAll('.topic-link');
+  const panels = document.querySelectorAll('.topic-panel');
+
+  function showTopic(id) {
+    panels.forEach(panel => panel.classList.toggle('active', panel.id === id));
+    links.forEach(link => link.classList.toggle('active', link.dataset.target === id));
+  }
+
+  links.forEach(link => {
+    if (link.dataset.target) {
+      link.addEventListener('click', () => {
+        showTopic(link.dataset.target);
+        location.hash = link.dataset.target;
+      });
+    }
+  });
+
+  const hash = location.hash.replace('#', '');
+  if (hash && document.getElementById(hash)) showTopic(hash);
+</script>
+</body>
+</html>
