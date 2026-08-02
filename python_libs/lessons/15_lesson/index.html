@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 15 - K-Nearest Neighbors (KNN)</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      renderMathInElement(document.body, {
+        delimiters: [
+          { left: '$$', right: '$$', display: true },
+          { left: '\\(', right: '\\)', display: false }
+        ],
+        throwOnError: false
+      });
+    });
+  </script>
+  <style>
+    :root {
+      --bg: #f8fbff;
+      --surface: #ffffff;
+      --ink: #142033;
+      --muted: #52657d;
+      --blue: #2563eb;
+      --blue-dark: #143b73;
+      --cyan: #e7fbff;
+      --green: #0f9f6e;
+      --orange: #f97316;
+      --red: #dc2626;
+      --border: #bfd0ea;
+      --code-bg: #101a2c;
+      --code-text: #dceaff;
+      --soft-blue: #eef6ff;
+      --soft-green: #effbf5;
+      --soft-orange: #fff7ed;
+      --soft-red: #fef2f2;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Trebuchet MS", "Lucida Sans", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 10%, #e9f7ff 0%, transparent 34%),
+        radial-gradient(circle at 88% 18%, #effbf5 0%, transparent 32%),
+        linear-gradient(180deg, var(--bg) 0%, #ffffff 56%, #f1f8ff 100%);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 28px 20px 60px; }
+    .layout { display: grid; grid-template-columns: 250px 1fr; gap: 22px; align-items: start; }
+
+    .side-nav {
+      position: sticky; top: 20px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 18px 14px;
+      box-shadow: 0 4px 16px rgba(37,99,235,.08);
+    }
+    .side-title { font-size: .8rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--blue); margin: 0 0 10px; }
+    .part-label { display: block; padding: 8px 4px 4px; font-size: .7rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--green); }
+    .topic-link {
+      display: block; width: 100%; border: 1px solid transparent; border-radius: 9px;
+      padding: 7px 10px; background: transparent; color: var(--muted); cursor: pointer;
+      text-align: left; font: inherit; margin: 2px 0; transition: .16s ease;
+    }
+    .topic-link:hover { background: #f0f7ff; color: var(--blue-dark); border-color: var(--border); }
+    .topic-link.active { background: #e9f1ff; color: var(--blue-dark); border-color: var(--blue); font-weight: 700; }
+    .side-divider { border: none; border-top: 1px solid var(--border); margin: 12px 4px; }
+    .nav-back { display: block; padding: 7px 10px; color: var(--blue); font-weight: 700; text-decoration: none; font-size: .9rem; }
+    .nav-back:hover { text-decoration: underline; }
+
+    .hero {
+      background: linear-gradient(135deg, var(--surface) 0%, var(--soft-blue) 54%, var(--soft-green) 100%);
+      border: 1px solid var(--border); border-radius: 16px; padding: 28px;
+      box-shadow: 0 12px 30px rgba(37,99,235,.12); margin-bottom: 22px;
+    }
+    .tag { display: inline-block; padding: 5px 12px; border-radius: 999px; background: #e7fbff; color: #0f766e; font-weight: 800; font-size: .82rem; border: 1px solid #99e6ef; }
+    h1 { margin: 14px 0 10px; color: var(--blue-dark); font-size: clamp(2rem, 5vw, 3.2rem); line-height: 1.05; }
+    .hero p { max-width: 820px; color: var(--muted); font-size: 1.06rem; }
+    .hero-chips { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .hero-chip { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: .78rem; font-weight: 700; background: rgba(20,184,166,.1); color: #0f766e; border: 1px solid rgba(20,184,166,.3); }
+
+    .card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      padding: 22px; margin-bottom: 16px; box-shadow: 0 7px 22px rgba(37,99,235,.08);
+    }
+    .topic-panel { display: none; }
+    .topic-panel.active { display: block; }
+    .step-title { margin: 0 0 12px; color: var(--blue-dark); font-size: 1.25rem; }
+
+    code { font-family: Consolas, "Courier New", monospace; }
+
+    .math-card {
+      border: 1px solid #b7c8e4; border-radius: 12px;
+      background: linear-gradient(135deg, #ffffff 0%, #f1f7ff 100%);
+      padding: 18px; margin: 18px 0; text-align: center;
+    }
+    .math-caption { color: var(--muted); margin: 8px 0 0; font-size: .95rem; }
+    .katex { color: var(--blue-dark); }
+    .katex-display { margin: 6px 0; overflow-x: auto; overflow-y: hidden; padding: 3px 0; }
+    .data-table .katex, .math-caption .katex, p .katex { font-size: 1em; }
+
+    .resource-link { display: inline-block; color: var(--blue-dark); font-weight: 800; text-decoration: none; border-bottom: 2px solid rgba(37,99,235,.35); }
+    .resource-link:hover { color: var(--blue); border-bottom-color: var(--blue); }
+    .resource-links { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 4px; }
+
+    .code {
+      background: var(--code-bg); color: var(--code-text); border-radius: 10px;
+      border: 1px solid #304563; padding: 16px 18px; overflow-x: auto; margin: 12px 0;
+      font-size: .95rem; line-height: 1.5; white-space: pre;
+    }
+    .output {
+      background: #f7fbff; color: #1a2d49; border: 1px solid var(--border);
+      border-left: 5px solid var(--blue); border-radius: 10px; padding: 12px 14px;
+      overflow-x: auto; margin: 8px 0 16px; font-family: Consolas, "Courier New", monospace; white-space: pre-wrap;
+    }
+    .output.warn { border-left-color: var(--red); background: var(--soft-red); }
+    .out-label { display: block; font-family: "Trebuchet MS", sans-serif; font-size: .72rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+
+    .note { background: var(--soft-orange); border: 1px solid #fed7aa; border-left: 5px solid var(--orange); border-radius: 10px; padding: 12px 14px; margin: 12px 0; }
+    .note.blue { background: var(--soft-blue); border-color: #bcd4f6; border-left-color: var(--blue); }
+    .note.red { background: var(--soft-red); border-color: #fecaca; border-left-color: var(--red); }
+    .note.green { background: var(--soft-green); border-color: #b6ebd4; border-left-color: var(--green); }
+
+    .task-box { border: 1px solid var(--border); border-left: 5px solid var(--blue); border-radius: 10px; padding: 14px 16px; margin: 12px 0; background: #fbfdff; }
+    .task-num { font-weight: 900; color: var(--blue); text-transform: uppercase; letter-spacing: .08em; font-size: .78rem; }
+    .big-result { font-weight: 900; color: var(--blue-dark); font-size: 1.1rem; letter-spacing: .04em; text-transform: uppercase; margin-bottom: 8px; }
+
+    .data-table { width: 100%; border-collapse: collapse; margin: 16px 0; background: #fbfdff; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .data-table th { background: var(--soft-blue); color: var(--blue-dark); text-align: left; padding: 10px 14px; font-size: .9rem; border-bottom: 2px solid var(--border); }
+    .data-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); font-family: Consolas, "Courier New", monospace; }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table td.term { font-family: inherit; font-weight: 700; color: var(--blue-dark); }
+    .data-table tr.pick td { background: #fffbe8; }
+
+    .apple  { color: var(--green);  font-weight: 700; }
+    .orange { color: var(--orange); font-weight: 700; }
+    .banana { color: #b8860b;       font-weight: 700; }
+
+    .steps-strip { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; margin: 16px 0; }
+    .stepbox { border: 1px solid var(--border); border-radius: 10px; padding: 14px; background: #fbfdff; }
+    .stepbox .n { display: block; font-size: .72rem; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; color: var(--blue); margin-bottom: 4px; }
+    .stepbox strong { color: var(--blue-dark); }
+
+    .footer { text-align: center; color: var(--muted); font-size: .9rem; margin-top: 18px; }
+    .task-list { margin: 6px 0 0; padding-left: 20px; }
+    .task-list li { margin: 4px 0; }
+
+    @media (max-width: 820px) {
+      .layout { grid-template-columns: 1fr; }
+      .side-nav { position: static; }
+      .wrap { padding: 18px 12px 44px; }
+      .steps-strip { grid-template-columns: 1fr; }
+    }
+    /* ── GitHub-dark Python syntax colours ── */
+    pre.code.py { color: #c9d1d9; }
+    pre.code.py .hl-com     { color: #8b949e; font-style: italic; }
+    pre.code.py .hl-kw      { color: #ff7b72; }
+    pre.code.py .hl-str     { color: #a5d6ff; }
+    pre.code.py .hl-num     { color: #79c0ff; }
+    pre.code.py .hl-fn      { color: #d2a8ff; }
+    pre.code.py .hl-builtin { color: #ffa657; }
+  </style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="layout">
+    <aside class="side-nav">
+      <p class="side-title">Lesson 15</p>
+      <span class="part-label">Class Code</span>
+      <button class="topic-link active" data-target="topic-github">1. GitHub Repo</button>
+      <span class="part-label">Warm-up on Paper</span>
+      <button class="topic-link" data-target="topic-1">2. Distance by hand</button>
+      <button class="topic-link" data-target="topic-2">3. Min-Max by hand</button>
+      <span class="part-label">Class Exercise</span>
+      <button class="topic-link" data-target="topic-3">4. The fruit DataFrame</button>
+      <button class="topic-link" data-target="topic-4">5. The task</button>
+      <button class="topic-link" data-target="topic-5">6. Step 1 - normalize</button>
+      <button class="topic-link" data-target="topic-6">7. Step 2 - the new fruit</button>
+      <button class="topic-link" data-target="topic-7">8. Step 3 - the distances</button>
+      <button class="topic-link" data-target="topic-8">9. Step 4 - sort and pick</button>
+      <span class="part-label">Doing It With sklearn</span>
+      <button class="topic-link" data-target="topic-9">10. KNeighborsClassifier</button>
+      <button class="topic-link" data-target="topic-10">11. Reading predict_proba</button>
+      <button class="topic-link" data-target="topic-11">12. The whole script</button>
+      <hr class="side-divider">
+      <a class="nav-back" href="../../10_knn/index.html">Theory deck: KNN</a>
+      <a class="nav-back" href="../../index.html">Back to Python libs</a>
+    </aside>
+
+    <main>
+      <section class="hero">
+        <span class="tag">Lesson - August 2, 2026</span>
+        <h1>K-Nearest Neighbors: the code we wrote in class</h1>
+        <p>Today we classified a fruit without training anything. This page is the <strong>code</strong> from class, line by line, with the outputs we actually saw. The full theory - the formulas, choosing K, the animations - lives in the <a class="resource-link" href="../../10_knn/index.html">KNN deck</a>.</p>
+        <div class="hero-chips">
+          <span class="hero-chip">MinMaxScaler</span>
+          <span class="hero-chip">fit_transform</span>
+          <span class="hero-chip">transform</span>
+          <span class="hero-chip">np.linalg.norm</span>
+          <span class="hero-chip">sorted + lambda</span>
+          <span class="hero-chip">KNeighborsClassifier</span>
+          <span class="hero-chip">predict_proba</span>
+        </div>
+      </section>
+
+      <!-- ═══ 1. GITHUB ═══ -->
+      <section class="card topic-panel active" id="topic-github">
+        <h2 class="step-title">Open Class Code</h2>
+        <p>Open the original notebook from today's class on GitHub: <code>knn_02_08_2026.ipynb</code>.</p>
+        <div class="resource-links">
+          <a class="resource-link" href="https://github.com/pythonai211225-rgb/02.08.2026/blob/main/knn_02_08_2026.ipynb" target="_blank" rel="noopener">
+            pythonai211225-rgb/02.08.2026
+          </a>
+        </div>
+        <div class="note blue">This repository contains the class code for August 2, 2026.</div>
+        <p>The imports we started with:</p>
+        <pre class="code"><code>import numpy as np
+import pandas as pd
+from IPython.display import display
+import matplotlib.pyplot as plt
+import seaborn as sns</code></pre>
+        <p>And the two we added from <code>sklearn</code> once the exercise started:</p>
+        <pre class="code"><code>from sklearn.preprocessing import MinMaxScaler
+from sklearn.neighbors import KNeighborsClassifier</code></pre>
+        <div class="note"><strong>Watch out.</strong> The notebook uses <code>KNeighborsClassifier</code> without ever importing it, so it only runs if that import happened in an earlier cell. If you get <code>NameError: name 'KNeighborsClassifier' is not defined</code>, add the second line above.</div>
+      </section>
+
+      <!-- ═══ 2. DISTANCE BY HAND ═══ -->
+      <section class="card topic-panel" id="topic-1">
+        <h2 class="step-title">Distance by hand, before any code</h2>
+        <p>We started on paper. Three known points <strong>p</strong>, one new point <strong>q = (4, 5)</strong>, and the plain Pythagoras distance between them.</p>
+
+        <div class="math-card">
+          <p>$$d(p, q) = \sqrt{\sum_{i=1}^{n} (p_i - q_i)^2}$$</p>
+          <p class="math-caption">Subtract, square, add up, square root. One extra feature is just one more <code>( )²</code> inside.</p>
+        </div>
+
+        <p>This is the scratch cell exactly as we typed it in class:</p>
+        <pre class="code"><code># p = (1, 4) (2, 7) (3, 3)
+# q   (4, 5)
+
+#     (1, 4)
+#     [(3)² + (1)²]
+#     [9 + 1]
+#     √10 = 3.162
+
+#     (2, 7) = √8 = 2.82
+#     (3, 3) = √5 = 2.23</code></pre>
+
+        <table class="data-table">
+          <thead><tr><th>p</th><th>Δx</th><th>Δy</th><th>Δx² + Δy²</th><th>d</th></tr></thead>
+          <tbody>
+            <tr><td>(1, 4)</td><td>3</td><td>1</td><td>9 + 1 = 10</td><td>√10 = 3.162</td></tr>
+            <tr><td>(2, 7)</td><td>2</td><td>-2</td><td>4 + 4 = 8</td><td>√8 = 2.828</td></tr>
+            <tr class="pick"><td>(3, 3)</td><td>1</td><td>2</td><td>1 + 4 = 5</td><td>√5 = 2.236 &lt;- nearest</td></tr>
+          </tbody>
+        </table>
+
+        <p>In Python you never type the square root yourself - <code>np.linalg.norm</code> is the whole formula:</p>
+        <pre class="code"><code>p = np.array([3, 3])
+q = np.array([4, 5])
+
+np.linalg.norm(p - q)     # 2.2360679... = √5</code></pre>
+        <div class="note blue"><strong>norm = length of a vector.</strong> <code>np.linalg.norm([1, 2, 3])</code> is \(\sqrt{1^2+2^2+3^2}\). The length of <code>p - q</code> <em>is</em> the distance from p to q, in any number of dimensions.</div>
+      </section>
+
+      <!-- ═══ 3. MIN-MAX BY HAND ═══ -->
+      <section class="card topic-panel" id="topic-2">
+        <h2 class="step-title">Min-Max by hand</h2>
+        <p>Before scaling anything with sklearn, we did one value on paper. A column that runs from <strong>20</strong> to <strong>250</strong>, and the value <strong>200</strong>:</p>
+
+        <div class="math-card">
+          <p>$$x_{norm} = \frac{x - \min(x)}{\max(x) - \min(x)}$$</p>
+        </div>
+
+        <pre class="code"><code># Xnorm = Xi - Xmin
+#         ─────────
+#         Xmax - Xmin
+
+Xmax = 250
+Xmin = 20
+x = 200
+
+# 200 ? --> 200 - 20      180
+#           ────────  =   ─── = 0.78
+#           250 - 20      230
+
+# 250 ? == 1
+#  20 ? == 0</code></pre>
+
+        <table class="data-table">
+          <thead><tr><th>raw x</th><th>calculation</th><th>x_norm</th></tr></thead>
+          <tbody>
+            <tr><td>20 (the min)</td><td>(20 - 20) / 230</td><td>0.00</td></tr>
+            <tr class="pick"><td>200</td><td>(200 - 20) / 230</td><td>0.78</td></tr>
+            <tr><td>250 (the max)</td><td>(250 - 20) / 230</td><td>1.00</td></tr>
+          </tbody>
+        </table>
+
+        <div class="note"><strong>Why we bother.</strong> Color runs 20-250, size runs 6-13. Inside one square root the color gap gets squared into the thousands while the size gap contributes single digits - so without scaling, KNN only ever looks at color. Scaling puts every column on the same 0-1 ruler.</div>
+      </section>
+
+      <!-- ═══ 4. THE DATAFRAME ═══ -->
+      <section class="card topic-panel" id="topic-3">
+        <h2 class="step-title">The fruit DataFrame</h2>
+        <p>Nine fruits, three features each. This is the whole dataset for the lesson:</p>
+        <pre class="code py"><code>df = pd.DataFrame({
+    "Fruit": ["Apple", "Apple", "Apple",
+              "Orange", "Orange", "Orange",
+              "Banana", "Banana", "Banana"],
+    "Weight": [150, 160, 140, 170, 165, 180, 120, 130, 115],
+    "Size": [7, 7, 6, 9, 8, 9, 12, 13, 11],
+    "Color": [200, 50, 220, 240, 250, 230, 30, 40, 20]
+})</code></pre>
+
+        <table class="data-table">
+          <thead><tr><th>Fruit</th><th>Weight (g)</th><th>Size (cm)</th><th>Color (0-255, R)</th></tr></thead>
+          <tbody>
+            <tr><td class="term apple">Apple</td><td>150</td><td>7</td><td>200</td></tr>
+            <tr><td class="term apple">Apple</td><td>160</td><td>7</td><td>50</td></tr>
+            <tr><td class="term apple">Apple</td><td>140</td><td>6</td><td>220</td></tr>
+            <tr><td class="term orange">Orange</td><td>170</td><td>9</td><td>240</td></tr>
+            <tr><td class="term orange">Orange</td><td>165</td><td>8</td><td>250</td></tr>
+            <tr><td class="term orange">Orange</td><td>180</td><td>9</td><td>230</td></tr>
+            <tr><td class="term banana">Banana</td><td>120</td><td>12</td><td>30</td></tr>
+            <tr><td class="term banana">Banana</td><td>130</td><td>13</td><td>40</td></tr>
+            <tr><td class="term banana">Banana</td><td>115</td><td>11</td><td>20</td></tr>
+          </tbody>
+        </table>
+
+        <div class="note blue"><strong>Notice the second apple:</strong> color 50, a green apple sitting in banana territory. It is the noisy point of this dataset and it is exactly why K matters.</div>
+      </section>
+
+      <!-- ═══ 5. THE TASK ═══ -->
+      <section class="card topic-panel" id="topic-4">
+        <h2 class="step-title">The task</h2>
+        <p>A new fruit arrives: <strong>color = 220</strong>, <strong>size = 8 cm</strong>, <strong>weight = 155 g</strong>. Which fruit is it? This is the comment cell we wrote before coding anything:</p>
+        <pre class="code"><code># Now for our new fruit with values: color=220, size=8, weight=155
+# 1 normalize
+# 2 calc distance from this point to all other points
+# 3 put the distances in a list (or array, or dict or whatever) + sort by dist
+#   from small -> large + print the first 5 smallest distances</code></pre>
+
+        <div class="steps-strip">
+          <div class="stepbox"><span class="n">Step 1</span><strong>Normalize</strong><br>every column onto 0-1, and the new fruit with the same scaler.</div>
+          <div class="stepbox"><span class="n">Step 2</span><strong>Measure</strong><br>the distance from the new fruit to all nine rows.</div>
+          <div class="stepbox"><span class="n">Step 3</span><strong>Sort &amp; pick</strong><br>smallest first, keep the first five.</div>
+        </div>
+
+        <div class="task-box">
+          <span class="task-num">Class exercise</span>
+          <p style="margin:6px 0 0">Write it yourself before scrolling on. You need <code>MinMaxScaler</code>, a loop, <code>np.linalg.norm</code> and <code>sorted(..., key=...)</code>.</p>
+        </div>
+      </section>
+
+      <!-- ═══ 6. STEP 1 NORMALIZE ═══ -->
+      <section class="card topic-panel" id="topic-5">
+        <h2 class="step-title">Step 1 - normalize the DataFrame</h2>
+        <p>Create the scaler, then scale the three feature columns. We showed both ways in class:</p>
+
+        <pre class="code py"><code>from sklearn.preprocessing import MinMaxScaler
+
+min_max_scaler = MinMaxScaler()   # create a number between 0-1
+
+df_norm = df.copy()
+
+######################### STEP 1 - normalize df
+# 1 - each column separately
+#df_norm['Weight'] = scaler.fit_transform(df['Weight'].values.reshape(-1, 1))
+#df_norm['Size']   = scaler.fit_transform(df['Size'].values.reshape(-1, 1))
+#df_norm['Color']  = scaler.fit_transform(df['Color'].values.reshape(-1, 1))
+
+# 2 - all columns at once
+# fit_transform - find min + max and scale
+df_norm[['Weight', 'Color', 'Size']] = min_max_scaler.fit_transform(
+                                           df_norm[['Weight', 'Color', 'Size']])</code></pre>
+
+        <table class="data-table">
+          <thead><tr><th>Fruit</th><th>Weight (norm)</th><th>Size (norm)</th><th>Color (norm)</th></tr></thead>
+          <tbody>
+            <tr><td class="term apple">Apple</td><td>0.54</td><td>0.14</td><td>0.78</td></tr>
+            <tr><td class="term apple">Apple</td><td>0.69</td><td>0.14</td><td>0.13</td></tr>
+            <tr><td class="term apple">Apple</td><td>0.38</td><td>0.00</td><td>0.87</td></tr>
+            <tr><td class="term orange">Orange</td><td>0.85</td><td>0.43</td><td>0.96</td></tr>
+            <tr><td class="term orange">Orange</td><td>0.77</td><td>0.29</td><td>1.00</td></tr>
+            <tr><td class="term orange">Orange</td><td>1.00</td><td>0.43</td><td>0.91</td></tr>
+            <tr><td class="term banana">Banana</td><td>0.08</td><td>0.86</td><td>0.04</td></tr>
+            <tr><td class="term banana">Banana</td><td>0.23</td><td>1.00</td><td>0.09</td></tr>
+            <tr><td class="term banana">Banana</td><td>0.00</td><td>0.71</td><td>0.00</td></tr>
+          </tbody>
+        </table>
+
+        <div class="note"><strong><code>reshape(-1, 1)</code></strong> in the commented-out version turns a flat Series into a single column. sklearn always wants 2D input - one row per sample, one column per feature.</div>
+        <div class="note green">Every column now runs from exactly <strong>0.00</strong> to exactly <strong>1.00</strong>. That is what <code>MinMaxScaler</code> guarantees.</div>
+      </section>
+
+      <!-- ═══ 7. STEP 2 NEW FRUIT ═══ -->
+      <section class="card topic-panel" id="topic-6">
+        <h2 class="step-title">Step 2 - normalize the new fruit with the <em>same</em> scaler</h2>
+        <p>This is the line people get wrong. The new fruit must be measured with the ruler we already built:</p>
+
+        <pre class="code py"><code>######################### STEP 2 - normalize the fruit with the same scaler
+new_fruit = pd.DataFrame({'Weight': [155], 'Color': [220], 'Size': [8]})
+
+# transform - scale only
+new_fruit_norm = min_max_scaler.transform(new_fruit[['Weight', 'Color', 'Size']])
+print('new_fruit_norm', new_fruit_norm)</code></pre>
+
+        <div class="output"><span class="out-label">Output</span>new_fruit_norm [[0.61538462 0.86956522 0.28571429]]</div>
+
+        <p>Check it by hand - the three numbers are just the Min-Max formula three times:</p>
+        <table class="data-table">
+          <thead><tr><th>Feature</th><th>calculation</th><th>result</th></tr></thead>
+          <tbody>
+            <tr><td class="term">Weight</td><td>(155 - 115) / (180 - 115) = 40 / 65</td><td>0.61538462</td></tr>
+            <tr><td class="term">Color</td><td>(220 - 20) / (250 - 20) = 200 / 230</td><td>0.86956522</td></tr>
+            <tr><td class="term">Size</td><td>(8 - 6) / (13 - 6) = 2 / 7</td><td>0.28571429</td></tr>
+          </tbody>
+        </table>
+
+        <div class="note red"><strong>Never call <code>fit_transform</code> on the new fruit.</strong> It has one row, so that row would become its own min <em>and</em> its own max - every value turns into 0 and all the distances are garbage. <code>fit_transform</code> on the training data once, <code>transform</code> on everything after.</div>
+      </section>
+
+      <!-- ═══ 8. STEP 3 DISTANCES ═══ -->
+      <section class="card topic-panel" id="topic-7">
+        <h2 class="step-title">Step 3 - distance to all nine fruits</h2>
+        <p>Loop over the rows, subtract, and take the norm of the difference:</p>
+
+        <pre class="code py"><code>######################### STEP 3 - find dist between the new_fruit and ALL other fruits
+distances = []
+for i in range(len(df_norm)):
+    diff_arr = df_norm.iloc[i][['Weight', 'Color', 'Size']] - new_fruit_norm[0]
+    dist = np.linalg.norm(diff_arr)   # [1,2,3] = √[(1)² + (2)² + (3)²]
+    distances.append( (i, dist, df_norm.iloc[i]['Fruit']) )</code></pre>
+
+        <div class="note blue"><strong>Read the three lines.</strong> <code>df_norm.iloc[i][[...]]</code> is one fruit as three numbers · subtracting <code>new_fruit_norm[0]</code> gives the gap per feature · <code>np.linalg.norm</code> squares them, adds them and takes the root. Each loop appends a tuple <code>(index, distance, label)</code>.</div>
+
+        <p>Worked out for the very first row - apple #0, normalized <code>(0.5385, 0.7826, 0.1429)</code>:</p>
+        <div class="math-card">
+          <p>$$d = \sqrt{0.0769^2 + 0.0870^2 + 0.1429^2} = \sqrt{0.0339} = 0.18408$$</p>
+          <p class="math-caption">The same number Python prints for index 0.</p>
+        </div>
+      </section>
+
+      <!-- ═══ 9. STEP 4 SORT ═══ -->
+      <section class="card topic-panel" id="topic-8">
+        <h2 class="step-title">Step 4 - sort by distance and take the first five</h2>
+        <p><code>sorted</code> has no idea which slot of the tuple is the distance, so we tell it with <code>key</code>:</p>
+
+        <pre class="code py"><code>######################### STEP 4 - sort by distance + choose first 5
+sorted(distances, key=lambda item: item[1])[:5]
+
+# d = [{'id': 1, 'dist': 3}, {'id': 2, 'dist': 2}]
+# sorted(d, key=lambda item: item['dist'])</code></pre>
+
+        <div class="output"><span class="out-label">Output</span>[(0, 0.18408356716879312, 'Apple'),
+ (4, 0.20169747536206847, 'Orange'),
+ (3, 0.2849983119390297, 'Orange'),
+ (2, 0.3672697794960086, 'Apple'),
+ (5, 0.4125863746131085, 'Orange')]</div>
+
+        <div class="note"><strong><code>key=lambda item: item[1]</code></strong> means "for each element, compare <em>this</em>". Our elements are tuples <code>(i, dist, label)</code>, so slot <code>[1]</code> is the distance. With dictionaries you would write <code>key=lambda item: item['dist']</code> - the commented lines at the bottom of the cell.</div>
+
+        <div class="note blue"><strong>If your output looks different:</strong> on NumPy 2.x the same list prints as <code>[(0, np.float64(0.18408356716879312), 'Apple'), ...]</code>. The numbers are identical - only the way NumPy shows a single float changed. Unpack the tuple and format it yourself to avoid the noise:
+          <pre class="code py" style="margin-top:10px"><code>for i, d, label in sorted(distances, key=lambda item: item[1])[:5]:
+    print(f'{label:7s} index={i}  d={d:.5f}')</code></pre>
+        </div>
+
+        <p>All nine distances, ranked:</p>
+        <table class="data-table">
+          <thead><tr><th>#</th><th>index</th><th>fruit</th><th>distance</th></tr></thead>
+          <tbody>
+            <tr class="pick"><td>1</td><td>0</td><td class="apple">Apple</td><td>0.18408</td></tr>
+            <tr class="pick"><td>2</td><td>4</td><td class="orange">Orange</td><td>0.20170</td></tr>
+            <tr class="pick"><td>3</td><td>3</td><td class="orange">Orange</td><td>0.28500</td></tr>
+            <tr><td>4</td><td>2</td><td class="apple">Apple</td><td>0.36727</td></tr>
+            <tr><td>5</td><td>5</td><td class="orange">Orange</td><td>0.41259</td></tr>
+            <tr><td>6</td><td>1</td><td class="apple">Apple</td><td>0.75673</td></tr>
+            <tr><td>7</td><td>7</td><td class="banana">Banana</td><td>1.12721</td></tr>
+            <tr><td>8</td><td>6</td><td class="banana">Banana</td><td>1.13969</td></tr>
+            <tr><td>9</td><td>8</td><td class="banana">Banana</td><td>1.14827</td></tr>
+          </tbody>
+        </table>
+
+        <div class="note green"><strong>The highlighted three are the answer for K = 3:</strong> Apple, Orange, Orange - so the majority says <strong>Orange</strong>. Note that the single closest fruit is an Apple, so K = 1 would have answered Apple instead. K changes the answer.</div>
+      </section>
+
+      <!-- ═══ 10. SKLEARN ═══ -->
+      <section class="card topic-panel" id="topic-9">
+        <h2 class="step-title">The same thing with KNeighborsClassifier</h2>
+        <p>Everything above in four sklearn lines. Build the matrix, scale it, fit, predict:</p>
+
+        <pre class="code py"><code># Fruit data
+colors = np.array([200, 50, 220, 240, 250, 230, 30, 40, 20])
+sizes = np.array([7, 7, 6, 9, 8, 9, 12, 13, 11])
+weights = np.array([150, 160, 140, 170, 165, 180, 120, 130, 115])
+fruit_types = np.array(['apple', 'apple', 'apple',
+                        'orange', 'orange', 'orange',
+                        'banana', 'banana', 'banana'])
+
+# Create feature matrix
+X = np.column_stack((colors, sizes, weights))
+y = fruit_types
+
+# Normalize data
+scaler = MinMaxScaler()          # create
+X_scaled = scaler.fit_transform(X)   # activate
+
+k = 3   # number of neighbors
+# weights = uniform  -- All points in each neighborhood are weighted equally
+# weights = distance -- weight points by the inverse of their distance.
+#                       closer neighbors of a query point will have a greater
+#                       influence than neighbors which are further away.
+model = KNeighborsClassifier(n_neighbors=k, weights='distance')
+
+model.fit(X_scaled, y)   # store the points
+
+# New fruit to classify
+new_fruit = np.array([[220, 8, 155]])
+new_fruit_scaled = scaler.transform(new_fruit)
+
+prediction = model.predict(new_fruit_scaled)
+probabilities = model.predict_proba(new_fruit_scaled)
+print(model.classes_)
+print(probabilities)
+
+# Output result
+print(f"Prediction: The new fruit is a {prediction[0]}")</code></pre>
+
+        <div class="output"><span class="out-label">Output</span>['apple' 'banana' 'orange']
+[[0.39084138 0.         0.60915862]]
+Prediction: The new fruit is a orange</div>
+
+        <div class="note"><strong>Careful with the column order.</strong> Here <code>X</code> is built as <code>(colors, sizes, weights)</code> and the new fruit as <code>[[220, 8, 155]]</code> - color, size, weight. The manual version used Weight, Color, Size. The order only has to be <em>consistent</em> between <code>fit</code> and <code>predict</code>; mix them up and you are comparing a weight to a color.</div>
+
+        <div class="note blue"><strong><code>fit</code> does no maths.</strong> It just stores the points. All the work - all nine distances - happens inside <code>predict</code>. That is why KNN is called a <em>lazy</em> learner.</div>
+      </section>
+
+      <!-- ═══ 11. PREDICT_PROBA ═══ -->
+      <section class="card topic-panel" id="topic-10">
+        <h2 class="step-title">Reading <code>predict_proba</code></h2>
+        <p>Two prints, and they belong together:</p>
+        <div class="output"><span class="out-label">Output</span>['apple' 'banana' 'orange']
+[[0.39084138 0.         0.60915862]]</div>
+
+        <table class="data-table">
+          <thead><tr><th>classes_</th><th>probability</th><th>meaning</th></tr></thead>
+          <tbody>
+            <tr><td class="term apple">apple</td><td>0.39084138</td><td>one of the 3 neighbors</td></tr>
+            <tr><td class="term banana">banana</td><td>0.00000000</td><td>no banana in the top 3 at all</td></tr>
+            <tr class="pick"><td class="term orange">orange</td><td>0.60915862</td><td>two of the 3 neighbors - wins</td></tr>
+          </tbody>
+        </table>
+
+        <div class="note red"><strong>Always read the probabilities against <code>model.classes_</code>.</strong> sklearn sorts the labels <em>alphabetically</em> - apple, banana, orange - not in the order they appear in your data. Assuming your own order is how you end up reporting the wrong class.</div>
+
+        <p>Because we passed <code>weights='distance'</code>, each neighbor votes with \(1/d\) instead of 1. That is where the exact numbers come from:</p>
+        <table class="data-table">
+          <thead><tr><th>neighbor</th><th>class</th><th>d</th><th>1 / d</th></tr></thead>
+          <tbody>
+            <tr><td>#0</td><td class="apple">apple</td><td>0.18408</td><td>5.4323</td></tr>
+            <tr><td>#4</td><td class="orange">orange</td><td>0.20170</td><td>4.9579</td></tr>
+            <tr><td>#3</td><td class="orange">orange</td><td>0.28500</td><td>3.5088</td></tr>
+            <tr><td colspan="3" class="term">total weight</td><td>13.8990</td></tr>
+          </tbody>
+        </table>
+
+        <div class="math-card">
+          <p>$$P(\text{apple}) = \frac{5.4323}{13.8990} = 0.3908 \qquad P(\text{orange}) = \frac{4.9579 + 3.5088}{13.8990} = 0.6092$$</p>
+          <p class="math-caption">Exactly the two numbers sklearn printed.</p>
+        </div>
+
+        <div class="note green">With <code>weights='uniform'</code> the same three neighbors would give a blunter <code>0.3333 / 0 / 0.6667</code> - one vote each. The prediction stays Orange either way.</div>
+      </section>
+
+      <!-- ═══ 12. WHOLE SCRIPT ═══ -->
+      <section class="card topic-panel" id="topic-11">
+        <h2 class="step-title">The whole thing in one script</h2>
+        <p>Copy-paste and run - manual version and sklearn version side by side, so you can check that they agree:</p>
+
+        <pre class="code py"><code>import numpy as np
+import pandas as pd
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.neighbors import KNeighborsClassifier
+
+# ---------- the data ----------
+df = pd.DataFrame({
+    "Fruit": ["Apple", "Apple", "Apple",
+              "Orange", "Orange", "Orange",
+              "Banana", "Banana", "Banana"],
+    "Weight": [150, 160, 140, 170, 165, 180, 120, 130, 115],
+    "Size": [7, 7, 6, 9, 8, 9, 12, 13, 11],
+    "Color": [200, 50, 220, 240, 250, 230, 30, 40, 20]
+})
+
+# ---------- manual KNN ----------
+min_max_scaler = MinMaxScaler()
+df_norm = df.copy()
+df_norm[['Weight', 'Color', 'Size']] = min_max_scaler.fit_transform(
+                                           df_norm[['Weight', 'Color', 'Size']])
+
+new_fruit = pd.DataFrame({'Weight': [155], 'Color': [220], 'Size': [8]})
+new_fruit_norm = min_max_scaler.transform(new_fruit[['Weight', 'Color', 'Size']])
+
+distances = []
+for i in range(len(df_norm)):
+    diff_arr = df_norm.iloc[i][['Weight', 'Color', 'Size']] - new_fruit_norm[0]
+    dist = np.linalg.norm(diff_arr)
+    distances.append( (i, dist, df_norm.iloc[i]['Fruit']) )
+
+top5 = sorted(distances, key=lambda item: item[1])[:5]
+for i, d, label in top5:
+    print(f'{label:7s} index={i}  d={d:.5f}')
+
+# ---------- sklearn KNN ----------
+X = np.column_stack((df['Color'], df['Size'], df['Weight']))
+y = df['Fruit'].values
+
+scaler = MinMaxScaler()
+X_scaled = scaler.fit_transform(X)
+
+model = KNeighborsClassifier(n_neighbors=3, weights='distance')
+model.fit(X_scaled, y)
+
+q = scaler.transform(np.array([[220, 8, 155]]))
+print(model.classes_)
+print(model.predict_proba(q))
+print('Prediction:', model.predict(q)[0])</code></pre>
+
+        <div class="output"><span class="out-label">Output</span>Apple   index=0  d=0.18408
+Orange  index=4  d=0.20170
+Orange  index=3  d=0.28500
+Apple   index=2  d=0.36727
+Orange  index=5  d=0.41259
+['Apple' 'Banana' 'Orange']
+[[0.39084138 0.         0.60915862]]
+Prediction: Orange</div>
+
+        <div class="note green"><strong>Both halves agree.</strong> The hand-written loop and <code>KNeighborsClassifier</code> pick the same three neighbors and produce the same probabilities - which is the point of writing it twice.</div>
+
+        <div class="task-box">
+          <span class="task-num">Homework</span>
+          <ul class="task-list">
+            <li>Re-run the sklearn block with <code>k = 1, 3, 5, 7</code> in a loop and print each prediction. Where does it change?</li>
+            <li>Run it once on <code>X</code> raw and once on <code>X_scaled</code>. Explain the difference in one sentence.</li>
+            <li>Swap <code>weights='distance'</code> for <code>'uniform'</code> and compare <code>predict_proba</code>.</li>
+          </ul>
+        </div>
+
+        <div class="note blue">All the theory behind these lines - the distance formulas, decision regions, how to choose K, Manhattan vs Euclidean, KNN for regression - is in the <a class="resource-link" href="../../10_knn/index.html">KNN deck</a>.</div>
+      </section>
+
+    </main>
+  </div>
+
+  <div class="footer">Lesson 15 - August 2, 2026 - K-Nearest Neighbors (KNN)</div>
+</div>
+
+<script>
+  const links = document.querySelectorAll('.topic-link');
+  const panels = document.querySelectorAll('.topic-panel');
+
+  function showTopic(id) {
+    panels.forEach(panel => panel.classList.toggle('active', panel.id === id));
+    links.forEach(link => link.classList.toggle('active', link.dataset.target === id));
+  }
+
+  links.forEach(link => {
+    if (link.dataset.target) {
+      link.addEventListener('click', () => {
+        showTopic(link.dataset.target);
+        location.hash = link.dataset.target;
+      });
+    }
+  });
+
+  const hash = location.hash.replace('#', '');
+  if (hash && document.getElementById(hash)) {
+    showTopic(hash);
+    // Drop the fragment once we have used it. The panel is display:none while the
+    // browser first resolves the anchor, and Chrome retries that scroll after KaTeX
+    // reflows the page - which lands it hundreds of pixels down. No fragment, no retry.
+    history.replaceState(null, '', location.pathname + location.search);
+    window.scrollTo(0, 0);
+  }
+  /* ── minimal Python highlighter, GitHub-dark palette ──
+     single pass so a quote inside a comment (and vice versa) can't confuse it */
+  (function () {
+    const KEYWORDS = new Set(['and','as','assert','async','await','break','class','continue',
+      'def','del','elif','else','except','finally','for','from','global','if','import','in',
+      'is','lambda','nonlocal','not','or','pass','raise','return','try','while','with','yield',
+      'None','True','False']);
+    const BUILTINS = new Set(['print','len','range','sorted','reversed','sum','min','max','abs',
+      'round','int','float','str','bool','list','dict','set','tuple','enumerate','zip','map',
+      'filter','type','isinstance','open','input','any','all']);
+    const PREFIX = /^(f|r|b|u|rb|br|fr|rf)$/i;
+
+    const esc = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const isIdStart = c => /[A-Za-z_]/.test(c);
+    const isId      = c => /[A-Za-z0-9_]/.test(c);
+    const wrap = (cls, t) => '<span class="' + cls + '">' + esc(t) + '</span>';
+
+    /* index just past the closing quote of the string starting at `start` */
+    function scanString(src, start) {
+      const q = src[start], n = src.length;
+      if (src.slice(start, start + 3) === q + q + q) {
+        let j = start + 3;
+        while (j < n && src.slice(j, j + 3) !== q + q + q) j++;
+        return Math.min(n, j + 3);
+      }
+      let j = start + 1;
+      while (j < n && src[j] !== q && src[j] !== '\n') {
+        if (src[j] === '\\') j++;
+        j++;
+      }
+      return (j < n && src[j] === q) ? j + 1 : j;
+    }
+
+    function highlight(src) {
+      let out = '', i = 0;
+      const n = src.length;
+      while (i < n) {
+        const c = src[i];
+
+        if (c === '#') {                                  // comment to end of line
+          let j = i;
+          while (j < n && src[j] !== '\n') j++;
+          out += wrap('hl-com', src.slice(i, j));
+          i = j;
+          continue;
+        }
+
+        if (isIdStart(c)) {                               // word, or a prefixed string
+          let j = i;
+          while (j < n && isId(src[j])) j++;
+          const word = src.slice(i, j), nxt = src[j];
+          if ((nxt === '"' || nxt === "'") && PREFIX.test(word)) {
+            const end = scanString(src, j);
+            out += wrap('hl-str', src.slice(i, end));
+            i = end;
+            continue;
+          }
+          let cls = null;
+          if (KEYWORDS.has(word)) cls = 'hl-kw';
+          else if (BUILTINS.has(word)) cls = 'hl-builtin';
+          else {
+            let k = j;
+            while (k < n && src[k] === ' ') k++;
+            if (src[k] === '(') cls = 'hl-fn';             // a call
+          }
+          out += cls ? wrap(cls, word) : esc(word);
+          i = j;
+          continue;
+        }
+
+        if (c === '"' || c === "'") {                     // plain string
+          const end = scanString(src, i);
+          out += wrap('hl-str', src.slice(i, end));
+          i = end;
+          continue;
+        }
+
+        if (/[0-9]/.test(c)) {                            // number
+          let j = i;
+          while (j < n && /[0-9._]/.test(src[j])) j++;
+          out += wrap('hl-num', src.slice(i, j));
+          i = j;
+          continue;
+        }
+
+        out += esc(c);
+        i++;
+      }
+      return out;
+    }
+
+    document.querySelectorAll('pre.code.py > code').forEach(el => {
+      if (el.dataset.hl) return;
+      el.innerHTML = highlight(el.textContent);
+      el.dataset.hl = '1';
+    });
+  })();
+</script>
+</body>
+</html>

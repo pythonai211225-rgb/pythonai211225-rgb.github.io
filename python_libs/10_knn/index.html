@@ -1,0 +1,1617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>K-Nearest Neighbors — Distance, Normalization &amp; the Vote</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded',function(){renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'\\(',right:'\\)',display:false}],throwOnError:false});});</script>
+  <style>
+    .page-layout { display:flex; height:calc(100vh - 54px); overflow:hidden; }
+    .sidebar { width:230px; min-width:230px; height:100%; overflow-y:auto; background:#0a0e14; border-right:1px solid var(--border); display:flex; flex-direction:column; scrollbar-width:thin; scrollbar-color:var(--border) transparent; flex-shrink:0; }
+    .sidebar-head { padding:20px 18px 14px; font-size:.65rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--border); }
+    .sidebar-nav { padding:8px 0; flex:1; }
+    .s-item { display:flex; align-items:center; gap:11px; padding:10px 18px; cursor:pointer; background:none; border:none; border-left:3px solid transparent; width:100%; text-align:left; transition:background .18s,border-color .18s; }
+    .s-item:hover { background:rgba(255,255,255,.04); }
+    .s-item.active { background:rgba(250,204,21,.08); border-left-color:var(--accent); }
+    .s-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; transition:transform .2s; }
+    .s-item.active .s-dot { transform:scale(1.45); box-shadow:0 0 8px currentColor; }
+    .s-num { font-size:.62rem; color:var(--border); font-family:'Courier New',monospace; font-weight:700; min-width:18px; }
+    .s-item.active .s-num { color:var(--accent); }
+    .s-label { font-size:.79rem; color:var(--muted); font-family:'Courier New',monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .s-item.active .s-label { color:var(--text); }
+    .s-item.done .s-label::after { content:' ✓'; color:var(--green); font-size:.7rem; }
+    .side-sep { border:none; border-top:1px solid var(--border); margin:14px 16px 6px; }
+    .side-part { padding:2px 18px 6px; font-size:.6rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:var(--accent); font-family:'Courier New',monospace; }
+
+    .panel-viewport { flex:1; overflow-y:auto; overflow-x:hidden; position:relative; }
+    .panel { display:none; flex-direction:column; min-height:100%; padding:40px 52px 100px; max-width:820px; margin:0 auto; animation:fadeIn .35s ease; }
+    .panel.active { display:flex; }
+    @keyframes fadeIn { from{opacity:0;transform:translateX(28px)} to{opacity:1;transform:translateX(0)} }
+    .panel.exit { display:flex; animation:fadeOut .25s ease forwards; }
+    @keyframes fadeOut { from{opacity:1;transform:translateX(0)} to{opacity:0;transform:translateX(-28px)} }
+
+    .m-hero { position:relative; height:200px; border-radius:18px; overflow:hidden; margin-bottom:26px; flex-shrink:0; }
+    .m-hero img { width:100%; height:100%; object-fit:cover; filter:brightness(.5) saturate(.8); transition:filter .45s; }
+    .panel.active .m-hero img { filter:brightness(.6) saturate(1.1); }
+    .m-hero-ov { position:absolute; inset:0; padding:26px 30px; display:flex; flex-direction:column; justify-content:flex-end; background:linear-gradient(0deg,rgba(0,0,0,.78) 0%,rgba(0,0,0,.15) 55%,transparent 100%); }
+    .m-breadcrumb { font-size:.62rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:rgba(255,255,255,.4); margin-bottom:5px; }
+    .m-name { font-size:1.7rem; font-weight:900; color:#fff; font-family:'Courier New',monospace; }
+    .m-tagline { font-size:.86rem; color:rgba(255,255,255,.62); margin-top:4px; }
+
+    .pills { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 20px; align-items:center; }
+    .pill { padding:5px 14px; border-radius:999px; font-size:.7rem; font-weight:700; letter-spacing:.06em; }
+    .pill-sig { font-family:'Courier New',monospace; font-size:.74rem; letter-spacing:0; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.12); color:var(--text); }
+    .pill-ret { background:rgba(16,185,129,.1); border:1px solid rgba(16,185,129,.3); color:var(--green); font-family:'Courier New',monospace; letter-spacing:0; }
+    .pill-note { background:rgba(249,115,22,.1); border:1px solid rgba(249,115,22,.3); color:var(--orange); font-family:'Courier New',monospace; font-size:.7rem; }
+    .pill-param { position:relative; cursor:help; transition:filter .18s; }
+    .pill-param:hover { filter:brightness(1.3); }
+    .pill-param .balloon { position:absolute; bottom:calc(100% + 14px); left:50%; transform:translateX(-50%) translateY(6px); width:230px; background:linear-gradient(155deg,#0e2845 0%,#071a2e 100%); border:1.5px solid rgba(240,182,62,.65); border-radius:14px; padding:13px 16px 11px; box-shadow:0 0 0 1px rgba(240,182,62,.1),0 18px 48px rgba(0,0,0,.72),0 0 36px rgba(240,182,62,.07); opacity:0; pointer-events:none; transition:opacity .22s ease,transform .22s ease; z-index:300; }
+    .pill-param:hover .balloon { opacity:1; transform:translateX(-50%) translateY(0); animation:balloonFloat 3s ease-in-out infinite; }
+    @keyframes balloonFloat { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(-5px)} }
+    .balloon-title { font-family:'Courier New',monospace; font-size:.7rem; font-weight:800; color:#f0b63e; letter-spacing:.04em; margin-bottom:6px; display:flex; align-items:center; gap:6px; }
+    .balloon-title::before { content:''; display:inline-block; width:7px; height:7px; border-radius:50%; background:#f0b63e; box-shadow:0 0 6px rgba(240,182,62,.7); flex-shrink:0; }
+    .balloon-body { font-size:.76rem; color:rgba(230,237,243,.78); line-height:1.6; font-family:'Segoe UI',system-ui,sans-serif; font-weight:400; }
+    .pill-param .balloon::after { content:''; position:absolute; bottom:-10px; left:50%; transform:translateX(-50%); border-left:10px solid transparent; border-right:10px solid transparent; border-top:10px solid rgba(240,182,62,.65); }
+    .pill-param .balloon::before { content:''; position:absolute; bottom:-8px; left:50%; transform:translateX(-50%); border-left:9px solid transparent; border-right:9px solid transparent; border-top:9px solid #071a2e; z-index:1; }
+
+    .m-desc { font-size:.95rem; color:var(--muted); line-height:1.75; margin-bottom:14px; }
+    .m-desc code { font-family:'Courier New',monospace; font-size:.88em; padding:1px 6px; border-radius:4px; background:rgba(255,255,255,.06); }
+
+    .demo-box { background:#060a10; border:1px solid var(--border); border-radius:14px; padding:22px 22px 18px; margin-top:20px; flex-shrink:0; display:flex; flex-direction:column; }
+    .demo-lbl { font-size:.64rem; font-weight:800; letter-spacing:.13em; text-transform:uppercase; color:var(--muted); margin-bottom:18px; display:flex; align-items:center; gap:8px; }
+    .demo-lbl::before { content:''; width:3px; height:12px; border-radius:2px; background:var(--accent); flex-shrink:0; }
+    .demo-controls { display:flex; flex-wrap:wrap; gap:18px; align-items:flex-end; margin-bottom:18px; }
+    .ctrl { display:flex; flex-direction:column; gap:5px; }
+    .ctrl label { font-size:.69rem; color:var(--muted); font-weight:600; }
+    .ctrl input[type=range] { -webkit-appearance:none; width:190px; height:4px; background:var(--border); border-radius:2px; outline:none; cursor:pointer; }
+    .ctrl input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:15px; height:15px; background:var(--accent); border-radius:50%; cursor:pointer; box-shadow:0 0 6px rgba(250,204,21,.5); }
+    .ctrl .cval { font-size:.7rem; color:var(--accent); font-family:'Courier New',monospace; font-weight:700; text-align:center; }
+    .demo-canvas-wrap { background:#020509; border-radius:10px; padding:14px; overflow:hidden; min-height:72px; order:4; }
+    canvas { display:block; margin:0 auto; }
+    .demo-out { font-family:'Courier New',monospace; font-size:.8rem; color:#10b981; line-height:1.65; margin-top:0; margin-bottom:14px; padding:11px 15px; background:rgba(16,185,129,.05); border:1px solid rgba(16,185,129,.18); border-radius:8px; white-space:pre-wrap; order:3; }
+
+    /* toggle buttons inside demos */
+    .seg { display:inline-flex; border:1px solid var(--border); border-radius:9px; overflow:hidden; }
+    .seg button { background:transparent; border:none; color:var(--muted); font-size:.72rem; font-weight:700; font-family:'Courier New',monospace; padding:7px 14px; cursor:pointer; transition:background .18s,color .18s; }
+    .seg button:hover { color:var(--text); background:rgba(255,255,255,.05); }
+    .seg button.on { background:rgba(250,204,21,.14); color:var(--accent); }
+
+    .panel-nav { display:flex; justify-content:space-between; align-items:center; margin-top:40px; padding-top:24px; border-top:1px solid var(--border); flex-shrink:0; }
+    .pnav-btn { display:flex; align-items:center; gap:9px; padding:10px 22px; border-radius:10px; border:1px solid var(--border); background:transparent; color:var(--muted); font-size:.83rem; font-weight:700; cursor:pointer; transition:color .2s,border-color .2s,background .2s; }
+    .pnav-btn:hover:not(:disabled) { color:var(--text); border-color:var(--accent); background:rgba(250,204,21,.06); }
+    .pnav-btn:disabled { opacity:.28; cursor:default; }
+    .pnav-btn.next { background:rgba(250,204,21,.08); border-color:rgba(250,204,21,.35); color:var(--accent); }
+    .pnav-btn.next:hover { background:rgba(250,204,21,.16); border-color:var(--accent); }
+    .pnav-dots { display:flex; gap:7px; align-items:center; flex-wrap:wrap; justify-content:center; }
+    .pnav-dot { width:7px; height:7px; border-radius:50%; background:var(--border); transition:background .2s,transform .2s; cursor:pointer; border:none; padding:0; }
+    .pnav-dot.active { background:var(--accent); transform:scale(1.4); }
+
+    .overview-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:14px; margin-top:24px; }
+    .ov-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px 16px 16px; cursor:pointer; transition:border-color .2s,box-shadow .2s,transform .18s; display:flex; flex-direction:column; gap:8px; }
+    .ov-card:hover { transform:translateY(-3px); border-color:rgba(250,204,21,.4); box-shadow:0 8px 28px rgba(250,204,21,.08); }
+    .ov-card-num { font-size:.62rem; color:var(--muted); font-weight:800; letter-spacing:.1em; }
+    .ov-card-name { font-size:.9rem; font-family:'Courier New',monospace; font-weight:700; }
+    .ov-card-desc { font-size:.77rem; color:var(--muted); line-height:1.5; }
+
+    @media(max-width:700px){.sidebar{display:none}.panel{padding:20px 16px 80px}}
+    .katex { color: var(--text); }
+    .katex-display { margin: 6px 0; overflow-x: auto; overflow-y: hidden; padding: 3px 0; }
+    .eq-box { background:rgba(59,130,246,.05); border:1px solid rgba(59,130,246,.2); border-radius:12px; padding:16px 20px; margin:16px 0; font-size:1.05rem; }
+    .eq-box.big { font-size:1.35rem; padding:24px 20px; }
+    .eq-box.small { font-size:.95rem; padding:14px 18px; }
+    .exercise-header{display:flex;align-items:flex-start;gap:16px;margin-bottom:24px;padding:20px;background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.2);border-radius:14px;position:relative;overflow:hidden;}
+    .exercise-header::before{content:'';position:absolute;top:-40px;right:-40px;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,rgba(251,191,36,.1) 0%,transparent 70%);pointer-events:none;}
+    .exercise-badge{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;font-size:1.8rem;font-weight:800;color:#0d1a2e;background:linear-gradient(135deg,#fbbf24,#f59e0b);box-shadow:0 6px 18px rgba(251,191,36,.35);flex-shrink:0;}
+    .ex-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px 16px;margin-bottom:14px;transition:border-color .2s;}
+    .ex-card:hover{border-color:rgba(250,204,21,.3);}
+    .ex-q-head{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+    .ex-num{font-size:.68rem;font-weight:800;letter-spacing:.1em;padding:3px 10px;border-radius:6px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--muted);font-family:'Courier New',monospace;}
+    .ex-task{font-size:.88rem;color:var(--muted);margin-bottom:10px;line-height:1.6;}
+    .ex-task code{font-family:'Courier New',monospace;font-size:.85em;padding:1px 6px;border-radius:4px;background:rgba(255,255,255,.06);}
+    details.hint{margin-top:10px;}
+    details.hint summary{cursor:pointer;font-size:.78rem;color:var(--accent);font-weight:700;}
+
+    /* ── fruit legend ── */
+    .legend { display:flex; flex-wrap:wrap; gap:16px; justify-content:center; margin-bottom:10px; }
+    .lg { display:flex; align-items:center; gap:7px; font-size:.72rem; font-family:'Courier New',monospace; color:var(--muted); font-weight:700; }
+    .lg i { width:11px; height:11px; border-radius:50%; display:inline-block; }
+    .lg.q i { border-radius:3px; transform:rotate(45deg); }
+
+    /* ── vote bars ── */
+    .votes { display:flex; flex-direction:column; gap:9px; margin:4px 0 14px; order:3; }
+    .vote-row { display:grid; grid-template-columns:78px 1fr 58px; align-items:center; gap:10px; }
+    .vote-name { font-size:.74rem; font-family:'Courier New',monospace; font-weight:800; }
+    .vote-track { height:15px; border-radius:8px; background:rgba(255,255,255,.05); overflow:hidden; }
+    .vote-fill { height:100%; border-radius:8px; width:0; transition:width .5s cubic-bezier(.34,1.4,.5,1); }
+    .vote-num { font-size:.74rem; font-family:'Courier New',monospace; color:var(--muted); text-align:right; }
+
+    /* ── the 3 steps strip ── */
+    .steps { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; margin:20px 0 6px; }
+    .step { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px 16px 14px; position:relative; overflow:hidden; transition:transform .2s,border-color .2s; }
+    .step:hover { transform:translateY(-3px); }
+    .step::after { content:attr(data-n); position:absolute; right:10px; bottom:-14px; font-size:3.4rem; font-weight:900; font-family:'Courier New',monospace; color:rgba(255,255,255,.04); line-height:1; }
+    .step h4 { font-size:.86rem; margin-bottom:6px; font-family:'Courier New',monospace; }
+    .step p { font-size:.78rem; color:var(--muted); line-height:1.55; }
+    .step.a { border-color:rgba(59,130,246,.32); } .step.a h4 { color:var(--blue); }
+    .step.b { border-color:rgba(250,204,21,.32); } .step.b h4 { color:var(--accent); }
+    .step.c { border-color:rgba(16,185,129,.32); } .step.c h4 { color:var(--green); }
+
+    .pc-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:18px 0; }
+    @media(max-width:640px){ .pc-grid{grid-template-columns:1fr} }
+    .pc { border-radius:14px; border:1px solid var(--border); padding:18px 20px 14px; }
+    .pc h4 { font-size:.9rem; margin-bottom:12px; font-family:'Courier New',monospace; display:flex; align-items:center; gap:8px; }
+    .pc ol { margin:0; padding-left:20px; }
+    .pc li { font-size:.82rem; color:var(--muted); line-height:1.6; margin-bottom:7px; }
+    .pc.good { border-color:rgba(16,185,129,.3); background:rgba(16,185,129,.04); } .pc.good h4 { color:var(--green); }
+    .pc.bad  { border-color:rgba(244,63,94,.3);  background:rgba(244,63,94,.04); }  .pc.bad h4  { color:#f43f5e; }
+  </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">← Python Libs</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item active" href="index.html">01</a>
+  </div>
+</nav>
+
+<div class="page-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-head">K-Nearest Neighbors</div>
+    <nav class="sidebar-nav">
+      <button class="s-item active" data-panel="0" onclick="goTo(0)"><span class="s-num">00</span><span class="s-dot" style="background:#8b5cf6"></span><span class="s-label">Overview</span></button>
+      <button class="s-item" data-panel="1" onclick="goTo(1)"><span class="s-num">01</span><span class="s-dot" style="background:#facc15"></span><span class="s-label">The idea</span></button>
+      <button class="s-item" data-panel="2" onclick="goTo(2)"><span class="s-num">02</span><span class="s-dot" style="background:#3b82f6"></span><span class="s-label">Euclidean distance</span></button>
+      <button class="s-item" data-panel="4" onclick="goTo(4)"><span class="s-num">03</span><span class="s-dot" style="background:#f97316"></span><span class="s-label">Why normalize</span></button>
+      <button class="s-item" data-panel="5" onclick="goTo(5)"><span class="s-num">04</span><span class="s-dot" style="background:#ec4899"></span><span class="s-label">MinMaxScaler</span></button>
+      <button class="s-item" data-panel="7" onclick="goTo(7)"><span class="s-num">05</span><span class="s-dot" style="background:#f43f5e"></span><span class="s-label">KNeighborsClassifier</span></button>
+      <button class="s-item" data-panel="8" onclick="goTo(8)"><span class="s-num">06</span><span class="s-dot" style="background:#14b8a6"></span><span class="s-label">Choosing K</span></button>
+      <button class="s-item" data-panel="10" onclick="goTo(10)"><span class="s-num">07</span><span class="s-dot" style="background:#3b82f6"></span><span class="s-label">Pros &amp; cons</span></button>
+      <button class="s-item" data-panel="11" onclick="goTo(11)"><span class="s-num">08</span><span class="s-dot" style="background:#fbbf24"></span><span class="s-label">Exercises</span></button>
+      <hr class="side-sep">
+      <div class="side-part">Appendix</div>
+      <button class="s-item" data-panel="3" onclick="goTo(3)"><span class="s-num">A1</span><span class="s-dot" style="background:#06b6d4"></span><span class="s-label">np.linalg.norm</span></button>
+      <button class="s-item" data-panel="9" onclick="goTo(9)"><span class="s-num">A2</span><span class="s-dot" style="background:#a855f7"></span><span class="s-label">uniform vs distance</span></button>
+      <button class="s-item" data-panel="12" onclick="goTo(12)"><span class="s-num">A3</span><span class="s-dot" style="background:#f97316"></span><span class="s-label">Other distances</span></button>
+      <button class="s-item" data-panel="13" onclick="goTo(13)"><span class="s-num">A4</span><span class="s-dot" style="background:#10b981"></span><span class="s-label">KNN Regressor</span></button>
+    </nav>
+  </aside>
+
+  <!-- PANEL VIEWPORT -->
+  <div class="panel-viewport" id="viewport">
+
+    <!-- ══ PANEL 0: Overview ══ -->
+    <div class="panel active" id="panel-0">
+      <div class="hero" style="margin-bottom:36px;">
+        <span class="topic-label"><span class="dot"></span>K-Nearest Neighbors · Deck 10 · Lesson 15</span>
+        <h1>K-Nearest Neighbors</h1>
+        <p>No line to fit. No weights to learn. KNN just <strong>remembers every point</strong> — and when a new one arrives it asks the <strong>K closest neighbors</strong> to vote. Simple, visual, and surprisingly strong:</p>
+        <div class="demo-canvas-wrap" style="background:#020509;border-radius:12px;padding:14px;position:relative;z-index:1;"><canvas id="cv-overview" height="300"></canvas></div>
+      </div>
+      <div class="overview-grid" style="margin-top:0;">
+        <div class="ov-card" onclick="goTo(1)"><div class="ov-card-num">01 / 08</div><div class="ov-card-name" style="color:#facc15">The idea</div><div class="ov-card-desc">Three steps: measure, sort, vote. Lazy learning in one slide.</div></div>
+        <div class="ov-card" onclick="goTo(2)"><div class="ov-card-num">02 / 08</div><div class="ov-card-name" style="color:#3b82f6">Euclidean distance</div><div class="ov-card-desc">d(p,q) = √Σ(pᵢ−qᵢ)² — in 2D, 3D and n dimensions.</div></div>
+        <div class="ov-card" onclick="goTo(4)"><div class="ov-card-num">03 / 08</div><div class="ov-card-name" style="color:#f97316">Why normalize</div><div class="ov-card-desc">Min-Max scaling — or the biggest column silently wins.</div></div>
+        <div class="ov-card" onclick="goTo(5)"><div class="ov-card-num">04 / 08</div><div class="ov-card-name" style="color:#ec4899">MinMaxScaler</div><div class="ov-card-desc">fit_transform on the data, transform on the new point.</div></div>
+        <div class="ov-card" onclick="goTo(7)"><div class="ov-card-num">05 / 08</div><div class="ov-card-name" style="color:#f43f5e">KNeighborsClassifier</div><div class="ov-card-desc">fit, predict, predict_proba, classes_ — the sklearn way.</div></div>
+        <div class="ov-card" onclick="goTo(8)"><div class="ov-card-num">06 / 08</div><div class="ov-card-name" style="color:#14b8a6">Choosing K</div><div class="ov-card-desc">Small K is jumpy, big K is blurry. Odd K, and K ≈ √n.</div></div>
+        <div class="ov-card" onclick="goTo(10)"><div class="ov-card-num">07 / 08</div><div class="ov-card-name" style="color:#3b82f6">Pros &amp; cons</div><div class="ov-card-desc">Four advantages, five disadvantages, one honest verdict.</div></div>
+        <div class="ov-card" onclick="goTo(11)"><div class="ov-card-num">08 / 08</div><div class="ov-card-name" style="color:#fbbf24">Exercises</div><div class="ov-card-desc">Your turn — normalize, measure, sort, vote.</div></div>
+        <div class="ov-card" onclick="goTo(3)"><div class="ov-card-num">APPENDIX A1</div><div class="ov-card-name" style="color:#06b6d4">np.linalg.norm</div><div class="ov-card-desc">The whole square-root formula in one NumPy call.</div></div>
+        <div class="ov-card" onclick="goTo(9)"><div class="ov-card-num">APPENDIX A2</div><div class="ov-card-name" style="color:#a855f7">uniform vs distance</div><div class="ov-card-desc">One vote each, or votes worth 1/d — with the real numbers.</div></div>
+        <div class="ov-card" onclick="goTo(12)"><div class="ov-card-num">APPENDIX A3</div><div class="ov-card-name" style="color:#f97316">Other distances</div><div class="ov-card-desc">Manhattan, Minkowski — and the metric parameter.</div></div>
+        <div class="ov-card" onclick="goTo(13)"><div class="ov-card-num">APPENDIX A4</div><div class="ov-card-name" style="color:#10b981">KNN Regressor</div><div class="ov-card-desc">Same neighbors, but average a number instead of voting.</div></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" disabled>← Prev</button>
+        <div class="pnav-dots" id="dots-0"></div>
+        <button class="pnav-btn next" onclick="goTo(1)">The idea →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 1: The idea ══ -->
+    <div class="panel" id="panel-1">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1518186285589-2f7649de83e0?w=900&q=75&fit=crop&h=200" alt="Rows of data" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">KNN 01 / 08 · The Algorithm</div>
+          <div class="m-name">The idea</div>
+          <div class="m-tagline">Tell me who your neighbors are, and I'll tell you what you are</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">KNeighborsClassifier(n_neighbors=K)</span>
+        <span class="pill pill-param" style="background:rgba(250,204,21,.1);color:var(--accent);border:1px solid rgba(250,204,21,.28);">K
+          <span class="balloon"><span class="balloon-title">K — how many neighbors vote</span><span class="balloon-body">The only real hyper-parameter. K=1 asks the single closest point; K=5 asks the five closest and takes the majority.</span></span>
+        </span>
+        <span class="pill pill-ret">→ a class label</span>
+      </div>
+      <p class="m-desc">K-Nearest Neighbors is a <strong>classification</strong> method that is simple and intuitive, yet effective. It lets us classify a new data point based on <strong>known</strong> data points.</p>
+      <p class="m-desc">There is no formula in the traditional sense — no β to learn, no curve to fit. KNN works by doing three things:</p>
+      <div class="steps">
+        <div class="step a" data-n="1"><h4>1 · Measure</h4><p>Calculate the distance between the new point and <strong>every</strong> existing point.</p></div>
+        <div class="step b" data-n="2"><h4>2 · Sort</h4><p>Find the <strong>K</strong> points with the <strong>smallest</strong> distances.</p></div>
+        <div class="step c" data-n="3"><h4>3 · Vote</h4><p>Assign the <strong>majority class</strong> among those K points to the new point.</p></div>
+      </div>
+      <div class="callout blue" style="margin-top:22px;">
+        🎯 <strong>The problem we want to solve.</strong> Suppose we have data about different kinds of fruit — apples, oranges and bananas — with features such as <strong>color</strong>, <strong>size</strong> and <strong>weight</strong>. Now a new fruit arrives and we want to know which kind it is.
+      </div>
+      <p class="m-desc">Here is the sample we will use for the entire deck:</p>
+      <table class="dt">
+        <thead><tr><th class="blue">Fruit</th><th class="blue">Weight (g)</th><th class="blue">Size (cm)</th><th class="blue">Color (0–255, R)</th></tr></thead>
+        <tbody>
+          <tr class="show"><td style="color:#10b981">Apple</td><td>150</td><td>7</td><td>200</td></tr>
+          <tr class="show"><td style="color:#10b981">Apple</td><td>160</td><td>7</td><td>50</td></tr>
+          <tr class="show"><td style="color:#10b981">Apple</td><td>140</td><td>6</td><td>220</td></tr>
+          <tr class="show"><td style="color:#f97316">Orange</td><td>170</td><td>9</td><td>240</td></tr>
+          <tr class="show"><td style="color:#f97316">Orange</td><td>165</td><td>8</td><td>250</td></tr>
+          <tr class="show"><td style="color:#f97316">Orange</td><td>180</td><td>9</td><td>230</td></tr>
+          <tr class="show"><td style="color:#facc15">Banana</td><td>120</td><td>12</td><td>30</td></tr>
+          <tr class="show"><td style="color:#facc15">Banana</td><td>130</td><td>13</td><td>40</td></tr>
+          <tr class="show"><td style="color:#facc15">Banana</td><td>115</td><td>11</td><td>20</td></tr>
+        </tbody>
+      </table>
+      <div class="callout orange">
+        ❓ <strong>The question:</strong> a new fruit arrives with <strong>color = 220</strong>, <strong>size = 8 cm</strong> and <strong>weight = 155 g</strong>. Which kind of fruit is it?
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — the dataset</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> numpy <span class="kw">as</span> <span class="lib">np</span>
+<span class="kw">import</span> pandas <span class="kw">as</span> <span class="lib">pd</span>
+
+df = <span class="lib">pd</span>.<span class="fn">DataFrame</span>({
+    <span class="str">"Fruit"</span>:  [<span class="str">"Apple"</span>,  <span class="str">"Apple"</span>,  <span class="str">"Apple"</span>,
+                <span class="str">"Orange"</span>, <span class="str">"Orange"</span>, <span class="str">"Orange"</span>,
+                <span class="str">"Banana"</span>, <span class="str">"Banana"</span>, <span class="str">"Banana"</span>],
+    <span class="str">"Weight"</span>: [<span class="num">150</span>, <span class="num">160</span>, <span class="num">140</span>, <span class="num">170</span>, <span class="num">165</span>, <span class="num">180</span>, <span class="num">120</span>, <span class="num">130</span>, <span class="num">115</span>],
+    <span class="str">"Size"</span>:   [<span class="num">7</span>, <span class="num">7</span>, <span class="num">6</span>, <span class="num">9</span>, <span class="num">8</span>, <span class="num">9</span>, <span class="num">12</span>, <span class="num">13</span>, <span class="num">11</span>],
+    <span class="str">"Color"</span>:  [<span class="num">200</span>, <span class="num">50</span>, <span class="num">220</span>, <span class="num">240</span>, <span class="num">250</span>, <span class="num">230</span>, <span class="num">30</span>, <span class="num">40</span>, <span class="num">20</span>]
+})</pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — move the new fruit around and watch the K neighbors vote</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>Color of the new fruit</label><input type="range" min="0" max="255" value="220" step="1" id="id-c" oninput="drawIdea()"><span class="cval" id="id-cv">220</span></div>
+          <div class="ctrl"><label>Size of the new fruit (cm)</label><input type="range" min="5" max="14" value="8" step="0.1" id="id-s" oninput="drawIdea()"><span class="cval" id="id-sv">8.0</span></div>
+          <div class="ctrl"><label>K — neighbors that vote</label><input type="range" min="1" max="9" value="3" step="2" id="id-k" oninput="drawIdea()"><span class="cval" id="id-kv">3</span></div>
+        </div>
+        <div class="demo-out" id="out-idea"></div>
+        <div class="demo-canvas-wrap">
+          <div class="legend">
+            <span class="lg"><i style="background:#10b981"></i>apple</span>
+            <span class="lg"><i style="background:#f97316"></i>orange</span>
+            <span class="lg"><i style="background:#facc15"></i>banana</span>
+            <span class="lg q"><i style="background:#f43f5e"></i>the new fruit</span>
+          </div>
+          <canvas id="cv-idea" height="320"></canvas>
+        </div>
+      </div>
+      <div class="callout green">
+        💡 <strong>Lazy learning.</strong> KNN does not build a model when you call <code>fit</code> — it just <em>stores the points</em>. All the work happens at <code>predict</code> time. That's why it's called a <strong>lazy learner</strong> — and why <code>fit</code> is free while <code>predict</code> pays the whole bill, as the <a onclick="goTo(10)" style="color:var(--accent);cursor:pointer;font-weight:700;">Pros &amp; cons</a> slide shows.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(0)">← Overview</button>
+        <div class="pnav-dots" id="dots-1"></div>
+        <button class="pnav-btn next" onclick="goTo(2)">Euclidean distance →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 2: Euclidean distance ══ -->
+    <div class="panel" id="panel-2">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1509228468518-180dd4864904?w=900&q=75&fit=crop&h=200" alt="Geometry" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">KNN 02 / 08 · The Mathematics</div>
+          <div class="m-name">Euclidean distance</div>
+          <div class="m-tagline">Pythagoras, one dimension at a time</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">d = np.sqrt(((p - q) ** 2).sum())</span>
+        <span class="pill pill-param" style="background:rgba(59,130,246,.1);color:var(--blue);border:1px solid rgba(59,130,246,.28);">p, q
+          <span class="balloon"><span class="balloon-title">p and q — two data points</span><span class="balloon-body">Each one is a row of features: a fruit is (weight, size, color).</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(139,92,246,.1);color:var(--purple);border:1px solid rgba(139,92,246,.28);">n
+          <span class="balloon"><span class="balloon-title">n — the number of features</span><span class="balloon-body">How many columns each point has. The formula does not care whether n is 2 or 200.</span></span>
+        </span>
+        <span class="pill pill-ret">→ one non-negative number</span>
+      </div>
+      <p class="m-desc">The most common distance measure used in KNN is the <strong>Euclidean distance</strong> — the plain straight-line distance you would measure with a ruler:</p>
+      <div class="eq-box big" style="text-align:center;">
+        $$d(p, q) = \sqrt{\sum_{i=1}^{n} (p_i - q_i)^2}$$
+      </div>
+      <p class="m-desc">Where <strong>p</strong> and <strong>q</strong> are two data points, <strong>n</strong> is the number of features, and \(p_i\), \(q_i\) are the values of the <em>i</em>-th feature for points p and q.</p>
+      <p class="m-desc">Written out per dimension it is nothing but <strong>Pythagoras</strong>, repeated:</p>
+      <div class="eq-box small">
+        $$\textbf{2D:}\quad d = \sqrt{(x_2 - x_1)^2 + (y_2 - y_1)^2}$$
+        $$\textbf{3D:}\quad d = \sqrt{(x_2 - x_1)^2 + (y_2 - y_1)^2 + (z_2 - z_1)^2}$$
+        $$\textbf{nD:}\quad d = \sqrt{\sum_{i=1}^{n}(x_{2i} - x_{1i})^2}$$
+      </div>
+      <div class="callout blue">
+        📐 <strong>Read the pattern:</strong> subtract → square → add them all up → square root. Adding a feature only adds one more <code>(…)²</code> inside the root. Nothing else changes.
+      </div>
+      <p class="m-desc">A worked example straight from the lesson. Three known points <strong>p</strong>, one query point <strong>q = (4, 5)</strong>:</p>
+      <table class="dt">
+        <thead><tr><th class="blue">p</th><th class="blue">Δx</th><th class="blue">Δy</th><th class="blue">Δx² + Δy²</th><th class="blue">d = √</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>(1, 4)</td><td>3</td><td>1</td><td>9 + 1 = 10</td><td>√10 = <strong>3.162</strong></td></tr>
+          <tr class="show"><td>(2, 7)</td><td>2</td><td>−2</td><td>4 + 4 = 8</td><td>√8 = <strong>2.828</strong></td></tr>
+          <tr class="show"><td>(3, 3)</td><td>1</td><td>2</td><td>1 + 4 = 5</td><td>√5 = <strong>2.236</strong> ← nearest</td></tr>
+        </tbody>
+      </table>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — drag q and watch the triangle, the squares and the winner change</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>q — x coordinate</label><input type="range" min="0" max="9" value="4" step="0.1" id="ds-x" oninput="drawDist()"><span class="cval" id="ds-xv">4.0</span></div>
+          <div class="ctrl"><label>q — y coordinate</label><input type="range" min="0" max="9" value="5" step="0.1" id="ds-y" oninput="drawDist()"><span class="cval" id="ds-yv">5.0</span></div>
+        </div>
+        <div class="demo-out" id="out-dist"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-dist" height="330"></canvas></div>
+      </div>
+      <div class="callout green">
+        💡 <strong>Why square, then root?</strong> Squaring kills the sign — a distance of −3 makes no sense — and it punishes big gaps more than small ones. The square root brings the number back to the original units.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(1)">← The idea</button>
+        <div class="pnav-dots" id="dots-2"></div>
+        <button class="pnav-btn next" onclick="goTo(4)">Why normalize →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 3: np.linalg.norm ══ -->
+    <div class="panel" id="panel-3">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1518770660439-4636190af475?w=900&q=75&fit=crop&h=200" alt="Circuits" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Appendix A1 · The Code</div>
+          <div class="m-name">np.linalg.norm</div>
+          <div class="m-tagline">The whole square-root formula in one call</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">np.linalg.norm(vector)</span>
+        <span class="pill pill-ret">→ float — the length of the vector</span>
+        <span class="pill pill-note">= √(v₁² + v₂² + … + vₙ²)</span>
+      </div>
+      <p class="m-desc">You never have to type the square root by hand. Subtract the two points to get a <strong>difference vector</strong>, then ask NumPy for its <strong>length</strong> — that <em>is</em> the Euclidean distance:</p>
+      <div class="eq-box" style="text-align:center;">
+        $$\|v\| = \sqrt{v_1^2 + v_2^2 + \dots + v_n^2} \qquad\Longrightarrow\qquad d(p,q) = \|\,p - q\,\|$$
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue">Maths</th><th class="blue">Python</th><th class="blue">What it is</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>\(p - q\)</td><td><code>p - q</code></td><td>The difference, feature by feature</td></tr>
+          <tr class="show"><td>\((p_i - q_i)^2\)</td><td><code>(p - q) ** 2</code></td><td>Every gap squared</td></tr>
+          <tr class="show"><td>\(\sum (p_i - q_i)^2\)</td><td><code>((p - q) ** 2).sum()</code></td><td>Added up into one number</td></tr>
+          <tr class="show"><td>\(\sqrt{\sum (p_i - q_i)^2}\)</td><td><code>np.linalg.norm(p - q)</code></td><td>The distance — all of the above</td></tr>
+        </tbody>
+      </table>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — three ways, one answer</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> numpy <span class="kw">as</span> <span class="lib">np</span>
+
+p = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>])
+q = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">4</span>, <span class="num">6</span>, <span class="num">3</span>])
+
+<span class="cm"># 1 - the long way</span>
+d = <span class="lib">np</span>.<span class="fn">sqrt</span>( ((p - q) ** <span class="num">2</span>).<span class="fn">sum</span>() )
+
+<span class="cm"># 2 - the short way (identical result)</span>
+d = <span class="lib">np</span>.linalg.<span class="fn">norm</span>(p - q)
+
+<span class="cm"># 3 - by hand: √[(-3)² + (-4)² + (0)²] = √25 = 5.0</span>
+<span class="fn">print</span>(d)      <span class="cm"># 5.0</span></pre>
+      </div>
+      <div class="callout blue">
+        📌 <code>np.linalg.norm([1, 2, 3])</code> is \(\sqrt{1^2 + 2^2 + 3^2} = \sqrt{14} = 3.742\). The word <em>norm</em> simply means "length of the vector" — and the length of <code>p - q</code> is the distance from p to q.
+      </div>
+      <div class="callout orange">
+        ⚠️ Order does not matter: <code>norm(p - q) == norm(q - p)</code>. The squares erase the sign, so distance is always symmetric and never negative.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(11)">← Exercises</button>
+        <div class="pnav-dots" id="dots-3"></div>
+        <button class="pnav-btn next" onclick="goTo(9)">A2 — uniform vs distance →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 4: Why normalize ══ -->
+    <div class="panel" id="panel-4">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=900&q=75&fit=crop&h=200" alt="Scales and charts" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">KNN 03 / 08 · The Trap</div>
+          <div class="m-name">Why normalize</div>
+          <div class="m-tagline">Without scaling, the biggest column silently wins</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">x_norm = (x - x.min()) / (x.max() - x.min())</span>
+        <span class="pill pill-ret">→ every column lands in [0, 1]</span>
+        <span class="pill pill-note">min → 0 · max → 1</span>
+      </div>
+      <p class="m-desc">Look at the ranges in our fruit table. They are wildly different — and Euclidean distance <strong>adds them all up in the same sum</strong>:</p>
+      <table class="dt">
+        <thead><tr><th class="blue">Feature</th><th class="blue">min</th><th class="blue">max</th><th class="blue">range</th><th class="blue">share of the distance</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>Color</td><td>20</td><td>250</td><td><strong style="color:#f43f5e">230</strong></td><td>dominates everything</td></tr>
+          <tr class="show"><td>Weight</td><td>115</td><td>180</td><td>65</td><td>a small voice</td></tr>
+          <tr class="show"><td>Size</td><td>6</td><td>13</td><td><strong style="color:#10b981">7</strong></td><td>practically ignored</td></tr>
+        </tbody>
+      </table>
+      <p class="m-desc">A 100-point difference in <em>color</em> contributes \(100^2 = 10{,}000\) to the sum. A 3&nbsp;cm difference in <em>size</em> contributes \(3^2 = 9\). The size column may as well not exist. The fix is <strong>Min-Max normalization</strong> — squeeze every column into the same 0…1 range:</p>
+      <div class="eq-box big" style="text-align:center;">
+        $$x_{norm} = \frac{x - \min(x)}{\max(x) - \min(x)}$$
+      </div>
+      <p class="m-desc">The worked example from the lesson — a column that runs from 20 to 250, and the value 200:</p>
+      <div class="eq-box" style="text-align:center;">
+        $$\frac{200 - 20}{250 - 20} = \frac{180}{230} = 0.78$$
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue">raw x</th><th class="blue">calculation</th><th class="blue">x_norm</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>20 (the min)</td><td>(20 − 20) / 230</td><td><strong style="color:#10b981">0.00</strong></td></tr>
+          <tr class="show"><td>200</td><td>(200 − 20) / 230</td><td><strong>0.78</strong></td></tr>
+          <tr class="show"><td>250 (the max)</td><td>(250 − 20) / 230</td><td><strong style="color:#10b981">1.00</strong></td></tr>
+        </tbody>
+      </table>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — flip between raw and normalized and watch the nearest neighbors change</div>
+        <div class="demo-controls">
+          <div class="seg" id="sc-seg">
+            <button class="on" onclick="setScale(0)">raw values</button>
+            <button onclick="setScale(1)">min-max normalized</button>
+          </div>
+          <div class="ctrl"><label>K</label><input type="range" min="1" max="9" value="3" step="2" id="sc-k" oninput="drawScale()"><span class="cval" id="sc-kv">3</span></div>
+        </div>
+        <div class="demo-out" id="out-scale"></div>
+        <div class="demo-canvas-wrap">
+          <div class="legend">
+            <span class="lg"><i style="background:#10b981"></i>apple</span>
+            <span class="lg"><i style="background:#f97316"></i>orange</span>
+            <span class="lg"><i style="background:#facc15"></i>banana</span>
+            <span class="lg q"><i style="background:#f43f5e"></i>new fruit</span>
+          </div>
+          <canvas id="cv-scale" height="330"></canvas>
+        </div>
+      </div>
+      <div class="callout orange">
+        ⚠️ <strong>Normalization is not optional in KNN.</strong> Unlike a tree, which splits one column at a time, KNN mixes all columns inside one square root. Forget to scale and you have silently built a model that only looks at your largest-range feature.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(2)">← Euclidean distance</button>
+        <div class="pnav-dots" id="dots-4"></div>
+        <button class="pnav-btn next" onclick="goTo(5)">MinMaxScaler →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 5: MinMaxScaler ══ -->
+    <div class="panel" id="panel-5">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=900&q=75&fit=crop&h=200" alt="Dashboard" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">KNN 04 / 08 · sklearn</div>
+          <div class="m-name">MinMaxScaler</div>
+          <div class="m-tagline">fit_transform on the data, transform on the new point</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">from sklearn.preprocessing import MinMaxScaler</span>
+        <span class="pill pill-param" style="background:rgba(16,185,129,.1);color:var(--green);border:1px solid rgba(16,185,129,.28);">fit_transform
+          <span class="balloon"><span class="balloon-title">fit_transform(X)</span><span class="balloon-body"><strong>fit</strong> = learn each column's min and max. <strong>transform</strong> = apply the formula. Use it <em>once</em>, on the training data.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(244,63,94,.1);color:#f43f5e;border:1px solid rgba(244,63,94,.28);">transform
+          <span class="balloon"><span class="balloon-title">transform(X_new)</span><span class="balloon-body">Scale only — reuses the min and max already learned. This is what you call on the new point.</span></span>
+        </span>
+        <span class="pill pill-ret">→ ndarray in [0, 1]</span>
+      </div>
+      <p class="m-desc">sklearn does the Min-Max formula for every column at once. There are two methods and the difference between them is the single most common beginner mistake:</p>
+      <div class="pc-grid">
+        <div class="pc good">
+          <h4>✅ fit_transform(df)</h4>
+          <ol>
+            <li><strong>Finds</strong> min and max of every column</li>
+            <li><strong>Remembers</strong> them inside the scaler object</li>
+            <li><strong>Scales</strong> the data with them</li>
+            <li>Call it <strong>once</strong>, on the training data</li>
+          </ol>
+        </div>
+        <div class="pc bad">
+          <h4>⚠️ transform(new)</h4>
+          <ol>
+            <li><strong>Does not</strong> look for new min / max</li>
+            <li>Reuses the ones learned in <code>fit</code></li>
+            <li>Only <strong>scales</strong></li>
+            <li>Call it on <strong>every new point</strong> you predict</li>
+          </ol>
+        </div>
+      </div>
+      <div class="callout orange">
+        ⚠️ If you call <code>fit_transform</code> on the new fruit, it becomes the min <em>and</em> the max of its own one-row table — every value turns into 0 and the distances are garbage. The new point must be measured with the <strong>same ruler</strong> as the training data.
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — normalize the table and the new fruit</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">from</span> sklearn.preprocessing <span class="kw">import</span> <span class="cls">MinMaxScaler</span>
+
+min_max_scaler = <span class="cls">MinMaxScaler</span>()      <span class="cm"># creates numbers between 0 and 1</span>
+df_norm = df.<span class="fn">copy</span>()
+
+<span class="cm">######## STEP 1 - normalize the DataFrame</span>
+<span class="cm"># fit_transform - find min + max, then scale</span>
+df_norm[[<span class="str">'Weight'</span>, <span class="str">'Color'</span>, <span class="str">'Size'</span>]] = min_max_scaler.<span class="fn">fit_transform</span>(
+                                      df_norm[[<span class="str">'Weight'</span>, <span class="str">'Color'</span>, <span class="str">'Size'</span>]])
+
+<span class="cm">######## STEP 2 - normalize the new fruit with the SAME scaler</span>
+new_fruit = <span class="lib">pd</span>.<span class="fn">DataFrame</span>({<span class="str">'Weight'</span>: [<span class="num">155</span>], <span class="str">'Color'</span>: [<span class="num">220</span>], <span class="str">'Size'</span>: [<span class="num">8</span>]})
+
+<span class="cm"># transform - scale only</span>
+new_fruit_norm = min_max_scaler.<span class="fn">transform</span>(new_fruit[[<span class="str">'Weight'</span>, <span class="str">'Color'</span>, <span class="str">'Size'</span>]])
+<span class="fn">print</span>(<span class="str">'new_fruit_norm'</span>, new_fruit_norm)
+<span class="cm"># new_fruit_norm [[0.61538462 0.86956522 0.28571429]]</span></pre>
+      </div>
+      <p class="m-desc">You can also scale one column at a time — same result, more typing:</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — column by column</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>df_norm[<span class="str">'Weight'</span>] = scaler.<span class="fn">fit_transform</span>(df[<span class="str">'Weight'</span>].values.<span class="fn">reshape</span>(-<span class="num">1</span>, <span class="num">1</span>))
+df_norm[<span class="str">'Size'</span>]   = scaler.<span class="fn">fit_transform</span>(df[<span class="str">'Size'</span>].values.<span class="fn">reshape</span>(-<span class="num">1</span>, <span class="num">1</span>))
+df_norm[<span class="str">'Color'</span>]  = scaler.<span class="fn">fit_transform</span>(df[<span class="str">'Color'</span>].values.<span class="fn">reshape</span>(-<span class="num">1</span>, <span class="num">1</span>))
+
+<span class="cm"># reshape(-1, 1) turns a flat Series into a column: sklearn wants 2D input</span></pre>
+      </div>
+      <p class="m-desc">And here is the whole table after scaling — every column now runs from exactly 0 to exactly 1:</p>
+      <table class="dt">
+        <thead><tr><th class="blue">Fruit</th><th class="blue">Weight (norm)</th><th class="blue">Size (norm)</th><th class="blue">Color (norm)</th></tr></thead>
+        <tbody>
+          <tr class="show"><td style="color:#10b981">Apple</td><td>0.54</td><td>0.14</td><td>0.78</td></tr>
+          <tr class="show"><td style="color:#10b981">Apple</td><td>0.69</td><td>0.14</td><td>0.13</td></tr>
+          <tr class="show"><td style="color:#10b981">Apple</td><td>0.38</td><td>0.00</td><td>0.87</td></tr>
+          <tr class="show"><td style="color:#f97316">Orange</td><td>0.85</td><td>0.43</td><td>0.96</td></tr>
+          <tr class="show"><td style="color:#f97316">Orange</td><td>0.77</td><td>0.29</td><td>1.00</td></tr>
+          <tr class="show"><td style="color:#f97316">Orange</td><td>1.00</td><td>0.43</td><td>0.91</td></tr>
+          <tr class="show"><td style="color:#facc15">Banana</td><td>0.08</td><td>0.86</td><td>0.04</td></tr>
+          <tr class="show"><td style="color:#facc15">Banana</td><td>0.23</td><td>1.00</td><td>0.09</td></tr>
+          <tr class="show"><td style="color:#facc15">Banana</td><td>0.00</td><td>0.71</td><td>0.00</td></tr>
+          <tr class="show" style="background:rgba(244,63,94,.07)"><td style="color:#f43f5e">new fruit</td><td><strong>0.615</strong></td><td><strong>0.286</strong></td><td><strong>0.870</strong></td></tr>
+        </tbody>
+      </table>
+      <div class="callout green">
+        💡 Check the new fruit by hand: weight \(\frac{155-115}{180-115}=0.6154\) · color \(\frac{220-20}{250-20}=0.8696\) · size \(\frac{8-6}{13-6}=0.2857\). Exactly what sklearn printed.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(4)">← Why normalize</button>
+        <div class="pnav-dots" id="dots-5"></div>
+        <button class="pnav-btn next" onclick="goTo(7)">KNeighborsClassifier →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 7: KNeighborsClassifier ══ -->
+    <div class="panel" id="panel-7">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1518133910546-b6c2fb7d79e3?w=900&q=75&fit=crop&h=200" alt="Machinery" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">KNN 05 / 08 · sklearn</div>
+          <div class="m-name">KNeighborsClassifier</div>
+          <div class="m-tagline">fit stores, predict votes, predict_proba shows the tally</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">KNeighborsClassifier(n_neighbors=3, weights='distance')</span>
+        <span class="pill pill-param" style="background:rgba(250,204,21,.1);color:var(--accent);border:1px solid rgba(250,204,21,.28);">n_neighbors
+          <span class="balloon"><span class="balloon-title">n_neighbors — that's K</span><span class="balloon-body">How many nearest points get a vote. Default is 5.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(139,92,246,.1);color:var(--purple);border:1px solid rgba(139,92,246,.28);">weights
+          <span class="balloon"><span class="balloon-title">weights — how loud each vote is</span><span class="balloon-body"><code>'uniform'</code> = everybody equal. <code>'distance'</code> = closer neighbors count more. See Appendix A2.</span></span>
+        </span>
+        <span class="pill pill-ret">→ .predict() · .predict_proba() · .classes_</span>
+      </div>
+      <p class="m-desc">Now the same job in sklearn. Notice how little there is: build the feature matrix, scale it, hand it to the model.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — the full pipeline</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> numpy <span class="kw">as</span> <span class="lib">np</span>
+<span class="kw">from</span> sklearn.preprocessing <span class="kw">import</span> <span class="cls">MinMaxScaler</span>
+<span class="kw">from</span> sklearn.neighbors  <span class="kw">import</span> <span class="cls">KNeighborsClassifier</span>
+
+<span class="cm"># Fruit data</span>
+colors      = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">200</span>, <span class="num">50</span>, <span class="num">220</span>, <span class="num">240</span>, <span class="num">250</span>, <span class="num">230</span>, <span class="num">30</span>, <span class="num">40</span>, <span class="num">20</span>])
+sizes       = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">7</span>, <span class="num">7</span>, <span class="num">6</span>, <span class="num">9</span>, <span class="num">8</span>, <span class="num">9</span>, <span class="num">12</span>, <span class="num">13</span>, <span class="num">11</span>])
+weights_g   = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">150</span>, <span class="num">160</span>, <span class="num">140</span>, <span class="num">170</span>, <span class="num">165</span>, <span class="num">180</span>, <span class="num">120</span>, <span class="num">130</span>, <span class="num">115</span>])
+fruit_types = <span class="lib">np</span>.<span class="fn">array</span>([<span class="str">'apple'</span>, <span class="str">'apple'</span>, <span class="str">'apple'</span>,
+                        <span class="str">'orange'</span>, <span class="str">'orange'</span>, <span class="str">'orange'</span>,
+                        <span class="str">'banana'</span>, <span class="str">'banana'</span>, <span class="str">'banana'</span>])
+
+<span class="cm"># Create feature matrix</span>
+X = <span class="lib">np</span>.<span class="fn">column_stack</span>((colors, sizes, weights_g))
+y = fruit_types
+
+<span class="cm"># Normalize data</span>
+scaler   = <span class="cls">MinMaxScaler</span>()          <span class="cm"># create</span>
+X_scaled = scaler.<span class="fn">fit_transform</span>(X)   <span class="cm"># activate</span>
+
+k = <span class="num">3</span>                                  <span class="cm"># number of neighbors</span>
+model = <span class="cls">KNeighborsClassifier</span>(n_neighbors=k, weights=<span class="str">'distance'</span>)
+
+model.<span class="fn">fit</span>(X_scaled, y)                  <span class="cm"># store the points</span>
+
+<span class="cm"># New fruit to classify</span>
+new_fruit        = <span class="lib">np</span>.<span class="fn">array</span>([[<span class="num">220</span>, <span class="num">8</span>, <span class="num">155</span>]])
+new_fruit_scaled = scaler.<span class="fn">transform</span>(new_fruit)
+
+prediction    = model.<span class="fn">predict</span>(new_fruit_scaled)
+probabilities = model.<span class="fn">predict_proba</span>(new_fruit_scaled)
+
+<span class="fn">print</span>(model.classes_)
+<span class="fn">print</span>(probabilities)
+<span class="fn">print</span>(<span class="str">f"Prediction: The new fruit is a {prediction[0]}"</span>)</pre>
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">output</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>[<span class="str">'apple'</span> <span class="str">'banana'</span> <span class="str">'orange'</span>]
+[[<span class="num">0.39084138</span> <span class="num">0.</span>         <span class="num">0.60915862</span>]]
+Prediction: The new fruit is a orange</pre>
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue">Call</th><th class="blue">What it does</th><th class="blue">Returns</th></tr></thead>
+        <tbody>
+          <tr class="show"><td><code>model.fit(X, y)</code></td><td>Stores the points. No maths happens here.</td><td>the model</td></tr>
+          <tr class="show"><td><code>model.predict(X_new)</code></td><td>Measures, sorts, votes.</td><td>array of labels</td></tr>
+          <tr class="show"><td><code>model.predict_proba(X_new)</code></td><td>The vote share per class.</td><td>array (n_rows, n_classes)</td></tr>
+          <tr class="show"><td><code>model.classes_</code></td><td>The column order of <code>predict_proba</code> — <strong>alphabetical</strong>.</td><td>array of labels</td></tr>
+          <tr class="show"><td><code>model.kneighbors(X_new)</code></td><td>Which neighbors were used, and how far.</td><td>(distances, indices)</td></tr>
+        </tbody>
+      </table>
+      <div class="callout orange">
+        ⚠️ <strong>Read the probabilities against <code>classes_</code>, never against your own order.</strong> sklearn sorts the labels alphabetically: <code>['apple' 'banana' 'orange']</code>. So <code>0.391</code> is apple, <code>0.0</code> is banana, <code>0.609</code> is orange.
+      </div>
+      <div class="callout green">
+        💡 Banana gets exactly <strong>0.0</strong> — not because bananas are impossible, but because <em>no banana was among the 3 nearest neighbors</em>. With KNN, a class that does not make the shortlist gets zero.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(5)">← MinMaxScaler</button>
+        <div class="pnav-dots" id="dots-7"></div>
+        <button class="pnav-btn next" onclick="goTo(8)">Choosing K →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 8: Choosing K ══ -->
+    <div class="panel" id="panel-8">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1477346611705-65d1883cee1e?w=900&q=75&fit=crop&h=200" alt="Mountains" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">KNN 06 / 08 · The Hyper-parameter</div>
+          <div class="m-name">Choosing K</div>
+          <div class="m-tagline">Too small and it twitches, too large and it blurs</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">k = int(np.sqrt(len(X)))</span>
+        <span class="pill pill-note">prefer an odd K</span>
+        <span class="pill pill-ret">→ a good starting point, not a law</span>
+      </div>
+      <p class="m-desc">K is the one knob you actually turn. Four points to remember:</p>
+      <table class="dt">
+        <thead><tr><th class="blue">#</th><th class="blue">Rule</th><th class="blue">Why</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>1</td><td><strong>Small K</strong> — more sensitive to noise, but can catch local patterns</td><td>K=1 lets a single mislabeled point rewrite a whole region</td></tr>
+          <tr class="show"><td>2</td><td><strong>Large K</strong> — more stable, but may miss local patterns</td><td>the boundary smooths out and small clusters get swallowed</td></tr>
+          <tr class="show"><td>3</td><td>Prefer an <strong>odd</strong> K</td><td>to avoid a tie in the majority vote (2 classes)</td></tr>
+          <tr class="show"><td>4</td><td>\(K = \sqrt{n}\) is a good <strong>starting point</strong></td><td>n = number of samples; then tune with cross-validation</td></tr>
+        </tbody>
+      </table>
+      <div class="eq-box big" style="text-align:center;">
+        $$K \approx \sqrt{n}$$
+      </div>
+      <p class="m-desc">Watch what K actually does to the map. The background is painted with the class KNN would predict at every point — that is the <strong>decision region</strong>:</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — slide K and watch the decision regions grow smoother</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>K — neighbors that vote</label><input type="range" min="1" max="9" value="1" step="1" id="kk-k" oninput="drawKmap()"><span class="cval" id="kk-kv">1</span></div>
+          <div class="seg" id="kk-seg">
+            <button class="on" onclick="setKw('uniform')">uniform</button>
+            <button onclick="setKw('distance')">distance</button>
+          </div>
+        </div>
+        <div class="demo-out" id="out-kmap"></div>
+        <div class="demo-canvas-wrap">
+          <div class="legend">
+            <span class="lg"><i style="background:#10b981"></i>apple</span>
+            <span class="lg"><i style="background:#f97316"></i>orange</span>
+            <span class="lg"><i style="background:#facc15"></i>banana</span>
+            <span class="lg q"><i style="background:#f43f5e"></i>new fruit</span>
+          </div>
+          <canvas id="cv-kmap" height="340"></canvas>
+        </div>
+      </div>
+      <div class="callout blue">
+        🔍 <strong>Spot the noisy apple.</strong> One apple has color = 50 — a green apple sitting deep inside banana territory. At <strong>K = 1</strong> it carves out its own little island. Raise K and its neighbors outvote it: that is exactly what "sensitive to noise" means.
+      </div>
+      <div class="callout orange">
+        ⚠️ With 9 samples, \(\sqrt{9} = 3\) — so K=3 is the textbook starting point for this dataset. Push K to 9 and every point in the plane sees <em>all</em> the data, so the model always answers the most common class. That is the extreme of "too large".
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(7)">← KNeighborsClassifier</button>
+        <div class="pnav-dots" id="dots-8"></div>
+        <button class="pnav-btn next" onclick="goTo(10)">Pros &amp; cons →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 9: weights ══ -->
+    <div class="panel" id="panel-9">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1543286386-2e659306cd6c?w=900&q=75&fit=crop&h=200" alt="Balance" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Appendix A2 · The Vote</div>
+          <div class="m-name">uniform vs distance</div>
+          <div class="m-tagline">One neighbor, one vote — or louder the closer you stand</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">weights='uniform'</span>
+        <span class="pill pill-sig">weights='distance'</span>
+        <span class="pill pill-ret">→ changes predict_proba, sometimes predict</span>
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue">weights</th><th class="blue">Meaning</th><th class="blue">Weight of neighbor i</th></tr></thead>
+        <tbody>
+          <tr class="show"><td><code>'uniform'</code></td><td>All points in each neighborhood are weighted equally</td><td>\(w_i = 1\)</td></tr>
+          <tr class="show"><td><code>'distance'</code></td><td>Weight points by the inverse of their distance — closer neighbors of a query point have a greater influence than neighbors further away</td><td>\(w_i = \dfrac{1}{d_i}\)</td></tr>
+        </tbody>
+      </table>
+      <p class="m-desc">With <code>'distance'</code>, the probability of a class is its share of the total weight:</p>
+      <div class="eq-box big" style="text-align:center;">
+        $$P(c) = \frac{\sum_{i \in c} \frac{1}{d_i}}{\sum_{i=1}^{K} \frac{1}{d_i}}$$
+      </div>
+      <p class="m-desc">Let's reproduce sklearn's <code>[[0.39084138 0. 0.60915862]]</code> by hand. The three nearest neighbors of our fruit were:</p>
+      <table class="dt">
+        <thead><tr><th class="blue">Neighbor</th><th class="blue">Class</th><th class="blue">d</th><th class="blue">1 / d</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>#0</td><td style="color:#10b981">apple</td><td>0.18408</td><td>5.4323</td></tr>
+          <tr class="show"><td>#4</td><td style="color:#f97316">orange</td><td>0.20170</td><td>4.9579</td></tr>
+          <tr class="show"><td>#3</td><td style="color:#f97316">orange</td><td>0.28500</td><td>3.5088</td></tr>
+          <tr class="show" style="background:rgba(255,255,255,.03)"><td colspan="3"><strong>total weight</strong></td><td><strong>13.8990</strong></td></tr>
+        </tbody>
+      </table>
+      <div class="eq-box small">
+        $$P(\text{apple}) = \frac{5.4323}{13.8990} = 0.3908 \qquad P(\text{orange}) = \frac{4.9579 + 3.5088}{13.8990} = 0.6092$$
+      </div>
+      <div class="callout green">
+        ✅ Exactly sklearn's output: <code>0.39084138</code> and <code>0.60915862</code>. And banana is <code>0.0</code> — no banana in the top 3, so no weight at all.
+      </div>
+      <p class="m-desc">With <code>'uniform'</code> the same three neighbors give a much blunter answer — 1 apple, 2 oranges out of 3:</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — flip the weighting and watch the vote shares move</div>
+        <div class="demo-controls">
+          <div class="seg" id="w-seg">
+            <button class="on" onclick="setW('uniform')">uniform</button>
+            <button onclick="setW('distance')">distance</button>
+          </div>
+          <div class="ctrl"><label>K — neighbors that vote</label><input type="range" min="1" max="9" value="3" step="1" id="w-k" oninput="drawW()"><span class="cval" id="w-kv">3</span></div>
+        </div>
+        <div class="demo-out" id="out-w"></div>
+        <div class="votes" id="w-votes"></div>
+      </div>
+      <div class="callout blue">
+        💡 <strong>When does it matter?</strong> <code>'distance'</code> is the safer default when your classes are unbalanced or the neighbors are at very different distances — a neighbor sitting almost on top of the query point should not have the same say as one at the edge of the neighborhood. It also breaks ties automatically.
+      </div>
+      <div class="callout orange">
+        ⚠️ If a query point sits <em>exactly</em> on a training point, \(d = 0\) and \(1/d\) is infinite. sklearn handles this by returning that point's class with probability 1.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(3)">← A1 — np.linalg.norm</button>
+        <div class="pnav-dots" id="dots-9"></div>
+        <button class="pnav-btn next" onclick="goTo(12)">A3 — Other distances →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 10: Pros & cons ══ -->
+    <div class="panel" id="panel-10">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1532012197267-da84d127e765?w=900&q=75&fit=crop&h=200" alt="Books" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">KNN 07 / 08 · The Verdict</div>
+          <div class="m-name">Pros &amp; cons</div>
+          <div class="m-tagline">What KNN is great at, and where it falls apart</div>
+        </div>
+      </div>
+      <div class="pc-grid">
+        <div class="pc good">
+          <h4>✅ Advantages of KNN</h4>
+          <ol>
+            <li><strong>Simple to implement and easy to understand</strong> — three steps, no training maths</li>
+            <li><strong>No assumptions about the shape of the data</strong> — it is non-parametric; no straight line, no bell curve required</li>
+            <li><strong>Effective on data with complex decision boundaries</strong> — the boundary can be as wiggly as the data demands</li>
+            <li><strong>Works for both classification and regression</strong> — vote, or average</li>
+          </ol>
+        </div>
+        <div class="pc bad">
+          <h4>⚠️ Disadvantages of KNN</h4>
+          <ol>
+            <li><strong>Slow at prediction time on large datasets</strong> — every prediction measures against every stored point</li>
+            <li><strong>Requires careful data normalization</strong> — otherwise the largest-range column decides everything</li>
+            <li><strong>Sensitive to outliers and noise</strong> — especially with small K</li>
+            <li><strong>Requires a smart choice of K</strong> — the result genuinely depends on it</li>
+            <li><strong>High memory requirement</strong> — the entire training set must be kept</li>
+          </ol>
+        </div>
+      </div>
+      <div class="callout blue">
+        📊 <strong>The trade-off in one line.</strong> Linear and logistic regression spend time in <code>fit</code> and are instant at <code>predict</code>. KNN is the mirror image: <code>fit</code> costs nothing, <code>predict</code> pays the whole bill — every single time.
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue">Stage</th><th class="blue">Logistic Regression</th><th class="blue">KNN</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>fit</td><td>slow — optimizes β</td><td><strong style="color:#10b981">instant</strong> — just stores X, y</td></tr>
+          <tr class="show"><td>memory after fit</td><td><strong style="color:#10b981">a few numbers</strong></td><td>the entire dataset</td></tr>
+          <tr class="show"><td>predict</td><td><strong style="color:#10b981">instant</strong> — one dot product</td><td>slow — n distances per row</td></tr>
+          <tr class="show"><td>needs scaling</td><td>helps</td><td><strong style="color:#f43f5e">mandatory</strong></td></tr>
+          <tr class="show"><td>decision boundary</td><td>a straight line</td><td>any shape at all</td></tr>
+        </tbody>
+      </table>
+      <div class="callout green">
+        💡 <strong>Use KNN when</strong> the dataset is small-to-medium, the features are all numeric and comparable after scaling, and the boundary between classes is clearly not a straight line. It also makes an excellent <em>baseline</em> — if your fancy model cannot beat KNN, something is wrong.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(8)">← Choosing K</button>
+        <div class="pnav-dots" id="dots-10"></div>
+        <button class="pnav-btn next" onclick="goTo(11)">Exercises →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 11: Exercises ══ -->
+    <div class="panel" id="panel-11">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1501139083538-0139583c060f?w=900&q=75&fit=crop&h=200" alt="Notebook and pen" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">KNN 08 / 08 · Practice</div>
+          <div class="m-name">Exercises</div>
+          <div class="m-tagline">Normalize, measure, sort, vote</div>
+        </div>
+      </div>
+      <div class="exercise-header">
+        <div class="exercise-badge">🎯</div>
+        <div>
+          <h3 style="font-size:1.05rem;margin-bottom:6px;">Your turn</h3>
+          <p style="font-size:.85rem;color:var(--muted);line-height:1.6;">Use the fruit DataFrame from slide 01 for every exercise. Write the code, run it, and compare with the hints.</p>
+        </div>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">EX 1</span><strong style="font-size:.92rem;">Normalize by hand</strong></div>
+        <div class="ex-task">Without <code>MinMaxScaler</code>, normalize the <code>Size</code> column using the Min-Max formula and pandas only. Print the result rounded to 2 decimals.</div>
+        <details class="hint"><summary>Hint</summary>
+          <div class="ex-task" style="margin-top:8px;"><code>(df['Size'] - df['Size'].min()) / (df['Size'].max() - df['Size'].min())</code> — the min becomes 0.00 and the max becomes 1.00.</div>
+        </details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">EX 2</span><strong style="font-size:.92rem;">The nearest neighbor</strong></div>
+        <div class="ex-task">Normalize all three feature columns, then find the <strong>single</strong> closest fruit to a new fruit with <code>color=100, size=10, weight=135</code>. Print its index, its distance and its label.</div>
+        <details class="hint"><summary>Hint</summary>
+          <div class="ex-task" style="margin-top:8px;">Build the list of <code>(i, dist, label)</code> tuples with <code>np.linalg.norm</code>, then <code>min(distances, key=lambda item: item[1])</code>.</div>
+        </details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">EX 3</span><strong style="font-size:.92rem;">K changes the answer</strong></div>
+        <div class="ex-task">Fit a <code>KNeighborsClassifier</code> on the scaled fruit data and predict the fruit from EX 2 with <code>k = 1, 3, 5, 7</code>. Print the prediction for each K in a loop. Does the answer change?</div>
+        <details class="hint"><summary>Hint</summary>
+          <div class="ex-task" style="margin-top:8px;"><code>for k in [1, 3, 5, 7]:</code> → build a new model each time, <code>fit</code>, then <code>predict</code>. Remember to <code>transform</code> the new fruit with the scaler you already fitted.</div>
+        </details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">EX 4</span><strong style="font-size:.92rem;">Forget to scale</strong></div>
+        <div class="ex-task">Run the same prediction <strong>twice</strong>: once on <code>X</code> raw and once on <code>X_scaled</code>. Print both predictions and both <code>predict_proba</code> outputs. Explain in one sentence why they differ.</div>
+        <details class="hint"><summary>Hint</summary>
+          <div class="ex-task" style="margin-top:8px;">On raw data, <code>Color</code> spans 230 units while <code>Size</code> spans 7 — the distance is almost entirely a color distance.</div>
+        </details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">EX 5</span><strong style="font-size:.92rem;">Reproduce predict_proba</strong></div>
+        <div class="ex-task">With <code>weights='distance'</code> and <code>k=3</code>, compute <code>predict_proba</code> yourself: take the 3 smallest distances, compute <code>1/d</code> for each, sum per class, and divide by the total. Compare with sklearn's output.</div>
+        <details class="hint"><summary>Hint</summary>
+          <div class="ex-task" style="margin-top:8px;"><code>model.kneighbors(new_fruit_scaled)</code> returns <code>(distances, indices)</code> — use it instead of your own loop.</div>
+        </details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">EX 6</span><strong style="font-size:.92rem;">Which K is best?</strong></div>
+        <div class="ex-task">Split the fruit data with <code>train_test_split(..., test_size=0.3, random_state=42)</code>, then loop <code>k</code> from 1 to 5 and print the accuracy of each. Plot accuracy vs K with matplotlib.</div>
+        <details class="hint"><summary>Hint</summary>
+          <div class="ex-task" style="margin-top:8px;"><code>from sklearn.metrics import accuracy_score</code>. With only 9 rows the scores will be jumpy — that is itself the lesson about small datasets.</div>
+        </details>
+      </div>
+
+      <div class="callout green">
+        💡 <strong>Bonus.</strong> Swap <code>KNeighborsClassifier</code> for <code>KNeighborsRegressor</code> and predict the <em>weight</em> of a fruit from its color and size. See <a onclick="goTo(13)" style="color:var(--accent);cursor:pointer;font-weight:700;">Appendix A3</a>.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(10)">← Pros &amp; cons</button>
+        <div class="pnav-dots" id="dots-11"></div>
+        <button class="pnav-btn next" onclick="goTo(3)">A1 — np.linalg.norm →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 12: A1 Other distances ══ -->
+    <div class="panel" id="panel-12">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1509228627152-72ae9ae6848d?w=900&q=75&fit=crop&h=200" alt="City grid" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Appendix A3 · Beyond Pythagoras</div>
+          <div class="m-name">Other distances</div>
+          <div class="m-tagline">Manhattan, Minkowski, and the metric parameter</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">KNeighborsClassifier(metric='minkowski', p=2)</span>
+        <span class="pill pill-param" style="background:rgba(249,115,22,.1);color:var(--orange);border:1px solid rgba(249,115,22,.28);">p
+          <span class="balloon"><span class="balloon-title">p — the Minkowski order</span><span class="balloon-body"><code>p=1</code> is Manhattan, <code>p=2</code> is Euclidean (the default). Anything in between is legal too.</span></span>
+        </span>
+        <span class="pill pill-ret">→ a different notion of "close"</span>
+      </div>
+      <p class="m-desc">Euclidean is the default, not the law. All the common metrics are special cases of one general formula — the <strong>Minkowski distance</strong>:</p>
+      <div class="eq-box big" style="text-align:center;">
+        $$d(p, q) = \left( \sum_{i=1}^{n} |p_i - q_i|^{\,p} \right)^{1/p}$$
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue">p</th><th class="blue">Name</th><th class="blue">Formula</th><th class="blue">Picture</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>1</td><td>Manhattan / city-block</td><td>\(\sum |p_i - q_i|\)</td><td>walk along the streets</td></tr>
+          <tr class="show"><td>2</td><td>Euclidean <em>(default)</em></td><td>\(\sqrt{\sum (p_i - q_i)^2}\)</td><td>fly straight through</td></tr>
+          <tr class="show"><td>∞</td><td>Chebyshev</td><td>\(\max_i |p_i - q_i|\)</td><td>only the worst feature counts</td></tr>
+        </tbody>
+      </table>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — switching the metric</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">from</span> sklearn.neighbors <span class="kw">import</span> <span class="cls">KNeighborsClassifier</span>
+
+<span class="cm"># Euclidean - this is the default</span>
+euclid = <span class="cls">KNeighborsClassifier</span>(n_neighbors=<span class="num">3</span>, metric=<span class="str">'minkowski'</span>, p=<span class="num">2</span>)
+
+<span class="cm"># Manhattan</span>
+manhat = <span class="cls">KNeighborsClassifier</span>(n_neighbors=<span class="num">3</span>, metric=<span class="str">'manhattan'</span>)   <span class="cm"># == p=1</span>
+
+<span class="cm"># by hand with NumPy</span>
+<span class="lib">np</span>.<span class="fn">abs</span>(p - q).<span class="fn">sum</span>()             <span class="cm"># Manhattan</span>
+<span class="lib">np</span>.linalg.<span class="fn">norm</span>(p - q)             <span class="cm"># Euclidean</span>
+<span class="lib">np</span>.<span class="fn">abs</span>(p - q).<span class="fn">max</span>()             <span class="cm"># Chebyshev</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — the same two points, three different rulers</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>q — x coordinate</label><input type="range" min="0" max="9" value="7" step="0.5" id="mn-x" oninput="drawMan()"><span class="cval" id="mn-xv">7.0</span></div>
+          <div class="ctrl"><label>q — y coordinate</label><input type="range" min="0" max="9" value="6" step="0.5" id="mn-y" oninput="drawMan()"><span class="cval" id="mn-yv">6.0</span></div>
+        </div>
+        <div class="demo-out" id="out-man"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-man" height="310"></canvas></div>
+      </div>
+      <div class="callout blue">
+        💡 <strong>When to prefer Manhattan.</strong> When features are independent and measured in different kinds of units, or when the number of dimensions is high — Manhattan tends to degrade more slowly than Euclidean as the number of features grows.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(9)">← A2 — uniform vs distance</button>
+        <div class="pnav-dots" id="dots-12"></div>
+        <button class="pnav-btn next" onclick="goTo(13)">A4 — KNN Regressor →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 13: A2 KNN Regressor ══ -->
+    <div class="panel" id="panel-13">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1464802686167-b939a6910659?w=900&q=75&fit=crop&h=200" alt="Stars" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Appendix A4 · The Other Half</div>
+          <div class="m-name">KNN Regressor</div>
+          <div class="m-tagline">Same neighbors — average them instead of counting votes</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">from sklearn.neighbors import KNeighborsRegressor</span>
+        <span class="pill pill-ret">→ a number, not a label</span>
+      </div>
+      <p class="m-desc">KNN is one of the few algorithms that works for <strong>both</strong> classification and regression — that was advantage #4 on the pros list. The only thing that changes is step 3:</p>
+      <table class="dt">
+        <thead><tr><th class="blue">Step</th><th class="blue">Classifier</th><th class="blue">Regressor</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>1 · Measure</td><td colspan="2" style="text-align:center;color:var(--green)">identical — Euclidean distance to every point</td></tr>
+          <tr class="show"><td>2 · Sort</td><td colspan="2" style="text-align:center;color:var(--green)">identical — keep the K smallest</td></tr>
+          <tr class="show"><td>3 · Combine</td><td><strong>majority vote</strong> of the labels</td><td><strong>mean</strong> of the values</td></tr>
+        </tbody>
+      </table>
+      <div class="eq-box big" style="text-align:center;">
+        $$\hat{y} = \frac{1}{K}\sum_{i=1}^{K} y_i$$
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — predict a number</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">from</span> sklearn.neighbors <span class="kw">import</span> <span class="cls">KNeighborsRegressor</span>
+
+<span class="cm"># predict the WEIGHT of a fruit from its color and size</span>
+X = <span class="lib">np</span>.<span class="fn">column_stack</span>((colors, sizes))
+y = weights_g                       <span class="cm"># a number, not a label</span>
+
+X_scaled = scaler.<span class="fn">fit_transform</span>(X)
+
+reg = <span class="cls">KNeighborsRegressor</span>(n_neighbors=<span class="num">3</span>)
+reg.<span class="fn">fit</span>(X_scaled, y)
+
+<span class="fn">print</span>(reg.<span class="fn">predict</span>(scaler.<span class="fn">transform</span>([[<span class="num">220</span>, <span class="num">8</span>]])))   <span class="cm"># e.g. [165.]</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — the staircase: raise K and the prediction curve flattens</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>K — neighbors averaged</label><input type="range" min="1" max="9" value="1" step="1" id="rg-k" oninput="drawReg()"><span class="cval" id="rg-kv">1</span></div>
+        </div>
+        <div class="demo-out" id="out-reg"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-reg" height="300"></canvas></div>
+      </div>
+      <div class="callout orange">
+        ⚠️ <strong>KNN regression never extrapolates.</strong> Outside the range of the training data the K nearest neighbors stop changing, so the prediction becomes a flat line. A linear regression would keep going; KNN simply repeats what it saw at the edge.
+      </div>
+      <div class="callout green">
+        💡 The staircase shape is the signature of KNN regression: the prediction only changes when the <em>set</em> of nearest neighbors changes. With K=1 you get a jagged staircase that hits every point exactly; with K=9 you get one flat line at the overall mean.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(12)">← A3 — Other distances</button>
+        <div class="pnav-dots" id="dots-13"></div>
+        <button class="pnav-btn next" onclick="goTo(0)">Back to Overview →</button>
+      </div>
+    </div>
+
+  </div><!-- /panel-viewport -->
+</div><!-- /page-layout -->
+
+<script>
+const $ = id => document.getElementById(id);
+const TOTAL = 14;
+const LABELS = ['Overview','The idea','Euclidean distance','np.linalg.norm','Why normalize',
+                'MinMaxScaler','(removed)','KNeighborsClassifier','Choosing K',
+                'uniform vs distance','Pros & cons','Exercises',
+                'Other distances','KNN Regressor'];
+/* the appendix runs A1 np.linalg.norm (3), A2 uniform vs distance (9),
+   A3 other distances (12), A4 KNN regressor (13) - after Exercises */
+const CURRICULUM_ORDER = [0,1,2,4,5,7,8,10,11,3,9,12,13];
+
+let current = 0;
+let ovRaf = null;
+
+function goTo(idx) {
+  if (idx === current) return;
+  const oldP = $('panel-' + current), newP = $('panel-' + idx);
+  if (current > 0) document.querySelector(`[data-panel="${current}"]`).classList.add('done');
+  if (ovRaf) { cancelAnimationFrame(ovRaf); ovRaf = null; }
+  oldP.classList.remove('active'); oldP.classList.add('exit');
+  setTimeout(() => oldP.classList.remove('exit'), 280);
+  current = idx;
+  newP.classList.add('active');
+  $('viewport').scrollTop = 0;
+  document.querySelectorAll('.s-item').forEach(b => b.classList.toggle('active', +b.dataset.panel === idx));
+  updateDots();
+  freshPanel = true;
+  const draws = [drawOverview, drawIdea, drawDist, null, drawScale, null, null,
+                 null, drawKmap, drawW, null, null, drawMan, drawReg];
+  if (draws[idx]) setTimeout(draws[idx], 60);
+}
+
+function updateDots() {
+  for (let i = 0; i < TOTAL; i++) {
+    const cont = $('dots-' + i); if (!cont) continue;
+    cont.innerHTML = '';
+    for (const d of CURRICULUM_ORDER) {
+      const btn = document.createElement('button');
+      btn.className = 'pnav-dot' + (d === current ? ' active' : '');
+      btn.title = LABELS[d]; btn.onclick = () => goTo(d);
+      cont.appendChild(btn);
+    }
+  }
+}
+
+$('viewport').addEventListener('scroll', () => {
+  const el = $('viewport');
+  $('progress').style.width = (el.scrollTop / (el.scrollHeight - el.clientHeight) * 100) + '%';
+});
+
+function cp(btn) {
+  navigator.clipboard.writeText(btn.closest('.code-wrap').querySelector('pre').innerText.trim()).then(() => {
+    btn.textContent = '✓ copied'; setTimeout(() => btn.textContent = 'copy', 1600);
+  });
+}
+
+/* ══════════ shared cartesian plot helper ══════════ */
+const COL = { grid:'rgba(230,237,243,.07)', axis:'rgba(230,237,243,.45)', tick:'rgba(230,237,243,.4)',
+              accent:'#facc15', blue:'#3b82f6', green:'#10b981', red:'#f43f5e', cyan:'#06b6d4',
+              orange:'#f97316', purple:'#8b5cf6', surface:'#020509' };
+
+function plotSetup(cvId, XMIN, XMAX, YMIN, YMAX, xstep = 2, ystep) {
+  const cv = $(cvId), ctx = cv.getContext('2d');
+  const wrap = cv.parentElement;
+  cv.width = Math.min(wrap.clientWidth - 28 || 560, 640);
+  const W = cv.width, H = cv.height;
+  const sx = x => (x - XMIN) / (XMAX - XMIN) * W;
+  const sy = y => H - (y - YMIN) / (YMAX - YMIN) * H;
+  if (!ystep) ystep = xstep;
+  ctx.clearRect(0, 0, W, H);
+  ctx.strokeStyle = COL.grid; ctx.lineWidth = 1;
+  for (let gx = Math.ceil(XMIN / xstep) * xstep; gx <= XMAX; gx += xstep) { ctx.beginPath(); ctx.moveTo(sx(gx), 0); ctx.lineTo(sx(gx), H); ctx.stroke(); }
+  for (let gy = Math.ceil(YMIN / ystep) * ystep; gy <= YMAX; gy += ystep) { ctx.beginPath(); ctx.moveTo(0, sy(gy)); ctx.lineTo(W, sy(gy)); ctx.stroke(); }
+  ctx.strokeStyle = COL.axis; ctx.setLineDash([5, 4]); ctx.lineWidth = 1;
+  if (YMIN <= 0 && YMAX >= 0) { ctx.beginPath(); ctx.moveTo(0, sy(0)); ctx.lineTo(W, sy(0)); ctx.stroke(); }
+  if (XMIN <= 0 && XMAX >= 0) { ctx.beginPath(); ctx.moveTo(sx(0), 0); ctx.lineTo(sx(0), H); ctx.stroke(); }
+  ctx.setLineDash([]);
+  ctx.fillStyle = COL.tick; ctx.font = '10px Courier New'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  const yb = (YMIN <= 0 && YMAX >= 0) ? 0 : YMIN;
+  const tickY = Math.min(sy(yb) + 4, H - 13);   // clamp inside the canvas
+  for (let gx = Math.ceil(XMIN / xstep) * xstep; gx <= XMAX; gx += xstep) if (Math.abs(gx) > 1e-9 && sx(gx) > 14 && sx(gx) < W - 14) ctx.fillText(Math.round(gx * 100) / 100, sx(gx), tickY);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  const xb = (XMIN <= 0 && XMAX >= 0) ? 0 : XMIN;
+  for (let gy = Math.ceil(YMIN / ystep) * ystep; gy <= YMAX; gy += ystep) if (Math.abs(gy) > 1e-9 && sy(gy) > 10 && sy(gy) < H - 10) ctx.fillText(Math.round(gy * 100) / 100, sx(xb) + 5, sy(gy));
+  return { ctx, sx, sy, W, H, XMIN, XMAX, YMIN, YMAX };
+}
+
+function haloText(ctx, txt, x, y, color) {
+  ctx.lineWidth = 4; ctx.lineJoin = 'round'; ctx.strokeStyle = COL.surface;
+  ctx.strokeText(txt, x, y);
+  ctx.fillStyle = color; ctx.fillText(txt, x, y);
+}
+
+function plotPoint(p, x, y, color, label, r = 5) {
+  const { ctx, sx, sy } = p;
+  ctx.beginPath(); ctx.arc(sx(x), sy(y), r, 0, Math.PI * 2);
+  ctx.fillStyle = color; ctx.fill();
+  ctx.lineWidth = 2; ctx.strokeStyle = COL.surface; ctx.stroke();
+  if (label) { ctx.font = 'bold 11px Courier New'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; haloText(ctx, label, sx(x) + 9, sy(y) - 7, color); }
+}
+
+/* a diamond marker for the query point */
+function plotQuery(p, x, y, color, label, r = 7, glow = 0) {
+  const { ctx, sx, sy } = p;
+  const cx = sx(x), cy = sy(y);
+  if (glow > 0) {
+    ctx.beginPath(); ctx.arc(cx, cy, r + glow, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(244,63,94,' + (0.20 * (1 - glow / 26)).toFixed(3) + ')'; ctx.fill();
+  }
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(Math.PI / 4);
+  ctx.fillStyle = color; ctx.fillRect(-r, -r, r * 2, r * 2);
+  ctx.lineWidth = 2; ctx.strokeStyle = COL.surface; ctx.strokeRect(-r, -r, r * 2, r * 2);
+  ctx.restore();
+  if (label) { ctx.font = 'bold 11px Courier New'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; haloText(ctx, label, cx + 12, cy - 9, color); }
+}
+
+function axLabels(p, xlab, ylab) {
+  // both names live in the top corners, haloed, so they never fight the tick numbers
+  const { ctx, W } = p;
+  ctx.font = 'bold 10px Courier New'; ctx.textBaseline = 'top';
+  ctx.textAlign = 'left';  haloText(ctx, ylab, 12, 8, 'rgba(230,237,243,.42)');
+  ctx.textAlign = 'right'; haloText(ctx, xlab, W - 8, 8, 'rgba(230,237,243,.42)');
+}
+
+/* ══════════ animation helper ══════════ */
+const anims = {};
+let instant = false;          // resize redraws jump straight to the finished frame
+let freshPanel = true;        // sweep the animation on panel entry, then track live
+function consumeFresh() { const f = freshPanel; freshPanel = false; return f; }
+function animate(id, dur, cb) {
+  if (anims[id]) cancelAnimationFrame(anims[id]);
+  if (instant) { cb(1); return; }
+  const t0 = performance.now();
+  const step = now => {
+    // clamp: an rAF timestamp can be EARLIER than t0 when the frame was already
+    // in flight when the input handler fired - a negative t makes radii negative
+    const t = Math.min(1, Math.max(0, (now - t0) / dur));
+    const e = 1 - Math.pow(1 - t, 3);          // ease-out cubic
+    cb(e);
+    if (t < 1) anims[id] = requestAnimationFrame(step); else delete anims[id];
+  };
+  anims[id] = requestAnimationFrame(step);
+}
+
+/* ══════════ the fruit dataset — exactly as in the lesson ══════════ */
+const COLOR  = [200, 50, 220, 240, 250, 230, 30, 40, 20];
+const SIZE   = [7, 7, 6, 9, 8, 9, 12, 13, 11];
+const WEIGHT = [150, 160, 140, 170, 165, 180, 120, 130, 115];
+const LABEL  = ['apple','apple','apple','orange','orange','orange','banana','banana','banana'];
+const CLR    = { apple:'#10b981', orange:'#f97316', banana:'#facc15' };
+const N = 9;
+
+const rng = a => [Math.min(...a), Math.max(...a)];
+const [cMin, cMax] = rng(COLOR), [sMin, sMax] = rng(SIZE), [wMin, wMax] = rng(WEIGHT);
+const nc = v => (v - cMin) / (cMax - cMin);
+const ns = v => (v - sMin) / (sMax - sMin);
+const nw = v => (v - wMin) / (wMax - wMin);
+
+/* the new fruit from the lesson: color 220, size 8, weight 155 */
+const QC = 220, QS = 8, QW = 155;
+
+const f2 = v => v.toFixed(2);
+const f3 = v => v.toFixed(3);
+const f4 = v => v.toFixed(4);
+const pad = (s, n) => String(s).padEnd(n, ' ');
+
+/* distance on the two plottable features, normalized */
+function dist2(i, qc, qs) {
+  const dx = nc(COLOR[i]) - nc(qc), dy = ns(SIZE[i]) - ns(qs);
+  return Math.hypot(dx, dy);
+}
+/* distance on the raw two features - no scaling at all */
+function dist2raw(i, qc, qs) {
+  return Math.hypot(COLOR[i] - qc, SIZE[i] - qs);
+}
+/* the real 3-feature normalized distance used in the lesson */
+function dist3(i, qc, qs, qw) {
+  const dx = nc(COLOR[i]) - nc(qc), dy = ns(SIZE[i]) - ns(qs), dz = nw(WEIGHT[i]) - nw(qw);
+  return Math.sqrt(dx * dx + dy * dy + dz * dz);
+}
+function ranked(fn) {
+  return [...Array(N).keys()].map(i => ({ i, d: fn(i), lab: LABEL[i] })).sort((a, b) => a.d - b.d);
+}
+/* majority vote over the first k of a ranked list */
+function vote(list, k, mode) {
+  const tally = { apple:0, orange:0, banana:0 };
+  for (let j = 0; j < k; j++) {
+    const w = mode === 'distance' ? (list[j].d < 1e-9 ? 1e9 : 1 / list[j].d) : 1;
+    tally[list[j].lab] += w;
+  }
+  const total = tally.apple + tally.orange + tally.banana;
+  let best = 'apple';
+  for (const c of ['apple','orange','banana']) if (tally[c] > tally[best]) best = c;
+  return { tally, total, best };
+}
+
+/* ═══ PANEL 0: overview — an endlessly scanning neighborhood ═══ */
+function drawOverview() {
+  const list = ranked(i => dist2(i, QC, QS));
+  const start = performance.now();
+  const loop = now => {
+    const T = ((now - start) / 3400) % 1;
+    const p = plotSetup('cv-overview', -18, 272, 4.4, 14.6, 50, 1);
+    axLabels(p, 'color (0-255)', 'size (cm)');
+    const { ctx, sx, sy } = p;
+    /* the scan ring, in normalized units, mapped to an ellipse on screen */
+    const rN = T * 1.15;
+    const rx = Math.max(0, rN * p.W / (272 + 18) * (cMax - cMin));
+    const ry = Math.max(0, rN * p.H / (14.6 - 4.4) * (sMax - sMin));
+    ctx.save();
+    ctx.beginPath(); ctx.ellipse(sx(QC), sy(QS), rx, ry, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(244,63,94,' + (0.55 * (1 - T)).toFixed(3) + ')';
+    ctx.lineWidth = 2; ctx.setLineDash([7, 6]); ctx.stroke();
+    ctx.fillStyle = 'rgba(244,63,94,' + (0.05 * (1 - T)).toFixed(3) + ')'; ctx.fill();
+    ctx.restore();
+    /* lines to the neighbors already swallowed by the ring */
+    let caught = 0;
+    for (const it of list) {
+      if (it.d <= rN) {
+        caught++;
+        ctx.save();
+        ctx.beginPath(); ctx.moveTo(sx(QC), sy(QS)); ctx.lineTo(sx(COLOR[it.i]), sy(SIZE[it.i]));
+        ctx.strokeStyle = CLR[it.lab]; ctx.globalAlpha = .5; ctx.lineWidth = 1.6;
+        ctx.setLineDash([4, 4]); ctx.stroke(); ctx.restore();
+      }
+    }
+    for (let i = 0; i < N; i++) plotPoint(p, COLOR[i], SIZE[i], CLR[LABEL[i]], null, dist2(i, QC, QS) <= rN ? 8 : 6);
+    plotQuery(p, QC, QS, COL.red, null, 7, 10 + 8 * Math.sin(now / 400));
+    ctx.font = 'bold 12px Courier New'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    haloText(ctx, caught + ' neighbor' + (caught === 1 ? '' : 's') + ' inside the ring', 14, 30, COL.red);
+    ovRaf = requestAnimationFrame(loop);
+  };
+  ovRaf = requestAnimationFrame(loop);
+}
+
+/* ═══ PANEL 1: the idea ═══ */
+let ideaLastK = null;
+function drawIdea() {
+  const qc = +$('id-c').value, qs = +$('id-s').value, k = +$('id-k').value;
+  $('id-cv').textContent = qc; $('id-sv').textContent = qs.toFixed(1); $('id-kv').textContent = k;
+  const list = ranked(i => dist2(i, qc, qs));
+  const v = vote(list, k, 'uniform');
+  $('out-idea').textContent =
+`K = ${k}   new fruit: color ${qc}, size ${qs.toFixed(1)} cm
+the ${k} nearest: ${list.slice(0, k).map(o => o.lab).join(', ')}
+votes: apple ${v.tally.apple}  orange ${v.tally.orange}  banana ${v.tally.banana}
+--> prediction: ${v.best.toUpperCase()}`;
+
+  const sweep = consumeFresh() || k !== ideaLastK;
+  ideaLastK = k;
+  const render = t => {
+    const p = plotSetup('cv-idea', -18, 272, 4.4, 14.6, 50, 1);
+    axLabels(p, 'color (0-255)', 'size (cm)');
+    const { ctx, sx, sy } = p;
+    const rN = list[k - 1].d * t;
+    const rx = Math.max(0, rN * p.W / 290 * (cMax - cMin));
+    const ry = Math.max(0, rN * p.H / 10.2 * (sMax - sMin));
+    ctx.save();
+    ctx.beginPath(); ctx.ellipse(sx(qc), sy(qs), rx, ry, 0, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(250,204,21,.06)'; ctx.fill();
+    ctx.strokeStyle = 'rgba(250,204,21,.55)'; ctx.lineWidth = 2; ctx.setLineDash([7, 6]); ctx.stroke();
+    ctx.restore();
+    for (let j = 0; j < k; j++) {
+      const it = list[j];
+      if (it.d > rN) continue;
+      ctx.save();
+      ctx.beginPath(); ctx.moveTo(sx(qc), sy(qs)); ctx.lineTo(sx(COLOR[it.i]), sy(SIZE[it.i]));
+      ctx.strokeStyle = CLR[it.lab]; ctx.lineWidth = 2.2; ctx.globalAlpha = .75; ctx.stroke(); ctx.restore();
+    }
+    for (let i = 0; i < N; i++) {
+      const isN = list.slice(0, k).some(o => o.i === i && o.d <= rN);
+      plotPoint(p, COLOR[i], SIZE[i], CLR[LABEL[i]], null, isN ? 8.5 : 5.5);
+    }
+    plotQuery(p, qc, qs, COL.red, 'new', 7, 12);
+    ctx.font = 'bold 12px Courier New'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    haloText(ctx, 'prediction: ' + v.best, 14, 30, CLR[v.best]);
+  };
+  if (sweep) animate('idea', 620, render); else render(1);
+}
+
+/* ═══ PANEL 2: euclidean distance ═══ */
+const PTS = [[1, 4], [2, 7], [3, 3]];
+function drawDist() {
+  const qx = +$('ds-x').value, qy = +$('ds-y').value;
+  $('ds-xv').textContent = qx.toFixed(1); $('ds-yv').textContent = qy.toFixed(1);
+  const ds = PTS.map(([x, y], i) => ({ i, x, y, d: Math.hypot(x - qx, y - qy) }));
+  const near = ds.reduce((a, b) => a.d <= b.d ? a : b);
+  $('out-dist').textContent =
+`q = (${qx.toFixed(1)}, ${qy.toFixed(1)})
+` + ds.map(o =>
+`p${o.i + 1} = (${o.x}, ${o.y})   dx=${(o.x - qx).toFixed(1)}  dy=${(o.y - qy).toFixed(1)}   d = sqrt(${Math.pow(o.x - qx, 2).toFixed(2)} + ${Math.pow(o.y - qy, 2).toFixed(2)}) = ${o.d.toFixed(3)}`
+  ).join('\n') + `
+--> nearest neighbor: p${near.i + 1} = (${near.x}, ${near.y}) at ${near.d.toFixed(3)}`;
+
+  const sweep = consumeFresh();
+  const render = t => {
+    const p = plotSetup('cv-dist', -0.6, 9.6, -0.6, 9.6, 1, 1);
+    axLabels(p, 'x', 'y');
+    const { ctx, sx, sy } = p;
+    ds.forEach(o => {
+      const isN = o.i === near.i;
+      const col = isN ? COL.accent : 'rgba(59,130,246,.55)';
+      ctx.save();
+      ctx.beginPath(); ctx.moveTo(sx(qx), sy(qy));
+      ctx.lineTo(sx(qx + (o.x - qx) * t), sy(qy + (o.y - qy) * t));
+      ctx.strokeStyle = col; ctx.lineWidth = isN ? 3 : 1.6;
+      if (!isN) ctx.setLineDash([5, 5]);
+      ctx.stroke(); ctx.restore();
+    });
+    /* the right triangle on the nearest point */
+    ctx.save();
+    ctx.setLineDash([4, 4]); ctx.strokeStyle = 'rgba(16,185,129,.75)'; ctx.lineWidth = 1.8;
+    ctx.beginPath(); ctx.moveTo(sx(qx), sy(qy)); ctx.lineTo(sx(near.x), sy(qy)); ctx.lineTo(sx(near.x), sy(near.y));
+    ctx.stroke(); ctx.restore();
+    ctx.font = 'bold 11px Courier New'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    haloText(ctx, 'dx = ' + (near.x - qx).toFixed(1), (sx(qx) + sx(near.x)) / 2, sy(qy) + 5, COL.green);
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    haloText(ctx, 'dy = ' + (near.y - qy).toFixed(1), sx(near.x) + 7, (sy(qy) + sy(near.y)) / 2, COL.green);
+    ds.forEach(o => {
+      plotPoint(p, o.x, o.y, o.i === near.i ? COL.accent : COL.blue, `p${o.i + 1} d=${o.d.toFixed(3)}`, 6);
+    });
+    plotQuery(p, qx, qy, COL.red, 'q', 7, 10);
+  };
+  if (sweep) animate('dist', 550, render); else render(1);
+}
+
+/* ═══ PANEL 4: raw vs normalized ═══ */
+let scaleMode = 0;   /* 0 = raw, 1 = normalized */
+function setScale(m) {
+  scaleMode = m;
+  [...$('sc-seg').children].forEach((b, i) => b.classList.toggle('on', i === m));
+  drawScale();
+}
+function drawScale() {
+  const k = +$('sc-k').value;
+  $('sc-kv').textContent = k;
+  const fn = scaleMode ? (i => dist2(i, QC, QS)) : (i => dist2raw(i, QC, QS));
+  const list = ranked(fn);
+  const v = vote(list, k, 'uniform');
+  $('out-scale').textContent =
+(scaleMode
+  ? `NORMALIZED  - every column squeezed into 0..1, both features count`
+  : `RAW         - color spans 230 units, size spans only 7 --> color decides`) + `
+the ${k} nearest: ` + list.slice(0, k).map(o => `${o.lab}(${o.d.toFixed(scaleMode ? 3 : 1)})`).join(', ') + `
+--> prediction: ${v.best.toUpperCase()}`;
+
+  animate('scale', 550, t => {
+    const p = scaleMode
+      ? plotSetup('cv-scale', -0.08, 1.12, -0.08, 1.12, 0.2, 0.2)
+      : plotSetup('cv-scale', -18, 272, 4.4, 14.6, 50, 1);
+    axLabels(p, scaleMode ? 'color (normalized)' : 'color (0-255)', scaleMode ? 'size (normalized)' : 'size (cm)');
+    const { ctx, sx, sy } = p;
+    const X = i => scaleMode ? nc(COLOR[i]) : COLOR[i];
+    const Y = i => scaleMode ? ns(SIZE[i]) : SIZE[i];
+    const qx = scaleMode ? nc(QC) : QC, qy = scaleMode ? ns(QS) : QS;
+    for (let j = 0; j < k; j++) {
+      const it = list[j];
+      ctx.save();
+      ctx.beginPath(); ctx.moveTo(sx(qx), sy(qy));
+      ctx.lineTo(sx(qx + (X(it.i) - qx) * t), sy(qy + (Y(it.i) - qy) * t));
+      ctx.strokeStyle = CLR[it.lab]; ctx.lineWidth = 2.4; ctx.globalAlpha = .8; ctx.stroke(); ctx.restore();
+    }
+    for (let i = 0; i < N; i++) {
+      const isN = list.slice(0, k).some(o => o.i === i);
+      plotPoint(p, X(i), Y(i), CLR[LABEL[i]], null, isN ? 8.5 : 5.5);
+    }
+    plotQuery(p, qx, qy, COL.red, 'new', 7, 12);
+    ctx.font = 'bold 12px Courier New'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    haloText(ctx, (scaleMode ? 'normalized' : 'raw') + ' --> ' + v.best, 14, 30, CLR[v.best]);
+  });
+}
+
+/* ═══ PANEL 8: the decision map ═══ */
+let kmapW = 'uniform';
+function setKw(m) {
+  kmapW = m;
+  [...$('kk-seg').children].forEach(b => b.classList.toggle('on', b.textContent === m));
+  drawKmap();
+}
+function classifyAt(x, y, k, mode) {
+  const list = [...Array(N).keys()]
+    .map(i => ({ i, d: Math.hypot(nc(COLOR[i]) - x, ns(SIZE[i]) - y), lab: LABEL[i] }))
+    .sort((a, b) => a.d - b.d);
+  return vote(list, k, mode).best;
+}
+const REG_RGB = { apple:[16,185,129], orange:[249,115,22], banana:[250,204,21] };
+function drawKmap() {
+  const k = +$('kk-k').value;
+  $('kk-kv').textContent = k;
+  const p = plotSetup('cv-kmap', -0.08, 1.12, -0.08, 1.12, 0.2, 0.2);
+  const { ctx, sx, sy, W, H } = p;
+  /* paint the decision regions in 5px blocks */
+  const B = 5;
+  for (let px = 0; px < W; px += B) {
+    for (let py = 0; py < H; py += B) {
+      const x = (px + B / 2) / W * 1.20 - 0.08;
+      const y = 1.12 - (py + B / 2) / H * 1.20;
+      const c = REG_RGB[classifyAt(x, y, k, kmapW)];
+      ctx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},.17)`;
+      ctx.fillRect(px, py, B, B);
+    }
+  }
+  axLabels(p, 'color (normalized)', 'size (normalized)');
+  for (let i = 0; i < N; i++) plotPoint(p, nc(COLOR[i]), ns(SIZE[i]), CLR[LABEL[i]], null, 6.5);
+  plotQuery(p, nc(QC), ns(QS), COL.red, 'new', 7, 10);
+  const pred = classifyAt(nc(QC), ns(QS), k, kmapW);
+  ctx.font = 'bold 12px Courier New'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  haloText(ctx, `K = ${k} (${kmapW}) --> ${pred}`, 14, 30, CLR[pred]);
+  const list = ranked(i => dist2(i, QC, QS));
+  $('out-kmap').textContent =
+`K = ${k}   weights = '${kmapW}'   ( 2 features so it can be drawn )
+the ${k} nearest: ` + list.slice(0, k).map(o => o.lab).join(', ') + `
+--> the new fruit is classified as ${pred.toUpperCase()}
+sqrt(n) = sqrt(9) = 3   <-- the textbook starting point here`;
+}
+
+/* ═══ PANEL 9: uniform vs distance ═══ */
+let wMode = 'uniform';
+function setW(m) {
+  wMode = m;
+  [...$('w-seg').children].forEach(b => b.classList.toggle('on', b.textContent === m));
+  drawW();
+}
+function drawW() {
+  const k = +$('w-k').value;
+  $('w-kv').textContent = k;
+  const list = ranked(i => dist3(i, QC, QS, QW));
+  const v = vote(list, k, wMode);
+  const rows = ['apple','orange','banana'].map(c => {
+    const share = v.total > 0 ? v.tally[c] / v.total : 0;
+    return `
+    <div class="vote-row">
+      <span class="vote-name" style="color:${CLR[c]}">${c}</span>
+      <span class="vote-track"><span class="vote-fill" style="background:${CLR[c]}"></span></span>
+      <span class="vote-num">${share.toFixed(4)}</span>
+    </div>`;
+  }).join('');
+  $('w-votes').innerHTML = rows;
+  requestAnimationFrame(() => {
+    ['apple','orange','banana'].forEach((c, j) => {
+      const share = v.total > 0 ? v.tally[c] / v.total : 0;
+      $('w-votes').children[j].querySelector('.vote-fill').style.width = (share * 100) + '%';
+    });
+  });
+  const detail = list.slice(0, k).map(o =>
+    `  #${o.i}  ${pad(o.lab, 7)} d=${o.d.toFixed(5)}` + (wMode === 'distance' ? `  1/d=${(1 / o.d).toFixed(4)}` : `  w=1`)
+  ).join('\n');
+  $('out-w').textContent =
+`weights = '${wMode}'   K = ${k}
+${detail}
+  total weight = ${v.total.toFixed(4)}
+--> predict: ${v.best.toUpperCase()}`;
+}
+
+/* ═══ APPENDIX A1: manhattan vs euclidean ═══ */
+function drawMan() {
+  const qx = +$('mn-x').value, qy = +$('mn-y').value;
+  $('mn-xv').textContent = qx.toFixed(1); $('mn-yv').textContent = qy.toFixed(1);
+  const px = 2, py = 2;
+  const dx = qx - px, dy = qy - py;
+  const eu = Math.hypot(dx, dy), ma = Math.abs(dx) + Math.abs(dy), ch = Math.max(Math.abs(dx), Math.abs(dy));
+  $('out-man').textContent =
+`p = (2, 2)   q = (${qx.toFixed(1)}, ${qy.toFixed(1)})
+euclidean  p=2   sqrt(${(dx * dx).toFixed(2)} + ${(dy * dy).toFixed(2)})      = ${eu.toFixed(4)}
+manhattan  p=1   ${Math.abs(dx).toFixed(1)} + ${Math.abs(dy).toFixed(1)}                      = ${ma.toFixed(4)}
+chebyshev  p=inf max(${Math.abs(dx).toFixed(1)}, ${Math.abs(dy).toFixed(1)})                 = ${ch.toFixed(4)}`;
+
+  const sweep = consumeFresh();
+  const render = t => {
+    const p = plotSetup('cv-man', -0.6, 9.6, -0.6, 9.6, 1, 1);
+    axLabels(p, 'x', 'y');
+    const { ctx, sx, sy } = p;
+    /* manhattan path - along the streets */
+    ctx.save(); ctx.strokeStyle = COL.orange; ctx.lineWidth = 5; ctx.lineJoin = 'round'; ctx.globalAlpha = .8;
+    ctx.beginPath(); ctx.moveTo(sx(px), sy(py));
+    ctx.lineTo(sx(px + dx * t), sy(py));
+    ctx.lineTo(sx(px + dx * t), sy(py + dy * t));
+    ctx.stroke(); ctx.restore();
+    /* euclidean - straight through */
+    ctx.save(); ctx.strokeStyle = COL.blue; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(sx(px), sy(py)); ctx.lineTo(sx(px + dx * t), sy(py + dy * t)); ctx.stroke(); ctx.restore();
+    plotPoint(p, px, py, COL.green, 'p (2,2)', 6);
+    plotQuery(p, qx, qy, COL.red, 'q', 7, 10);
+    ctx.font = 'bold 11px Courier New'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    haloText(ctx, 'manhattan = ' + ma.toFixed(3), 14, 30, COL.orange);
+    haloText(ctx, 'euclidean = ' + eu.toFixed(3), 14, 46, COL.blue);
+  };
+  if (sweep) animate('man', 500, render); else render(1);
+}
+
+/* ═══ APPENDIX A2: knn regression staircase ═══ */
+const RX = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+const RY = [2.1, 3.4, 3.0, 5.2, 6.8, 6.1, 8.4, 9.0, 8.2];
+function drawReg() {
+  const k = +$('rg-k').value;
+  $('rg-kv').textContent = k;
+  const predict = x => {
+    const near = RX.map((xi, i) => ({ d: Math.abs(xi - x), y: RY[i] })).sort((a, b) => a.d - b.d).slice(0, k);
+    return near.reduce((s, o) => s + o.y, 0) / k;
+  };
+  const at5 = predict(5);
+  $('out-reg').textContent =
+`K = ${k}   prediction at x = 5  -->  ${at5.toFixed(3)}
+the ${k} nearest y values are averaged, no line is fitted
+K = 1 hits every point exactly, K = 9 is one flat line at the overall mean (${(RY.reduce((a, b) => a + b) / 9).toFixed(3)})`;
+
+  animate('reg', 480, t => {
+    const p = plotSetup('cv-reg', -0.4, 10.4, 0, 11, 1, 2);
+    axLabels(p, 'x', 'y');
+    const { ctx, sx, sy } = p;
+    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, p.W, p.H); ctx.clip();
+    ctx.strokeStyle = COL.cyan; ctx.lineWidth = 3; ctx.beginPath();
+    const STEPS = 260, LIM = -0.4 + 10.8 * t;
+    for (let s = 0; s <= STEPS; s++) {
+      const x = -0.4 + 10.8 * s / STEPS;
+      if (x > LIM) break;
+      const yv = predict(x);
+      if (s === 0) ctx.moveTo(sx(x), sy(yv)); else ctx.lineTo(sx(x), sy(yv));
+    }
+    ctx.stroke(); ctx.restore();
+    for (let i = 0; i < RX.length; i++) plotPoint(p, RX[i], RY[i], COL.accent, null, 5);
+    ctx.font = 'bold 11px Courier New'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    haloText(ctx, 'KNeighborsRegressor(n_neighbors=' + k + ')', 14, 30, COL.cyan);
+  });
+}
+
+/* ══════════ boot ══════════ */
+updateDots();
+setTimeout(drawOverview, 90);
+window.addEventListener('resize', () => {
+  const redraw = [null, drawIdea, drawDist, null, drawScale, null, null,
+                  null, drawKmap, null, null, null, drawMan, drawReg];
+  instant = true;
+  if (current === 0) { if (ovRaf) cancelAnimationFrame(ovRaf); instant = false; drawOverview(); }
+  else if (redraw[current]) redraw[current]();
+  instant = false;
+});
+document.addEventListener('keydown', e => {
+  if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;   // let sliders use the arrows
+  const pos = CURRICULUM_ORDER.indexOf(current);
+  if (e.key === 'ArrowRight' && pos < CURRICULUM_ORDER.length - 1) goTo(CURRICULUM_ORDER[pos + 1]);
+  if (e.key === 'ArrowLeft'  && pos > 0) goTo(CURRICULUM_ORDER[pos - 1]);
+});
+</script>
+</body>
+</html>
