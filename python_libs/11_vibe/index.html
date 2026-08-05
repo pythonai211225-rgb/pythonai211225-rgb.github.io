@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Vibe Coding — From Prompt to REST API to Website</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded',function(){renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'\\(',right:'\\)',display:false}],throwOnError:false});});</script>
+  <style>
+    .page-layout { display:flex; height:calc(100vh - 54px); overflow:hidden; }
+    .sidebar { width:236px; min-width:236px; height:100%; overflow-y:auto; background:#0a0e14; border-right:1px solid var(--border); display:flex; flex-direction:column; scrollbar-width:thin; scrollbar-color:var(--border) transparent; flex-shrink:0; }
+    .sidebar-head { padding:20px 18px 14px; font-size:.65rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--border); }
+    .sidebar-nav { padding:8px 0; flex:1; }
+    .s-item { display:flex; align-items:center; gap:11px; padding:10px 18px; cursor:pointer; background:none; border:none; border-left:3px solid transparent; width:100%; text-align:left; transition:background .18s,border-color .18s; }
+    .s-item:hover { background:rgba(255,255,255,.04); }
+    .s-item.active { background:rgba(250,204,21,.08); border-left-color:var(--accent); }
+    .s-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; transition:transform .2s; }
+    .s-item.active .s-dot { transform:scale(1.45); box-shadow:0 0 8px currentColor; }
+    .s-num { font-size:.62rem; color:var(--border); font-family:'Courier New',monospace; font-weight:700; min-width:18px; }
+    .s-item.active .s-num { color:var(--accent); }
+    .s-label { font-size:.79rem; color:var(--muted); font-family:'Courier New',monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .s-item.active .s-label { color:var(--text); }
+    .s-item.done .s-label::after { content:' ✓'; color:var(--green); font-size:.7rem; }
+    .side-sep { border:none; border-top:1px solid var(--border); margin:14px 16px 6px; }
+    .side-part { padding:2px 18px 6px; font-size:.6rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:var(--accent); font-family:'Courier New',monospace; }
+
+    .panel-viewport { flex:1; overflow-y:auto; overflow-x:hidden; position:relative; }
+    .panel { display:none; flex-direction:column; min-height:100%; padding:40px 52px 100px; max-width:840px; margin:0 auto; animation:fadeIn .35s ease; }
+    .panel.active { display:flex; }
+    @keyframes fadeIn { from{opacity:0;transform:translateX(28px)} to{opacity:1;transform:translateX(0)} }
+    .panel.exit { display:flex; animation:fadeOut .25s ease forwards; }
+    @keyframes fadeOut { from{opacity:1;transform:translateX(0)} to{opacity:0;transform:translateX(-28px)} }
+
+    .m-hero { position:relative; height:186px; border-radius:18px; overflow:hidden; margin-bottom:26px; flex-shrink:0;
+              background:linear-gradient(135deg,#1a1035 0%,#0d1a3a 55%,#07172b 100%); border:1px solid var(--border); }
+    .m-hero::after { content:''; position:absolute; inset:0;
+      background:radial-gradient(circle at 82% 22%, rgba(139,92,246,.35) 0%, transparent 46%),
+                 radial-gradient(circle at 18% 82%, rgba(6,182,212,.28) 0%, transparent 44%); }
+    .m-hero-ov { position:absolute; inset:0; padding:26px 30px; display:flex; flex-direction:column; justify-content:flex-end; z-index:2; }
+    .m-breadcrumb { font-size:.62rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:rgba(255,255,255,.42); margin-bottom:5px; }
+    .m-name { font-size:1.7rem; font-weight:900; color:#fff; font-family:'Courier New',monospace; }
+    .m-tagline { font-size:.86rem; color:rgba(255,255,255,.66); margin-top:4px; }
+    .m-hero-icon { position:absolute; right:26px; top:22px; font-size:3.4rem; opacity:.30; z-index:1; }
+
+    .pills { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 20px; align-items:center; }
+    .pill { padding:5px 14px; border-radius:999px; font-size:.7rem; font-weight:700; letter-spacing:.06em; }
+    .pill-sig { font-family:'Courier New',monospace; font-size:.74rem; letter-spacing:0; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.12); color:var(--text); }
+    .pill-ret { background:rgba(16,185,129,.1); border:1px solid rgba(16,185,129,.3); color:var(--green); font-family:'Courier New',monospace; letter-spacing:0; }
+    .pill-note { background:rgba(249,115,22,.1); border:1px solid rgba(249,115,22,.3); color:var(--orange); font-family:'Courier New',monospace; font-size:.7rem; }
+    .pill-param { position:relative; cursor:help; transition:filter .18s; }
+    .pill-param:hover { filter:brightness(1.3); }
+    .pill-param .balloon { position:absolute; bottom:calc(100% + 14px); left:50%; transform:translateX(-50%) translateY(6px); width:240px; background:linear-gradient(155deg,#0e2845 0%,#071a2e 100%); border:1.5px solid rgba(240,182,62,.65); border-radius:14px; padding:13px 16px 11px; box-shadow:0 0 0 1px rgba(240,182,62,.1),0 18px 48px rgba(0,0,0,.72); opacity:0; pointer-events:none; transition:opacity .22s ease,transform .22s ease; z-index:300; }
+    .pill-param:hover .balloon { opacity:1; transform:translateX(-50%) translateY(0); }
+    .balloon-title { font-family:'Courier New',monospace; font-size:.7rem; font-weight:800; color:#f0b63e; letter-spacing:.04em; margin-bottom:6px; display:flex; align-items:center; gap:6px; }
+    .balloon-title::before { content:''; display:inline-block; width:7px; height:7px; border-radius:50%; background:#f0b63e; box-shadow:0 0 6px rgba(240,182,62,.7); flex-shrink:0; }
+    .balloon-body { font-size:.76rem; color:rgba(230,237,243,.78); line-height:1.6; font-family:'Segoe UI',system-ui,sans-serif; font-weight:400; }
+    .pill-param .balloon::after { content:''; position:absolute; bottom:-10px; left:50%; transform:translateX(-50%); border-left:10px solid transparent; border-right:10px solid transparent; border-top:10px solid rgba(240,182,62,.65); }
+
+    .m-desc { font-size:.95rem; color:var(--muted); line-height:1.75; margin-bottom:14px; }
+    .m-desc code { font-family:'Courier New',monospace; font-size:.88em; padding:1px 6px; border-radius:4px; background:rgba(255,255,255,.06); }
+
+    .demo-box { background:#060a10; border:1px solid var(--border); border-radius:14px; padding:22px 22px 18px; margin-top:20px; flex-shrink:0; display:flex; flex-direction:column; }
+    .demo-lbl { font-size:.64rem; font-weight:800; letter-spacing:.13em; text-transform:uppercase; color:var(--muted); margin-bottom:18px; display:flex; align-items:center; gap:8px; }
+    .demo-lbl::before { content:''; width:3px; height:12px; border-radius:2px; background:var(--accent); flex-shrink:0; }
+    .demo-controls { display:flex; flex-wrap:wrap; gap:18px; align-items:flex-end; margin-bottom:18px; }
+    .ctrl { display:flex; flex-direction:column; gap:5px; }
+    .ctrl label { font-size:.69rem; color:var(--muted); font-weight:600; }
+    .ctrl input[type=range] { -webkit-appearance:none; width:190px; height:4px; background:var(--border); border-radius:2px; outline:none; cursor:pointer; }
+    .ctrl input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:15px; height:15px; background:var(--accent); border-radius:50%; cursor:pointer; box-shadow:0 0 6px rgba(250,204,21,.5); }
+    .ctrl .cval { font-size:.7rem; color:var(--accent); font-family:'Courier New',monospace; font-weight:700; text-align:center; }
+    .demo-canvas-wrap { background:#020509; border-radius:10px; padding:14px; overflow:hidden; min-height:72px; order:4; }
+    canvas { display:block; margin:0 auto; }
+    .demo-out { font-family:'Courier New',monospace; font-size:.8rem; color:#10b981; line-height:1.65; margin:0 0 14px; padding:11px 15px; background:rgba(16,185,129,.05); border:1px solid rgba(16,185,129,.18); border-radius:8px; white-space:pre-wrap; order:3; }
+
+    .seg { display:inline-flex; border:1px solid var(--border); border-radius:9px; overflow:hidden; flex-wrap:wrap; }
+    .seg button { background:transparent; border:none; color:var(--muted); font-size:.72rem; font-weight:700; font-family:'Courier New',monospace; padding:7px 14px; cursor:pointer; transition:background .18s,color .18s; }
+    .seg button:hover { color:var(--text); background:rgba(255,255,255,.05); }
+    .seg button.on { background:rgba(250,204,21,.14); color:var(--accent); }
+    .btn-go { background:rgba(139,92,246,.14); border:1px solid rgba(139,92,246,.42); color:#c4b5fd; font-family:'Courier New',monospace; font-size:.74rem; font-weight:800; padding:8px 18px; border-radius:9px; cursor:pointer; transition:.18s; }
+    .btn-go:hover { background:rgba(139,92,246,.26); color:#fff; }
+
+    .panel-nav { display:flex; justify-content:space-between; align-items:center; margin-top:40px; padding-top:24px; border-top:1px solid var(--border); flex-shrink:0; }
+    .pnav-btn { display:flex; align-items:center; gap:9px; padding:10px 22px; border-radius:10px; border:1px solid var(--border); background:transparent; color:var(--muted); font-size:.83rem; font-weight:700; cursor:pointer; transition:color .2s,border-color .2s,background .2s; }
+    .pnav-btn:hover:not(:disabled) { color:var(--text); border-color:var(--accent); background:rgba(250,204,21,.06); }
+    .pnav-btn:disabled { opacity:.28; cursor:default; }
+    .pnav-btn.next { background:rgba(250,204,21,.08); border-color:rgba(250,204,21,.35); color:var(--accent); }
+    .pnav-btn.next:hover { background:rgba(250,204,21,.16); border-color:var(--accent); }
+    .pnav-dots { display:flex; gap:7px; align-items:center; flex-wrap:wrap; justify-content:center; }
+    .pnav-dot { width:7px; height:7px; border-radius:50%; background:var(--border); transition:background .2s,transform .2s; cursor:pointer; border:none; padding:0; }
+    .pnav-dot.active { background:var(--accent); transform:scale(1.4); }
+
+    .overview-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:14px; margin-top:24px; }
+    .ov-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px 16px 16px; cursor:pointer; transition:border-color .2s,box-shadow .2s,transform .18s; display:flex; flex-direction:column; gap:8px; }
+    .ov-card:hover { transform:translateY(-3px); border-color:rgba(250,204,21,.4); box-shadow:0 8px 28px rgba(250,204,21,.08); }
+    .ov-card-num { font-size:.62rem; color:var(--muted); font-weight:800; letter-spacing:.1em; }
+    .ov-card-name { font-size:.9rem; font-family:'Courier New',monospace; font-weight:700; }
+    .ov-card-desc { font-size:.77rem; color:var(--muted); line-height:1.5; }
+
+    @media(max-width:700px){.sidebar{display:none}.panel{padding:20px 16px 80px}}
+    .katex { color: var(--text); }
+    .katex-display { margin: 6px 0; overflow-x: auto; overflow-y: hidden; padding: 3px 0; }
+    .eq-box { background:rgba(59,130,246,.05); border:1px solid rgba(59,130,246,.2); border-radius:12px; padding:16px 20px; margin:16px 0; font-size:1.02rem; }
+    .eq-box.big { font-size:1.3rem; padding:24px 20px; }
+    .eq-box.small { font-size:.9rem; padding:14px 18px; }
+
+    /* ── the 4-step loop ── */
+    .loop { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin:22px 0 6px; }
+    .loop .lp { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px 14px 14px; position:relative; overflow:hidden; transition:transform .2s,border-color .2s,box-shadow .2s; cursor:default; }
+    .loop .lp:hover { transform:translateY(-4px); }
+    .loop .lp::after { content:attr(data-n); position:absolute; right:8px; bottom:-16px; font-size:3.4rem; font-weight:900; font-family:'Courier New',monospace; color:rgba(255,255,255,.04); line-height:1; }
+    .loop .lp h4 { font-size:.86rem; margin-bottom:6px; font-family:'Courier New',monospace; }
+    .loop .lp p { font-size:.77rem; color:var(--muted); line-height:1.55; }
+    .loop .lp.a { border-color:rgba(139,92,246,.34); } .loop .lp.a h4 { color:var(--purple); }
+    .loop .lp.b { border-color:rgba(59,130,246,.34); }  .loop .lp.b h4 { color:var(--blue); }
+    .loop .lp.c { border-color:rgba(16,185,129,.34); }  .loop .lp.c h4 { color:var(--green); }
+    .loop .lp.d { border-color:rgba(249,115,22,.34); }  .loop .lp.d h4 { color:var(--orange); }
+    .loop .lp.on { box-shadow:0 0 0 1px currentColor, 0 10px 30px rgba(0,0,0,.4); transform:translateY(-4px); }
+
+    /* ── prompt card ── */
+    .prompt { border:1px solid rgba(139,92,246,.34); border-left:4px solid var(--purple); background:rgba(139,92,246,.07);
+              border-radius:11px; padding:13px 16px; margin:12px 0; font-size:.9rem; color:#ded7f5; font-style:italic; line-height:1.65; }
+    .prompt::before { content:'💬 prompt'; display:block; font-style:normal; font-weight:800; font-size:.62rem; letter-spacing:.14em; text-transform:uppercase; color:var(--purple); margin-bottom:6px; }
+    .prompt code { font-style:normal; }
+
+    .pc-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:18px 0; }
+    @media(max-width:640px){ .pc-grid{grid-template-columns:1fr} .loop{grid-template-columns:repeat(2,minmax(0,1fr))} }
+    .pc { border-radius:14px; border:1px solid var(--border); padding:16px 18px 14px; }
+    .pc h4 { font-size:.88rem; margin-bottom:10px; font-family:'Courier New',monospace; display:flex; align-items:center; gap:8px; }
+    .pc p, .pc li { font-size:.82rem; color:var(--muted); line-height:1.6; }
+    .pc ol, .pc ul { margin:0; padding-left:19px; }
+    .pc li { margin-bottom:6px; }
+    .pc.good { border-color:rgba(16,185,129,.3); background:rgba(16,185,129,.04); } .pc.good h4 { color:var(--green); }
+    .pc.bad  { border-color:rgba(244,63,94,.3);  background:rgba(244,63,94,.04); }  .pc.bad h4  { color:#f43f5e; }
+
+    /* ── http verbs ── */
+    .verb { font-family:'Courier New',monospace; font-weight:800; font-size:.72rem; padding:2px 9px; border-radius:6px; letter-spacing:.04em; }
+    .verb.get  { background:rgba(16,185,129,.13); color:var(--green); border:1px solid rgba(16,185,129,.35); }
+    .verb.post { background:rgba(59,130,246,.13); color:var(--blue);  border:1px solid rgba(59,130,246,.35); }
+    .verb.put  { background:rgba(249,115,22,.13); color:var(--orange);border:1px solid rgba(249,115,22,.35); }
+    .verb.del  { background:rgba(244,63,94,.13);  color:#f43f5e;      border:1px solid rgba(244,63,94,.35); }
+
+    /* ── status pills ── */
+    .status-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin:16px 0; }
+    .st { border:1px solid var(--border); border-radius:11px; padding:12px 14px; background:rgba(255,255,255,.02); }
+    .st .code-n { font-family:'Courier New',monospace; font-weight:900; font-size:1.3rem; }
+    .st .nm { font-size:.74rem; font-weight:700; color:var(--text); margin:2px 0 3px; }
+    .st .ds { font-size:.72rem; color:var(--muted); line-height:1.45; }
+    .st.ok   { border-color:rgba(16,185,129,.32); } .st.ok .code-n   { color:var(--green); }
+    .st.warn { border-color:rgba(249,115,22,.32); } .st.warn .code-n { color:var(--orange); }
+    .st.err  { border-color:rgba(244,63,94,.32); }  .st.err .code-n  { color:#f43f5e; }
+
+    /* ── three-file stack ── */
+    .stack { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin:18px 0; }
+    .layer { border:1px solid var(--border); border-radius:13px; padding:15px 14px; background:var(--surface); transition:.2s; }
+    .layer h4 { font-family:'Courier New',monospace; font-size:.85rem; margin-bottom:6px; }
+    .layer p { font-size:.78rem; color:var(--muted); line-height:1.55; }
+    .layer.html { border-color:rgba(249,115,22,.34); } .layer.html h4 { color:var(--orange); }
+    .layer.css  { border-color:rgba(59,130,246,.34); } .layer.css h4  { color:var(--blue); }
+    .layer.js   { border-color:rgba(250,204,21,.34); } .layer.js h4   { color:var(--accent); }
+    .layer.off { opacity:.3; filter:grayscale(1); }
+
+    /* ── mini browser preview ── */
+    .mini { border:1px solid var(--border); border-radius:12px; overflow:hidden; background:#0b1018; order:4; }
+    .mini-bar { display:flex; align-items:center; gap:6px; padding:8px 12px; background:#141b26; border-bottom:1px solid var(--border); }
+    .mini-bar i { width:9px; height:9px; border-radius:50%; display:block; }
+    .mini-url { flex:1; margin-left:8px; font-family:'Courier New',monospace; font-size:.68rem; color:var(--muted); background:#0b1018; border-radius:5px; padding:3px 9px; }
+    .mini-body { padding:22px 20px; min-height:150px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; }
+    .mini-plain { font-family:Times, serif; color:#c9d1d9; text-align:left; width:100%; }
+    .mini-plain h5 { font-size:1.05rem; margin:0 0 6px; font-weight:700; }
+    .mini-plain p  { font-size:.85rem; margin:0 0 8px; }
+    .mini-plain button { font:inherit; }
+    .mini-styled { width:100%; max-width:330px; border-radius:14px; padding:20px; text-align:center;
+      background:linear-gradient(150deg,#15213a 0%,#0d1526 100%); border:1px solid rgba(139,92,246,.4);
+      box-shadow:0 12px 34px rgba(0,0,0,.5); font-family:'Segoe UI',system-ui,sans-serif; }
+    .mini-styled h5 { margin:0 0 6px; font-size:1.05rem; color:#fff; font-weight:800; }
+    .mini-styled p { margin:0 0 14px; font-size:.82rem; color:rgba(230,237,243,.66); }
+    .mini-styled .val { font-family:'Courier New',monospace; font-size:2rem; font-weight:900; color:var(--accent); display:block; margin:6px 0 12px; }
+    .mini-btn { border:none; border-radius:9px; padding:9px 20px; font-weight:800; font-size:.8rem; cursor:pointer;
+      background:linear-gradient(135deg,#8b5cf6,#6366f1); color:#fff; }
+    .mini-btn.dead { background:#2a3345; color:#7b8798; cursor:not-allowed; }
+
+    /* ── round trip stage ── */
+    .rt-note { font-family:'Courier New',monospace; font-size:.74rem; color:var(--muted); text-align:center; margin-top:8px; }
+
+    .callout-tight { margin-top:10px; }
+    .kv { display:grid; grid-template-columns:auto 1fr; gap:6px 14px; font-family:'Courier New',monospace; font-size:.78rem; margin:10px 0; }
+    .kv .k { color:var(--muted); }
+    .kv .v { color:var(--text); }
+  </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">← Python Libs</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item active" href="index.html">01</a>
+  </div>
+</nav>
+
+<div class="page-layout">
+
+  <aside class="sidebar">
+    <div class="sidebar-head">Vibe Coding</div>
+    <nav class="sidebar-nav">
+      <button class="s-item active" data-panel="0" onclick="goTo(0)"><span class="s-num">00</span><span class="s-dot" style="background:#8b5cf6"></span><span class="s-label">Overview</span></button>
+      <button class="s-item" data-panel="1" onclick="goTo(1)"><span class="s-num">01</span><span class="s-dot" style="background:#a855f7"></span><span class="s-label">The loop</span></button>
+      <button class="s-item" data-panel="2" onclick="goTo(2)"><span class="s-num">02</span><span class="s-dot" style="background:#ec4899"></span><span class="s-label">Writing the prompt</span></button>
+      <button class="s-item" data-panel="3" onclick="goTo(3)"><span class="s-num">03</span><span class="s-dot" style="background:#06b6d4"></span><span class="s-label">VS Code + Live Server</span></button>
+      <button class="s-item" data-panel="4" onclick="goTo(4)"><span class="s-num">04</span><span class="s-dot" style="background:#3b82f6"></span><span class="s-label">Copilot &amp; Claude</span></button>
+      <button class="s-item" data-panel="5" onclick="goTo(5)"><span class="s-num">05</span><span class="s-dot" style="background:#f97316"></span><span class="s-label">HTML + CSS + JS</span></button>
+      <button class="s-item" data-panel="6" onclick="goTo(6)"><span class="s-num">06</span><span class="s-dot" style="background:#10b981"></span><span class="s-label">What is a REST API</span></button>
+      <hr class="side-sep">
+      <div class="side-part">Appendix</div>
+      <button class="s-item" data-panel="12" onclick="goTo(12)"><span class="s-num">A1</span><span class="s-dot" style="background:#3b82f6"></span><span class="s-label">Status codes</span></button>
+      <button class="s-item" data-panel="13" onclick="goTo(13)"><span class="s-num">A2</span><span class="s-dot" style="background:#10b981"></span><span class="s-label">JSON in 60 seconds</span></button>
+    </nav>
+  </aside>
+
+  <div class="panel-viewport" id="viewport">
+
+    <!-- ══ PANEL 0: Overview ══ -->
+    <div class="panel active" id="panel-0">
+      <div class="hero" style="margin-bottom:36px;">
+        <span class="topic-label"><span class="dot"></span>Vibe Coding · Deck 11 · Lesson 16</span>
+        <h1>Vibe Coding</h1>
+        <p>Describe what you want in <strong>plain language</strong>, let the AI write it, then read and run it. This deck follows one real project all the way through: a scikit-learn model → a <strong>Flask REST API</strong> → a website that calls it.</p>
+        <div class="demo-canvas-wrap" style="background:#020509;border-radius:12px;padding:14px;position:relative;z-index:1;"><canvas id="cv-overview" height="270"></canvas></div>
+      </div>
+      <div class="overview-grid" style="margin-top:0;">
+        <div class="ov-card" onclick="goTo(1)"><div class="ov-card-num">01 / 06</div><div class="ov-card-name" style="color:#a855f7">The loop</div><div class="ov-card-desc">Describe → read → run → correct. The whole method in four boxes.</div></div>
+        <div class="ov-card" onclick="goTo(2)"><div class="ov-card-num">02 / 06</div><div class="ov-card-name" style="color:#ec4899">Writing the prompt</div><div class="ov-card-desc">Why "make it nice" fails and what to say instead.</div></div>
+        <div class="ov-card" onclick="goTo(3)"><div class="ov-card-num">03 / 06</div><div class="ov-card-name" style="color:#06b6d4">VS Code + Live Server</div><div class="ov-card-desc">The editor, the extension, and why file:// breaks fetch.</div></div>
+        <div class="ov-card" onclick="goTo(4)"><div class="ov-card-num">04 / 06</div><div class="ov-card-name" style="color:#3b82f6">Copilot &amp; Claude</div><div class="ov-card-desc">Two assistants, and which one to reach for.</div></div>
+        <div class="ov-card" onclick="goTo(5)"><div class="ov-card-num">05 / 06</div><div class="ov-card-name" style="color:#f97316">HTML + CSS + JS</div><div class="ov-card-desc">Structure, appearance, behaviour — switch each layer off and watch.</div></div>
+        <div class="ov-card" onclick="goTo(6)"><div class="ov-card-num">06 / 06</div><div class="ov-card-name" style="color:#10b981">What is a REST API</div><div class="ov-card-desc">Verbs, paths, JSON and status codes — build a request live.</div></div>
+        <div class="ov-card" onclick="goTo(12)"><div class="ov-card-num">APPENDIX A1</div><div class="ov-card-name" style="color:#3b82f6">Status codes</div><div class="ov-card-desc">200, 400, 404, 500 — what each one is telling you.</div></div>
+        <div class="ov-card" onclick="goTo(13)"><div class="ov-card-num">APPENDIX A2</div><div class="ov-card-name" style="color:#10b981">JSON in 60 seconds</div><div class="ov-card-desc">The format both sides speak, and its four rules.</div></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" disabled>← Prev</button>
+        <div class="pnav-dots" id="dots-0"></div>
+        <button class="pnav-btn next" onclick="goTo(1)">The loop →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 1: The loop ══ -->
+    <div class="panel" id="panel-1">
+      <div class="m-hero">
+        <span class="m-hero-icon">🔁</span>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Vibe Coding 01 / 06 · The Method</div>
+          <div class="m-name">The loop</div>
+          <div class="m-tagline">You stay the engineer — the AI is just very fast at typing</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">describe → read → run → correct</span>
+        <span class="pill pill-ret">→ working code you understand</span>
+      </div>
+      <p class="m-desc"><strong>Vibe coding</strong> means describing the <em>outcome</em> you want instead of typing every line to get there. The AI writes the code; you decide whether it is right. That second half is not optional — it is the entire job.</p>
+
+      <div class="loop" id="loop-boxes">
+        <div class="lp a" data-n="1"><h4>1 · Describe</h4><p>Say what it should <em>do</em>, not how to code it. Name the inputs, the outputs and the constraints.</p></div>
+        <div class="lp b" data-n="2"><h4>2 · Read</h4><p>Actually look at what came back. If you cannot explain a line, that line is a bug waiting to happen.</p></div>
+        <div class="lp c" data-n="3"><h4>3 · Run</h4><p>Execute it. Does it work? Did it break something that used to work?</p></div>
+        <div class="lp d" data-n="4"><h4>4 · Correct</h4><p>Describe the gap in one sentence and go round again. Small steps beat one giant prompt.</p></div>
+      </div>
+
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — one turn of the loop, as it actually went in class</div>
+        <div class="demo-controls">
+          <button class="btn-go" onclick="stepLoop()">▶ next step</button>
+          <button class="btn-go" onclick="resetLoop()" style="background:rgba(255,255,255,.05);border-color:var(--border);color:var(--muted)">reset</button>
+        </div>
+        <div class="demo-out" id="out-loop"></div>
+      </div>
+
+      <div class="callout green">
+        💡 <strong>Small steps.</strong> "Build me the whole website" gives you 600 lines you have never read. "Add an endpoint that returns the model parameters as JSON" gives you eight lines you can check in ten seconds. Ask for the eight.
+      </div>
+      <div class="callout orange">
+        ⚠️ <strong>It will be confidently wrong sometimes.</strong> Not occasionally — regularly. The loop is built around that fact: step 2 and step 3 exist precisely because step 1 cannot be trusted on its own.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(0)">← Overview</button>
+        <div class="pnav-dots" id="dots-1"></div>
+        <button class="pnav-btn next" onclick="goTo(2)">Writing the prompt →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 2: Prompting ══ -->
+    <div class="panel" id="panel-2">
+      <div class="m-hero">
+        <span class="m-hero-icon">💬</span>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Vibe Coding 02 / 06 · The Skill</div>
+          <div class="m-name">Writing the prompt</div>
+          <div class="m-tagline">Vague in, vague out</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">what · with what · how it should behave</span>
+        <span class="pill pill-note">one change at a time</span>
+      </div>
+      <p class="m-desc">The model cannot read your mind, and it will never say "I'm not sure what you meant" — it will just guess. Every detail you leave out is a detail it invents.</p>
+
+      <div class="pc-grid">
+        <div class="pc bad">
+          <h4>⚠️ Vague</h4>
+          <p style="font-style:italic">"make a website for my model"</p>
+          <p style="margin-top:10px;font-size:.78rem">You get <em>a</em> website. Wrong colours, wrong data, endpoints you never wrote, and 500 lines to untangle.</p>
+        </div>
+        <div class="pc good">
+          <h4>✅ Specific</h4>
+          <p style="font-style:italic">"a single page that calls <code>GET /model-summary</code>, draws the fitted curve as an SVG with the 10 observed points on top, and has a slider from 2 to 30 showing the predicted time"</p>
+          <p style="margin-top:10px;font-size:.78rem">You get something you can check line by line against what you asked for.</p>
+        </div>
+      </div>
+
+      <p class="m-desc">A prompt that works usually has four parts. Toggle them below and watch the request fall apart:</p>
+
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — take the pieces away and see what the AI has to guess</div>
+        <div class="demo-controls">
+          <div class="seg" id="pr-seg">
+            <button class="on" onclick="togglePart(0)">the goal</button>
+            <button class="on" onclick="togglePart(1)">the inputs</button>
+            <button class="on" onclick="togglePart(2)">the output</button>
+            <button class="on" onclick="togglePart(3)">the constraints</button>
+          </div>
+        </div>
+        <div class="demo-out" id="out-prompt"></div>
+        <div class="prompt" id="prompt-live" style="order:4"></div>
+      </div>
+
+      <p class="m-desc">The three prompts that actually built the project in lesson 16, in order:</p>
+      <div class="prompt">Take <code>poly_pyth.py</code> and add two functions: one that returns the intercept and the coefficients, and one that predicts a running time for a given number of training hours.</div>
+      <div class="prompt">Wrap this model in a Flask REST API. I want an endpoint to predict a running time and an endpoint that returns the model parameters as JSON.</div>
+      <div class="prompt">Now build a front end in <code>static/</code> — index.html, styles.css and app.js — that calls those endpoints and looks amazing.</div>
+
+      <div class="callout blue">
+        📌 <strong>Notice the shape.</strong> Each prompt names a <em>file</em>, a <em>verb</em> and a <em>result</em>. None of them says "write good code" — that adds nothing. Specifics do the work.
+      </div>
+      <div class="callout green">
+        💡 <strong>Correcting is a prompt too.</strong> "The y-axis is upside down — larger times should be higher" is a better bug report than "the chart is broken", for exactly the same reason.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(1)">← The loop</button>
+        <div class="pnav-dots" id="dots-2"></div>
+        <button class="pnav-btn next" onclick="goTo(3)">VS Code + Live Server →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 3: VS Code ══ -->
+    <div class="panel" id="panel-3">
+      <div class="m-hero">
+        <span class="m-hero-icon">🧰</span>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Vibe Coding 03 / 06 · The Setup</div>
+          <div class="m-name">VS Code + Live Server</div>
+          <div class="m-tagline">One editor, one extension, one real http:// address</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">Ctrl+Shift+X → Extensions</span>
+        <span class="pill pill-param" style="background:rgba(6,182,212,.1);color:var(--cyan);border:1px solid rgba(6,182,212,.28);">Live Server
+          <span class="balloon"><span class="balloon-title">Live Server</span><span class="balloon-body">Right-click any <code>.html</code> → <em>Open with Live Server</em>. Serves the folder on <code>127.0.0.1:5500</code> and refreshes the browser on every save.</span></span>
+        </span>
+        <span class="pill pill-ret">→ http://127.0.0.1:5500</span>
+      </div>
+      <p class="m-desc">Everything happens in one window: the files, the terminal, the AI chat and the running site. Four things to install:</p>
+
+      <table class="dt">
+        <thead><tr><th class="blue">Install</th><th class="blue">Where</th><th class="blue">Why</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>VS Code</td><td>code.visualstudio.com</td><td>The editor everything else plugs into</td></tr>
+          <tr class="show"><td>Python</td><td>python.org + the <em>Python</em> extension</td><td>Run <code>.py</code> files, pick an interpreter</td></tr>
+          <tr class="show"><td>Live Server</td><td>Extensions → "Live Server"</td><td>A real web server for your HTML, with auto-reload</td></tr>
+          <tr class="show"><td>GitHub Copilot</td><td>Extensions → "GitHub Copilot"</td><td>Inline AI completions — next slide</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout orange">
+        ⚠️ <strong>Open the folder, not the file.</strong> <code>File → Open Folder</code>. The AI assistants read the folder for context, and Live Server needs a root to serve. Opening a lone file cripples both.
+      </div>
+
+      <p class="m-desc">The single most common beginner failure — double-clicking the HTML file:</p>
+      <div class="pc-grid">
+        <div class="pc bad">
+          <h4>⚠️ file:///C:/…/index.html</h4>
+          <p>Double-clicking the file. The page renders, but the browser treats it as a local file with no origin — so <code>fetch</code> is blocked and every API call fails.</p>
+        </div>
+        <div class="pc good">
+          <h4>✅ http://127.0.0.1:5500</h4>
+          <p>Live Server. A real HTTP origin, so <code>fetch</code> works — plus the page reloads itself every time you hit save.</p>
+        </div>
+      </div>
+
+      <div class="callout blue">
+        📌 <strong>For the Flask project we skip Live Server entirely.</strong> Flask serves <code>static/index.html</code> itself on port 5000, so the page and the API share one origin — which is also why its <code>fetch</code> calls can use plain relative paths like <code>/health</code>.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(2)">← Writing the prompt</button>
+        <div class="pnav-dots" id="dots-3"></div>
+        <button class="pnav-btn next" onclick="goTo(4)">Copilot &amp; Claude →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 4: Copilot & Claude ══ -->
+    <div class="panel" id="panel-4">
+      <div class="m-hero">
+        <span class="m-hero-icon">🤖</span>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Vibe Coding 04 / 06 · The Assistants</div>
+          <div class="m-name">Copilot &amp; Claude</div>
+          <div class="m-tagline">One finishes your line, the other writes your file</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">Tab — accept</span>
+        <span class="pill pill-sig">Ctrl+I — inline chat</span>
+        <span class="pill pill-ret">→ code you still have to read</span>
+      </div>
+
+      <table class="dt">
+        <thead><tr><th class="blue">Tool</th><th class="blue">Getting in</th><th class="blue">Best at</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>GitHub Copilot</td><td>GitHub account → enable Copilot → install the <em>Copilot</em> + <em>Copilot Chat</em> extensions → sign in. Free for verified students.</td><td>Finishing the line or function you already started. Ghost text, <code>Tab</code> to accept.</td></tr>
+          <tr class="show"><td>Claude</td><td>An account at <code>claude.ai</code> — in the browser, or the extension / Claude Code working on your actual folder.</td><td>A whole file or feature from a sentence. Refactors, redesigns, "why is this broken".</td></tr>
+        </tbody>
+      </table>
+
+      <div class="pc-grid">
+        <div class="pc good">
+          <h4>✅ Reach for Copilot when</h4>
+          <ul>
+            <li>you know exactly what the next line is</li>
+            <li>it is repetitive — a loop, a dict, a test</li>
+            <li>you want to stay in the flow of typing</li>
+          </ul>
+        </div>
+        <div class="pc good" style="border-color:rgba(139,92,246,.3);background:rgba(139,92,246,.05)">
+          <h4 style="color:var(--purple)">✅ Reach for Claude when</h4>
+          <ul>
+            <li>you want a whole file or feature described in words</li>
+            <li>the change touches several files at once</li>
+            <li>you need it explained, not just written</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="callout red">
+        🔒 <strong>Never paste secrets into a prompt.</strong> API keys, passwords, customer data. Assume anything you type leaves your machine. Secrets belong in environment variables, and <code>.env</code> belongs in <code>.gitignore</code>.
+      </div>
+      <div class="callout orange">
+        ⚠️ <strong>Neither one knows your codebase by magic.</strong> They see the files you have open and what you tell them. If the answer looks like it ignored your project, it probably could not see it — open the file, or paste the relevant part.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(3)">← VS Code + Live Server</button>
+        <div class="pnav-dots" id="dots-4"></div>
+        <button class="pnav-btn next" onclick="goTo(5)">HTML + CSS + JS →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 5: HTML + CSS + JS ══ -->
+    <div class="panel" id="panel-5">
+      <div class="m-hero">
+        <span class="m-hero-icon">🧱</span>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Vibe Coding 05 / 06 · The Front End</div>
+          <div class="m-name">HTML + CSS + JS</div>
+          <div class="m-tagline">Structure, appearance, behaviour — three files, three jobs</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">index.html · styles.css · app.js</span>
+        <span class="pill pill-ret">→ one page in the browser</span>
+      </div>
+      <p class="m-desc">Every web page you have ever seen — the tic-tac-toe game and the regression dashboard included — is these three layers stacked on top of each other:</p>
+
+      <div class="stack" id="stack">
+        <div class="layer html" id="lay-html"><h4>index.html</h4><p><strong>Structure.</strong> What exists on the page: the heading, the number, the button, the slider.</p></div>
+        <div class="layer css" id="lay-css"><h4>styles.css</h4><p><strong>Appearance.</strong> Colour, spacing, layout, shadows, animation. Nothing about meaning.</p></div>
+        <div class="layer js" id="lay-js"><h4>app.js</h4><p><strong>Behaviour.</strong> What happens on click, on drag, and when the API answers.</p></div>
+      </div>
+
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — switch each layer off and watch what survives</div>
+        <div class="demo-controls">
+          <div class="seg" id="layer-seg">
+            <button class="on" onclick="toggleLayer('css')">styles.css</button>
+            <button class="on" onclick="toggleLayer('js')">app.js</button>
+          </div>
+        </div>
+        <div class="demo-out" id="out-layers"></div>
+        <div class="mini">
+          <div class="mini-bar">
+            <i style="background:#f43f5e"></i><i style="background:#facc15"></i><i style="background:#10b981"></i>
+            <span class="mini-url">localhost:5000</span>
+          </div>
+          <div class="mini-body" id="mini-body"></div>
+        </div>
+      </div>
+
+      <div class="callout blue">
+        📌 <strong>HTML alone still works.</strong> Turn off the CSS and the page is ugly but readable — that is the sign your structure is honest. Turn off the JS and the button is still there, it just does nothing.
+      </div>
+      <div class="callout green">
+        💡 <strong>Why this split matters for vibe coding:</strong> when something is wrong you can say <em>which layer</em>. "The button does nothing" is a JS problem. "The button is invisible" is a CSS problem. "There is no button" is HTML. That one word saves a whole round of the loop.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(4)">← Copilot &amp; Claude</button>
+        <div class="pnav-dots" id="dots-5"></div>
+        <button class="pnav-btn next" onclick="goTo(6)">What is a REST API →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 6: REST API ══ -->
+    <div class="panel" id="panel-6">
+      <div class="m-hero">
+        <span class="m-hero-icon">🔌</span>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Vibe Coding 06 / 06 · The Contract</div>
+          <div class="m-name">What is a REST API</div>
+          <div class="m-tagline">A function you can call over the internet</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">VERB + PATH → JSON + STATUS</span>
+        <span class="pill pill-param" style="background:rgba(16,185,129,.1);color:var(--green);border:1px solid rgba(16,185,129,.28);">verb
+          <span class="balloon"><span class="balloon-title">The HTTP verb</span><span class="balloon-body">What kind of action this is. <code>GET</code> reads, <code>POST</code> creates or submits, <code>PUT</code> replaces, <code>DELETE</code> removes.</span></span>
+        </span>
+        <span class="pill pill-ret">→ a status code and a body</span>
+      </div>
+      <p class="m-desc">An <strong>API</strong> is a function someone else can call. A <strong>REST</strong> API is one where the call is an ordinary web request: a verb, a path, and JSON coming back. Your browser already makes hundreds of them a day.</p>
+
+      <div class="eq-box" style="text-align:center;font-family:'Courier New',monospace;font-size:1rem;">
+        <span class="verb get">GET</span> &nbsp;<span style="color:var(--text)">http://localhost:5000</span><span style="color:var(--accent)">/predict-running-time</span><span style="color:var(--cyan)">?x=10</span>
+      </div>
+
+      <table class="dt">
+        <thead><tr><th class="blue">Part</th><th class="blue">In our project</th><th class="blue">Means</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>the verb</td><td><code>GET</code></td><td>"I want to read something, don't change anything"</td></tr>
+          <tr class="show"><td>the host</td><td><code>localhost:5000</code></td><td>which machine and which port Flask is listening on</td></tr>
+          <tr class="show"><td>the path</td><td><code>/predict-running-time</code></td><td>which function to run</td></tr>
+          <tr class="show"><td>the query</td><td><code>?x=10</code></td><td>the argument</td></tr>
+          <tr class="show"><td>the response</td><td><code>{"input": 10.0, "prediction": 57.6…}</code></td><td>JSON — the return value</td></tr>
+        </tbody>
+      </table>
+
+      <p class="m-desc">The four verbs you will meet. We only needed the first two:</p>
+      <table class="dt">
+        <thead><tr><th class="blue">Verb</th><th class="blue">Job</th><th class="blue">Body?</th><th class="blue">Safe to repeat?</th></tr></thead>
+        <tbody>
+          <tr class="show"><td><span class="verb get">GET</span></td><td>Read. Everything in the URL.</td><td>no</td><td>yes</td></tr>
+          <tr class="show"><td><span class="verb post">POST</span></td><td>Send data. Carries a JSON body.</td><td>yes</td><td>not necessarily</td></tr>
+          <tr class="show"><td><span class="verb put">PUT</span></td><td>Replace a thing entirely.</td><td>yes</td><td>yes</td></tr>
+          <tr class="show"><td><span class="verb del">DELETE</span></td><td>Remove a thing.</td><td>no</td><td>yes</td></tr>
+        </tbody>
+      </table>
+
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — build a request against the real API and see the real answer</div>
+        <div class="demo-controls">
+          <div class="seg" id="ep-seg">
+            <button class="on" onclick="pickEp(0)">/health</button>
+            <button onclick="pickEp(1)">/predict-running-time</button>
+            <button onclick="pickEp(2)">/model-parameters</button>
+            <button onclick="pickEp(3)">/nope</button>
+          </div>
+          <div class="ctrl" id="ep-xwrap" style="display:none"><label>x — training hours</label><input type="range" min="2" max="30" value="10" step="0.5" id="ep-x" oninput="renderEp()"><span class="cval" id="ep-xv">10</span></div>
+        </div>
+        <div class="demo-out" id="out-ep"></div>
+      </div>
+
+      <div class="callout green">
+        💡 <strong>Why bother wrapping a model in an API?</strong> A model in a notebook can only be used by the person with the notebook. Behind an endpoint, <em>anything</em> that speaks HTTP can use it — a web page, a phone app, another service, a colleague with curl.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(5)">← HTML + CSS + JS</button>
+        <div class="pnav-dots" id="dots-6"></div>
+        <button class="pnav-btn next" onclick="goTo(12)">A1 — Status codes →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 12: A1 status codes ══ -->
+    <div class="panel" id="panel-12">
+      <div class="m-hero">
+        <span class="m-hero-icon">🚦</span>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Appendix A1 · Reference</div>
+          <div class="m-name">Status codes</div>
+          <div class="m-tagline">The first thing to look at when something breaks</div>
+        </div>
+      </div>
+      <p class="m-desc">Every HTTP response carries a three-digit code. The <strong>first digit</strong> tells you who has the problem:</p>
+
+      <table class="dt">
+        <thead><tr><th class="blue">Range</th><th class="blue">Meaning</th><th class="blue">Whose fault</th></tr></thead>
+        <tbody>
+          <tr class="show"><td><code>2xx</code></td><td>Success</td><td style="color:var(--green)">nobody — it worked</td></tr>
+          <tr class="show"><td><code>3xx</code></td><td>Redirect — look somewhere else</td><td>nobody</td></tr>
+          <tr class="show"><td><code>4xx</code></td><td>The <strong>request</strong> was wrong</td><td style="color:var(--orange)">the caller</td></tr>
+          <tr class="show"><td><code>5xx</code></td><td>The <strong>server</strong> broke</td><td style="color:#f43f5e">the server</td></tr>
+        </tbody>
+      </table>
+
+      <div class="status-grid">
+        <div class="st ok"><div class="code-n">200</div><div class="nm">OK</div><div class="ds">Here is your answer.</div></div>
+        <div class="st ok"><div class="code-n">201</div><div class="nm">Created</div><div class="ds">Your POST made something new.</div></div>
+        <div class="st warn"><div class="code-n">400</div><div class="nm">Bad Request</div><div class="ds">Your input was malformed — <code>?x=abc</code>.</div></div>
+        <div class="st warn"><div class="code-n">401</div><div class="nm">Unauthorized</div><div class="ds">You did not say who you are.</div></div>
+        <div class="st warn"><div class="code-n">403</div><div class="nm">Forbidden</div><div class="ds">I know who you are; you still may not.</div></div>
+        <div class="st warn"><div class="code-n">404</div><div class="nm">Not Found</div><div class="ds">No route matches that path. Check the spelling.</div></div>
+        <div class="st warn"><div class="code-n">405</div><div class="nm">Method Not Allowed</div><div class="ds">Right path, wrong verb — a POST to a GET-only route.</div></div>
+        <div class="st err"><div class="code-n">500</div><div class="nm">Internal Server Error</div><div class="ds">Python raised an exception. Read the terminal.</div></div>
+      </div>
+
+      <div class="callout blue">
+        📌 <strong>The two you will hit most.</strong> <code>404</code> — Flask has no route with that path, so check for a typo or a missing leading slash. <code>500</code> — your Python threw; the real traceback is in the terminal running <code>app.py</code>, not in the browser.
+      </div>
+      <div class="callout orange">
+        ⚠️ <strong>Return the honest code.</strong> Answering <code>200</code> with <code>{"error": "..."}</code> inside is a trap: <code>res.ok</code> is <code>true</code>, so every caller sails straight past the failure. If it failed, say so in the status.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(6)">← What is a REST API</button>
+        <div class="pnav-dots" id="dots-12"></div>
+        <button class="pnav-btn next" onclick="goTo(13)">A2 — JSON →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 13: A2 JSON ══ -->
+    <div class="panel" id="panel-13">
+      <div class="m-hero">
+        <span class="m-hero-icon">{ }</span>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Appendix A2 · Reference</div>
+          <div class="m-name">JSON in 60 seconds</div>
+          <div class="m-tagline">The language both sides speak</div>
+        </div>
+      </div>
+      <p class="m-desc">Python and JavaScript cannot share objects. They share <strong>text</strong> in a format both can parse — JSON. It looks like a Python dict and behaves like a JavaScript object, which is exactly why it won.</p>
+
+      <table class="dt">
+        <thead><tr><th class="blue">JSON</th><th class="blue">Python</th><th class="blue">JavaScript</th></tr></thead>
+        <tbody>
+          <tr class="show"><td><code>{"a": 1}</code></td><td><code>dict</code></td><td><code>object</code></td></tr>
+          <tr class="show"><td><code>[1, 2, 3]</code></td><td><code>list</code></td><td><code>array</code></td></tr>
+          <tr class="show"><td><code>"hi"</code></td><td><code>str</code></td><td><code>string</code></td></tr>
+          <tr class="show"><td><code>3.14</code></td><td><code>float</code></td><td><code>number</code></td></tr>
+          <tr class="show"><td><code>true</code> / <code>false</code></td><td><code>True</code> / <code>False</code></td><td><code>true</code> / <code>false</code></td></tr>
+          <tr class="show"><td><code>null</code></td><td><code>None</code></td><td><code>null</code></td></tr>
+        </tbody>
+      </table>
+
+      <p class="m-desc">Four rules that cause every JSON error you will ever see:</p>
+      <div class="pc-grid">
+        <div class="pc bad">
+          <h4>⚠️ Not valid JSON</h4>
+          <ul>
+            <li><code>{'x': 1}</code> — single quotes</li>
+            <li><code>{"x": 1,}</code> — trailing comma</li>
+            <li><code>{x: 1}</code> — unquoted key</li>
+            <li><code>{"x": True}</code> — Python's <code>True</code></li>
+          </ul>
+        </div>
+        <div class="pc good">
+          <h4>✅ Valid JSON</h4>
+          <ul>
+            <li><code>{"x": 1}</code> — double quotes only</li>
+            <li><code>{"x": 1}</code> — no trailing comma</li>
+            <li><code>{"x": true}</code> — lowercase booleans</li>
+            <li><code>{"x": null}</code> — <code>null</code>, not <code>None</code></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="callout red">
+        🔥 <strong>The NumPy error you <em>will</em> hit.</strong> <code>TypeError: Object of type float64 is not JSON serializable</code>. NumPy numbers are not Python numbers, and <code>jsonify</code> does not know them. Convert on the way out:
+        <div style="margin-top:8px;font-family:'Courier New',monospace;font-size:.82rem;color:var(--text)">"intercept": float(model.intercept_)<br>"coefficients": [float(v) for v in model.coef_]</div>
+      </div>
+      <div class="callout blue">
+        📌 <strong>Both sides do the conversion for you.</strong> Python: <code>jsonify(d)</code> out, <code>request.get_json()</code> in. JavaScript: <code>await res.json()</code> in, <code>JSON.stringify(obj)</code> out. You never write a parser.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(12)">← A1 — Status codes</button>
+        <div class="pnav-dots" id="dots-13"></div>
+        <button class="pnav-btn next" onclick="goTo(0)">Back to Overview →</button>
+      </div>
+    </div>
+
+  </div><!-- /panel-viewport -->
+</div><!-- /page-layout -->
+
+<script>
+const $ = id => document.getElementById(id);
+const TOTAL = 14;
+const LABELS = ['Overview','The loop','Writing the prompt','VS Code + Live Server','Copilot & Claude',
+                'HTML + CSS + JS','What is a REST API','','','','','','Status codes','JSON in 60 seconds'];
+/* panels 7-11 were removed; the appendix keeps its ids so nothing else has to move */
+const CURRICULUM_ORDER = [0,1,2,3,4,5,6,12,13];
+
+let current = 0;
+let ovRaf = null;
+
+function goTo(idx) {
+  if (idx === current) return;
+  const oldP = $('panel-' + current), newP = $('panel-' + idx);
+  if (current > 0) document.querySelector(`[data-panel="${current}"]`).classList.add('done');
+  if (ovRaf) { cancelAnimationFrame(ovRaf); ovRaf = null; }
+  oldP.classList.remove('active'); oldP.classList.add('exit');
+  setTimeout(() => oldP.classList.remove('exit'), 280);
+  current = idx;
+  newP.classList.add('active');
+  $('viewport').scrollTop = 0;
+  document.querySelectorAll('.s-item').forEach(b => b.classList.toggle('active', +b.dataset.panel === idx));
+  updateDots();
+  freshPanel = true;
+  const draws = [drawOverview, resetLoop, renderPrompt, null, null, renderLayers, renderEp,
+                 null, null, null, null, null, null, null];
+  if (draws[idx]) setTimeout(draws[idx], 60);
+}
+
+function updateDots() {
+  for (let i = 0; i < TOTAL; i++) {
+    const cont = $('dots-' + i); if (!cont) continue;
+    cont.innerHTML = '';
+    for (const d of CURRICULUM_ORDER) {
+      const btn = document.createElement('button');
+      btn.className = 'pnav-dot' + (d === current ? ' active' : '');
+      btn.title = LABELS[d]; btn.onclick = () => goTo(d);
+      cont.appendChild(btn);
+    }
+  }
+}
+
+$('viewport').addEventListener('scroll', () => {
+  const el = $('viewport');
+  $('progress').style.width = (el.scrollTop / (el.scrollHeight - el.clientHeight) * 100) + '%';
+});
+
+function cp(btn) {
+  navigator.clipboard.writeText(btn.closest('.code-wrap').querySelector('pre').innerText.trim()).then(() => {
+    btn.textContent = '✓ copied'; setTimeout(() => btn.textContent = 'copy', 1600);
+  });
+}
+
+/* ══════════ plot helper ══════════ */
+const COL = { grid:'rgba(230,237,243,.07)', axis:'rgba(230,237,243,.45)', tick:'rgba(230,237,243,.4)',
+              accent:'#facc15', blue:'#3b82f6', green:'#10b981', red:'#f43f5e', cyan:'#06b6d4',
+              orange:'#f97316', purple:'#8b5cf6', surface:'#020509' };
+
+function plotSetup(cvId, XMIN, XMAX, YMIN, YMAX, xstep = 2, ystep) {
+  const cv = $(cvId), ctx = cv.getContext('2d');
+  const wrap = cv.parentElement;
+  cv.width = Math.min(wrap.clientWidth - 28 || 560, 660);
+  const W = cv.width, H = cv.height;
+  const sx = x => (x - XMIN) / (XMAX - XMIN) * W;
+  const sy = y => H - (y - YMIN) / (YMAX - YMIN) * H;
+  if (!ystep) ystep = xstep;
+  ctx.clearRect(0, 0, W, H);
+  ctx.strokeStyle = COL.grid; ctx.lineWidth = 1;
+  for (let gx = Math.ceil(XMIN / xstep) * xstep; gx <= XMAX; gx += xstep) { ctx.beginPath(); ctx.moveTo(sx(gx), 0); ctx.lineTo(sx(gx), H); ctx.stroke(); }
+  for (let gy = Math.ceil(YMIN / ystep) * ystep; gy <= YMAX; gy += ystep) { ctx.beginPath(); ctx.moveTo(0, sy(gy)); ctx.lineTo(W, sy(gy)); ctx.stroke(); }
+  ctx.fillStyle = COL.tick; ctx.font = '10px Courier New'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  const tickY = Math.min(sy(YMIN) + 4, H - 13);
+  for (let gx = Math.ceil(XMIN / xstep) * xstep; gx <= XMAX; gx += xstep) if (sx(gx) > 14 && sx(gx) < W - 14) ctx.fillText(Math.round(gx * 100) / 100, sx(gx), tickY);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  for (let gy = Math.ceil(YMIN / ystep) * ystep; gy <= YMAX; gy += ystep) if (sy(gy) > 10 && sy(gy) < H - 10) ctx.fillText(Math.round(gy * 100) / 100, 5, sy(gy));
+  return { ctx, sx, sy, W, H, XMIN, XMAX, YMIN, YMAX };
+}
+function haloText(ctx, txt, x, y, color) {
+  ctx.lineWidth = 4; ctx.lineJoin = 'round'; ctx.strokeStyle = COL.surface;
+  ctx.strokeText(txt, x, y);
+  ctx.fillStyle = color; ctx.fillText(txt, x, y);
+}
+const anims = {};
+let freshPanel = true;
+function consumeFresh() { const f = freshPanel; freshPanel = false; return f; }
+function animate(id, dur, cb) {
+  if (anims[id]) cancelAnimationFrame(anims[id]);
+  const t0 = performance.now();
+  const step = now => {
+    // clamp: an rAF timestamp can predate t0 when the frame was already in flight
+    const t = Math.min(1, Math.max(0, (now - t0) / dur));
+    cb(1 - Math.pow(1 - t, 3));
+    if (t < 1) anims[id] = requestAnimationFrame(step); else delete anims[id];
+  };
+  anims[id] = requestAnimationFrame(step);
+}
+
+/* ══════════ the real model — identical numbers to the Flask API ══════════ */
+const INTERCEPT = 122.93175446164591;
+const COEF = [0.0, -17.71217579153617, 2.019462334854262,
+              -0.12315647516690402, 0.0037243906755515255, -4.2416082514762365e-05];
+function predict(x) {
+  let y = INTERCEPT;
+  for (let i = 1; i < COEF.length; i++) y += COEF[i] * Math.pow(x, i);
+  return y;
+}
+const f1 = v => v.toFixed(1);
+const f2 = v => v.toFixed(2);
+
+/* ═══ PANEL 0: overview — an endless round trip ═══ */
+function drawOverview() {
+  const start = performance.now();
+  const loop = now => {
+    const T = ((now - start) / 4200) % 1;
+    const p = plotSetup('cv-overview', 0, 100, 0, 100, 1000, 1000);
+    const { ctx, W, H } = p;
+    const cy = H * 0.52;
+    const bx = W * 0.17, sxp = W * 0.83;
+
+    /* the wire */
+    ctx.strokeStyle = 'rgba(230,237,243,.13)'; ctx.lineWidth = 2; ctx.setLineDash([6, 6]);
+    ctx.beginPath(); ctx.moveTo(bx + 54, cy); ctx.lineTo(sxp - 54, cy); ctx.stroke(); ctx.setLineDash([]);
+
+    /* endpoints */
+    const box = (x, label, sub, color, glow) => {
+      ctx.save();
+      if (glow > 0) { ctx.shadowColor = color; ctx.shadowBlur = 22 * glow; }
+      ctx.fillStyle = 'rgba(255,255,255,.03)'; ctx.strokeStyle = color; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.roundRect(x - 52, cy - 40, 104, 80, 13); ctx.fill(); ctx.stroke();
+      ctx.restore();
+      ctx.font = 'bold 12px Courier New'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      haloText(ctx, label, x, cy - 12, color);
+      ctx.font = '10px Courier New';
+      haloText(ctx, sub, x, cy + 10, 'rgba(230,237,243,.5)');
+    };
+    const outbound = T < 0.5;
+    const tt = outbound ? T / 0.5 : (T - 0.5) / 0.5;
+    box(bx, 'BROWSER', 'app.js', COL.accent, outbound ? 1 - tt : 0);
+    box(sxp, 'FLASK', 'app.py', COL.green, outbound ? 0 : 1 - tt);
+
+    /* the packet */
+    const px = outbound ? bx + 54 + (sxp - bx - 108) * tt : sxp - 54 - (sxp - bx - 108) * tt;
+    const col = outbound ? COL.cyan : COL.purple;
+    ctx.save(); ctx.shadowColor = col; ctx.shadowBlur = 16;
+    ctx.fillStyle = col; ctx.beginPath(); ctx.roundRect(px - 9, cy - 9, 18, 18, 5); ctx.fill();
+    ctx.restore();
+
+    ctx.font = 'bold 11px Courier New'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    haloText(ctx, outbound ? 'GET /predict-running-time?x=10' : '{"prediction": 57.60}', W / 2, cy - 30, col);
+    ctx.textBaseline = 'top';
+    haloText(ctx, outbound ? 'the request' : 'the response', W / 2, cy + 30, 'rgba(230,237,243,.45)');
+
+    ovRaf = requestAnimationFrame(loop);
+  };
+  ovRaf = requestAnimationFrame(loop);
+}
+
+/* ═══ PANEL 1: the loop ═══ */
+const LOOP_STEPS = [
+  ['1 · Describe', 'You: "Wrap this model in a Flask REST API with an endpoint that predicts a running time."'],
+  ['2 · Read',     'It writes app.py — 40 lines. You read them. The model is fitted at import, not inside the route. Good.'],
+  ['3 · Run',      'python app.py  →  http://localhost:5000/predict-running-time?x=10  →  {"prediction": 57.60205336884543}'],
+  ['4 · Correct',  'You: "?x=abc returns a 500. Validate the input and answer 400 instead." → round two.']
+];
+let loopStep = -1;
+function resetLoop() {
+  loopStep = -1;
+  document.querySelectorAll('#loop-boxes .lp').forEach(b => b.classList.remove('on'));
+  $('out-loop').textContent = 'press "next step" to walk one turn of the loop';
+}
+function stepLoop() {
+  loopStep = (loopStep + 1) % LOOP_STEPS.length;
+  const boxes = document.querySelectorAll('#loop-boxes .lp');
+  boxes.forEach((b, i) => b.classList.toggle('on', i === loopStep));
+  const [t, d] = LOOP_STEPS[loopStep];
+  $('out-loop').textContent = t + '\n' + d;
+}
+
+/* ═══ PANEL 2: prompt anatomy ═══ */
+const PARTS = [
+  { on: true, label: 'the goal',        text: 'Add an endpoint to the Flask app' },
+  { on: true, label: 'the inputs',      text: 'that takes a number of training hours as ?x=' },
+  { on: true, label: 'the output',      text: 'and returns the predicted running time as JSON' },
+  { on: true, label: 'the constraints', text: 'answering 400 if x is missing or not a number' }
+];
+function togglePart(i) {
+  PARTS[i].on = !PARTS[i].on;
+  [...$('pr-seg').children].forEach((b, k) => b.classList.toggle('on', PARTS[k].on));
+  renderPrompt();
+}
+function renderPrompt() {
+  const kept = PARTS.filter(p => p.on);
+  const missing = PARTS.filter(p => !p.on);
+  $('prompt-live').textContent = kept.length ? kept.map(p => p.text).join(' ') + '.' : '(an empty prompt)';
+  $('out-prompt').textContent =
+`parts given   : ${kept.length} / 4
+parts missing : ${missing.length ? missing.map(p => p.label).join(', ') : 'none'}
+--> ${missing.length === 0 ? 'the AI has everything it needs'
+      : 'the AI has to GUESS: ' + missing.map(p => p.label).join(', ')}`;
+}
+
+/* ═══ PANEL 5: the three layers ═══ */
+const layerOn = { css: true, js: true };
+function toggleLayer(k) {
+  layerOn[k] = !layerOn[k];
+  [...$('layer-seg').children].forEach(b => {
+    const key = b.textContent.indexOf('css') > -1 ? 'css' : 'js';
+    b.classList.toggle('on', layerOn[key]);
+  });
+  renderLayers();
+}
+function renderLayers() {
+  $('lay-css').classList.toggle('off', !layerOn.css);
+  $('lay-js').classList.toggle('off', !layerOn.js);
+  const body = $('mini-body');
+  const val = f2(predict(10));
+  if (layerOn.css) {
+    body.innerHTML =
+      '<div class="mini-styled"><h5>Predicted running time</h5>' +
+      '<p>for 10 training hours a week</p>' +
+      '<span class="val" id="mini-val">' + (layerOn.js ? val + ' min' : '— min') + '</span>' +
+      '<button class="mini-btn' + (layerOn.js ? '' : ' dead') + '" onclick="miniPredict()">' +
+      (layerOn.js ? 'Predict' : 'Predict (does nothing)') + '</button></div>';
+  } else {
+    body.innerHTML =
+      '<div class="mini-plain"><h5>Predicted running time</h5>' +
+      '<p>for 10 training hours a week</p>' +
+      '<p id="mini-val">' + (layerOn.js ? val + ' min' : '— min') + '</p>' +
+      '<button onclick="miniPredict()">Predict</button></div>';
+  }
+  $('out-layers').textContent =
+`index.html : ON   (structure always survives)
+styles.css : ${layerOn.css ? 'ON ' : 'OFF'}  ${layerOn.css ? '' : '<- readable, just unstyled'}
+app.js     : ${layerOn.js ? 'ON ' : 'OFF'}  ${layerOn.js ? '' : '<- the button is there but inert'}`;
+}
+function miniPredict() {
+  if (!layerOn.js) return;
+  const el = $('mini-val');
+  if (el) el.textContent = f2(predict(2 + Math.random() * 28)) + ' min';
+}
+
+/* ═══ PANEL 6: endpoint explorer ═══ */
+const EPS = [
+  { path: '/health', verb: 'GET', needsX: false },
+  { path: '/predict-running-time', verb: 'GET', needsX: true },
+  { path: '/model-parameters', verb: 'GET', needsX: false },
+  { path: '/nope', verb: 'GET', needsX: false }
+];
+let epIdx = 0;
+function pickEp(i) {
+  epIdx = i;
+  [...$('ep-seg').children].forEach((b, k) => b.classList.toggle('on', k === i));
+  $('ep-xwrap').style.display = EPS[i].needsX ? 'flex' : 'none';
+  renderEp();
+}
+function renderEp() {
+  const ep = EPS[epIdx];
+  const x = +$('ep-x').value;
+  $('ep-xv').textContent = x;
+  let status, body;
+  if (ep.path === '/health') { status = '200 OK'; body = '{"status": "ok"}'; }
+  else if (ep.path === '/predict-running-time') {
+    status = '200 OK';
+    body = '{"input": ' + x.toFixed(1) + ', "prediction": ' + predict(x) + '}';
+  } else if (ep.path === '/model-parameters') {
+    status = '200 OK';
+    body = '{\n  "intercept": ' + INTERCEPT + ',\n  "coefficients": [' + COEF.join(', ') + ']\n}';
+  } else {
+    status = '404 NOT FOUND';
+    body = '<!doctype html> ... Flask has no route for this path';
+  }
+  const url = ep.path + (ep.needsX ? '?x=' + x : '');
+  $('out-ep').textContent =
+`> ${ep.verb} http://localhost:5000${url}
+
+< ${status}
+< content-type: application/json
+
+${body}`;
+}
+
+/* ══════════ boot ══════════ */
+updateDots();
+resetLoop();
+renderPrompt();
+renderLayers();
+pickEp(0);
+setTimeout(drawOverview, 90);
+
+window.addEventListener('resize', () => {
+  if (current === 0) { if (ovRaf) cancelAnimationFrame(ovRaf); drawOverview(); }
+});
+document.addEventListener('keydown', e => {
+  if (e.target && /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(e.target.tagName)) return;
+  const pos = CURRICULUM_ORDER.indexOf(current);
+  if (e.key === 'ArrowRight' && pos < CURRICULUM_ORDER.length - 1) goTo(CURRICULUM_ORDER[pos + 1]);
+  if (e.key === 'ArrowLeft'  && pos > 0) goTo(CURRICULUM_ORDER[pos - 1]);
+});
+</script>
+</body>
+</html>

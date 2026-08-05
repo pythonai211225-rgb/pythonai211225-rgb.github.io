@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 16 - Vibe Coding: from a model to a live website</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      renderMathInElement(document.body, {
+        delimiters: [
+          { left: '$$', right: '$$', display: true },
+          { left: '\\(', right: '\\)', display: false }
+        ],
+        throwOnError: false
+      });
+    });
+  </script>
+  <style>
+    :root {
+      --bg: #f8fbff;
+      --surface: #ffffff;
+      --ink: #142033;
+      --muted: #52657d;
+      --blue: #2563eb;
+      --blue-dark: #143b73;
+      --cyan: #e7fbff;
+      --green: #0f9f6e;
+      --orange: #f97316;
+      --red: #dc2626;
+      --purple: #7c3aed;
+      --border: #bfd0ea;
+      --code-bg: #101a2c;
+      --code-text: #dceaff;
+      --soft-blue: #eef6ff;
+      --soft-green: #effbf5;
+      --soft-orange: #fff7ed;
+      --soft-red: #fef2f2;
+      --soft-purple: #f5f0ff;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Trebuchet MS", "Lucida Sans", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 10%, #e9f7ff 0%, transparent 34%),
+        radial-gradient(circle at 88% 18%, #f3ecff 0%, transparent 32%),
+        linear-gradient(180deg, var(--bg) 0%, #ffffff 56%, #f1f8ff 100%);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 28px 20px 60px; }
+    .layout { display: grid; grid-template-columns: 250px 1fr; gap: 22px; align-items: start; }
+
+    .side-nav {
+      position: sticky; top: 20px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 18px 14px;
+      box-shadow: 0 4px 16px rgba(37,99,235,.08);
+    }
+    .side-title { font-size: .8rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--blue); margin: 0 0 10px; }
+    .part-label { display: block; padding: 8px 4px 4px; font-size: .7rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--green); }
+    .topic-link {
+      display: block; width: 100%; border: 1px solid transparent; border-radius: 9px;
+      padding: 7px 10px; background: transparent; color: var(--muted); cursor: pointer;
+      text-align: left; font: inherit; margin: 2px 0; transition: .16s ease;
+    }
+    .topic-link:hover { background: #f0f7ff; color: var(--blue-dark); border-color: var(--border); }
+    .topic-link.active { background: #e9f1ff; color: var(--blue-dark); border-color: var(--blue); font-weight: 700; }
+    .side-divider { border: none; border-top: 1px solid var(--border); margin: 12px 4px; }
+    .nav-back { display: block; padding: 7px 10px; color: var(--blue); font-weight: 700; text-decoration: none; font-size: .9rem; }
+    .nav-back:hover { text-decoration: underline; }
+
+    .hero {
+      background: linear-gradient(135deg, var(--surface) 0%, var(--soft-blue) 46%, var(--soft-purple) 100%);
+      border: 1px solid var(--border); border-radius: 16px; padding: 28px;
+      box-shadow: 0 12px 30px rgba(37,99,235,.12); margin-bottom: 22px;
+    }
+    .tag { display: inline-block; padding: 5px 12px; border-radius: 999px; background: #f0e9ff; color: #6d28d9; font-weight: 800; font-size: .82rem; border: 1px solid #d6c6ff; }
+    h1 { margin: 14px 0 10px; color: var(--blue-dark); font-size: clamp(2rem, 5vw, 3.2rem); line-height: 1.05; }
+    .hero p { max-width: 820px; color: var(--muted); font-size: 1.06rem; }
+    .hero-chips { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .hero-chip { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: .78rem; font-weight: 700; background: rgba(124,58,237,.09); color: #6d28d9; border: 1px solid rgba(124,58,237,.28); }
+
+    .card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      padding: 22px; margin-bottom: 16px; box-shadow: 0 7px 22px rgba(37,99,235,.08);
+    }
+    .topic-panel { display: none; }
+    .topic-panel.active { display: block; }
+    .step-title { margin: 0 0 12px; color: var(--blue-dark); font-size: 1.25rem; }
+
+    code { font-family: Consolas, "Courier New", monospace; }
+
+    .math-card {
+      border: 1px solid #b7c8e4; border-radius: 12px;
+      background: linear-gradient(135deg, #ffffff 0%, #f1f7ff 100%);
+      padding: 18px; margin: 18px 0; text-align: center;
+    }
+    .math-caption { color: var(--muted); margin: 8px 0 0; font-size: .95rem; }
+    .katex { color: var(--blue-dark); }
+    .katex-display { margin: 6px 0; overflow-x: auto; overflow-y: hidden; padding: 3px 0; }
+    .math-card .katex-display { font-size: .96rem; }
+
+    .resource-link { display: inline-block; color: var(--blue-dark); font-weight: 800; text-decoration: none; border-bottom: 2px solid rgba(37,99,235,.35); }
+    .resource-link:hover { color: var(--blue); border-bottom-color: var(--blue); }
+    .resource-links { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 4px; }
+
+    .code {
+      background: var(--code-bg); color: var(--code-text); border-radius: 10px;
+      border: 1px solid #304563; padding: 16px 18px; overflow-x: auto; margin: 12px 0;
+      font-size: .95rem; line-height: 1.5; white-space: pre;
+    }
+    .code-label { display: block; font-family: "Trebuchet MS", sans-serif; font-size: .68rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #7d8ea6; margin: 14px 0 -4px; }
+    .output {
+      background: #f7fbff; color: #1a2d49; border: 1px solid var(--border);
+      border-left: 5px solid var(--blue); border-radius: 10px; padding: 12px 14px;
+      overflow-x: auto; margin: 8px 0 16px; font-family: Consolas, "Courier New", monospace; white-space: pre-wrap;
+    }
+    .out-label { display: block; font-family: "Trebuchet MS", sans-serif; font-size: .72rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+
+    /* ── GitHub-dark syntax colours ── */
+    pre.code.hl { color: #c9d1d9; }
+    pre.code.hl .hl-com     { color: #8b949e; font-style: italic; }
+    pre.code.hl .hl-kw      { color: #ff7b72; }
+    pre.code.hl .hl-str     { color: #a5d6ff; }
+    pre.code.hl .hl-num     { color: #79c0ff; }
+    pre.code.hl .hl-fn      { color: #d2a8ff; }
+    pre.code.hl .hl-builtin { color: #ffa657; }
+
+    .note { background: var(--soft-orange); border: 1px solid #fed7aa; border-left: 5px solid var(--orange); border-radius: 10px; padding: 12px 14px; margin: 12px 0; }
+    .note.blue { background: var(--soft-blue); border-color: #bcd4f6; border-left-color: var(--blue); }
+    .note.red { background: var(--soft-red); border-color: #fecaca; border-left-color: var(--red); }
+    .note.green { background: var(--soft-green); border-color: #b6ebd4; border-left-color: var(--green); }
+    .note.purple { background: var(--soft-purple); border-color: #ddd0ff; border-left-color: var(--purple); }
+
+    .data-table { width: 100%; border-collapse: collapse; margin: 16px 0; background: #fbfdff; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .data-table th { background: var(--soft-blue); color: var(--blue-dark); text-align: left; padding: 10px 14px; font-size: .9rem; border-bottom: 2px solid var(--border); }
+    .data-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); font-family: Consolas, "Courier New", monospace; vertical-align: top; }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table td.term { font-family: inherit; font-weight: 700; color: var(--blue-dark); }
+    .data-table td.txt { font-family: inherit; }
+    .data-table tr.pick td { background: #fffbe8; }
+
+    .verb { font-weight: 800; font-family: Consolas, monospace; font-size: .82rem; padding: 2px 8px; border-radius: 6px; }
+    .verb.get { background: #dcf5ea; color: #0b7a52; border: 1px solid #b6ebd4; }
+    .verb.post { background: #e9f1ff; color: #1d4ed8; border: 1px solid #bcd4f6; }
+
+    /* ── step flow ── */
+    .flow { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin: 18px 0; }
+    .flow .f {
+      border: 1px solid var(--border); border-radius: 11px; padding: 13px 12px;
+      background: #fbfdff; position: relative;
+    }
+    .flow .f .n { display: block; font-size: .68rem; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; color: var(--purple); margin-bottom: 4px; }
+    .flow .f strong { color: var(--blue-dark); display: block; font-size: .92rem; }
+    .flow .f span.d { font-size: .8rem; color: var(--muted); }
+
+    /* ── file tree ── */
+    .tree {
+      background: #fbfdff; border: 1px solid var(--border); border-radius: 10px;
+      padding: 14px 18px; margin: 12px 0; font-family: Consolas, "Courier New", monospace;
+      font-size: .9rem; line-height: 1.75; white-space: pre; overflow-x: auto;
+    }
+    .tree .dir { color: var(--blue); font-weight: 700; }
+    .tree .cmt { color: var(--muted); }
+
+    /* ── prompt cards ── */
+    .prompt {
+      border: 1px solid #ddd0ff; border-left: 5px solid var(--purple);
+      background: var(--soft-purple); border-radius: 10px;
+      padding: 12px 15px; margin: 10px 0; font-style: italic; color: #3f2a6b;
+    }
+    .prompt::before { content: '💬 prompt'; display: block; font-style: normal; font-weight: 800; font-size: .68rem; letter-spacing: .12em; text-transform: uppercase; color: var(--purple); margin-bottom: 5px; }
+
+    .split-cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0; }
+    .split-cmp .box { border-radius: 12px; padding: 14px 16px; }
+    .split-cmp .box.good { background: var(--soft-green); border: 1px solid #b6ebd4; }
+    .split-cmp .box.bad { background: var(--soft-red); border: 1px solid #fecaca; }
+    .split-cmp .box .label { font-size: .74rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); display: block; margin-bottom: 6px; }
+    .split-cmp .box p { margin: 0; font-size: .9rem; }
+
+    .stat-row { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin: 16px 0; }
+    .stat { border: 1px solid var(--border); border-radius: 11px; padding: 13px; background: #fbfdff; text-align: center; }
+    .stat .l { font-size: .68rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+    .stat .v { font-size: 1.5rem; font-weight: 900; font-family: Consolas, monospace; color: var(--blue-dark); margin: 4px 0 2px; }
+    .stat .s { font-size: .76rem; color: var(--muted); }
+
+    .task-list { margin: 6px 0 0; padding-left: 20px; }
+    .task-list li { margin: 5px 0; }
+    .footer { text-align: center; color: var(--muted); font-size: .9rem; margin-top: 18px; }
+
+    @media (max-width: 900px) { .flow { grid-template-columns: repeat(2, minmax(0,1fr)); } .stat-row { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+    @media (max-width: 820px) {
+      .layout { grid-template-columns: 1fr; }
+      .side-nav { position: static; }
+      .wrap { padding: 18px 12px 44px; }
+      .split-cmp { grid-template-columns: 1fr; }
+    }
+    .shot { margin: 18px 0 6px; border: 1px solid var(--border); border-radius: 13px; overflow: hidden;
+            background: #0f1726; box-shadow: 0 14px 34px rgba(20,32,51,.22); }
+    .shot-bar { display: flex; align-items: center; gap: 7px; padding: 9px 13px; background: #1b2536; }
+    .shot-bar i { width: 10px; height: 10px; border-radius: 50%; display: block; }
+    .shot-url { flex: 1; margin-left: 8px; font-family: Consolas, monospace; font-size: .72rem;
+                color: #8ea3c0; background: #0f1726; border-radius: 6px; padding: 3px 10px; }
+    .shot img { display: block; width: 100%; height: auto; }
+    .shot figcaption { padding: 10px 14px; font-size: .82rem; color: var(--muted); background: var(--surface);
+                       border-top: 1px solid var(--border); }
+  </style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="layout">
+    <aside class="side-nav">
+      <p class="side-title">Lesson 16</p>
+      <span class="part-label">Class Code</span>
+      <button class="topic-link active" data-target="topic-github">1. GitHub Repos</button>
+      <span class="part-label">The Setup</span>
+      <button class="topic-link" data-target="topic-1">2. VS Code + Live Server</button>
+      <button class="topic-link" data-target="topic-2">3. Copilot &amp; Claude</button>
+      <span class="part-label">Vibe Coding</span>
+      <button class="topic-link" data-target="topic-4">4. Warm-up: the XO game</button>
+      <span class="part-label">The Project</span>
+      <button class="topic-link" data-target="topic-5">5. The site we built</button>
+      <hr class="side-divider">
+      <a class="nav-back" href="../../11_vibe/index.html">Theory deck: Vibe Coding</a>
+      <a class="nav-back" href="../../07_poly_regression/01-poly-regression.html">Theory deck: Poly Regression</a>
+      <a class="nav-back" href="../../index.html">Back to Python libs</a>
+    </aside>
+
+    <main>
+      <section class="hero">
+        <span class="tag">Lesson - August 5, 2026</span>
+        <h1>Vibe Coding: from a model to a live website</h1>
+        <p>Today we barely typed any code. We set up <strong>VS Code</strong>, signed in to <strong>Copilot</strong> and <strong>Claude</strong>, and described what we wanted in plain language. We started with a tic-tac-toe game to get the feel of it, then took the polynomial regression model from our own repo, wrapped it in a <strong>Flask REST API</strong>, and vibe-coded a <strong>website</strong> that calls it.</p>
+        <div class="hero-chips">
+          <span class="hero-chip">vibe coding</span>
+          <span class="hero-chip">VS Code</span>
+          <span class="hero-chip">Live Server</span>
+          <span class="hero-chip">GitHub Copilot</span>
+          <span class="hero-chip">Claude</span>
+          <span class="hero-chip">Flask</span>
+          <span class="hero-chip">REST API</span>
+          <span class="hero-chip">HTML + CSS + JS</span>
+          <span class="hero-chip">fetch</span>
+        </div>
+      </section>
+
+      <!-- ═══ 1. GITHUB ═══ -->
+      <section class="card topic-panel active" id="topic-github">
+        <h2 class="step-title">Open Class Code</h2>
+        <p>Today produced <strong>two</strong> repositories. The first was the warm-up, the second is the real project:</p>
+
+        <div class="resource-links">
+          <a class="resource-link" href="https://github.com/pythonai211225-rgb/05.08.2026" target="_blank" rel="noopener">
+            pythonai211225-rgb/05.08.2026 — the XO game
+          </a>
+        </div>
+        <div class="tree"><span class="dir">05.08.2026/</span>
+  README.md            <span class="cmt"># just says: XO</span>
+  index_claude.html    <span class="cmt"># the game board</span>
+  script_claude.js     <span class="cmt"># the game logic + AI opponent</span>
+  styles_claude.css    <span class="cmt"># the neon look</span></div>
+
+        <div class="resource-links">
+          <a class="resource-link" href="https://github.com/pythonai211225-rgb/poly-reg-website" target="_blank" rel="noopener">
+            pythonai211225-rgb/poly-reg-website — the model, the API and the site
+          </a>
+        </div>
+        <div class="tree"><span class="dir">poly-reg-website/</span>
+  app.py               <span class="cmt"># the Flask REST API</span>
+  poly_pyth.py         <span class="cmt"># the model + the two methods we asked for</span>
+  requirements.txt     <span class="cmt"># Flask, numpy, scikit-learn</span>
+  <span class="dir">static/</span>
+    index.html         <span class="cmt"># the page</span>
+    app.js             <span class="cmt"># fetches the API, draws the chart</span>
+    styles.css         <span class="cmt"># the design</span></div>
+
+        <div class="note blue">The model itself is not new — it is the <strong>polynomial regression</strong> we built back on July 15. Today was about wrapping it in an API and putting a face on it. The maths is in the <a class="resource-link" href="../../07_poly_regression/01-poly-regression.html">Polynomial Regression deck</a>.</div>
+      </section>
+
+      <!-- ═══ 2. VS CODE ═══ -->
+      <section class="card topic-panel" id="topic-1">
+        <h2 class="step-title">VS Code + Live Server</h2>
+        <p>Everything today happens inside one editor. Two installs and one extension:</p>
+
+        <div class="flow">
+          <div class="f"><span class="n">Step 1</span><strong>Install VS Code</strong><span class="d">code.visualstudio.com — free, all platforms</span></div>
+          <div class="f"><span class="n">Step 2</span><strong>Install Python</strong><span class="d">python.org, then the <em>Python</em> extension</span></div>
+          <div class="f"><span class="n">Step 3</span><strong>Live Server</strong><span class="d">extension by Ritwick Dey</span></div>
+          <div class="f"><span class="n">Step 4</span><strong>Open a folder</strong><span class="d">File → Open Folder, not a single file</span></div>
+        </div>
+
+        <p>To install an extension: click the <strong>Extensions</strong> icon in the left bar (or <code>Ctrl+Shift+X</code>), type the name, press <em>Install</em>.</p>
+
+        <table class="data-table">
+          <thead><tr><th>Extension</th><th>What it gives you</th></tr></thead>
+          <tbody>
+            <tr><td class="term">Live Server</td><td class="txt">Right-click <code>index.html</code> → <strong>Open with Live Server</strong>. Serves the folder on <code>http://127.0.0.1:5500</code> and reloads the browser every time you save.</td></tr>
+            <tr><td class="term">Python</td><td class="txt">Run and debug <code>.py</code> files, pick the interpreter, get IntelliSense.</td></tr>
+            <tr><td class="term">GitHub Copilot</td><td class="txt">Inline AI completions as you type. See the next slide.</td></tr>
+          </tbody>
+        </table>
+
+        <div class="note"><strong>Why Live Server and not double-clicking the file?</strong> Opening <code>index.html</code> directly gives you a <code>file://</code> address. Browsers block <code>fetch</code> from <code>file://</code> for security, so the moment your page calls an API it fails. Live Server gives you a real <code>http://</code> address and the auto-reload is a nice bonus.</div>
+
+        <div class="note green"><strong>Later in the lesson we drop Live Server</strong> for the regression site — Flask itself serves the page on port 5000, so the page and the API share one origin and there is no CORS to fight.</div>
+      </section>
+
+      <!-- ═══ 3. COPILOT + CLAUDE ═══ -->
+      <section class="card topic-panel" id="topic-2">
+        <h2 class="step-title">Enrolling in Copilot &amp; Claude</h2>
+        <p>Two assistants, both living inside VS Code:</p>
+
+        <table class="data-table">
+          <thead><tr><th>Tool</th><th>How to get it</th><th>How you use it</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="term">GitHub Copilot</td>
+              <td class="txt">A GitHub account → enable Copilot on github.com → install the <strong>GitHub Copilot</strong> and <strong>GitHub Copilot Chat</strong> extensions → sign in when VS Code asks. Free for verified students through GitHub Education.</td>
+              <td class="txt">Ghost text appears as you type — press <code>Tab</code> to accept, <code>Esc</code> to dismiss. <code>Ctrl+I</code> opens inline chat on the selected code.</td>
+            </tr>
+            <tr>
+              <td class="term">Claude</td>
+              <td class="txt">An account at <code>claude.ai</code>. Use it in the browser, or install the Claude extension / Claude Code to work directly on the files in your folder.</td>
+              <td class="txt">Describe a whole feature in a sentence or two and let it write or edit the files, then read what changed.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="note blue"><strong>They are good at different things.</strong> Copilot shines at finishing the line or the function you already started. Claude is better when you want a whole file, a whole feature, or a redesign described in words. Today we used both.</div>
+
+        <div class="note red"><strong>Never paste secrets into a prompt.</strong> API keys, passwords, private data — assume anything you type goes to a server. Keep secrets in environment variables and out of the repo.</div>
+      </section>
+
+
+      <!-- ═══ 5. XO ═══ -->
+      <section class="card topic-panel" id="topic-4">
+        <h2 class="step-title">Warm-up: the XO game</h2>
+        <p>Before touching the model we built something with no stakes — tic tac toe. One prompt, three files, and a game that runs in the browser:</p>
+
+        <div class="prompt">Build me a tic tac toe game in HTML, CSS and JavaScript. Make it look premium — neon, dark theme, animated. The two players should be starships instead of X and O, and I want to be able to play against the computer.</div>
+
+        <p>What came back was <strong>NEXUS · Starship Tic Tac Toe</strong>:</p>
+
+        <div class="tree"><span class="dir">05.08.2026/</span>
+  index_claude.html    <span class="cmt"># ~42 KB - board, SVG ship sprites, panels</span>
+  script_claude.js     <span class="cmt"># ~46 KB - game state, win check, AI opponent</span>
+  styles_claude.css    <span class="cmt"># ~48 KB - the neon design, animations, themes</span></div>
+
+        <p>The three files split the job the way any web page does:</p>
+        <table class="data-table">
+          <thead><tr><th>File</th><th>Job</th></tr></thead>
+          <tbody>
+            <tr><td class="term">index.html</td><td class="txt"><strong>Structure</strong> — what is on the page: the 9 cells, the score panel, the buttons.</td></tr>
+            <tr><td class="term">styles.css</td><td class="txt"><strong>Appearance</strong> — colours, glow, layout, the animations when a ship lands.</td></tr>
+            <tr><td class="term">script.js</td><td class="txt"><strong>Behaviour</strong> — what happens on click: place a ship, check for a win, let the computer move.</td></tr>
+          </tbody>
+        </table>
+
+        <p>To play it: open the folder in VS Code, right-click <code>index_claude.html</code>, <strong>Open with Live Server</strong>.</p>
+
+        <div class="note green"><strong>Why start with a game?</strong> It has no backend, no data and no way to get it wrong — so the only thing you are practising is the loop: describe, read, run, correct. That is exactly the skill you need for the rest of the lesson.</div>
+      </section>
+
+      <!-- ═══ 6. THE MODEL ═══ -->
+      <section class="card topic-panel" id="topic-5">
+        <h2 class="step-title">The site we built</h2>
+        <p>Same loop as the game, but this time on top of a real model. We took the polynomial regression from July 15, asked for two functions around it, wrapped those in a <strong>Flask REST API</strong>, and vibe-coded a front end that calls it.</p>
+
+        <p>This is the finished thing, running on <code>localhost:5000</code> — every number on the page came out of the API:</p>
+
+        <figure class="shot">
+          <div class="shot-bar">
+            <i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i>
+            <span class="shot-url">localhost:5000</span>
+          </div>
+          <img src="poly-site.png" alt="The polynomial regression dashboard: R² and RMSE tiles, the fitted curve with the ten observed points, a slider predicting 57.6 minutes for 10 training hours, and the model equation written out." loading="lazy">
+          <figcaption>Flask serves the page <em>and</em> answers its API calls, so the fetch requests are same-origin.</figcaption>
+        </figure>
+
+        <table class="data-table">
+          <thead><tr><th>On the page</th><th>Comes from</th></tr></thead>
+          <tbody>
+            <tr><td class="term">R² 0.9945 · RMSE 1.02</td><td><code>GET /model-summary</code></td></tr>
+            <tr><td class="term">The curve + the 10 dots</td><td><code>GET /model-summary</code></td></tr>
+            <tr><td class="term">57.6 min for 10 hours</td><td><code>GET /predict-running-time?x=10</code></td></tr>
+            <tr><td class="term">The written-out equation</td><td><code>GET /model-parameters</code></td></tr>
+          </tbody>
+        </table>
+
+        <div class="note blue">The slider stops at <strong>2</strong> and <strong>30</strong> on purpose — that is exactly the training range. A degree-5 curve is not trustworthy outside the data it was fitted on, so the interface refuses to ask the model a question it cannot answer honestly.</div>
+
+        <div class="note purple">Want the whole story — how the API is put together, what <code>fetch</code> is doing, and why the page has to be served from port 5000? That is the <a class="resource-link" href="../../11_vibe/index.html">Vibe Coding deck</a>.</div>
+      </section>
+
+
+
+
+
+
+
+    </main>
+  </div>
+
+  <div class="footer">Lesson 16 - August 5, 2026 - Vibe Coding, Flask REST API &amp; the Polynomial Regression website</div>
+</div>
+
+<script>
+  const links = document.querySelectorAll('.topic-link');
+  const panels = document.querySelectorAll('.topic-panel');
+
+  function showTopic(id) {
+    panels.forEach(panel => panel.classList.toggle('active', panel.id === id));
+    links.forEach(link => link.classList.toggle('active', link.dataset.target === id));
+  }
+
+  links.forEach(link => {
+    if (link.dataset.target) {
+      link.addEventListener('click', () => {
+        showTopic(link.dataset.target);
+        location.hash = link.dataset.target;
+      });
+    }
+  });
+
+  const hash = location.hash.replace('#', '');
+  if (hash && document.getElementById(hash)) {
+    showTopic(hash);
+    // Drop the fragment once used: the panel is display:none while the browser first
+    // resolves the anchor, and Chrome retries that scroll after KaTeX reflows the page.
+    history.replaceState(null, '', location.pathname + location.search);
+    window.scrollTo(0, 0);
+  }
+
+  /* ── syntax highlighting, GitHub-dark palette ──
+     one left-to-right pass, so a quote inside a comment (and the reverse)
+     can never confuse it. data-lang picks the keyword set + comment style. */
+  (function () {
+    const KW = {
+      py: new Set(['and','as','assert','async','await','break','class','continue','def','del',
+        'elif','else','except','finally','for','from','global','if','import','in','is','lambda',
+        'nonlocal','not','or','pass','raise','return','try','while','with','yield','None','True','False']),
+      js: new Set(['async','await','break','case','catch','class','const','continue','default',
+        'delete','do','else','export','extends','finally','for','from','function','if','import',
+        'in','instanceof','let','new','of','return','super','switch','this','throw','try','typeof',
+        'var','void','while','yield','null','undefined','true','false'])
+    };
+    const BUILTIN = {
+      py: new Set(['print','len','range','sorted','reversed','sum','min','max','abs','round','int',
+        'float','str','bool','list','dict','set','tuple','enumerate','zip','map','filter','type',
+        'isinstance','open','input','any','all']),
+      js: new Set(['console','document','window','Number','String','Boolean','Array','Object',
+        'JSON','Math','fetch','Promise','parseInt','parseFloat','Error'])
+    };
+    const STR_PREFIX = /^(f|r|b|u|rb|br|fr|rf)$/i;
+
+    const esc = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const isIdStart = c => /[A-Za-z_$]/.test(c);
+    const isId = c => /[A-Za-z0-9_$]/.test(c);
+    const wrap = (cls, t) => '<span class="' + cls + '">' + esc(t) + '</span>';
+
+    /* index just past the closing quote of the string starting at `start` */
+    function scanString(src, start) {
+      const q = src[start], n = src.length;
+      if (src.slice(start, start + 3) === q + q + q) {
+        let j = start + 3;
+        while (j < n && src.slice(j, j + 3) !== q + q + q) j++;
+        return Math.min(n, j + 3);
+      }
+      let j = start + 1;
+      const multiline = (q === '`');
+      while (j < n && src[j] !== q && (multiline || src[j] !== '\n')) {
+        if (src[j] === '\\') j++;
+        j++;
+      }
+      return (j < n && src[j] === q) ? j + 1 : j;
+    }
+
+    function highlight(src, lang) {
+      const kw = KW[lang] || KW.py, bi = BUILTIN[lang] || BUILTIN.py;
+      let out = '', i = 0;
+      const n = src.length;
+      while (i < n) {
+        const c = src[i];
+
+        if (lang === 'py' && c === '#') {                       // # comment
+          let j = i;
+          while (j < n && src[j] !== '\n') j++;
+          out += wrap('hl-com', src.slice(i, j));
+          i = j;
+          continue;
+        }
+        if (lang === 'js' && c === '/' && src[i + 1] === '/') { // // comment
+          let j = i;
+          while (j < n && src[j] !== '\n') j++;
+          out += wrap('hl-com', src.slice(i, j));
+          i = j;
+          continue;
+        }
+        if (lang === 'js' && c === '/' && src[i + 1] === '*') { // /* comment */
+          let j = src.indexOf('*/', i + 2);
+          j = (j === -1) ? n : j + 2;
+          out += wrap('hl-com', src.slice(i, j));
+          i = j;
+          continue;
+        }
+
+        if (isIdStart(c)) {                                     // word, or prefixed string
+          let j = i;
+          while (j < n && isId(src[j])) j++;
+          const word = src.slice(i, j), nxt = src[j];
+          if (lang === 'py' && (nxt === '"' || nxt === "'") && STR_PREFIX.test(word)) {
+            const end = scanString(src, j);
+            out += wrap('hl-str', src.slice(i, end));
+            i = end;
+            continue;
+          }
+          let cls = null;
+          if (kw.has(word)) cls = 'hl-kw';
+          else if (bi.has(word)) cls = 'hl-builtin';
+          else {
+            let k = j;
+            while (k < n && src[k] === ' ') k++;
+            if (src[k] === '(') cls = 'hl-fn';                  // a call
+          }
+          out += cls ? wrap(cls, word) : esc(word);
+          i = j;
+          continue;
+        }
+
+        if (c === '"' || c === "'" || (lang === 'js' && c === '`')) {
+          const end = scanString(src, i);
+          out += wrap('hl-str', src.slice(i, end));
+          i = end;
+          continue;
+        }
+
+        if (/[0-9]/.test(c)) {                                  // number
+          let j = i;
+          while (j < n && /[0-9._]/.test(src[j])) j++;
+          out += wrap('hl-num', src.slice(i, j));
+          i = j;
+          continue;
+        }
+
+        out += esc(c);
+        i++;
+      }
+      return out;
+    }
+
+    document.querySelectorAll('pre.code.hl').forEach(pre => {
+      const el = pre.querySelector('code');
+      if (!el || el.dataset.hl) return;
+      el.innerHTML = highlight(el.textContent, pre.dataset.lang || 'py');
+      el.dataset.hl = '1';
+    });
+  })();
+</script>
+</body>
+</html>
