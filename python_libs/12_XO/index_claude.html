@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="color-scheme" content="dark light" />
+<meta name="description" content="NEXUS — a premium neon tic tac toe fought with starships." />
+<title>NEXUS · Starship Tic Tac Toe</title>
+
+<!-- ============ Premium typography ============ -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+<link rel="stylesheet" href="styles_claude.css" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='42' fill='none' stroke='%238b5cf6' stroke-width='12'/></svg>" />
+</head>
+<body>
+
+<!-- ================================================================
+     SVG SPRITE
+     · Lucide icons (ISC) inlined so the app works fully offline
+     · The two 3D starships that stand in for X and O
+     Reference anywhere with: <svg class="icon"><use href="#i-play"/></svg>
+     ================================================================ -->
+<!-- NB: hidden with position/size rather than display:none — some browsers
+     refuse to resolve gradient/filter references into a display:none tree. -->
+<svg xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
+
+  <!-- ============ Ship materials (all colours come from CSS vars) ============ -->
+  <defs>
+    <!-- X-FIGHTER hull: lit top-left face -> shaded bottom-right face -->
+    <linearGradient id="mxHull" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%"   stop-color="var(--x-lite)"/>
+      <stop offset="45%"  stop-color="var(--x-mid)"/>
+      <stop offset="100%" stop-color="var(--x-dark)"/>
+    </linearGradient>
+    <linearGradient id="mxHullFlip" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="var(--x-mid)"/>
+      <stop offset="100%" stop-color="var(--x-dark)"/>
+    </linearGradient>
+    <radialGradient id="mxCore" cx=".35" cy=".3" r=".8">
+      <stop offset="0%"   stop-color="#ffffff" stop-opacity=".95"/>
+      <stop offset="35%"  stop-color="var(--x-lite)"/>
+      <stop offset="100%" stop-color="var(--x-dark)"/>
+    </radialGradient>
+    <radialGradient id="mxThruster" cx=".5" cy=".5" r=".5">
+      <stop offset="0%"   stop-color="#ffffff"/>
+      <stop offset="35%"  stop-color="var(--x-glow)"/>
+      <stop offset="100%" stop-color="var(--x-glow)" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- O-CRUISER hull -->
+    <linearGradient id="moHull" x1="0" y1="0" x2=".9" y2="1">
+      <stop offset="0%"   stop-color="var(--o-lite)"/>
+      <stop offset="45%"  stop-color="var(--o-mid)"/>
+      <stop offset="100%" stop-color="var(--o-dark)"/>
+    </linearGradient>
+    <radialGradient id="moCore" cx=".35" cy=".3" r=".8">
+      <stop offset="0%"   stop-color="#ffffff" stop-opacity=".95"/>
+      <stop offset="35%"  stop-color="var(--o-lite)"/>
+      <stop offset="100%" stop-color="var(--o-dark)"/>
+    </radialGradient>
+    <radialGradient id="moThruster" cx=".5" cy=".5" r=".5">
+      <stop offset="0%"   stop-color="#ffffff"/>
+      <stop offset="35%"  stop-color="var(--o-glow)"/>
+      <stop offset="100%" stop-color="var(--o-glow)" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- shared canopy glass -->
+    <linearGradient id="mCanopy" x1="0" y1="0" x2=".6" y2="1">
+      <stop offset="0%"   stop-color="#ffffff" stop-opacity=".95"/>
+      <stop offset="55%"  stop-color="#cfe9ff" stop-opacity=".55"/>
+      <stop offset="100%" stop-color="#5b7bb5" stop-opacity=".35"/>
+    </linearGradient>
+    <linearGradient id="mGloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#ffffff" stop-opacity=".55"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="mSoft" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="3.2"/>
+    </filter>
+    <filter id="mSoftSm" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="1.6"/>
+    </filter>
+  </defs>
+
+  <!-- ================================================================
+       SHIP · X — four-blade interceptor seen from a high angle.
+       Built from one wing rotated 4×, plus an extruded underside layer
+       drawn first so the craft reads as a solid volume.
+       ================================================================ -->
+  <symbol id="ship-x" viewBox="0 0 100 100">
+    <!-- cast shadow on the deck -->
+    <ellipse class="ship-shadow" cx="50" cy="79" rx="27" ry="6.5" fill="#000" opacity=".38" filter="url(#mSoft)"/>
+
+    <g class="ship-body">
+      <!-- ---- extruded underside (offset copy, drawn behind) ---- -->
+      <g transform="translate(0,4.5)" opacity=".85">
+        <g fill="var(--x-shade)">
+          <path d="M47 43 L23 9 L9 23 L43 47 Z"/>
+          <path d="M47 43 L23 9 L9 23 L43 47 Z" transform="rotate(90 50 50)"/>
+          <path d="M47 43 L23 9 L9 23 L43 47 Z" transform="rotate(180 50 50)"/>
+          <path d="M47 43 L23 9 L9 23 L43 47 Z" transform="rotate(270 50 50)"/>
+          <circle cx="50" cy="50" r="14.5"/>
+        </g>
+      </g>
+
+      <!-- ---- four wings ---- -->
+      <g class="ship-wings">
+        <g>
+          <path d="M47 43 L23 9 L9 23 L43 47 Z" fill="url(#mxHull)" stroke="var(--x-edge)" stroke-width="1.2" stroke-linejoin="round"/>
+          <path d="M45.5 41.5 L23.5 11" stroke="#fff" stroke-opacity=".55" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+          <path d="M38 36 L20 18" stroke="#000" stroke-opacity=".22" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+          <!-- engine pod at the wing tip -->
+          <ellipse cx="16" cy="16" rx="8.6" ry="4.6" transform="rotate(-45 16 16)" fill="url(#mxHullFlip)" stroke="var(--x-edge)" stroke-width="1"/>
+          <ellipse cx="14" cy="14" rx="7" ry="2" transform="rotate(-45 14 14)" fill="url(#mGloss)"/>
+          <!-- thruster bloom + exhaust streak -->
+          <circle class="ship-thruster" cx="9.5" cy="9.5" r="7" fill="url(#mxThruster)"/>
+          <path class="ship-trail" d="M9.5 9.5 L1 1" stroke="var(--x-glow)" stroke-width="3" stroke-linecap="round" opacity=".8"/>
+        </g>
+        <g transform="rotate(90 50 50)">
+          <path d="M47 43 L23 9 L9 23 L43 47 Z" fill="url(#mxHull)" stroke="var(--x-edge)" stroke-width="1.2" stroke-linejoin="round"/>
+          <path d="M45.5 41.5 L23.5 11" stroke="#fff" stroke-opacity=".38" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+          <ellipse cx="16" cy="16" rx="8.6" ry="4.6" transform="rotate(-45 16 16)" fill="url(#mxHullFlip)" stroke="var(--x-edge)" stroke-width="1"/>
+          <circle class="ship-thruster" cx="9.5" cy="9.5" r="7" fill="url(#mxThruster)"/>
+          <path class="ship-trail" d="M9.5 9.5 L1 1" stroke="var(--x-glow)" stroke-width="3" stroke-linecap="round" opacity=".8"/>
+        </g>
+        <g transform="rotate(180 50 50)">
+          <path d="M47 43 L23 9 L9 23 L43 47 Z" fill="url(#mxHull)" stroke="var(--x-edge)" stroke-width="1.2" stroke-linejoin="round"/>
+          <path d="M45.5 41.5 L23.5 11" stroke="#fff" stroke-opacity=".22" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+          <ellipse cx="16" cy="16" rx="8.6" ry="4.6" transform="rotate(-45 16 16)" fill="url(#mxHullFlip)" stroke="var(--x-edge)" stroke-width="1"/>
+          <circle class="ship-thruster" cx="9.5" cy="9.5" r="7" fill="url(#mxThruster)"/>
+          <path class="ship-trail" d="M9.5 9.5 L1 1" stroke="var(--x-glow)" stroke-width="3" stroke-linecap="round" opacity=".8"/>
+        </g>
+        <g transform="rotate(270 50 50)">
+          <path d="M47 43 L23 9 L9 23 L43 47 Z" fill="url(#mxHull)" stroke="var(--x-edge)" stroke-width="1.2" stroke-linejoin="round"/>
+          <path d="M45.5 41.5 L23.5 11" stroke="#fff" stroke-opacity=".38" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+          <ellipse cx="16" cy="16" rx="8.6" ry="4.6" transform="rotate(-45 16 16)" fill="url(#mxHullFlip)" stroke="var(--x-edge)" stroke-width="1"/>
+          <circle class="ship-thruster" cx="9.5" cy="9.5" r="7" fill="url(#mxThruster)"/>
+          <path class="ship-trail" d="M9.5 9.5 L1 1" stroke="var(--x-glow)" stroke-width="3" stroke-linecap="round" opacity=".8"/>
+        </g>
+      </g>
+
+      <!-- ---- central fuselage ---- -->
+      <circle cx="50" cy="50" r="14.5" fill="url(#mxCore)" stroke="var(--x-edge)" stroke-width="1.4"/>
+      <circle cx="50" cy="50" r="10.5" fill="none" stroke="#000" stroke-opacity=".18" stroke-width="1.2"/>
+      <path d="M39 44 A14.5 14.5 0 0 1 60 39" fill="none" stroke="#fff" stroke-opacity=".65" stroke-width="2" stroke-linecap="round"/>
+      <!-- cockpit canopy -->
+      <ellipse cx="50" cy="47.5" rx="7.4" ry="5.6" fill="url(#mCanopy)"/>
+      <ellipse cx="47.8" cy="45.6" rx="3" ry="1.7" fill="#fff" opacity=".8"/>
+      <circle class="ship-beacon" cx="50" cy="57" r="1.9" fill="var(--x-glow)"/>
+    </g>
+  </symbol>
+
+  <!-- Simplified X ship for tiny sizes (badges, chips, brand) -->
+  <symbol id="ship-x-mini" viewBox="0 0 100 100">
+    <g fill="url(#mxHull)" stroke="var(--x-edge)" stroke-width="3" stroke-linejoin="round">
+      <path d="M46 42 L22 8 L8 22 L42 46 Z"/>
+      <path d="M46 42 L22 8 L8 22 L42 46 Z" transform="rotate(90 50 50)"/>
+      <path d="M46 42 L22 8 L8 22 L42 46 Z" transform="rotate(180 50 50)"/>
+      <path d="M46 42 L22 8 L8 22 L42 46 Z" transform="rotate(270 50 50)"/>
+    </g>
+    <circle cx="50" cy="50" r="15" fill="url(#mxCore)" stroke="var(--x-edge)" stroke-width="3"/>
+    <ellipse cx="50" cy="47" rx="7" ry="5" fill="#fff" opacity=".75"/>
+  </symbol>
+
+  <!-- ================================================================
+       SHIP · O — ring-hull cruiser: rotating torus, four struts,
+       glowing reactor core, twin thrusters.
+       ================================================================ -->
+  <symbol id="ship-o" viewBox="0 0 100 100">
+    <ellipse class="ship-shadow" cx="50" cy="80" rx="26" ry="6" fill="#000" opacity=".38" filter="url(#mSoft)"/>
+
+    <g class="ship-body">
+      <!-- extruded underside of the ring -->
+      <g transform="translate(0,4.5)" opacity=".85">
+        <circle cx="50" cy="50" r="32" fill="none" stroke="var(--o-shade)" stroke-width="13"/>
+        <circle cx="50" cy="50" r="10.5" fill="var(--o-shade)"/>
+      </g>
+
+      <!-- main ring hull -->
+      <circle cx="50" cy="50" r="32" fill="none" stroke="url(#moHull)" stroke-width="13"/>
+      <!-- hull plating seams (slowly rotate, so the ring reads as spinning) -->
+      <circle class="ship-seams" cx="50" cy="50" r="32" fill="none" stroke="#000" stroke-opacity=".2" stroke-width="13"
+              stroke-dasharray="1.6 23.5" stroke-dashoffset="6"/>
+      <!-- edge highlights: crisp rim light on the lit side, thin gloss on the inner wall -->
+      <circle cx="50" cy="50" r="38" fill="none" stroke="var(--o-edge)" stroke-width="1.4" opacity=".9"/>
+      <circle cx="50" cy="50" r="26" fill="none" stroke="var(--o-edge)" stroke-width="1.2" opacity=".65"/>
+      <path d="M22 34 A32 32 0 0 1 62 19" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="3.2" stroke-linecap="round"/>
+      <path d="M78 66 A32 32 0 0 1 42 81" fill="none" stroke="#000" stroke-opacity=".22" stroke-width="3" stroke-linecap="round"/>
+
+      <!-- struts from ring to core -->
+      <g stroke="url(#moHull)" stroke-width="5.2" stroke-linecap="round">
+        <path d="M31 31 L43 43"/><path d="M69 31 L57 43"/>
+        <path d="M31 69 L43 57"/><path d="M69 69 L57 57"/>
+      </g>
+      <g stroke="#fff" stroke-opacity=".35" stroke-width="1.4" stroke-linecap="round">
+        <path d="M31.5 29.5 L43 41"/><path d="M68.5 29.5 L57.5 40.5"/>
+      </g>
+
+      <!-- reactor core + canopy -->
+      <circle cx="50" cy="50" r="11" fill="url(#moCore)" stroke="var(--o-edge)" stroke-width="1.4"/>
+      <circle cx="50" cy="50" r="7.6" fill="none" stroke="#000" stroke-opacity=".18" stroke-width="1.1"/>
+      <ellipse cx="50" cy="47.6" rx="5.6" ry="4.2" fill="url(#mCanopy)"/>
+      <ellipse cx="48.4" cy="46.2" rx="2.2" ry="1.3" fill="#fff" opacity=".85"/>
+
+      <!-- twin thrusters on the ring -->
+      <g>
+        <ellipse cx="26" cy="72" rx="6.6" ry="4.4" transform="rotate(45 26 72)" fill="url(#moHull)" stroke="var(--o-edge)" stroke-width="1"/>
+        <circle class="ship-thruster" cx="22" cy="76" r="6.5" fill="url(#moThruster)"/>
+        <path class="ship-trail" d="M22 76 L14 84" stroke="var(--o-glow)" stroke-width="2.8" stroke-linecap="round" opacity=".8"/>
+      </g>
+      <g>
+        <ellipse cx="74" cy="72" rx="6.6" ry="4.4" transform="rotate(-45 74 72)" fill="url(#moHull)" stroke="var(--o-edge)" stroke-width="1"/>
+        <circle class="ship-thruster" cx="78" cy="76" r="6.5" fill="url(#moThruster)"/>
+        <path class="ship-trail" d="M78 76 L86 84" stroke="var(--o-glow)" stroke-width="2.8" stroke-linecap="round" opacity=".8"/>
+      </g>
+
+      <circle class="ship-beacon" cx="50" cy="18" r="2.1" fill="var(--o-glow)"/>
+    </g>
+  </symbol>
+
+  <!-- Simplified O ship for tiny sizes -->
+  <symbol id="ship-o-mini" viewBox="0 0 100 100">
+    <circle cx="50" cy="50" r="32" fill="none" stroke="url(#moHull)" stroke-width="15"/>
+    <circle cx="50" cy="50" r="39.5" fill="none" stroke="var(--o-edge)" stroke-width="2.5"/>
+    <circle cx="50" cy="50" r="24.5" fill="none" stroke="var(--o-edge)" stroke-width="2.5"/>
+    <circle cx="50" cy="50" r="11" fill="url(#moCore)" stroke="var(--o-edge)" stroke-width="3"/>
+  </symbol>
+
+  <!-- ============ Lucide icons ============ -->
+  <symbol id="i-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polygon points="6 3 20 12 6 21 6 3"/>
+  </symbol>
+  <symbol id="i-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+  </symbol>
+  <symbol id="i-bot" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/>
+  </symbol>
+  <symbol id="i-rocket" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91 0z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>
+  </symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/>
+  </symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>
+  </symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+  </symbol>
+  <symbol id="i-rotate" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>
+  </symbol>
+  <symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+  </symbol>
+  <symbol id="i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+  </symbol>
+  <symbol id="i-trophy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>
+  </symbol>
+  <symbol id="i-equal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5 9h14"/><path d="M5 15h14"/>
+  </symbol>
+  <symbol id="i-volume" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/>
+  </symbol>
+  <symbol id="i-volume-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="m16 9 6 6"/><path d="m22 9-6 6"/>
+  </symbol>
+  <symbol id="i-zap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>
+  </symbol>
+  <symbol id="i-flame" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
+  </symbol>
+  <symbol id="i-skull" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><path d="M8 20v2h8v-2"/><path d="m12.5 17-.5-1-.5 1h1z"/><path d="M16 20a2 2 0 0 0 1.56-3.25 8 8 0 1 0-11.12 0A2 2 0 0 0 8 20"/>
+  </symbol>
+  <symbol id="i-sparkles" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
+  </symbol>
+  <symbol id="i-keyboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M10 8h.01"/><path d="M12 12h.01"/><path d="M14 8h.01"/><path d="M16 12h.01"/><path d="M18 8h.01"/><path d="M6 8h.01"/><path d="M7 16h10"/><path d="M8 12h.01"/><rect width="20" height="16" x="2" y="4" rx="2"/>
+  </symbol>
+  <symbol id="i-gauge" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>
+  </symbol>
+  <symbol id="i-palette" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 22a1 1 0 0 1 0-20 10 9 0 0 1 10 9 5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z"/><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/>
+  </symbol>
+</svg>
+
+
+<!-- ================================================================
+     LOADING SCREEN
+     ================================================================ -->
+<div class="loader" id="loader" role="status" aria-live="polite" aria-label="Loading">
+  <div class="loader__mark">
+    <svg viewBox="0 0 120 120" class="loader__ring" aria-hidden="true">
+      <defs>
+        <linearGradient id="loaderGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="var(--x-color)"/>
+          <stop offset="50%" stop-color="var(--accent)"/>
+          <stop offset="100%" stop-color="var(--o-color)"/>
+        </linearGradient>
+      </defs>
+      <circle cx="60" cy="60" r="52" class="loader__track"/>
+      <circle cx="60" cy="60" r="52" class="loader__arc" stroke="url(#loaderGrad)"/>
+    </svg>
+    <div class="loader__glyph">
+      <svg viewBox="0 0 100 100" class="loader__ship loader__ship--x" aria-hidden="true"><use href="#ship-x"/></svg>
+      <svg viewBox="0 0 100 100" class="loader__ship loader__ship--o" aria-hidden="true"><use href="#ship-o"/></svg>
+    </div>
+  </div>
+  <p class="loader__title">NEXUS</p>
+  <p class="loader__sub">Spooling up the fleet…</p>
+  <div class="loader__bar"><span></span></div>
+</div>
+
+
+<!-- ================================================================
+     AMBIENT BACKGROUND — gradient mesh, blobs, particles
+     ================================================================ -->
+<div class="ambient" aria-hidden="true">
+  <div class="ambient__gradient"></div>
+  <div class="ambient__grid"></div>
+  <div class="blob blob--1"></div>
+  <div class="blob blob--2"></div>
+  <div class="blob blob--3"></div>
+  <div class="ambient__noise"></div>
+</div>
+<canvas id="particles" class="particles-canvas" aria-hidden="true"></canvas>
+<canvas id="confetti" class="confetti-canvas" aria-hidden="true"></canvas>
+
+
+<!-- ================================================================
+     APP SHELL
+     ================================================================ -->
+<div class="app" id="app" hidden>
+
+  <!-- ---------- Top bar ---------- -->
+  <header class="topbar glass">
+    <button class="topbar__brand" id="brandBtn" type="button" aria-label="Back to main menu">
+      <span class="brand__logo">
+        <svg viewBox="0 0 100 100" class="brand__ship brand__ship--x" aria-hidden="true"><use href="#ship-x-mini"/></svg>
+        <svg viewBox="0 0 100 100" class="brand__ship brand__ship--o" aria-hidden="true"><use href="#ship-o-mini"/></svg>
+      </span>
+      <span class="brand__text">
+        <strong>NEXUS</strong>
+        <small>starship tic tac toe</small>
+      </span>
+    </button>
+
+    <div class="topbar__actions">
+      <button class="icon-btn ripple" id="themeBtn" type="button" aria-label="Toggle light and dark theme" title="Toggle theme">
+        <svg class="icon icon--sun"><use href="#i-sun"/></svg>
+        <svg class="icon icon--moon"><use href="#i-moon"/></svg>
+      </button>
+      <button class="icon-btn ripple" id="soundBtn" type="button" aria-pressed="true" aria-label="Toggle sound" title="Toggle sound">
+        <svg class="icon icon--on"><use href="#i-volume"/></svg>
+        <svg class="icon icon--off"><use href="#i-volume-x"/></svg>
+      </button>
+      <button class="icon-btn ripple" id="settingsBtn" type="button" aria-label="Open settings" title="Settings">
+        <svg class="icon"><use href="#i-settings"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="stage">
+
+    <!-- ============================================================
+         SCREEN 1 · WELCOME / MENU
+         ============================================================ -->
+    <section class="screen screen--menu is-active" id="screenMenu" aria-labelledby="menuTitle">
+      <div class="menu-grid">
+
+        <!-- Hero illustration: the two ships facing off over a glass grid -->
+        <div class="hero reveal" style="--d:0ms">
+          <svg class="hero__art" viewBox="0 0 520 460" role="img" aria-label="Two starships — a four-blade X interceptor and a ring-hull O cruiser — facing off above a floating glass grid">
+            <defs>
+              <linearGradient id="hgBoard" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="var(--accent)" stop-opacity=".30"/>
+                <stop offset="100%" stop-color="var(--o-color)" stop-opacity=".10"/>
+              </linearGradient>
+              <linearGradient id="hgPlate" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#fff" stop-opacity=".16"/>
+                <stop offset="100%" stop-color="#fff" stop-opacity=".03"/>
+              </linearGradient>
+              <filter id="hgBlur" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="18"/>
+              </filter>
+            </defs>
+
+            <!-- ambient bloom -->
+            <ellipse cx="260" cy="250" rx="155" ry="125" fill="url(#hgBoard)" filter="url(#hgBlur)"/>
+
+            <!-- orbit rings -->
+            <g class="hero__orbits" fill="none" stroke="currentColor" opacity=".18">
+              <ellipse cx="260" cy="245" rx="220" ry="84" stroke-width="1.5"/>
+              <ellipse cx="260" cy="245" rx="172" ry="152" stroke-width="1.5" stroke-dasharray="4 10"/>
+            </g>
+
+            <!-- floating glass battle grid, tilted in perspective -->
+            <g class="hero__plate">
+              <g transform="translate(260 250) scale(1 .58) rotate(45) translate(-110 -110)">
+                <rect x="0" y="0" width="220" height="220" rx="26" fill="url(#hgPlate)" stroke="rgba(255,255,255,.22)" stroke-width="2"/>
+                <g stroke="rgba(255,255,255,.20)" stroke-width="2.5" stroke-linecap="round">
+                  <path d="M73 14 V206"/><path d="M147 14 V206"/>
+                  <path d="M14 73 H206"/><path d="M14 147 H206"/>
+                </g>
+              </g>
+              <!-- streak of light across the grid -->
+              <path d="M150 218 L370 282" stroke="var(--accent)" stroke-width="5" stroke-linecap="round" opacity=".8" class="hero__streak"/>
+            </g>
+
+            <!-- the two ships -->
+            <g class="hero__ship hero__ship--x">
+              <svg x="46" y="66" width="176" height="176" viewBox="0 0 100 100"><use href="#ship-x"/></svg>
+            </g>
+            <g class="hero__ship hero__ship--o">
+              <svg x="292" y="196" width="186" height="186" viewBox="0 0 100 100"><use href="#ship-o"/></svg>
+            </g>
+
+            <!-- drifting debris -->
+            <g class="hero__float hero__float--c">
+              <circle cx="430" cy="112" r="7" fill="var(--accent)" opacity=".7"/>
+              <circle cx="98"  cy="336" r="6" fill="var(--o-color)" opacity=".6"/>
+              <circle cx="264" cy="418" r="5" fill="var(--x-color)" opacity=".6"/>
+            </g>
+          </svg>
+        </div>
+
+        <!-- Menu panel -->
+        <div class="panel glass menu-panel reveal" style="--d:90ms">
+          <span class="eyebrow"><svg class="icon"><use href="#i-sparkles"/></svg> Premium edition</span>
+          <h1 class="display" id="menuTitle">Command the <em>grid</em>,<br/> claim the line</h1>
+          <p class="lede">Two fleets. Nine sectors. Pick your hull and take the centre before the AI does.</p>
+
+          <!-- Mode selector -->
+          <div class="field">
+            <label class="field__label" id="modeLabel">Game mode</label>
+            <div class="segmented" role="radiogroup" aria-labelledby="modeLabel" id="modeGroup">
+              <button class="seg ripple is-active" role="radio" aria-checked="true" data-mode="ai" type="button">
+                <svg class="icon"><use href="#i-bot"/></svg><span>vs&nbsp;AI</span>
+              </button>
+              <button class="seg ripple" role="radio" aria-checked="false" data-mode="human" type="button">
+                <svg class="icon"><use href="#i-users"/></svg><span>2&nbsp;Players</span>
+              </button>
+              <span class="seg__thumb" aria-hidden="true"></span>
+            </div>
+          </div>
+
+          <!-- Difficulty selector -->
+          <div class="field" id="difficultyField">
+            <label class="field__label" id="diffLabel">Difficulty</label>
+            <div class="diff-grid" role="radiogroup" aria-labelledby="diffLabel" id="diffGroup">
+              <button class="diff ripple" role="radio" aria-checked="false" data-diff="easy" type="button">
+                <svg class="icon"><use href="#i-zap"/></svg>
+                <b>Easy</b><small>Warm-up</small>
+              </button>
+              <button class="diff ripple is-active" role="radio" aria-checked="true" data-diff="medium" type="button">
+                <svg class="icon"><use href="#i-flame"/></svg>
+                <b>Medium</b><small>Fights back</small>
+              </button>
+              <button class="diff ripple" role="radio" aria-checked="false" data-diff="impossible" type="button">
+                <svg class="icon"><use href="#i-skull"/></svg>
+                <b>Impossible</b><small>Never loses</small>
+              </button>
+            </div>
+          </div>
+
+          <!-- Fleet (side) selector -->
+          <div class="field" id="sideField">
+            <label class="field__label" id="sideLabel">Your fleet</label>
+            <div class="segmented segmented--sm" role="radiogroup" aria-labelledby="sideLabel" id="sideGroup">
+              <button class="seg ripple is-active" role="radio" aria-checked="true" data-side="X" type="button">
+                <span class="tag tag--x"><svg viewBox="0 0 100 100"><use href="#ship-x-mini"/></svg></span><span>Interceptor</span>
+              </button>
+              <button class="seg ripple" role="radio" aria-checked="false" data-side="O" type="button">
+                <span class="tag tag--o"><svg viewBox="0 0 100 100"><use href="#ship-o-mini"/></svg></span><span>Cruiser</span>
+              </button>
+              <span class="seg__thumb" aria-hidden="true"></span>
+            </div>
+          </div>
+
+          <button class="btn btn--primary btn--lg ripple" id="playBtn" type="button">
+            <svg class="icon"><use href="#i-rocket"/></svg> Launch match
+          </button>
+
+          <p class="hint"><svg class="icon"><use href="#i-keyboard"/></svg> Arrow keys to move · Enter to deploy · R to restart · Esc for menu</p>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ============================================================
+         SCREEN 2 · GAME
+         ============================================================ -->
+    <section class="screen screen--game" id="screenGame" aria-labelledby="turnText" hidden>
+      <div class="game-grid">
+
+        <!-- ---- Left column: scoreboard ---- -->
+        <aside class="panel glass score-panel" id="scorePanel">
+          <div class="panel__head">
+            <h2 class="panel__title"><svg class="icon"><use href="#i-trophy"/></svg> Scoreboard</h2>
+            <span class="chip" id="modeChip">vs AI · Medium</span>
+          </div>
+
+          <div class="score-row" id="scoreX">
+            <div class="score-row__mark tag tag--x"><svg viewBox="0 0 100 100"><use href="#ship-x-mini"/></svg></div>
+            <div class="score-row__meta">
+              <span class="score-row__name" id="nameX">Player&nbsp;1</span>
+              <span class="score-row__label">interceptor wins</span>
+            </div>
+            <div class="score-row__value" id="winsX">0</div>
+          </div>
+
+          <div class="score-row" id="scoreD">
+            <div class="score-row__mark tag tag--d"><svg class="icon"><use href="#i-equal"/></svg></div>
+            <div class="score-row__meta">
+              <span class="score-row__name">Draws</span>
+              <span class="score-row__label">stalemates</span>
+            </div>
+            <div class="score-row__value" id="draws">0</div>
+          </div>
+
+          <div class="score-row" id="scoreO">
+            <div class="score-row__mark tag tag--o"><svg viewBox="0 0 100 100"><use href="#ship-o-mini"/></svg></div>
+            <div class="score-row__meta">
+              <span class="score-row__name" id="nameO">Computer</span>
+              <span class="score-row__label">cruiser wins</span>
+            </div>
+            <div class="score-row__value" id="winsO">0</div>
+          </div>
+
+          <div class="round-note">
+            <span>Round</span><b id="roundNum">1</b>
+          </div>
+
+          <div class="panel__actions">
+            <button class="btn btn--ghost ripple" id="restartBtn" type="button">
+              <svg class="icon"><use href="#i-rotate"/></svg> Restart round
+            </button>
+            <button class="btn btn--ghost ripple" id="newGameBtn" type="button">
+              <svg class="icon"><use href="#i-sparkles"/></svg> New game
+            </button>
+            <button class="btn btn--ghost ripple" id="menuBtn" type="button">
+              <svg class="icon"><use href="#i-home"/></svg> Main menu
+            </button>
+          </div>
+        </aside>
+
+        <!-- ---- Right column: turn + board ---- -->
+        <div class="board-column">
+
+          <!-- Turn indicator -->
+          <div class="turn glass" id="turnBar" data-player="X">
+            <span class="turn__pip" aria-hidden="true"></span>
+            <p class="turn__text" id="turnText" aria-live="polite">Your move</p>
+            <span class="turn__mark tag tag--x" id="turnMark"><svg viewBox="0 0 100 100"><use href="#ship-x-mini"/></svg></span>
+          </div>
+
+          <!-- Board -->
+          <div class="board-wrap">
+            <div class="board-glow" aria-hidden="true"></div>
+            <div class="board" id="board" role="grid" aria-label="Tic tac toe board">
+              <!-- cells injected by script_claude.js -->
+              <svg class="winline" id="winline" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                <defs>
+                  <linearGradient id="winGrad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stop-color="var(--x-color)"/>
+                    <stop offset="50%" stop-color="var(--accent)"/>
+                    <stop offset="100%" stop-color="var(--o-color)"/>
+                  </linearGradient>
+                </defs>
+                <line id="winlineSeg" x1="0" y1="0" x2="0" y2="0" stroke="url(#winGrad)"/>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Mobile quick actions -->
+          <div class="mobile-actions">
+            <button class="btn btn--ghost ripple" data-act="restart" type="button"><svg class="icon"><use href="#i-rotate"/></svg> Restart</button>
+            <button class="btn btn--ghost ripple" data-act="menu" type="button"><svg class="icon"><use href="#i-home"/></svg> Menu</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>Crafted with vanilla HTML · CSS · JS</span>
+  </footer>
+</div>
+
+
+<!-- ================================================================
+     RESULT OVERLAY (win / draw)
+     ================================================================ -->
+<div class="overlay" id="resultOverlay" hidden>
+  <div class="overlay__backdrop" data-dismiss></div>
+  <div class="result glass" role="alertdialog" aria-modal="true" aria-labelledby="resultTitle" aria-describedby="resultSub">
+    <div class="result__halo" aria-hidden="true"></div>
+    <div class="result__badge" id="resultBadge">
+      <svg class="icon"><use href="#i-trophy"/></svg>
+    </div>
+    <h2 class="result__title" id="resultTitle">Interceptor wins!</h2>
+    <p class="result__sub" id="resultSub">Three sectors locked — flawless run.</p>
+
+    <div class="result__score" id="resultScore">
+      <div><b id="rWinsX">0</b><span>X</span></div>
+      <div><b id="rDraws">0</b><span>Draws</span></div>
+      <div><b id="rWinsO">0</b><span>O</span></div>
+    </div>
+
+    <div class="result__actions">
+      <button class="btn btn--primary ripple" id="nextRoundBtn" type="button"><svg class="icon"><use href="#i-rocket"/></svg> Next round</button>
+      <button class="btn btn--ghost ripple" id="resultMenuBtn" type="button"><svg class="icon"><use href="#i-home"/></svg> Menu</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ================================================================
+     SETTINGS MODAL
+     ================================================================ -->
+<div class="overlay" id="settingsOverlay" hidden>
+  <div class="overlay__backdrop" data-dismiss></div>
+  <div class="modal glass" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <header class="modal__head">
+      <h2 id="settingsTitle"><svg class="icon"><use href="#i-settings"/></svg> Settings</h2>
+      <button class="icon-btn ripple" id="settingsClose" type="button" aria-label="Close settings">
+        <svg class="icon"><use href="#i-close"/></svg>
+      </button>
+    </header>
+
+    <div class="modal__body">
+
+      <!-- Difficulty -->
+      <div class="setting">
+        <div class="setting__text">
+          <b><svg class="icon"><use href="#i-gauge"/></svg> AI difficulty</b>
+          <small>Impossible uses full minimax — it can only be drawn.</small>
+        </div>
+        <div class="segmented segmented--sm" role="radiogroup" aria-label="AI difficulty" id="diffGroupModal">
+          <button class="seg ripple" role="radio" aria-checked="false" data-diff="easy" type="button">Easy</button>
+          <button class="seg ripple is-active" role="radio" aria-checked="true" data-diff="medium" type="button">Medium</button>
+          <button class="seg ripple" role="radio" aria-checked="false" data-diff="impossible" type="button">Impossible</button>
+          <span class="seg__thumb" aria-hidden="true"></span>
+        </div>
+      </div>
+
+      <!-- Theme -->
+      <div class="setting">
+        <div class="setting__text">
+          <b><svg class="icon"><use href="#i-palette"/></svg> Appearance</b>
+          <small>Midnight glass or daylight frost.</small>
+        </div>
+        <div class="segmented segmented--sm" role="radiogroup" aria-label="Theme" id="themeGroup">
+          <button class="seg ripple is-active" role="radio" aria-checked="true" data-theme="dark" type="button"><svg class="icon"><use href="#i-moon"/></svg> Dark</button>
+          <button class="seg ripple" role="radio" aria-checked="false" data-theme="light" type="button"><svg class="icon"><use href="#i-sun"/></svg> Light</button>
+          <span class="seg__thumb" aria-hidden="true"></span>
+        </div>
+      </div>
+
+      <!-- Accent -->
+      <div class="setting">
+        <div class="setting__text">
+          <b><svg class="icon"><use href="#i-sparkles"/></svg> Neon accent</b>
+          <small>Recolours the whole interface.</small>
+        </div>
+        <div class="swatches" role="radiogroup" aria-label="Accent colour" id="accentGroup">
+          <button class="swatch is-active" role="radio" aria-checked="true"  data-accent="violet" style="--sw:#8b5cf6" type="button" aria-label="Violet"></button>
+          <button class="swatch" role="radio" aria-checked="false" data-accent="cyan"   style="--sw:#22d3ee" type="button" aria-label="Cyan"></button>
+          <button class="swatch" role="radio" aria-checked="false" data-accent="lime"   style="--sw:#a3e635" type="button" aria-label="Lime"></button>
+          <button class="swatch" role="radio" aria-checked="false" data-accent="amber"  style="--sw:#fbbf24" type="button" aria-label="Amber"></button>
+          <button class="swatch" role="radio" aria-checked="false" data-accent="rose"   style="--sw:#fb7185" type="button" aria-label="Rose"></button>
+        </div>
+      </div>
+
+      <!-- Toggles -->
+      <div class="setting">
+        <div class="setting__text">
+          <b><svg class="icon"><use href="#i-volume"/></svg> Sound effects</b>
+          <small>Synthesised in-browser, no downloads.</small>
+        </div>
+        <button class="switch" id="soundSwitch" role="switch" aria-checked="true" type="button"><span></span></button>
+      </div>
+
+      <div class="setting">
+        <div class="setting__text">
+          <b><svg class="icon"><use href="#i-sparkles"/></svg> Background particles</b>
+          <small>Turn off to save battery on mobile.</small>
+        </div>
+        <button class="switch" id="particlesSwitch" role="switch" aria-checked="true" type="button"><span></span></button>
+      </div>
+
+      <div class="setting">
+        <div class="setting__text">
+          <b><svg class="icon"><use href="#i-gauge"/></svg> Reduced motion</b>
+          <small>Calms animations across the app.</small>
+        </div>
+        <button class="switch" id="motionSwitch" role="switch" aria-checked="false" type="button"><span></span></button>
+      </div>
+    </div>
+
+    <footer class="modal__foot">
+      <button class="btn btn--ghost ripple" id="resetScoreBtn" type="button"><svg class="icon"><use href="#i-rotate"/></svg> Reset scoreboard</button>
+      <button class="btn btn--primary ripple" id="settingsDone" type="button">Done</button>
+    </footer>
+  </div>
+</div>
+
+<script src="script_claude.js"></script>
+</body>
+</html>
