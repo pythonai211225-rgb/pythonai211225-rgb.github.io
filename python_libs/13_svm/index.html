@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Support Vector Machines — Hyperplanes, Margin &amp; Kernels</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded',function(){
+    renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'\\(',right:'\\)',display:false}],throwOnError:false});
+    if (window.fitMath) fitMath();
+  });</script>
+  <style>
+    .page-layout { display:flex; height:calc(100vh - 54px); overflow:hidden; }
+    .sidebar { width:236px; min-width:236px; height:100%; overflow-y:auto; background:#0a0e14; border-right:1px solid var(--border); display:flex; flex-direction:column; scrollbar-width:thin; scrollbar-color:var(--border) transparent; flex-shrink:0; }
+    .sidebar-head { padding:20px 18px 14px; font-size:.65rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--border); }
+    .sidebar-nav { padding:8px 0; flex:1; }
+    .s-item { display:flex; align-items:center; gap:11px; padding:10px 18px; cursor:pointer; background:none; border:none; border-left:3px solid transparent; width:100%; text-align:left; transition:background .18s,border-color .18s; }
+    .s-item:hover { background:rgba(255,255,255,.04); }
+    .s-item.active { background:rgba(250,204,21,.08); border-left-color:var(--accent); }
+    .s-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; transition:transform .2s; }
+    .s-item.active .s-dot { transform:scale(1.45); box-shadow:0 0 8px currentColor; }
+    .s-num { font-size:.62rem; color:var(--border); font-family:'Courier New',monospace; font-weight:700; min-width:18px; }
+    .s-item.active .s-num { color:var(--accent); }
+    .s-label { font-size:.79rem; color:var(--muted); font-family:'Courier New',monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .s-item.active .s-label { color:var(--text); }
+    .s-item.done .s-label::after { content:' ✓'; color:var(--green); font-size:.7rem; }
+    .side-sep { border:none; border-top:1px solid var(--border); margin:14px 16px 6px; }
+    .side-part { padding:2px 18px 6px; font-size:.6rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:var(--accent); font-family:'Courier New',monospace; }
+
+    .panel-viewport { flex:1; overflow-y:auto; overflow-x:hidden; position:relative; }
+    .panel { display:none; flex-direction:column; min-height:100%; padding:40px 52px 100px; max-width:830px; margin:0 auto; animation:fadeIn .35s ease; }
+    .panel.active { display:flex; }
+    @keyframes fadeIn { from{opacity:0;transform:translateX(28px)} to{opacity:1;transform:translateX(0)} }
+    .panel.exit { display:flex; animation:fadeOut .25s ease forwards; }
+    @keyframes fadeOut { from{opacity:1;transform:translateX(0)} to{opacity:0;transform:translateX(-28px)} }
+
+    .m-hero { position:relative; height:200px; border-radius:18px; overflow:hidden; margin-bottom:26px; flex-shrink:0; }
+    .m-hero img { width:100%; height:100%; object-fit:cover; filter:brightness(.5) saturate(.8); transition:filter .45s; }
+    .panel.active .m-hero img { filter:brightness(.6) saturate(1.1); }
+    .m-hero-ov { position:absolute; inset:0; padding:26px 30px; display:flex; flex-direction:column; justify-content:flex-end; background:linear-gradient(0deg,rgba(0,0,0,.78) 0%,rgba(0,0,0,.15) 55%,transparent 100%); }
+    .m-breadcrumb { font-size:.62rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:rgba(255,255,255,.4); margin-bottom:5px; }
+    .m-name { font-size:1.7rem; font-weight:900; color:#fff; font-family:'Courier New',monospace; }
+    .m-tagline { font-size:.86rem; color:rgba(255,255,255,.62); margin-top:4px; }
+
+    .pills { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 20px; align-items:center; }
+    .pill { padding:5px 14px; border-radius:999px; font-size:.7rem; font-weight:700; letter-spacing:.06em; }
+    .pill-sig { font-family:'Courier New',monospace; font-size:.74rem; letter-spacing:0; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.12); color:var(--text); }
+    .pill-ret { background:rgba(16,185,129,.1); border:1px solid rgba(16,185,129,.3); color:var(--green); font-family:'Courier New',monospace; letter-spacing:0; }
+    .pill-note { background:rgba(249,115,22,.1); border:1px solid rgba(249,115,22,.3); color:var(--orange); font-family:'Courier New',monospace; font-size:.7rem; }
+    .pill-param { position:relative; cursor:help; transition:filter .18s; }
+    .pill-param:hover { filter:brightness(1.3); }
+    .pill-param .balloon { position:absolute; bottom:calc(100% + 14px); left:50%; transform:translateX(-50%) translateY(6px); width:240px; background:linear-gradient(155deg,#0e2845 0%,#071a2e 100%); border:1.5px solid rgba(240,182,62,.65); border-radius:14px; padding:13px 16px 11px; box-shadow:0 0 0 1px rgba(240,182,62,.1),0 18px 48px rgba(0,0,0,.72),0 0 36px rgba(240,182,62,.07); opacity:0; pointer-events:none; transition:opacity .22s ease,transform .22s ease; z-index:300; }
+    .pill-param:hover .balloon { opacity:1; transform:translateX(-50%) translateY(0); animation:balloonFloat 3s ease-in-out infinite; }
+    @keyframes balloonFloat { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(-5px)} }
+    .balloon-title { font-family:'Courier New',monospace; font-size:.7rem; font-weight:800; color:#f0b63e; letter-spacing:.04em; margin-bottom:6px; display:flex; align-items:center; gap:6px; }
+    .balloon-title::before { content:''; display:inline-block; width:7px; height:7px; border-radius:50%; background:#f0b63e; box-shadow:0 0 6px rgba(240,182,62,.7); flex-shrink:0; }
+    .balloon-body { font-size:.76rem; color:rgba(230,237,243,.78); line-height:1.6; font-family:'Segoe UI',system-ui,sans-serif; font-weight:400; }
+    .pill-param .balloon::after { content:''; position:absolute; bottom:-10px; left:50%; transform:translateX(-50%); border-left:10px solid transparent; border-right:10px solid transparent; border-top:10px solid rgba(240,182,62,.65); }
+    .pill-param .balloon::before { content:''; position:absolute; bottom:-8px; left:50%; transform:translateX(-50%); border-left:9px solid transparent; border-right:9px solid transparent; border-top:9px solid #071a2e; z-index:1; }
+
+    .m-desc { font-size:.95rem; color:var(--muted); line-height:1.75; margin-bottom:14px; }
+    .m-desc code { font-family:'Courier New',monospace; font-size:.88em; padding:1px 6px; border-radius:4px; background:rgba(255,255,255,.06); }
+
+    .demo-box { background:#060a10; border:1px solid var(--border); border-radius:14px; padding:22px 22px 18px; margin-top:20px; flex-shrink:0; display:flex; flex-direction:column; }
+    .demo-lbl { font-size:.64rem; font-weight:800; letter-spacing:.13em; text-transform:uppercase; color:var(--muted); margin-bottom:18px; display:flex; align-items:center; gap:8px; }
+    .demo-lbl::before { content:''; width:3px; height:12px; border-radius:2px; background:var(--accent); flex-shrink:0; }
+    .demo-controls { display:flex; flex-wrap:wrap; gap:18px; align-items:flex-end; margin-bottom:18px; }
+    .ctrl { display:flex; flex-direction:column; gap:5px; }
+    .ctrl label { font-size:.69rem; color:var(--muted); font-weight:600; }
+    .ctrl input[type=range] { -webkit-appearance:none; width:180px; height:4px; background:var(--border); border-radius:2px; outline:none; cursor:pointer; }
+    .ctrl input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:15px; height:15px; background:var(--accent); border-radius:50%; cursor:pointer; box-shadow:0 0 6px rgba(250,204,21,.5); }
+    .ctrl input[type=range]::-moz-range-thumb { width:15px; height:15px; background:var(--accent); border:none; border-radius:50%; cursor:pointer; }
+    .ctrl .cval { font-size:.7rem; color:var(--accent); font-family:'Courier New',monospace; font-weight:700; text-align:center; }
+    .demo-canvas-wrap { background:#020509; border-radius:10px; padding:14px; overflow:hidden; min-height:72px; order:4; }
+    canvas { display:block; margin:0 auto; }
+    .demo-out { font-family:'Courier New',monospace; font-size:.8rem; color:#10b981; line-height:1.65; margin-top:0; margin-bottom:14px; padding:11px 15px; background:rgba(16,185,129,.05); border:1px solid rgba(16,185,129,.18); border-radius:8px; white-space:pre-wrap; order:3; }
+
+    .seg { display:inline-flex; border:1px solid var(--border); border-radius:9px; overflow:hidden; }
+    .seg button { background:transparent; border:none; color:var(--muted); font-size:.72rem; font-weight:700; font-family:'Courier New',monospace; padding:7px 13px; cursor:pointer; transition:background .18s,color .18s; }
+    .seg button:hover { color:var(--text); background:rgba(255,255,255,.05); }
+    .seg button.on { background:rgba(250,204,21,.14); color:var(--accent); }
+    .play-btn { background:rgba(16,185,129,.12); border:1px solid rgba(16,185,129,.4); color:var(--green); font-family:'Courier New',monospace; font-size:.74rem; font-weight:800; padding:8px 16px; border-radius:9px; cursor:pointer; transition:background .18s,transform .12s; }
+    .play-btn:hover { background:rgba(16,185,129,.22); }
+    .play-btn:active { transform:scale(.96); }
+
+    .panel-nav { display:flex; justify-content:space-between; align-items:center; margin-top:40px; padding-top:24px; border-top:1px solid var(--border); flex-shrink:0; gap:10px; }
+    .pnav-btn { display:flex; align-items:center; gap:9px; padding:10px 20px; border-radius:10px; border:1px solid var(--border); background:transparent; color:var(--muted); font-size:.82rem; font-weight:700; cursor:pointer; transition:color .2s,border-color .2s,background .2s; }
+    .pnav-btn:hover:not(:disabled) { color:var(--text); border-color:var(--accent); background:rgba(250,204,21,.06); }
+    .pnav-btn:disabled { opacity:.28; cursor:default; }
+    .pnav-btn.next { background:rgba(250,204,21,.08); border-color:rgba(250,204,21,.35); color:var(--accent); }
+    .pnav-btn.next:hover { background:rgba(250,204,21,.16); border-color:var(--accent); }
+    .pnav-dots { display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:center; }
+    .pnav-dot { width:7px; height:7px; border-radius:50%; background:var(--border); transition:background .2s,transform .2s; cursor:pointer; border:none; padding:0; }
+    .pnav-dot.active { background:var(--accent); transform:scale(1.4); }
+
+    .overview-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:14px; margin-top:24px; }
+    .ov-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px 16px 16px; cursor:pointer; transition:border-color .2s,box-shadow .2s,transform .18s; display:flex; flex-direction:column; gap:8px; }
+    .ov-card:hover { transform:translateY(-3px); border-color:rgba(250,204,21,.4); box-shadow:0 8px 28px rgba(250,204,21,.08); }
+    .ov-card-num { font-size:.62rem; color:var(--muted); font-weight:800; letter-spacing:.1em; }
+    .ov-card-name { font-size:.9rem; font-family:'Courier New',monospace; font-weight:700; }
+    .ov-card-desc { font-size:.77rem; color:var(--muted); line-height:1.5; }
+
+    @media(max-width:700px){.sidebar{display:none}.panel{padding:20px 16px 80px}}
+    .katex { color: var(--text); }
+    /* No horizontal scrollbars on formulas: fitMath() in svm.js shrinks anything
+       too wide to scale, so the overflow is clipped rather than scrolled. */
+    .katex-display { margin: 6px 0; overflow-x: hidden; overflow-y: hidden; padding: 3px 0; }
+    .katex-display > .katex { max-width: none; }
+    .eq-box { background:rgba(59,130,246,.05); border:1px solid rgba(59,130,246,.2); border-radius:12px; padding:16px 20px; margin:16px 0; font-size:1.05rem; }
+    .eq-box.big { font-size:1.32rem; padding:24px 20px; }
+    .eq-box.small { font-size:.95rem; padding:14px 18px; }
+    .eq-box.gold { background:rgba(250,204,21,.05); border-color:rgba(250,204,21,.22); }
+    .eq-box.rose { background:rgba(244,63,94,.05); border-color:rgba(244,63,94,.22); }
+
+    .exercise-header{display:flex;align-items:flex-start;gap:16px;margin-bottom:24px;padding:20px;background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.2);border-radius:14px;position:relative;overflow:hidden;}
+    .exercise-header::before{content:'';position:absolute;top:-40px;right:-40px;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,rgba(251,191,36,.1) 0%,transparent 70%);pointer-events:none;}
+    .exercise-badge{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;font-size:1.8rem;font-weight:800;color:#0d1a2e;background:linear-gradient(135deg,#fbbf24,#f59e0b);box-shadow:0 6px 18px rgba(251,191,36,.35);flex-shrink:0;}
+    .ex-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px 16px;margin-bottom:14px;transition:border-color .2s;}
+    .ex-card:hover{border-color:rgba(250,204,21,.3);}
+    .ex-q-head{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+    .ex-num{font-size:.68rem;font-weight:800;letter-spacing:.1em;padding:3px 10px;border-radius:6px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--muted);font-family:'Courier New',monospace;}
+    .ex-task{font-size:.88rem;color:var(--muted);margin-bottom:10px;line-height:1.6;}
+    .ex-task code{font-family:'Courier New',monospace;font-size:.85em;padding:1px 6px;border-radius:4px;background:rgba(255,255,255,.06);}
+    details.hint{margin-top:10px;}
+    details.hint summary{cursor:pointer;font-size:.78rem;color:var(--accent);font-weight:700;}
+
+    .legend { display:flex; flex-wrap:wrap; gap:16px; justify-content:center; margin-bottom:10px; }
+    .lg { display:flex; align-items:center; gap:7px; font-size:.72rem; font-family:'Courier New',monospace; color:var(--muted); font-weight:700; }
+    .lg i { width:11px; height:11px; border-radius:50%; display:inline-block; }
+    .lg.sv i { border-radius:50%; background:none; border:2px solid #e6edf3; }
+    .lg.ln i { width:20px; height:0; border-top:2px solid var(--text); border-radius:0; }
+    .lg.dash i { width:20px; height:0; border-top:2px dashed var(--muted); border-radius:0; }
+
+    .steps { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; margin:20px 0 6px; }
+    .step { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px 16px 14px; position:relative; overflow:hidden; transition:transform .2s,border-color .2s; }
+    .step:hover { transform:translateY(-3px); }
+    .step::after { content:attr(data-n); position:absolute; right:10px; bottom:-14px; font-size:3.4rem; font-weight:900; font-family:'Courier New',monospace; color:rgba(255,255,255,.04); line-height:1; }
+    .step h4 { font-size:.86rem; margin-bottom:6px; font-family:'Courier New',monospace; }
+    .step p { font-size:.78rem; color:var(--muted); line-height:1.55; }
+    .step.a { border-color:rgba(59,130,246,.32); } .step.a h4 { color:var(--blue); }
+    .step.b { border-color:rgba(250,204,21,.32); } .step.b h4 { color:var(--accent); }
+    .step.c { border-color:rgba(16,185,129,.32); } .step.c h4 { color:var(--green); }
+    .step.d { border-color:rgba(236,72,153,.32); } .step.d h4 { color:var(--pink); }
+
+    .pc-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:18px 0; }
+    @media(max-width:640px){ .pc-grid{grid-template-columns:1fr} }
+    .pc { border-radius:14px; border:1px solid var(--border); padding:18px 20px 14px; }
+    .pc h4 { font-size:.9rem; margin-bottom:12px; font-family:'Courier New',monospace; display:flex; align-items:center; gap:8px; }
+    .pc ol { margin:0; padding-left:20px; }
+    .pc li { font-size:.82rem; color:var(--muted); line-height:1.6; margin-bottom:7px; }
+    .pc.good { border-color:rgba(16,185,129,.3); background:rgba(16,185,129,.04); } .pc.good h4 { color:var(--green); }
+    .pc.bad  { border-color:rgba(244,63,94,.3);  background:rgba(244,63,94,.04); }  .pc.bad h4  { color:#f43f5e; }
+
+    /* confusion matrix */
+    .cm-grid { display:grid; grid-template-columns:auto 1fr 1fr; gap:6px; max-width:430px; margin:20px 0; font-family:'Courier New',monospace; }
+    .cm-cell { border-radius:9px; padding:14px 10px; text-align:center; font-size:1.05rem; font-weight:800; border:1px solid var(--border); background:var(--surface); }
+    .cm-head { font-size:.68rem; font-weight:800; letter-spacing:.08em; color:var(--muted); text-transform:uppercase; display:grid; place-items:center; padding:8px; }
+    .cm-cell.tp, .cm-cell.tn { background:rgba(16,185,129,.12); border-color:rgba(16,185,129,.35); color:var(--green); }
+    .cm-cell.fp, .cm-cell.fn { background:rgba(244,63,94,.1); border-color:rgba(244,63,94,.3); color:#f43f5e; }
+    .cm-cell small { display:block; font-size:.58rem; letter-spacing:.1em; color:var(--muted); font-weight:700; margin-top:3px; }
+
+    .kbox { border:1px solid var(--border); border-radius:14px; padding:16px 18px 14px; background:var(--surface); margin-bottom:12px; }
+    .kbox h4 { font-family:'Courier New',monospace; font-size:.92rem; margin-bottom:6px; display:flex; align-items:center; gap:9px; }
+    .kbox .prob { font-size:.82rem; color:#f43f5e; margin-bottom:5px; }
+    .kbox .sol  { font-size:.82rem; color:var(--green); }
+    .kbox p.body { font-size:.82rem; color:var(--muted); line-height:1.6; margin-top:6px; }
+    .kbox .kt { font-size:.62rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; padding:2px 9px; border-radius:999px; }
+    .kernel-illustration { margin:13px 0 11px; border:1px solid rgba(255,255,255,.09); border-radius:11px; overflow:hidden; background:#030810; }
+    .kernel-illustration svg { display:block; width:100%; height:auto; min-height:150px; }
+    .kernel-illustration .grid-line { stroke:rgba(148,163,184,.1); stroke-width:1; }
+    .kernel-illustration .class-a { fill:#f43f5e; stroke:#fecdd3; stroke-width:1.2; }
+    .kernel-illustration .class-b { fill:#38bdf8; stroke:#dbeafe; stroke-width:1.2; }
+    .kernel-illustration .boundary { fill:none; stroke-width:3; stroke-linecap:round; filter:drop-shadow(0 0 4px currentColor); }
+    .kernel-illustration .region { opacity:.1; }
+    .kernel-illustration text { fill:#94a3b8; font:600 11px 'Courier New',monospace; }
+    .kernel-caption { padding:8px 12px 9px; border-top:1px solid rgba(255,255,255,.07); color:var(--muted); font-size:.73rem; line-height:1.45; text-align:center; }
+  </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">← Python Libs</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item active" href="index.html">01</a>
+  </div>
+</nav>
+
+<div class="page-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-head">Support Vector Machines</div>
+    <nav class="sidebar-nav">
+      <button class="s-item active" data-panel="0" onclick="goTo(0)"><span class="s-num">00</span><span class="s-dot" style="background:#8b5cf6"></span><span class="s-label">Overview</span></button>
+      <button class="s-item" data-panel="1" onclick="goTo(1)"><span class="s-num">01</span><span class="s-dot" style="background:#facc15"></span><span class="s-label">The idea</span></button>
+      <button class="s-item" data-panel="2" onclick="goTo(2)"><span class="s-num">02</span><span class="s-dot" style="background:#3b82f6"></span><span class="s-label">The hyperplane</span></button>
+      <button class="s-item" data-panel="3" onclick="goTo(3)"><span class="s-num">03</span><span class="s-dot" style="background:#06b6d4"></span><span class="s-label">Distance to it</span></button>
+      <button class="s-item" data-panel="8" onclick="goTo(8)"><span class="s-num">04</span><span class="s-dot" style="background:#f43f5e"></span><span class="s-label">SVC in sklearn</span></button>
+      <button class="s-item" data-panel="11" onclick="goTo(11)"><span class="s-num">05</span><span class="s-dot" style="background:#3b82f6"></span><span class="s-label">Evaluation</span></button>
+      <button class="s-item" data-panel="12" onclick="goTo(12)"><span class="s-num">06</span><span class="s-dot" style="background:#10b981"></span><span class="s-label">Pros &amp; cons</span></button>
+      <button class="s-item" data-panel="13" onclick="goTo(13)"><span class="s-num">07</span><span class="s-dot" style="background:#fbbf24"></span><span class="s-label">Exercises</span></button>
+      <hr class="side-sep">
+      <div class="side-part">Appendix</div>
+      <button class="s-item" data-panel="9" onclick="goTo(9)"><span class="s-num">A1</span><span class="s-dot" style="background:#14b8a6"></span><span class="s-label">Why kernels</span></button>
+      <button class="s-item" data-panel="10" onclick="goTo(10)"><span class="s-num">A2</span><span class="s-dot" style="background:#facc15"></span><span class="s-label">Kernel playground</span></button>
+      <button class="s-item" data-panel="16" onclick="goTo(16)"><span class="s-num">A3</span><span class="s-dot" style="background:#f97316"></span><span class="s-label">SVC parameters</span></button>
+      <hr class="side-sep">
+      <a class="s-item" style="text-decoration:none" href="../lessons/17_lesson/index.html"><span class="s-num">→</span><span class="s-dot" style="background:#22c55e"></span><span class="s-label">Lesson 17 code</span></a>
+    </nav>
+  </aside>
+
+  <!-- PANEL VIEWPORT -->
+  <div class="panel-viewport" id="viewport">
+
+    <!-- ══ PANEL 0: Overview ══ -->
+    <div class="panel active" id="panel-0">
+      <div class="hero" style="margin-bottom:36px;">
+        <span class="topic-label"><span class="dot"></span>Support Vector Machines · Deck 13 · Lesson 17</span>
+        <h1>Support Vector Machines</h1>
+        <p>Endless straight lines can separate two groups. SVM picks the <strong>one line with the widest empty corridor</strong> around it — and only a handful of points, the <strong>support vectors</strong>, get a say. Watch the search happen:</p>
+        <div class="demo-canvas-wrap" style="background:#020509;border-radius:12px;padding:14px;position:relative;z-index:1;"><canvas id="cv-overview" height="300"></canvas></div>
+      </div>
+      <div class="overview-grid" style="margin-top:0;">
+        <div class="ov-card" onclick="goTo(1)"><div class="ov-card-num">01 / 07</div><div class="ov-card-name" style="color:#facc15">The idea</div><div class="ov-card-desc">Many separators, one widest corridor. The max-margin rule.</div></div>
+        <div class="ov-card" onclick="goTo(2)"><div class="ov-card-num">02 / 07</div><div class="ov-card-name" style="color:#3b82f6">The hyperplane</div><div class="ov-card-desc">wᵀx + b = 0 — the weight vector, the bias and the sign.</div></div>
+        <div class="ov-card" onclick="goTo(3)"><div class="ov-card-num">03 / 07</div><div class="ov-card-name" style="color:#06b6d4">Distance to it</div><div class="ov-card-desc">|wᵀx+b| / ‖w‖ — absolute and signed, in any dimension.</div></div>
+        <div class="ov-card" onclick="goTo(8)"><div class="ov-card-num">04 / 07</div><div class="ov-card-name" style="color:#f43f5e">SVC in sklearn</div><div class="ov-card-desc">fit, coef_, intercept_, support_vectors_, predict.</div></div>
+        <div class="ov-card" onclick="goTo(11)"><div class="ov-card-num">05 / 07</div><div class="ov-card-name" style="color:#3b82f6">Evaluation</div><div class="ov-card-desc">Confusion matrix, accuracy, precision, recall, f1.</div></div>
+        <div class="ov-card" onclick="goTo(12)"><div class="ov-card-num">06 / 07</div><div class="ov-card-name" style="color:#10b981">Pros &amp; cons</div><div class="ov-card-desc">Where SVM shines, and where it quietly falls apart.</div></div>
+        <div class="ov-card" onclick="goTo(13)"><div class="ov-card-num">07 / 07</div><div class="ov-card-name" style="color:#fbbf24">Exercises</div><div class="ov-card-desc">Your turn — distances, margins, kernels.</div></div>
+        <div class="ov-card" onclick="goTo(9)"><div class="ov-card-num">APPENDIX A1</div><div class="ov-card-name" style="color:#14b8a6">Why kernels</div><div class="ov-card-desc">When no straight line works — the lift, told without maths.</div></div>
+        <div class="ov-card" onclick="goTo(10)"><div class="ov-card-num">APPENDIX A2</div><div class="ov-card-name" style="color:#facc15">Kernel playground</div><div class="ov-card-desc">linear · poly · rbf · sigmoid on four datasets, live.</div></div>
+        <div class="ov-card" onclick="goTo(16)"><div class="ov-card-num">APPENDIX A3</div><div class="ov-card-name" style="color:#f97316">SVC parameters</div><div class="ov-card-desc">C, gamma, degree, coef0, class_weight, multi-class.</div></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" disabled>← Prev</button>
+        <div class="pnav-dots" id="dots-0"></div>
+        <button class="pnav-btn next" onclick="goTo(1)">The idea →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 1: The idea ══ -->
+    <div class="panel" id="panel-1">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1518186285589-2f7649de83e0?w=900&q=75&fit=crop&h=200" alt="Rows of data" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">SVM 01 / 07 · The Algorithm</div>
+          <div class="m-name">The idea</div>
+          <div class="m-tagline">Not just a line that separates — the line that separates by the most</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">SVC(kernel='linear')</span>
+        <span class="pill pill-param" style="background:rgba(250,204,21,.1);color:var(--accent);border:1px solid rgba(250,204,21,.28);">margin
+          <span class="balloon"><span class="balloon-title">margin — the empty corridor</span><span class="balloon-body">The width of the strip around the boundary that contains no training point. SVM maximizes it.</span></span>
+        </span>
+        <span class="pill pill-ret">→ a class label</span>
+      </div>
+      <p class="m-desc"><strong>SVM (Support Vector Machine)</strong> is a <strong>supervised learning</strong> method. You give it labelled examples, it learns a rule. It is used for <strong>classification</strong> — and, with a different loss, for regression too.</p>
+      <p class="m-desc">The goal in one sentence: <strong>find the boundary that separates the classes with the largest possible gap.</strong></p>
+      <div class="steps">
+        <div class="step a" data-n="1"><h4>1 · Separate</h4><p>Find a line (2D), a plane (3D), a <strong>hyperplane</strong> (nD) that puts every class on its own side.</p></div>
+        <div class="step b" data-n="2"><h4>2 · Measure</h4><p>For each candidate, measure the distance to the <strong>closest</strong> point of either class.</p></div>
+        <div class="step c" data-n="3"><h4>3 · Maximize</h4><p>Keep the candidate whose closest point is the <strong>furthest away</strong>. That is the SVM.</p></div>
+      </div>
+      <div class="callout blue">
+        🎯 <strong>Why the widest gap?</strong> A boundary that scrapes past a training point is fragile — nudge that point a little and the prediction flips. A boundary with a wide empty corridor on both sides survives noise. Wide margin = confident, general classifier.
+      </div>
+      <p class="m-desc">The points sitting exactly on the edge of the corridor are the <strong>support vectors</strong>. They are the only points that matter:</p>
+      <ul style="color:var(--muted);font-size:.9rem;line-height:1.8;margin:0 0 6px 22px;">
+        <li>Move a point that is <em>far</em> from the boundary — nothing changes.</li>
+        <li>Move a <strong>support vector</strong> — the whole boundary moves.</li>
+        <li>Delete every non-support-vector and refit — you get exactly the same model.</li>
+      </ul>
+      <div class="callout orange">
+        📌 <strong>Why "vector" and not "point"?</strong> In linear algebra every point in space <em>is</em> a vector from the origin: <code>[3, 4]</code> is both the point (3,4) and the arrow that reaches it. The points closest to the boundary <em>support</em> its position — hence <strong>support vectors</strong>.
+      </div>
+      <p class="m-desc">The dataset we use through this whole deck — the one from the lesson, eight points in two groups:</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — the dataset</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> numpy <span class="kw">as</span> <span class="lib">np</span>
+
+group_a = <span class="lib">np</span>.<span class="fn">array</span>([ [<span class="num">1</span>, <span class="num">2</span>], [<span class="num">1.5</span>, <span class="num">3</span>], [<span class="num">2</span>, <span class="num">2.5</span>], [<span class="num">2.5</span>, <span class="num">3.5</span>] ])
+group_b = <span class="lib">np</span>.<span class="fn">array</span>([ [<span class="num">5</span>, <span class="num">5</span>], [<span class="num">5.5</span>, <span class="num">6</span>], [<span class="num">6</span>, <span class="num">5.5</span>], [<span class="num">6.5</span>, <span class="num">6.5</span>] ])
+
+points = <span class="lib">np</span>.<span class="fn">vstack</span>([group_a, group_b])
+labels = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">0</span>, <span class="num">0</span>, <span class="num">0</span>, <span class="num">0</span>, <span class="num">1</span>, <span class="num">1</span>, <span class="num">1</span>, <span class="num">1</span>])   <span class="cm"># 0 = group A, 1 = group B</span></pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — rotate the boundary. Every angle separates. Only one is best.</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>angle of the boundary</label><input type="range" min="0" max="179" value="75" step="1" id="id-a" oninput="drawIdea()"><span class="cval" id="id-av">75°</span></div>
+          <button class="play-btn" onclick="sweepIdea()">▶ sweep every angle</button>
+        </div>
+        <div class="demo-out" id="out-idea"></div>
+        <div class="demo-canvas-wrap">
+          <div class="legend">
+            <span class="lg"><i style="background:#f43f5e"></i>group A (label 0)</span>
+            <span class="lg"><i style="background:#3b82f6"></i>group B (label 1)</span>
+            <span class="lg ln"><i></i>boundary</span>
+            <span class="lg dash"><i></i>margin</span>
+          </div>
+          <canvas id="cv-idea" height="330"></canvas>
+        </div>
+      </div>
+      <div class="callout green">
+        💡 <strong>Read the output while you drag.</strong> The <code>margin</code> number is the distance from the boundary to the nearest point. Sweep the angle and watch it peak — that peak is what <code>SVC</code> solves for exactly, without any searching.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(0)">← Overview</button>
+        <div class="pnav-dots" id="dots-1"></div>
+        <button class="pnav-btn next" onclick="goTo(2)">The hyperplane →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 2: The hyperplane ══ -->
+    <div class="panel" id="panel-2">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1509228468518-180dd4864904?w=900&q=75&fit=crop&h=200" alt="Geometry" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">SVM 02 / 07 · The Mathematics</div>
+          <div class="m-name">The hyperplane</div>
+          <div class="m-tagline">One equation, any number of dimensions</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">w @ x + b = 0</span>
+        <span class="pill pill-param" style="background:rgba(59,130,246,.1);color:var(--blue);border:1px solid rgba(59,130,246,.28);">w
+          <span class="balloon"><span class="balloon-title">w — the weight vector</span><span class="balloon-body">Points perpendicular to the surface. It sets the <em>direction</em> of the boundary, never a position.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(139,92,246,.1);color:var(--purple);border:1px solid rgba(139,92,246,.28);">b
+          <span class="balloon"><span class="balloon-title">b — the bias</span><span class="balloon-body">Slides the surface along w without turning it. In sklearn this is <code>intercept_</code>.</span></span>
+        </span>
+        <span class="pill pill-ret">→ one number: +, − or 0</span>
+      </div>
+      <p class="m-desc">A <strong>hyperplane</strong> is the flat separating surface. In 2D it is a line, in 3D a plane, in n dimensions a hyperplane. It is always the same equation:</p>
+      <div class="eq-box big" style="text-align:center;">
+        $$w^{T}x + b = 0 \qquad\Longleftrightarrow\qquad w_1x_1 + w_2x_2 + \dots + w_nx_n + b = 0$$
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue">symbol</th><th class="blue">name</th><th class="blue">what it is</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>\(w\)</td><td>weight vector</td><td>The direction of the surface — perpendicular to it (the <em>normal</em>)</td></tr>
+          <tr class="show"><td>\(x\)</td><td>the point</td><td>Any point in the space; a row of features</td></tr>
+          <tr class="show"><td>\(w^{T}x\)</td><td>dot product</td><td>The plain scalar product \(w_1x_1 + w_2x_2 + \dots\)</td></tr>
+          <tr class="show"><td>\(b\)</td><td>bias</td><td>Where the surface cuts the axes — how far it sits from the origin</td></tr>
+        </tbody>
+      </table>
+      <p class="m-desc">A concrete 2D example, exactly as on the class slide — with <code>w = [2, -3]</code> and <code>b = 6</code>:</p>
+      <div class="eq-box small" style="text-align:center;">
+        $$2x_1 - 3x_2 + 6 = 0$$
+      </div>
+      <p class="m-desc">And the whole classification rule falls out of the <strong>sign</strong>:</p>
+      <div class="eq-box gold">
+        $$w^{T}x + b > 0 \;\Rightarrow\; \text{one side}\qquad w^{T}x + b < 0 \;\Rightarrow\; \text{the other side}\qquad w^{T}x + b = 0 \;\Rightarrow\; \text{exactly on it}$$
+      </div>
+      <div class="callout blue">
+        📐 <strong>That is the entire prediction step.</strong> Once <code>w</code> and <code>b</code> are trained, classifying a new point is one dot product, one addition and one look at the sign. No distances to every training point (unlike KNN), no loops.
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — move w and b, and watch the surface turn and slide</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>w₁</label><input type="range" min="-4" max="4" value="2" step="0.1" id="hp-w1" oninput="drawPlane()"><span class="cval" id="hp-w1v">2.0</span></div>
+          <div class="ctrl"><label>w₂</label><input type="range" min="-4" max="4" value="-3" step="0.1" id="hp-w2" oninput="drawPlane()"><span class="cval" id="hp-w2v">-3.0</span></div>
+          <div class="ctrl"><label>b</label><input type="range" min="-10" max="10" value="6" step="0.2" id="hp-b" oninput="drawPlane()"><span class="cval" id="hp-bv">6.0</span></div>
+          <div class="ctrl"><label>probe point x₁</label><input type="range" min="-6" max="6" value="3" step="0.1" id="hp-px" oninput="drawPlane()"><span class="cval" id="hp-pxv">3.0</span></div>
+          <div class="ctrl"><label>probe point x₂</label><input type="range" min="-6" max="6" value="1" step="0.1" id="hp-py" oninput="drawPlane()"><span class="cval" id="hp-pyv">1.0</span></div>
+        </div>
+        <div class="demo-out" id="out-plane"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-plane" height="340"></canvas></div>
+      </div>
+      <div class="callout orange">
+        ⚠️ <strong>w is a direction, not a place.</strong> Doubling <code>w</code> <em>and</em> <code>b</code> together gives the exact same surface — <code>4x₁ − 6x₂ + 12 = 0</code> draws the same line. Only the <em>ratio</em> matters. SVM pins that freedom down with a convention: it scales <code>w</code> and <code>b</code> so the closest point of each class lands at exactly <code>wᵀx + b = ±1</code>, which is why <code>coef_</code> comes back with the particular numbers it does.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(1)">← The idea</button>
+        <div class="pnav-dots" id="dots-2"></div>
+        <button class="pnav-btn next" onclick="goTo(3)">Distance to it →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 3: Distance ══ -->
+    <div class="panel" id="panel-3">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=900&q=75&fit=crop&h=200" alt="Measuring" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">SVM 03 / 07 · The Mathematics</div>
+          <div class="m-name">Distance to a hyperplane</div>
+          <div class="m-tagline">Plug the point in, divide by the length of w</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">(w @ x + b) / np.linalg.norm(w)</span>
+        <span class="pill pill-ret">→ signed float</span>
+        <span class="pill pill-note">abs() → the plain distance</span>
+      </div>
+      <p class="m-desc">Given a hyperplane \(w_1x_1 + w_2x_2 + \dots + w_nx_n + b = 0\) and a point \(x = (x_1, x_2, \dots, x_n)\), there are two formulas — and they differ by exactly one pair of bars:</p>
+      <div class="eq-box big" style="text-align:center;">
+        $$\textbf{Distance}(x) = \frac{|\,w \cdot x + b\,|}{\|w\|}$$
+      </div>
+      <div class="eq-box big rose" style="text-align:center;">
+        $$\textbf{SignedDistance}(x) = \frac{w \cdot x + b}{\|w\|}$$
+      </div>
+      <div class="eq-box small" style="text-align:center;">
+        $$\|w\| = \sqrt{w_1^2 + w_2^2 + \dots + w_n^2}$$
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue">part</th><th class="blue">meaning</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>numerator \(w\cdot x + b\)</td><td>Substitute the point into the plane equation. Zero means it is on the plane.</td></tr>
+          <tr class="show"><td>denominator \(\|w\|\)</td><td>The length of the weight vector — <code>np.linalg.norm(w)</code>. It normalizes away the scale freedom.</td></tr>
+          <tr class="show"><td>the bars \(|\cdot|\)</td><td>Drop the sign → a plain, never-negative distance.</td></tr>
+          <tr class="show"><td>no bars</td><td>Keep the sign → <strong>which side</strong> plus <strong>how far</strong>, in one number. This is <code>decision_function</code>.</td></tr>
+        </tbody>
+      </table>
+      <div class="callout green">
+        💡 <strong>Why divide by ‖w‖ at all?</strong> Because <code>2x − 3y + 6 = 0</code> and <code>4x − 6y + 12 = 0</code> are the same line, but the second one gives numerators twice as big. Dividing by <code>‖w‖</code> cancels that out, so the answer is a real geometric distance in the units of the axes.
+      </div>
+      <p class="m-desc">In code — the function we wrote in class, for two features:</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — signed and absolute distance</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> numpy <span class="kw">as</span> <span class="lib">np</span>
+
+<span class="kw">def</span> <span class="fn">get_signed_distance</span>(point, w1, w2, b):
+    x1, x2 = point
+    numerator   = x1 * w1 + x2 * w2 + b
+    denominator = <span class="lib">np</span>.<span class="fn">sqrt</span>(w1**<span class="num">2</span> + w2**<span class="num">2</span>)    <span class="cm"># = np.linalg.norm([w1, w2])</span>
+    <span class="kw">return</span> numerator / denominator
+
+<span class="kw">def</span> <span class="fn">get_abs_distance</span>(point, w1, w2, b):
+    <span class="kw">return</span> <span class="lib">np</span>.<span class="fn">abs</span>(<span class="fn">get_signed_distance</span>(point, w1, w2, b))</pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — the plane 2x₁ − 3x₂ + 6 = 0. Move the point, read the distance.</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>x₁</label><input type="range" min="-6" max="6" value="3" step="0.1" id="ds-x" oninput="drawDist()"><span class="cval" id="ds-xv">3.0</span></div>
+          <div class="ctrl"><label>x₂</label><input type="range" min="-6" max="6" value="-1" step="0.1" id="ds-y" oninput="drawDist()"><span class="cval" id="ds-yv">-1.0</span></div>
+        </div>
+        <div class="demo-out" id="out-dist"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-dist" height="340"></canvas></div>
+      </div>
+      <div class="callout blue">
+        📌 The dashed segment in the demo is the <strong>perpendicular drop</strong> from the point to the plane. That perpendicular length is what the formula computes — nothing else on the plane is closer.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(2)">← The hyperplane</button>
+        <div class="pnav-dots" id="dots-3"></div>
+        <button class="pnav-btn next" onclick="goTo(8)">SVC in sklearn →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 8: SVC ══ -->
+    <div class="panel" id="panel-8">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1518770660439-4636190af475?w=900&q=75&fit=crop&h=200" alt="Circuits" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">SVM 04 / 07 · The Code</div>
+          <div class="m-name">SVC in sklearn</div>
+          <div class="m-tagline">Two lines to train, one attribute for everything</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">from sklearn.svm import SVC</span>
+        <span class="pill pill-param" style="background:rgba(244,63,94,.1);color:#f43f5e;border:1px solid rgba(244,63,94,.28);">kernel
+          <span class="balloon"><span class="balloon-title">kernel='linear'</span><span class="balloon-body">A straight boundary. The default is <code>'rbf'</code> — appendices A1 and A2 explain when you want it.</span></span>
+        </span>
+        <span class="pill pill-ret">→ a fitted classifier</span>
+      </div>
+      <p class="m-desc">A complete example, small enough to check by hand. Eight points, two groups, and a label for each row — <strong>0</strong> for group A, <strong>1</strong> for group B:</p>
+      <table class="dt">
+        <thead><tr><th class="blue">index</th><th class="blue">point (x, y)</th><th class="blue">group</th><th class="blue">label</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>0</td><td>(1, 2)</td><td style="color:#f43f5e">A</td><td>0</td></tr>
+          <tr class="show"><td>1</td><td>(1.5, 3)</td><td style="color:#f43f5e">A</td><td>0</td></tr>
+          <tr class="show"><td>2</td><td>(2, 2.5)</td><td style="color:#f43f5e">A</td><td>0</td></tr>
+          <tr class="show"><td>3</td><td>(2.5, 3.5)</td><td style="color:#f43f5e">A</td><td>0</td></tr>
+          <tr class="show"><td>4</td><td>(5, 5)</td><td style="color:#3b82f6">B</td><td>1</td></tr>
+          <tr class="show"><td>5</td><td>(5.5, 6)</td><td style="color:#3b82f6">B</td><td>1</td></tr>
+          <tr class="show"><td>6</td><td>(6, 5.5)</td><td style="color:#3b82f6">B</td><td>1</td></tr>
+          <tr class="show"><td>7</td><td>(6.5, 6.5)</td><td style="color:#3b82f6">B</td><td>1</td></tr>
+        </tbody>
+      </table>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — copy, paste, run</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> numpy <span class="kw">as</span> <span class="lib">np</span>
+<span class="kw">from</span> sklearn.svm <span class="kw">import</span> <span class="cls">SVC</span>
+
+<span class="cm"># ---------- the points ----------</span>
+group_a = <span class="lib">np</span>.<span class="fn">array</span>([ [<span class="num">1</span>, <span class="num">2</span>], [<span class="num">1.5</span>, <span class="num">3</span>], [<span class="num">2</span>, <span class="num">2.5</span>], [<span class="num">2.5</span>, <span class="num">3.5</span>] ])
+group_b = <span class="lib">np</span>.<span class="fn">array</span>([ [<span class="num">5</span>, <span class="num">5</span>], [<span class="num">5.5</span>, <span class="num">6</span>], [<span class="num">6</span>, <span class="num">5.5</span>], [<span class="num">6.5</span>, <span class="num">6.5</span>] ])
+
+<span class="cm"># ---------- X and y ----------</span>
+points = <span class="lib">np</span>.<span class="fn">vstack</span>([group_a, group_b])          <span class="cm"># shape (8, 2) - one row per point</span>
+labels = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">0</span>, <span class="num">0</span>, <span class="num">0</span>, <span class="num">0</span>, <span class="num">1</span>, <span class="num">1</span>, <span class="num">1</span>, <span class="num">1</span>])   <span class="cm"># 0 = group A, 1 = group B</span>
+
+<span class="cm"># ---------- train ----------</span>
+clf = <span class="cls">SVC</span>(kernel=<span class="str">'linear'</span>)
+clf.<span class="fn">fit</span>(points, labels)
+
+w = clf.coef_[<span class="num">0</span>]          <span class="cm"># the weight vector</span>
+b = clf.intercept_[<span class="num">0</span>]     <span class="cm"># the bias</span>
+
+<span class="fn">print</span>(<span class="str">'w'</span>, w)
+<span class="fn">print</span>(<span class="str">'b'</span>, b)
+<span class="fn">print</span>(<span class="str">'support vectors'</span>, clf.support_vectors_)
+
+<span class="cm"># ---------- predict a new point ----------</span>
+<span class="fn">print</span>(<span class="str">'predict (1, 2)  ->'</span>, clf.<span class="fn">predict</span>([[<span class="num">1</span>, <span class="num">2</span>]]))
+<span class="fn">print</span>(<span class="str">'predict (6, 6)  ->'</span>, clf.<span class="fn">predict</span>([[<span class="num">6</span>, <span class="num">6</span>]]))</pre>
+      </div>
+      <div class="callout blue">
+        🖨️ <strong>Output:</strong>
+        <pre style="background:#010409;border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-top:10px;font-family:'Courier New',monospace;font-size:.8rem;color:#10b981;">w [0.58823529 0.35294118]
+b -3.705882352941176
+support vectors [[2.5 3.5]
+ [5.  5. ]]
+predict (1, 2)  -> [0]
+predict (6, 6)  -> [1]</pre>
+        so the boundary is <code>0.58824·x + 0.35294·y − 3.70588 = 0</code>.
+      </div>
+      <div class="callout green">
+        ✅ <strong>Check a prediction by hand.</strong> For (1, 2): <code>0.58824(1) + 0.35294(2) − 3.70588 = −2.412</code>. Negative → class <strong>0</strong>, which is what <code>predict</code> returned. That single line <em>is</em> the model.
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue">attribute</th><th class="blue">shape</th><th class="blue">what it holds</th></tr></thead>
+        <tbody>
+          <tr class="show"><td><code>clf.coef_</code></td><td>(1, n_features)</td><td>The weight vector w. <strong>Only exists for <code>kernel='linear'</code></strong> — with rbf there is no explicit w.</td></tr>
+          <tr class="show"><td><code>clf.intercept_</code></td><td>(1,)</td><td>The bias b.</td></tr>
+          <tr class="show"><td><code>clf.support_vectors_</code></td><td>(n_sv, n_features)</td><td>The actual support-vector rows — here <code>[[2.5, 3.5], [5., 5.]]</code>.</td></tr>
+          <tr class="show"><td><code>clf.support_</code></td><td>(n_sv,)</td><td>Their <em>indices</em> in the training data — here <code>[3, 4]</code>.</td></tr>
+          <tr class="show"><td><code>clf.n_support_</code></td><td>(n_classes,)</td><td>How many SVs each class contributed — here <code>[1, 1]</code>.</td></tr>
+          <tr class="show"><td><code>clf.dual_coef_</code></td><td>(1, n_sv)</td><td>The internal weights the solver gave each support vector. Here <code>[[-0.23529, 0.23529]]</code>.</td></tr>
+          <tr class="show"><td><code>clf.decision_function(X)</code></td><td>(n_samples,)</td><td>The signed distance ×‖w‖ — positive/negative tells the side, magnitude tells the confidence.</td></tr>
+        </tbody>
+      </table>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — the real trained boundary. Move a new point and read the prediction.</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>new point x</label><input type="range" min="0" max="8" value="3.5" step="0.1" id="sv-x" oninput="drawSvc()"><span class="cval" id="sv-xv">3.5</span></div>
+          <div class="ctrl"><label>new point y</label><input type="range" min="0" max="8" value="4.5" step="0.1" id="sv-y" oninput="drawSvc()"><span class="cval" id="sv-yv">4.5</span></div>
+        </div>
+        <div class="demo-out" id="out-svc"></div>
+        <div class="demo-canvas-wrap">
+          <div class="legend">
+            <span class="lg"><i style="background:#f43f5e"></i>group A (0)</span>
+            <span class="lg"><i style="background:#3b82f6"></i>group B (1)</span>
+            <span class="lg sv"><i></i>support vector</span>
+            <span class="lg"><i style="background:#facc15;border-radius:2px"></i>new point</span>
+          </div>
+          <canvas id="cv-svc" height="340"></canvas>
+        </div>
+      </div>
+      <div class="callout red" style="border-left:4px solid #f43f5e;background:rgba(244,63,94,.07);">
+        🚨 <strong>Always scale your features before SVC.</strong> The margin is measured in the raw units of your columns, so a column running 0–100000 drowns out a column running 0–1 — exactly the problem <code>MinMaxScaler</code> solved for KNN. Use <code>StandardScaler</code> (or <code>MinMaxScaler</code>) and <code>fit_transform</code> on train, <code>transform</code> on test. Our toy dataset gets away with it because both axes already span 1–7.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(3)">← Distance to it</button>
+        <div class="pnav-dots" id="dots-8"></div>
+        <button class="pnav-btn next" onclick="goTo(11)">Evaluation →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 9: Why kernels ══ -->
+    <div class="panel" id="panel-9">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1532012197267-da84d127e765?w=900&q=75&fit=crop&h=200" alt="Layers" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Appendix A1 · The Trick</div>
+          <div class="m-name">Why kernels</div>
+          <div class="m-tagline">No straight line works? Change the room, not the ruler.</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">SVC(kernel='rbf')</span>
+        <span class="pill pill-note">just the idea — no maths on this slide</span>
+      </div>
+      <p class="m-desc">Everything so far assumed one thing: that a <strong>straight</strong> boundary can do the job. Very often it cannot. A ring of one class around a blob of another, two interleaving crescents, a checkerboard — no line, no plane, nothing flat will ever separate those.</p>
+      <div class="callout orange">
+        ❓ <strong>The problem, in one picture.</strong> Put class A near zero on a number line and class B far out on both sides. There is no single cut-off that puts all of A on one side and all of B on the other. The data is simply not linearly separable <em>in that space</em>.
+      </div>
+      <p class="m-desc">The trick is not to bend the boundary. It is to <strong>move the data into a bigger space where a flat boundary is enough</strong>, and let SVM do exactly what it already does well.</p>
+      <div class="steps">
+        <div class="step a" data-n="1"><h4>1 · Lift</h4><p>Give every point extra coordinates computed from the ones it already has.</p></div>
+        <div class="step b" data-n="2"><h4>2 · Separate</h4><p>In the bigger space the classes come apart, and a plain flat hyperplane splits them.</p></div>
+        <div class="step c" data-n="3"><h4>3 · Look back</h4><p>Project that flat cut back down. In the original space it looks like a curve.</p></div>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — drag the lift. At 0 the points are on one line and nothing separates them.</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>lift into the second dimension</label><input type="range" min="0" max="100" value="0" step="1" id="lf-t" oninput="drawLift()"><span class="cval" id="lf-tv">0%</span></div>
+          <button class="play-btn" onclick="playLift()">▶ play the lift</button>
+        </div>
+        <div class="demo-out" id="out-lift"></div>
+        <div class="demo-canvas-wrap">
+          <div class="legend">
+            <span class="lg"><i style="background:#f43f5e"></i>class A (middle)</span>
+            <span class="lg"><i style="background:#3b82f6"></i>class B (outside)</span>
+            <span class="lg ln"><i></i>a flat boundary</span>
+          </div>
+          <canvas id="cv-lift" height="330"></canvas>
+        </div>
+      </div>
+      <div class="callout green">
+        ✨ <strong>And here is why it is called a <em>trick</em>.</strong> Building those extra coordinates is expensive — some useful lifts have thousands of dimensions, some are infinite. SVM never builds them. Everything in the maths only ever needs to know <strong>how similar two points are</strong> in the big space, and a <strong>kernel</strong> is a small function that answers that directly from the original coordinates. You get the power of the huge space for the price of the small one.
+      </div>
+      <p class="m-desc">Which lift you get is chosen by the <code>kernel=</code> argument. The four that ship with <code>SVC</code>:</p>
+
+      <div class="kbox" style="border-color:rgba(59,130,246,.35)">
+        <h4 style="color:var(--blue)"><span class="kt" style="background:rgba(59,130,246,.14);color:var(--blue)">kernel='linear'</span></h4>
+        <div class="prob">↳ Problem: none — the classes are already separable by a straight cut.</div>
+        <div class="sol">↳ What it does: no lift at all. The plain hyperplane from the main deck.</div>
+        <figure class="kernel-illustration" aria-label="Linear kernel separating two classes with a straight decision boundary">
+          <svg viewBox="0 0 620 180" role="img">
+            <defs><pattern id="grid-linear" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" class="grid-line" fill="none"/></pattern></defs>
+            <rect width="620" height="180" fill="url(#grid-linear)"/><path d="M0 180L350 0H620V180Z" fill="#3b82f6" class="region"/>
+            <g class="class-a"><circle cx="92" cy="48" r="7"/><circle cx="145" cy="67" r="7"/><circle cx="194" cy="42" r="7"/><circle cx="220" cy="82" r="7"/><circle cx="270" cy="62" r="7"/></g>
+            <g class="class-b"><circle cx="340" cy="130" r="7"/><circle cx="405" cy="112" r="7"/><circle cx="458" cy="141" r="7"/><circle cx="510" cy="104" r="7"/><circle cx="552" cy="132" r="7"/></g>
+            <path d="M270 180L620 0" class="boundary" stroke="#60a5fa"/><text x="430" y="28">one straight cut</text>
+          </svg><figcaption class="kernel-caption">Linear: one flat boundary divides the two groups.</figcaption>
+        </figure>
+        <p class="body">Fastest, and the only kernel where <code>coef_</code> exists, so it is the only one you can read as "feature 3 mattered this much". Reach for it first with lots of features and few rows — text, for example.</p>
+      </div>
+
+      <div class="kbox" style="border-color:rgba(249,115,22,.35)">
+        <h4 style="color:var(--orange)"><span class="kt" style="background:rgba(249,115,22,.14);color:var(--orange)">kernel='poly'</span></h4>
+        <div class="prob">↳ Problem: the frontier between the classes is <strong>curved but smooth</strong> — a parabola, an ellipse, a bowl.</div>
+        <div class="sol">↳ What it does: adds products and powers of the original features as new coordinates, so a flat cut up there is a smooth curve down here.</div>
+        <figure class="kernel-illustration" aria-label="Polynomial kernel separating classes with a smooth curved boundary">
+          <svg viewBox="0 0 620 180" role="img">
+            <defs><pattern id="grid-poly" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" class="grid-line" fill="none"/></pattern></defs>
+            <rect width="620" height="180" fill="url(#grid-poly)"/><path d="M0 154Q310 12 620 154V180H0Z" fill="#f97316" class="region"/>
+            <g class="class-a"><circle cx="95" cy="47" r="7"/><circle cx="176" cy="68" r="7"/><circle cx="260" cy="86" r="7"/><circle cx="355" cy="76" r="7"/><circle cx="500" cy="50" r="7"/></g>
+            <g class="class-b"><circle cx="90" cy="154" r="7"/><circle cx="190" cy="135" r="7"/><circle cx="310" cy="118" r="7"/><circle cx="430" cy="137" r="7"/><circle cx="535" cy="154" r="7"/></g>
+            <path d="M0 132Q310 -10 620 132" class="boundary" stroke="#fb923c"/><text x="405" y="108">smooth bend</text>
+          </svg><figcaption class="kernel-caption">Polynomial: a smooth curve follows a broad, regular bend.</figcaption>
+        </figure>
+        <p class="body">Controlled by <code>degree</code> (2 = gentle bends, 5 = wild) and <code>coef0</code>. Degree 2 or 3 is almost always the useful range; higher degrees overfit fast and train slowly.</p>
+      </div>
+
+      <div class="kbox" style="border-color:rgba(16,185,129,.35)">
+        <h4 style="color:var(--green)"><span class="kt" style="background:rgba(16,185,129,.14);color:var(--green)">kernel='rbf'</span> <span style="font-size:.66rem;color:var(--accent);font-family:'Segoe UI',sans-serif;">the default</span></h4>
+        <div class="prob">↳ Problem: the classes form <strong>blobs, islands and rings</strong> with no simple shape at all — one class completely surrounded by the other.</div>
+        <div class="sol">↳ What it does: gives every training point a bubble of influence that fades with distance, and builds the boundary out of those bubbles. It can wrap around anything.</div>
+        <figure class="kernel-illustration" aria-label="RBF kernel wrapping a circular boundary around an inner class">
+          <svg viewBox="0 0 620 180" role="img">
+            <defs><pattern id="grid-rbf" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" class="grid-line" fill="none"/></pattern></defs>
+            <rect width="620" height="180" fill="url(#grid-rbf)"/><ellipse cx="310" cy="90" rx="130" ry="70" fill="#10b981" class="region"/>
+            <g class="class-a"><circle cx="270" cy="70" r="7"/><circle cx="315" cy="58" r="7"/><circle cx="350" cy="88" r="7"/><circle cx="287" cy="112" r="7"/><circle cx="330" cy="120" r="7"/></g>
+            <g class="class-b"><circle cx="95" cy="45" r="7"/><circle cx="115" cy="138" r="7"/><circle cx="205" cy="155" r="7"/><circle cx="425" cy="153" r="7"/><circle cx="515" cy="125" r="7"/><circle cx="525" cy="48" r="7"/><circle cx="430" cy="28" r="7"/></g>
+            <ellipse cx="310" cy="90" rx="145" ry="78" class="boundary" stroke="#34d399"/><text x="455" y="91">wraps an island</text>
+          </svg><figcaption class="kernel-caption">RBF: a flexible closed boundary can isolate blobs, islands, or rings.</figcaption>
+        </figure>
+        <p class="body">Controlled by <code>gamma</code> — how tight each bubble is. Small gamma = broad, smooth, almost linear. Large gamma = tiny bubbles that hug individual points, and the model memorizes the training set. This is the most powerful kernel and the easiest one to overfit with.</p>
+      </div>
+
+      <div class="kbox" style="border-color:rgba(236,72,153,.35)">
+        <h4 style="color:var(--pink)"><span class="kt" style="background:rgba(236,72,153,.14);color:var(--pink)">kernel='sigmoid'</span></h4>
+        <div class="prob">↳ Problem: historical — it mimics the activation used in a two-layer neural network.</div>
+        <div class="sol">↳ What it does: produces boundaries in a similar family to a small neural net.</div>
+        <figure class="kernel-illustration" aria-label="Sigmoid kernel separating classes with an S-shaped boundary">
+          <svg viewBox="0 0 620 180" role="img">
+            <defs><pattern id="grid-sigmoid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" class="grid-line" fill="none"/></pattern></defs>
+            <rect width="620" height="180" fill="url(#grid-sigmoid)"/>
+            <g class="class-a"><circle cx="100" cy="45" r="7"/><circle cx="165" cy="60" r="7"/><circle cx="225" cy="78" r="7"/><circle cx="275" cy="125" r="7"/><circle cx="340" cy="142" r="7"/></g>
+            <g class="class-b"><circle cx="280" cy="38" r="7"/><circle cx="345" cy="53" r="7"/><circle cx="395" cy="101" r="7"/><circle cx="465" cy="122" r="7"/><circle cx="535" cy="140" r="7"/></g>
+            <path d="M195 0C205 70 390 105 405 180" class="boundary" stroke="#ec4899"/><text x="420" y="36">S-shaped response</text>
+          </svg><figcaption class="kernel-caption">Sigmoid: a neural-network-like response creates an S-shaped transition.</figcaption>
+        </figure>
+        <p class="body">Included for completeness and rarely the best answer in practice. It is also the one kernel that is not always a valid similarity measure for every setting of its parameters, so it can behave oddly. Try <code>rbf</code> first.</p>
+      </div>
+
+      <div class="callout blue">
+        📌 <strong>Practical order:</strong> start with <code>linear</code> — if it is good enough, it is fast, interpretable and hard to overfit. If the score is poor, go to <code>rbf</code> and tune <code>C</code> and <code>gamma</code> together with a grid search. Try <code>poly</code> when you have a reason to believe the frontier is a smooth curve. Go to <a onclick="goTo(10)" style="color:var(--accent);cursor:pointer;font-weight:700;">appendix A2</a> and see all four at once.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(13)">← Exercises</button>
+        <div class="pnav-dots" id="dots-9"></div>
+        <button class="pnav-btn next" onclick="goTo(10)">Kernel playground →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 10: Kernel playground ══ -->
+    <div class="panel" id="panel-10">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1501139083538-0139583c060f?w=900&q=75&fit=crop&h=200" alt="Playground" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Appendix A2 · Play</div>
+          <div class="m-name">Kernel playground</div>
+          <div class="m-tagline">Four kernels, four datasets, a real solver behind every frame</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">SVC(kernel=…, C=…, gamma=…, degree=…)</span>
+        <span class="pill pill-ret">→ the shaded regions are the decision function</span>
+      </div>
+      <p class="m-desc">Everything below is fitted in your browser by a real SVM solver, not a pre-drawn picture. Change a control and the model is refit from scratch. The shading is the decision region, the circled points are the support vectors.</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — pick a dataset it cannot solve, then find the kernel that can</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>dataset</label>
+            <div class="seg" id="kp-data">
+              <button class="on" onclick="setKData('blobs')">blobs</button><button onclick="setKData('circles')">circles</button><button onclick="setKData('xor')">xor</button><button onclick="setKData('moons')">moons</button>
+            </div>
+          </div>
+          <div class="ctrl"><label>kernel</label>
+            <div class="seg" id="kp-kern">
+              <button class="on" onclick="setKKern('linear')">linear</button><button onclick="setKKern('poly')">poly</button><button onclick="setKKern('rbf')">rbf</button><button onclick="setKKern('sigmoid')">sigmoid</button>
+            </div>
+          </div>
+        </div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>C — cost of a mistake</label><input type="range" min="0" max="100" value="55" step="1" id="kp-c" oninput="drawKPlay()"><span class="cval" id="kp-cv">1.78</span></div>
+          <div class="ctrl"><label>gamma — how tight the bubbles are</label><input type="range" min="0" max="100" value="50" step="1" id="kp-g" oninput="drawKPlay()"><span class="cval" id="kp-gv">0.50</span></div>
+          <div class="ctrl"><label>degree — poly only</label><input type="range" min="2" max="5" value="3" step="1" id="kp-d" oninput="drawKPlay()"><span class="cval" id="kp-dv">3</span></div>
+        </div>
+        <div class="demo-out" id="out-kplay"></div>
+        <div class="demo-canvas-wrap">
+          <div class="legend">
+            <span class="lg"><i style="background:#f43f5e"></i>class −1</span>
+            <span class="lg"><i style="background:#3b82f6"></i>class +1</span>
+            <span class="lg sv"><i></i>support vector</span>
+            <span class="lg ln"><i></i>boundary</span>
+          </div>
+          <canvas id="cv-kplay" height="360"></canvas>
+        </div>
+      </div>
+      <div class="callout orange">
+        🧪 <strong>Three experiments worth doing right now:</strong><br>
+        1 · <strong>circles + linear</strong> — accuracy stalls around 64% and nearly every point becomes a support vector, because no straight line can wrap around a ring. Switch to <code>rbf</code> and it snaps to 100% with a handful of SVs.<br>
+        2 · <strong>xor + linear</strong> — stuck at 75%: three quadrants right, one always wrong. Now switch to <code>poly</code> with <code>degree = 2</code> and it hits 100% using only <strong>6</strong> support vectors — a clean cross-shaped boundary.<br>
+        3 · <strong>moons + rbf</strong> — at the default gamma you get ~93% with about 24 support vectors. Push <code>gamma</code> all the way right: accuracy climbs to ~98%, but the support-vector count jumps to <strong>51 of 56</strong> and the boundary breaks into islands hugging individual points. Higher score, worse model. That is overfitting, live.
+      </div>
+      <div class="callout green">
+        💡 <strong>C and gamma interact.</strong> They are almost never tuned separately — a big gamma with a big C memorizes the data, a small gamma with a small C underfits. In real work you search them together on a log grid: <code>GridSearchCV(SVC(), {'C': [0.1, 1, 10, 100], 'gamma': [0.001, 0.01, 0.1, 1]})</code>.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(9)">← Why kernels</button>
+        <div class="pnav-dots" id="dots-10"></div>
+        <button class="pnav-btn next" onclick="goTo(16)">Appendix A3 →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 11: Evaluation ══ -->
+    <div class="panel" id="panel-11">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1509228627152-72ae9ae6848d?w=900&q=75&fit=crop&h=200" alt="Scores" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">SVM 05 / 07 · The Score</div>
+          <div class="m-name">Evaluation</div>
+          <div class="m-tagline">Accuracy alone lies. The matrix does not.</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">confusion_matrix(y_true, y_pred)</span>
+        <span class="pill pill-sig">classification_report(y_true, y_pred)</span>
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — evaluating the model</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">from</span> sklearn.metrics <span class="kw">import</span> confusion_matrix, accuracy_score, classification_report
+
+y_pred = clf.<span class="fn">predict</span>(points)
+
+cm = <span class="fn">confusion_matrix</span>(labels, y_pred)
+<span class="fn">print</span>(<span class="str">"Confusion matrix:\n"</span>, cm)
+<span class="fn">print</span>(<span class="str">"Accuracy:"</span>, <span class="fn">accuracy_score</span>(labels, y_pred))
+<span class="fn">print</span>(<span class="str">"Classification Report:\n"</span>)
+<span class="fn">print</span>(<span class="fn">classification_report</span>(labels, y_pred))</pre>
+      </div>
+      <p class="m-desc">On our eight training points the model is perfect, so the matrix is diagonal:</p>
+      <div class="cm-grid">
+        <div></div>
+        <div class="cm-head">predicted 0</div>
+        <div class="cm-head">predicted 1</div>
+        <div class="cm-head">actual 0</div>
+        <div class="cm-cell tn">4<small>correct</small></div>
+        <div class="cm-cell fp">0<small>false 1</small></div>
+        <div class="cm-head">actual 1</div>
+        <div class="cm-cell fn">0<small>false 0</small></div>
+        <div class="cm-cell tp">4<small>correct</small></div>
+      </div>
+      <div class="callout blue">
+        🖨️ <strong>What class printed:</strong>
+        <pre style="background:#010409;border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-top:10px;font-family:'Courier New',monospace;font-size:.78rem;color:#10b981;">Confusion matrix:
+ [[4 0]
+  [0 4]]
+Accuracy: 1.0
+
+              precision    recall  f1-score   support
+           0       1.00      1.00      1.00         4
+           1       1.00      1.00      1.00         4
+    accuracy                           1.00         8</pre>
+      </div>
+      <div class="callout orange">
+        ⚠️ <strong>A perfect score on eight training points means nothing.</strong> We evaluated on the same rows we fitted on, and the classes are miles apart. This is a demonstration of the API, not evidence the model is good. On real data: <code>train_test_split</code> first, and score on the half the model has never seen.
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue">metric</th><th class="blue">formula</th><th class="blue">the question it answers</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>accuracy</td><td>\(\frac{TP+TN}{\text{all}}\)</td><td>What share of predictions were right? Useless when classes are imbalanced.</td></tr>
+          <tr class="show"><td>precision</td><td>\(\frac{TP}{TP+FP}\)</td><td>When it says "yes", how often is it right?</td></tr>
+          <tr class="show"><td>recall</td><td>\(\frac{TP}{TP+FN}\)</td><td>Of all the real "yes" cases, how many did it catch?</td></tr>
+          <tr class="show"><td>f1-score</td><td>\(2\cdot\frac{P\cdot R}{P+R}\)</td><td>One number balancing the two — the harmonic mean.</td></tr>
+          <tr class="show"><td>support</td><td>—</td><td>How many true rows of that class exist. Not a score.</td></tr>
+        </tbody>
+      </table>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — slide the decision threshold and watch the matrix fall apart</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>threshold on decision_function</label><input type="range" min="-40" max="40" value="0" step="1" id="ev-t" oninput="drawEval()"><span class="cval" id="ev-tv">0.00</span></div>
+        </div>
+        <div class="demo-out" id="out-eval"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-eval" height="330"></canvas></div>
+      </div>
+      <div class="callout green">
+        💡 <strong>Why a threshold slider?</strong> <code>predict</code> is just <code>decision_function(X) > 0</code>. Move that 0 and you trade precision against recall — the exact knob you turn when a false negative costs far more than a false positive, such as in medical screening.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(8)">← SVC in sklearn</button>
+        <div class="pnav-dots" id="dots-11"></div>
+        <button class="pnav-btn next" onclick="goTo(12)">Pros &amp; cons →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 12: Pros & cons ══ -->
+    <div class="panel" id="panel-12">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1464802686167-b939a6910659?w=900&q=75&fit=crop&h=200" alt="Balance" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">SVM 06 / 07 · The Verdict</div>
+          <div class="m-name">Pros &amp; cons</div>
+          <div class="m-tagline">When to reach for SVM, and when to walk away</div>
+        </div>
+      </div>
+      <div class="pc-grid">
+        <div class="pc good">
+          <h4>✅ Advantages</h4>
+          <ol>
+            <li><strong>Works in very high dimensions</strong> — even when you have more features than rows, which breaks most other models.</li>
+            <li><strong>Memory-light at prediction time</strong> — only the support vectors are stored, often a small fraction of the data.</li>
+            <li><strong>One global optimum</strong> — convex problem, so no random seeds, no local minima, reproducible every run.</li>
+            <li><strong>Kernels are a genuine superpower</strong> — swap one string and you get curved, ring-shaped or island boundaries.</li>
+            <li><strong>Margin maximization resists overfitting</strong> better than a boundary that merely separates.</li>
+          </ol>
+        </div>
+        <div class="pc bad">
+          <h4>❌ Disadvantages</h4>
+          <ol>
+            <li><strong>Scales badly with rows</strong> — training cost grows roughly between n² and n³. Beyond ~100k samples it becomes painful.</li>
+            <li><strong>No probabilities out of the box</strong> — <code>probability=True</code> runs an extra internal cross-validation and is slow.</li>
+            <li><strong>Very sensitive to feature scaling</strong> — forget the scaler and the result is garbage.</li>
+            <li><strong>C and gamma must be tuned</strong> — the defaults are rarely the best, and a grid search costs time.</li>
+            <li><strong>Hard to interpret with a kernel</strong> — with rbf there is no <code>coef_</code>, so you cannot say which feature drove the decision.</li>
+            <li><strong>Sensitive to outliers</strong> near the boundary — a single mislabelled point can drag the corridor.</li>
+          </ol>
+        </div>
+      </div>
+      <div class="callout blue">
+        ⚖️ <strong>Honest verdict.</strong> SVM is excellent on small-to-medium, clean, well-scaled datasets — especially wide ones like text and gene expression. On big tabular data with hundreds of thousands of rows, gradient-boosted trees will usually be both faster and more accurate. Learn SVM anyway: the margin idea and the kernel trick show up everywhere in machine learning.
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue">use SVM when…</th><th class="blue">use something else when…</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>Fewer than ~50k rows</td><td>Hundreds of thousands of rows → SGDClassifier / LightGBM</td></tr>
+          <tr class="show"><td>Many features, few samples (text, genomics)</td><td>You need calibrated probabilities → logistic regression</td></tr>
+          <tr class="show"><td>Clear separation between classes</td><td>Heavy class overlap and noise → trees / boosting</td></tr>
+          <tr class="show"><td>The boundary is curved but the data is clean</td><td>You must explain each prediction to a regulator</td></tr>
+        </tbody>
+      </table>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(11)">← Evaluation</button>
+        <div class="pnav-dots" id="dots-12"></div>
+        <button class="pnav-btn next" onclick="goTo(13)">Exercises →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 13: Exercises ══ -->
+    <div class="panel" id="panel-13">
+      <div class="exercise-header">
+        <div class="exercise-badge">✍</div>
+        <div>
+          <h2 style="font-size:1.4rem;margin-bottom:6px;">Exercises</h2>
+          <p style="font-size:.88rem;color:var(--muted);margin:0;">Paper first, then code. Every answer is checkable against a demo somewhere in this deck.</p>
+        </div>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q1</span><strong>Signed distance by hand</strong></div>
+        <div class="ex-task">The hyperplane is \(2x_1 - x_2 + x_3 + x_4 - 4 = 0\). Compute the signed distance of \(P_7 = (1, 0, 2, 1)\) without running any code, then verify with the function from class.</div>
+        <details class="hint"><summary>▸ hint</summary><div class="ex-task" style="margin-top:8px">Numerator: 2·1 − 0 + 2 + 1 − 4 = 1. Denominator: √(4+1+1+1) = √7. So +1/√7 ≈ <strong>+0.378</strong> — above the plane.</div></details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q2</span><strong>Margin from w</strong></div>
+        <div class="ex-task">A trained linear SVC returns <code>coef_ = [[3, 4]]</code>. What is the full margin width? How far is the point (2, 2) from the boundary if <code>intercept_ = [-10]</code>?</div>
+        <details class="hint"><summary>▸ hint</summary><div class="ex-task" style="margin-top:8px">‖w‖ = √(9+16) = 5, so margin = 2/5 = <strong>0.4</strong>. For the point: (6 + 8 − 10)/5 = 4/5 = <strong>+0.8</strong> — on the positive side, and outside the corridor since 0.8 &gt; 0.2.</div></details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q3</span><strong>Read decision_function</strong></div>
+        <div class="ex-task">Fit <code>SVC(kernel='linear')</code> on the eight points and print <code>clf.decision_function(points)</code>. Which two rows come out as exactly ±1, and why those two? Then confirm that <code>clf.predict(points)</code> is nothing more than <code>decision_function(points) &gt; 0</code>.</div>
+        <details class="hint"><summary>▸ hint</summary><div class="ex-task" style="margin-top:8px">Rows 3 and 4 — <code>(2.5, 3.5)</code> and <code>(5, 5)</code> — the support vectors. SVM fixes the scale of <code>w</code> and <code>b</code> precisely so they land on ±1, which is where <code>margin = 2/‖w‖</code> comes from. Everything else is further out, so its value is bigger than 1 in absolute terms.</div></details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q4</span><strong>Delete the non-support vectors</strong></div>
+        <div class="ex-task">Fit <code>SVC(kernel='linear')</code> on the eight points. Now drop every row that is <em>not</em> in <code>clf.support_vectors_</code> and refit on the two rows that remain. Compare <code>coef_</code> and <code>intercept_</code>. Explain the result in one sentence.</div>
+        <details class="hint"><summary>▸ hint</summary><div class="ex-task" style="margin-top:8px">They are identical. The optimization only ever felt the constraints that were tight, and those are exactly the support vectors — the other six were never binding.</div></details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q5</span><strong>Scaling matters</strong></div>
+        <div class="ex-task">Multiply the first column of <code>points</code> by 1000, refit, and compare accuracy and <code>coef_</code> with the unscaled fit. Then wrap the model in <code>make_pipeline(StandardScaler(), SVC())</code> and try again.</div>
+        <details class="hint"><summary>▸ hint</summary><div class="ex-task" style="margin-top:8px">The inflated column dominates ‖w‖, so the margin is measured almost entirely along it and the second feature is effectively ignored. The pipeline restores both columns to comparable ranges.</div></details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q6</span><strong>Beat the linear kernel</strong></div>
+        <div class="ex-task">Generate a ring dataset with <code>sklearn.datasets.make_circles(n_samples=200, factor=0.4, noise=0.08)</code>. Score <code>SVC(kernel='linear')</code> and <code>SVC(kernel='rbf')</code>. Then push <code>gamma</code> to 100 and score again — on train and on test separately.</div>
+        <details class="hint"><summary>▸ hint</summary><div class="ex-task" style="margin-top:8px">Linear lands near 50%, rbf near 100%. With <code>gamma=100</code> the train score stays at 1.0 while the test score falls — the textbook signature of overfitting. The <a onclick="goTo(10)" style="color:var(--accent);cursor:pointer;font-weight:700;">kernel playground</a> shows the same thing visually.</div></details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q7</span><strong>Grid search</strong></div>
+        <div class="ex-task">Run <code>GridSearchCV</code> over <code>C ∈ {0.1, 1, 10, 100}</code> and <code>gamma ∈ {0.001, 0.01, 0.1, 1}</code> on the ring data with 5-fold CV. Print <code>best_params_</code> and <code>best_score_</code>. Does the best gamma match the one that looked best in the playground?</div>
+      </div>
+
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(12)">← Pros &amp; cons</button>
+        <div class="pnav-dots" id="dots-13"></div>
+        <button class="pnav-btn next" onclick="goTo(9)">Appendix A1 →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 16: A3 parameters ══ -->
+    <div class="panel" id="panel-16">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1543286386-2e659306cd6c?w=900&q=75&fit=crop&h=200" alt="Controls" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Appendix A3 · Reference</div>
+          <div class="m-name">SVC parameters</div>
+          <div class="m-tagline">Every knob on the class, and which two actually matter</div>
+        </div>
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — the signature, with defaults</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="cls">SVC</span>(C=<span class="num">1.0</span>, kernel=<span class="str">'rbf'</span>, degree=<span class="num">3</span>, gamma=<span class="str">'scale'</span>, coef0=<span class="num">0.0</span>,
+    shrinking=<span class="kw">True</span>, probability=<span class="kw">False</span>, tol=<span class="num">0.001</span>, cache_size=<span class="num">200</span>,
+    class_weight=<span class="kw">None</span>, max_iter=-<span class="num">1</span>, decision_function_shape=<span class="str">'ovr'</span>,
+    random_state=<span class="kw">None</span>)</pre>
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue">parameter</th><th class="blue">default</th><th class="blue">what it does</th></tr></thead>
+        <tbody>
+          <tr class="show"><td><code>C</code></td><td>1.0</td><td><strong>Tune this.</strong> The price of letting a point sit inside the corridor. Big = strict and narrow, small = forgiving and wide.</td></tr>
+          <tr class="show"><td><code>kernel</code></td><td>'rbf'</td><td><code>'linear'</code>, <code>'poly'</code>, <code>'rbf'</code>, <code>'sigmoid'</code>, or your own callable.</td></tr>
+          <tr class="show"><td><code>gamma</code></td><td>'scale'</td><td><strong>Tune this</strong> for rbf/poly/sigmoid. How tightly each point's influence is felt. <code>'scale'</code> = 1/(n_features·X.var()), <code>'auto'</code> = 1/n_features.</td></tr>
+          <tr class="show"><td><code>degree</code></td><td>3</td><td>Only used by <code>'poly'</code>. Ignored by every other kernel.</td></tr>
+          <tr class="show"><td><code>coef0</code></td><td>0.0</td><td>The constant term in <code>'poly'</code> and <code>'sigmoid'</code>. Ignored by linear and rbf.</td></tr>
+          <tr class="show"><td><code>class_weight</code></td><td>None</td><td><code>'balanced'</code> reweights classes by inverse frequency — the first thing to try on imbalanced data.</td></tr>
+          <tr class="show"><td><code>probability</code></td><td>False</td><td>Enables <code>predict_proba</code> via internal 5-fold Platt scaling. Slow to fit, and can disagree with <code>predict</code>.</td></tr>
+          <tr class="show"><td><code>decision_function_shape</code></td><td>'ovr'</td><td>Shape of the <code>decision_function</code> output for multi-class. Cosmetic — the underlying fit is always one-vs-one.</td></tr>
+          <tr class="show"><td><code>tol</code> / <code>max_iter</code></td><td>1e-3 / −1</td><td>Stopping rules. <code>max_iter=-1</code> means run until converged. Raise <code>tol</code> if a big fit will not finish.</td></tr>
+          <tr class="show"><td><code>cache_size</code></td><td>200</td><td>MB of kernel cache. Raising it to 1000 can genuinely speed up a large fit.</td></tr>
+        </tbody>
+      </table>
+      <div class="callout orange">
+        🔢 <strong>Multi-class with SVC.</strong> SVM is binary at heart. Give <code>SVC</code> three or more classes and it silently trains <strong>one classifier per pair</strong> — n·(n−1)/2 of them — and votes. Ten classes means 45 models, which is why SVC gets slow on many-class problems. <code>decision_function_shape='ovr'</code> only reshapes the <em>output</em>; it does not change how the fitting is done.
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — the shape you should actually write</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">from</span> sklearn.pipeline <span class="kw">import</span> make_pipeline
+<span class="kw">from</span> sklearn.preprocessing <span class="kw">import</span> <span class="cls">StandardScaler</span>
+<span class="kw">from</span> sklearn.model_selection <span class="kw">import</span> train_test_split, <span class="cls">GridSearchCV</span>
+<span class="kw">from</span> sklearn.svm <span class="kw">import</span> <span class="cls">SVC</span>
+
+X_train, X_test, y_train, y_test = <span class="fn">train_test_split</span>(X, y, test_size=<span class="num">0.25</span>,
+                                                    random_state=<span class="num">42</span>, stratify=y)
+
+pipe = <span class="fn">make_pipeline</span>(<span class="cls">StandardScaler</span>(), <span class="cls">SVC</span>(kernel=<span class="str">'rbf'</span>))
+
+grid = <span class="cls">GridSearchCV</span>(pipe, {
+    <span class="str">'svc__C'</span>:     [<span class="num">0.1</span>, <span class="num">1</span>, <span class="num">10</span>, <span class="num">100</span>],
+    <span class="str">'svc__gamma'</span>: [<span class="num">0.001</span>, <span class="num">0.01</span>, <span class="num">0.1</span>, <span class="num">1</span>],
+}, cv=<span class="num">5</span>, n_jobs=-<span class="num">1</span>)
+
+grid.<span class="fn">fit</span>(X_train, y_train)
+<span class="fn">print</span>(grid.best_params_, grid.best_score_)
+<span class="fn">print</span>(<span class="str">'test:'</span>, grid.<span class="fn">score</span>(X_test, y_test))</pre>
+      </div>
+      <div class="callout green">
+        ✅ <strong>The scaler goes inside the pipeline, not before the split.</strong> Fitting a scaler on the full dataset lets test-set statistics leak into training. Inside a pipeline, <code>GridSearchCV</code> refits the scaler on each training fold only — which is the whole point.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(10)">← Kernel playground</button>
+        <div class="pnav-dots" id="dots-16"></div>
+        <button class="pnav-btn next" onclick="goTo(0)">Back to Overview →</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="svm.js"></script>
+</body>
+</html>

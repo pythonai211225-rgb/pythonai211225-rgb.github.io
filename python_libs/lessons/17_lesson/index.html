@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 17 - Support Vector Machines (SVM)</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      renderMathInElement(document.body, {
+        delimiters: [
+          { left: '$$', right: '$$', display: true },
+          { left: '\\(', right: '\\)', display: false }
+        ],
+        throwOnError: false
+      });
+    });
+  </script>
+  <style>
+    :root {
+      --bg: #f8fbff;
+      --surface: #ffffff;
+      --ink: #142033;
+      --muted: #52657d;
+      --blue: #2563eb;
+      --blue-dark: #143b73;
+      --cyan: #e7fbff;
+      --green: #0f9f6e;
+      --orange: #f97316;
+      --red: #dc2626;
+      --purple: #7c3aed;
+      --border: #bfd0ea;
+      --code-bg: #101a2c;
+      --code-text: #dceaff;
+      --soft-blue: #eef6ff;
+      --soft-green: #effbf5;
+      --soft-orange: #fff7ed;
+      --soft-red: #fef2f2;
+      --soft-purple: #f5f1ff;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Trebuchet MS", "Lucida Sans", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 10%, #e9f7ff 0%, transparent 34%),
+        radial-gradient(circle at 88% 18%, #effbf5 0%, transparent 32%),
+        linear-gradient(180deg, var(--bg) 0%, #ffffff 56%, #f1f8ff 100%);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    .wrap { max-width: 1140px; margin: 0 auto; padding: 28px 20px 60px; }
+    .layout { display: grid; grid-template-columns: 262px 1fr; gap: 22px; align-items: start; }
+
+    .side-nav {
+      position: sticky; top: 20px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 18px 14px;
+      box-shadow: 0 4px 16px rgba(37,99,235,.08);
+      max-height: calc(100vh - 40px); overflow-y: auto;
+    }
+    .side-title { font-size: .8rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--blue); margin: 0 0 10px; }
+    .part-label { display: block; padding: 8px 4px 4px; font-size: .7rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--green); }
+    .topic-link {
+      display: block; width: 100%; border: 1px solid transparent; border-radius: 9px;
+      padding: 7px 10px; background: transparent; color: var(--muted); cursor: pointer;
+      text-align: left; font: inherit; margin: 2px 0; transition: .16s ease;
+    }
+    .topic-link:hover { background: #f0f7ff; color: var(--blue-dark); border-color: var(--border); }
+    .topic-link.active { background: #e9f1ff; color: var(--blue-dark); border-color: var(--blue); font-weight: 700; }
+    .side-divider { border: none; border-top: 1px solid var(--border); margin: 12px 4px; }
+    .nav-back { display: block; padding: 7px 10px; color: var(--blue); font-weight: 700; text-decoration: none; font-size: .9rem; }
+    .nav-back:hover { text-decoration: underline; }
+
+    .hero {
+      background: linear-gradient(135deg, var(--surface) 0%, var(--soft-blue) 54%, var(--soft-green) 100%);
+      border: 1px solid var(--border); border-radius: 16px; padding: 28px;
+      box-shadow: 0 12px 30px rgba(37,99,235,.12); margin-bottom: 22px;
+    }
+    .tag { display: inline-block; padding: 5px 12px; border-radius: 999px; background: #e7fbff; color: #0f766e; font-weight: 800; font-size: .82rem; border: 1px solid #99e6ef; }
+    h1 { margin: 14px 0 10px; color: var(--blue-dark); font-size: clamp(2rem, 5vw, 3.2rem); line-height: 1.05; }
+    .hero p { max-width: 830px; color: var(--muted); font-size: 1.06rem; }
+    .hero-chips { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .hero-chip { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: .78rem; font-weight: 700; background: rgba(20,184,166,.1); color: #0f766e; border: 1px solid rgba(20,184,166,.3); }
+
+    .card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      padding: 22px; margin-bottom: 16px; box-shadow: 0 7px 22px rgba(37,99,235,.08);
+    }
+    .topic-panel { display: none; }
+    .topic-panel.active { display: block; }
+    .step-title { margin: 0 0 12px; color: var(--blue-dark); font-size: 1.25rem; }
+
+    code { font-family: Consolas, "Courier New", monospace; }
+
+    .math-card {
+      border: 1px solid #b7c8e4; border-radius: 12px;
+      background: linear-gradient(135deg, #ffffff 0%, #f1f7ff 100%);
+      padding: 18px; margin: 18px 0; text-align: center;
+    }
+    .math-caption { color: var(--muted); margin: 8px 0 0; font-size: .95rem; }
+    .katex { color: var(--blue-dark); }
+    .katex-display { margin: 6px 0; overflow-x: auto; overflow-y: hidden; padding: 3px 0; }
+    .data-table .katex, .math-caption .katex, p .katex { font-size: 1em; }
+
+    .resource-link { display: inline-block; color: var(--blue-dark); font-weight: 800; text-decoration: none; border-bottom: 2px solid rgba(37,99,235,.35); }
+    .resource-link:hover { color: var(--blue); border-bottom-color: var(--blue); }
+    .resource-links { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 4px; }
+
+    .code {
+      background: var(--code-bg); color: var(--code-text); border-radius: 10px;
+      border: 1px solid #304563; padding: 16px 18px; overflow-x: auto; margin: 12px 0;
+      font-size: .95rem; line-height: 1.5; white-space: pre;
+    }
+    .output {
+      background: #f7fbff; color: #1a2d49; border: 1px solid var(--border);
+      border-left: 5px solid var(--blue); border-radius: 10px; padding: 12px 14px;
+      overflow-x: auto; margin: 8px 0 16px; font-family: Consolas, "Courier New", monospace; white-space: pre-wrap;
+    }
+    .output.warn { border-left-color: var(--red); background: var(--soft-red); }
+    .out-label { display: block; font-family: "Trebuchet MS", sans-serif; font-size: .72rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+
+    .note { background: var(--soft-orange); border: 1px solid #fed7aa; border-left: 5px solid var(--orange); border-radius: 10px; padding: 12px 14px; margin: 12px 0; }
+    .note.blue { background: var(--soft-blue); border-color: #bcd4f6; border-left-color: var(--blue); }
+    .note.red { background: var(--soft-red); border-color: #fecaca; border-left-color: var(--red); }
+    .note.green { background: var(--soft-green); border-color: #b6ebd4; border-left-color: var(--green); }
+    .note.purple { background: var(--soft-purple); border-color: #ddd0fb; border-left-color: var(--purple); }
+
+    .task-box { border: 1px solid var(--border); border-left: 5px solid var(--blue); border-radius: 10px; padding: 14px 16px; margin: 12px 0; background: #fbfdff; }
+    .task-num { font-weight: 900; color: var(--blue); text-transform: uppercase; letter-spacing: .08em; font-size: .78rem; }
+    .big-result { font-weight: 900; color: var(--blue-dark); font-size: 1.1rem; letter-spacing: .04em; text-transform: uppercase; margin-bottom: 8px; }
+
+    .data-table { width: 100%; border-collapse: collapse; margin: 16px 0; background: #fbfdff; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .data-table th { background: var(--soft-blue); color: var(--blue-dark); text-align: left; padding: 10px 14px; font-size: .9rem; border-bottom: 2px solid var(--border); }
+    .data-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); font-family: Consolas, "Courier New", monospace; }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table td.term { font-family: inherit; font-weight: 700; color: var(--blue-dark); }
+    .data-table tr.pick td { background: #fffbe8; }
+    .data-table tr.zero td { background: #f3f7ff; }
+
+    .ga { color: var(--red);   font-weight: 700; }
+    .gb { color: var(--blue);  font-weight: 700; }
+
+    .steps-strip { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; margin: 16px 0; }
+    .stepbox { border: 1px solid var(--border); border-radius: 10px; padding: 14px; background: #fbfdff; }
+    .stepbox .n { display: block; font-size: .72rem; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; color: var(--blue); margin-bottom: 4px; }
+    .stepbox strong { color: var(--blue-dark); }
+
+    .footer { text-align: center; color: var(--muted); font-size: .9rem; margin-top: 18px; }
+    .task-list { margin: 6px 0 0; padding-left: 20px; }
+    .task-list li { margin: 4px 0; }
+
+    .plot { display: block; margin: 14px auto 4px; background: #ffffff; border: 1px solid var(--border); border-radius: 10px; max-width: 100%; }
+    .plot-cap { text-align: center; color: var(--muted); font-size: .85rem; margin: 0 0 8px; }
+
+    @media (max-width: 860px) {
+      .layout { grid-template-columns: 1fr; }
+      .side-nav { position: static; max-height: none; }
+      .wrap { padding: 18px 12px 44px; }
+      .steps-strip { grid-template-columns: 1fr; }
+    }
+    /* ── GitHub-dark Python syntax colours ── */
+    pre.code.py { color: #c9d1d9; }
+    pre.code.py .hl-com     { color: #8b949e; font-style: italic; }
+    pre.code.py .hl-kw      { color: #ff7b72; }
+    pre.code.py .hl-str     { color: #a5d6ff; }
+    pre.code.py .hl-num     { color: #79c0ff; }
+    pre.code.py .hl-fn      { color: #d2a8ff; }
+    pre.code.py .hl-builtin { color: #ffa657; }
+  </style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="layout">
+    <aside class="side-nav">
+      <p class="side-title">Lesson 17</p>
+      <span class="part-label">Class Code</span>
+      <button class="topic-link active" data-target="topic-github">1. GitHub Repo</button>
+      <span class="part-label">Theory on the Board</span>
+      <button class="topic-link" data-target="topic-1">2. What SVM is</button>
+      <button class="topic-link" data-target="topic-2">3. The hyperplane equation</button>
+      <button class="topic-link" data-target="topic-3">4. Distance to a hyperplane</button>
+      <span class="part-label">Exercise 1 · 4D</span>
+      <button class="topic-link" data-target="topic-4">5. P3 by hand</button>
+      <button class="topic-link" data-target="topic-5">6. All ten points in code</button>
+      <span class="part-label">Exercise 2 · Brute Force</span>
+      <button class="topic-link" data-target="topic-6">7. The 2D dataset</button>
+      <button class="topic-link" data-target="topic-7">8. The search loop</button>
+      <button class="topic-link" data-target="topic-8">9. Plotting the result</button>
+      <span class="part-label">Doing It With sklearn</span>
+      <button class="topic-link" data-target="topic-9">10. SVC(kernel='linear')</button>
+      <button class="topic-link" data-target="topic-10">11. Plotting the model</button>
+      <button class="topic-link" data-target="topic-11">12. Evaluation</button>
+      <button class="topic-link" data-target="topic-12">13. The whole script</button>
+      <hr class="side-divider">
+      <a class="nav-back" href="../../13_svm/index.html">Theory deck: SVM</a>
+      <a class="nav-back" href="../../index.html">Back to Python libs</a>
+    </aside>
+
+    <main>
+      <section class="hero">
+        <span class="tag">Lesson - August 9, 2026</span>
+        <h1>Support Vector Machines: the code we wrote in class</h1>
+        <p>Today we measured distances to a hyperplane in 4D, then searched 10 000 candidate lines by hand before letting <code>SVC</code> do it properly in two lines. This page is the <strong>code</strong> from class, cell by cell, with the outputs we actually saw. The full theory - the margin, the optimization, kernels, the animations - lives in the <a class="resource-link" href="../../13_svm/index.html">SVM deck</a>.</p>
+        <div class="hero-chips">
+          <span class="hero-chip">hyperplane</span>
+          <span class="hero-chip">signed distance</span>
+          <span class="hero-chip">np.linalg.norm</span>
+          <span class="hero-chip">np.linspace</span>
+          <span class="hero-chip">brute force margin</span>
+          <span class="hero-chip">SVC</span>
+          <span class="hero-chip">coef_ / intercept_</span>
+          <span class="hero-chip">support_vectors_</span>
+          <span class="hero-chip">confusion_matrix</span>
+          <span class="hero-chip">classification_report</span>
+        </div>
+      </section>
+
+      <!-- ═══ 1. GITHUB ═══ -->
+      <section class="card topic-panel active" id="topic-github">
+        <h2 class="step-title">Open Class Code</h2>
+        <p>Open the original notebook from today's class on GitHub: <code>svm1_09_aug_2026.ipynb</code>.</p>
+        <div class="resource-links">
+          <a class="resource-link" href="https://github.com/pythonai211225-rgb/09.08.2026/blob/main/svm1_09_aug_2026.ipynb" target="_blank" rel="noopener">
+            pythonai211225-rgb/09.08.2026
+          </a>
+        </div>
+        <div class="note blue">This repository contains the class code for August 9, 2026.</div>
+        <p>The imports we started with:</p>
+        <pre class="code py"><code>import numpy as np
+import pandas as pd
+from IPython.display import display
+import matplotlib.pyplot as plt
+import seaborn as sns</code></pre>
+        <p>And the ones we added from <code>sklearn</code> once we moved past the manual version:</p>
+        <pre class="code py"><code>from sklearn.svm import SVC
+from sklearn.metrics import confusion_matrix, accuracy_score, classification_report</code></pre>
+        <div class="note"><strong>Only <code>SVC</code>.</strong> sklearn also ships <code>LinearSVC</code>, <code>NuSVC</code> and <code>SVR</code>. We used <code>SVC</code> for everything today, and everything on this page is <code>SVC</code>.</div>
+      </section>
+
+      <!-- ═══ 2. WHAT SVM IS ═══ -->
+      <section class="card topic-panel" id="topic-1">
+        <h2 class="step-title">What SVM is</h2>
+        <p><strong>SVM - Support Vector Machine</strong> is a <strong>supervised learning</strong> method: you hand it labelled examples and it learns a rule. It is used to <strong>classify</strong>, and with a different loss it can also do <strong>regression</strong>.</p>
+
+        <div class="math-card">
+          <p style="margin:0;font-size:1.06rem;color:var(--blue-dark);font-weight:700;">Find the boundary that separates the groups with the <em>largest possible</em> gap.</p>
+        </div>
+
+        <p>Note the two words doing the work: not just <em>a</em> boundary that separates - the boundary that separates by <strong>the most</strong>. Infinitely many lines can split two clouds of points; SVM picks the one with the widest empty corridor around it.</p>
+
+        <div class="steps-strip">
+          <div class="stepbox"><span class="n">Step 1</span><strong>Separate</strong><br>a line in 2D, a plane in 3D, a <em>hyperplane</em> in n dimensions.</div>
+          <div class="stepbox"><span class="n">Step 2</span><strong>Measure</strong><br>the distance from the boundary to the closest point of each group.</div>
+          <div class="stepbox"><span class="n">Step 3</span><strong>Maximize</strong><br>keep the boundary whose closest point is the furthest away.</div>
+        </div>
+
+        <p>The points that end up sitting on the edge of that corridor are the <strong>support vectors</strong>:</p>
+        <ul>
+          <li>They are the points closest to the separating surface.</li>
+          <li>They are the points that fix where the surface sits.</li>
+          <li>Move a point that is far away - the line does <strong>not</strong> move.</li>
+          <li>Move a support vector - the line <strong>does</strong> move.</li>
+        </ul>
+
+        <div class="note blue"><strong>Why "vector" and not "point"?</strong> In linear algebra every point is also a vector from the origin - <code>[3, 4]</code> is both the point (3,4) and the arrow that reaches it. These particular vectors <em>support</em> the position of the surface, so: support vectors.</div>
+
+        <div class="note"><strong>Where SVM is used.</strong> Handwriting and OCR, image classification, face recognition, medical prediction, sentiment analysis in text. It is especially strong when you have many features and not many rows.</div>
+
+        <div class="note green"><strong>Interactive version.</strong> The <a class="resource-link" href="../../13_svm/index.html">SVM deck</a> opens with a slider that rotates the boundary through every angle so you can watch the margin number peak. Worth two minutes.</div>
+      </section>
+
+      <!-- ═══ 3. HYPERPLANE ═══ -->
+      <section class="card topic-panel" id="topic-2">
+        <h2 class="step-title">The hyperplane equation</h2>
+        <p>The separating surface always has the same equation, whatever the number of features:</p>
+
+        <div class="math-card">
+          <p>$$w^{T}x + b = 0$$</p>
+          <p class="math-caption">In 2D that is a line, in 3D a plane, in nD a hyperplane. Same formula.</p>
+        </div>
+
+        <table class="data-table">
+          <thead><tr><th>symbol</th><th>name</th><th>what it is</th></tr></thead>
+          <tbody>
+            <tr><td class="term">w</td><td>weight vector</td><td>the direction of the surface - perpendicular to it</td></tr>
+            <tr><td class="term">x</td><td>the point</td><td>any point in the space (a row of features)</td></tr>
+            <tr><td class="term">wᵀx</td><td>dot product</td><td>the plain scalar product w₁x₁ + w₂x₂ + …</td></tr>
+            <tr><td class="term">b</td><td>bias</td><td>how far the surface sits from the origin</td></tr>
+          </tbody>
+        </table>
+
+        <p>The 2D example from the board - with <code>w = [2, -3]</code> and <code>b = 6</code>:</p>
+        <div class="math-card">
+          <p>$$2x_1 - 3x_2 + 6 = 0$$</p>
+        </div>
+
+        <p>And the whole classification rule is just the <strong>sign</strong> of the left-hand side:</p>
+        <table class="data-table">
+          <thead><tr><th>value of wᵀx + b</th><th>where the point is</th></tr></thead>
+          <tbody>
+            <tr><td>&gt; 0</td><td>on one side of the surface</td></tr>
+            <tr><td>&lt; 0</td><td>on the other side</td></tr>
+            <tr class="zero"><td>= 0</td><td>exactly <em>on</em> the surface</td></tr>
+          </tbody>
+        </table>
+
+        <div class="note blue"><strong>That is the whole prediction step.</strong> Once <code>w</code> and <code>b</code> are trained, classifying a new point costs one dot product, one addition and one look at the sign. Compare with KNN, which has to measure the distance to every training point at predict time.</div>
+      </section>
+
+      <!-- ═══ 4. DISTANCE ═══ -->
+      <section class="card topic-panel" id="topic-3">
+        <h2 class="step-title">Distance to a hyperplane</h2>
+        <p>Given a hyperplane \(w_1x_1 + w_2x_2 + \dots + w_nx_n + b = 0\) and a point \(x = (x_1, x_2, \dots, x_n)\), there are two formulas. They differ by exactly one pair of bars:</p>
+
+        <div class="math-card">
+          <p>$$\textbf{Distance}(x) = \frac{|\,w \cdot x + b\,|}{\sqrt{w_1^2 + w_2^2 + \dots + w_n^2}}$$</p>
+          <p class="math-caption">Absolute - never negative, just "how far".</p>
+        </div>
+
+        <div class="math-card">
+          <p>$$\textbf{SignedDistance}(x) = \frac{w \cdot x + b}{\sqrt{w_1^2 + w_2^2 + \dots + w_n^2}}$$</p>
+          <p class="math-caption">Signed - <em>which side</em> and <em>how far</em>, in one number.</p>
+        </div>
+
+        <table class="data-table">
+          <thead><tr><th>part</th><th>meaning</th></tr></thead>
+          <tbody>
+            <tr><td class="term">numerator</td><td>substitute the point into the plane equation</td></tr>
+            <tr><td class="term">denominator</td><td>the length of w - in Python this is <code>np.linalg.norm(w)</code></td></tr>
+            <tr><td class="term">with bars</td><td>drop the sign → a plain distance</td></tr>
+            <tr><td class="term">without bars</td><td>keep the sign → this is what <code>decision_function</code> returns</td></tr>
+          </tbody>
+        </table>
+
+        <div class="note"><strong>Why divide by ‖w‖?</strong> Because <code>2x − 3y + 6 = 0</code> and <code>4x − 6y + 12 = 0</code> are the same line, but the second gives numerators twice as big. Dividing by the length of w cancels that out, so the answer is a real distance in the units of the axes.</div>
+
+        <p>The function we wrote for two features:</p>
+        <pre class="code py"><code>def get_signed_distance(point, w1, w2, b):
+    x1, x2 = point
+    numerator   = x1 * w1 + x2 * w2 + b
+    denominator = np.sqrt(w1**2 + w2**2)   # = np.linalg.norm([w1, w2])
+    vec_dist = numerator / denominator
+    return vec_dist
+
+def get_abs_distance(point, w1, w2, b):
+    return np.abs(get_signed_distance(point, w1, w2, b))</code></pre>
+
+        <div class="note blue"><strong>Note the comment we left in the cell.</strong> <code>np.sqrt(w1**2 + w2**2)</code> and <code>np.linalg.norm(np.array([w1, w2]))</code> are the same number. The <code>norm</code> version scales to any number of features without adding a term by hand - which is exactly what we needed for the 4D exercise.</div>
+      </section>
+
+      <!-- ═══ 5. P3 BY HAND ═══ -->
+      <section class="card topic-panel" id="topic-4">
+        <h2 class="step-title">Exercise 1 - P<sub>3</sub> by hand</h2>
+        <p>We work in <strong>4-dimensional space</strong> with features \((x_1, x_2, x_3, x_4)\). The separating hyperplane is:</p>
+
+        <div class="math-card">
+          <p>$$2x_1 - x_2 + x_3 + x_4 - 4 = 0$$</p>
+          <p class="math-caption">so the weight vector and bias are \(w = (2, -1, 1, 1)\) and \(b = -4\).</p>
+        </div>
+
+        <p>The denominator is the same for every point, so we computed it once:</p>
+        <div class="math-card">
+          <p>$$\|w\| = \sqrt{2^2 + (-1)^2 + 1^2 + 1^2} = \sqrt{4+1+1+1} = \sqrt{7} \approx 2.6458$$</p>
+        </div>
+
+        <p>Then the point \(P_3 = (1, 1, 1, 1)\). This is the scratch cell exactly as we typed it in class:</p>
+        <pre class="code"><code># P3 = (1, 1, 1, 1)
+
+# w = (2, -1, 1, 1), b = -4
+# 2x1 - x2 + x3 + x4 - 4 = 0
+# mehane = sqrt(7)
+# 2*1 -1*1 +1*1 +1*1 -4 = -1
+
+# abs-distance    = +1 / sqrt(7) = 0.378
+# signal-distance = -1 / sqrt(7) = ~ -0.378
+
+# is below the hyperplane</code></pre>
+
+        <div class="math-card">
+          <p>$$2(1) - 1 + 1 + 1 - 4 = -1$$</p>
+          <p>$$\text{Distance}(P_3) = \frac{|-1|}{\sqrt7} \approx 0.378 \qquad \text{SignedDistance}(P_3) = \frac{-1}{\sqrt7} \approx -0.378$$</p>
+        </div>
+
+        <div class="note blue"><strong>The minus is the whole point.</strong> P<sub>3</sub> is 0.378 units away, <em>below</em> the hyperplane. The absolute version tells you the distance but not the class - only the signed version can predict.</div>
+
+        <div class="task-box">
+          <span class="task-num">Class exercise</span>
+          <p style="margin:6px 0 0">Before scrolling on, do <strong>P<sub>7</sub> = (1, 0, 2, 1)</strong> on paper. Numerator, then divide by √7. Is it above or below?</p>
+        </div>
+      </section>
+
+      <!-- ═══ 6. TEN POINTS ═══ -->
+      <section class="card topic-panel" id="topic-5">
+        <h2 class="step-title">Exercise 1 - all ten points in code</h2>
+        <p>Ten points in 4D, one hyperplane, one loop. Note that the function now takes four weights instead of two - and that the denominator is still just <code>norm</code>:</p>
+
+        <pre class="code py"><code>import numpy as np
+
+# w = (2, -1, 1, 1), b = -4
+
+# 10 points
+points = np.array([
+    [0, 0, 0, 0],   # P1
+    [2, 0, 0, 0],   # P2
+    [1, 1, 1, 1],   # P3
+    [3, -1, 0, 2],  # P4
+    [0, 2, 1, 1],   # P5
+    [4, 1, -1, 0],  # P6
+    [1, 0, 2, 1],   # P7
+    [2, 1, 0, 3],   # P8
+    [0, -1, 0, 3],  # P9
+    [3, 2, 1, 0],   # P10
+], dtype=int)
+
+w1, w2, w3, w4, b = 2, -1, 1, 1, -4
+
+def get_signed_distance(point, w1, w2, w3, w4, b):  # or w: list[]
+    x1, x2, x3, x4 = point
+    numerator = x1 * w1 + x2 * w2 + x3 * w3 + x4 * w4 + b
+    # denominator = np.linalg.norm(np.array([w1, w2, w3, w4]))
+    denominator = np.sqrt(w1**2 + w2**2 + w3**2 + w4**2)  # = np.linalg.norm
+    vec_dist = numerator / denominator
+    return vec_dist
+
+def get_abs_distance(point, w1, w2, w3, w4, b):  # or w: list[]
+    return np.abs(get_signed_distance(point, w1, w2, w3, w4, b))
+
+counter = 1
+for point in points:
+    print(f'P{counter:&lt;2}: {str(point):^22} signed_dist = {get_signed_distance(point, w1, w2, w3, w4, b):+.3f}')
+    counter += 1</code></pre>
+
+        <div class="output"><span class="out-label">Output</span>P1 :       [0 0 0 0]        signed_dist = -1.512
+P2 :       [2 0 0 0]        signed_dist = +0.000
+P3 :       [1 1 1 1]        signed_dist = -0.378
+P4 :     [ 3 -1  0  2]      signed_dist = +1.890
+P5 :       [0 2 1 1]        signed_dist = -1.512
+P6 :     [ 4  1 -1  0]      signed_dist = +0.756
+P7 :       [1 0 2 1]        signed_dist = +0.378
+P8 :       [2 1 0 3]        signed_dist = +0.756
+P9 :     [ 0 -1  0  3]      signed_dist = +0.000
+P10:       [3 2 1 0]        signed_dist = +0.378</div>
+
+        <table class="data-table">
+          <thead><tr><th>point</th><th>numerator</th><th>÷ √7</th><th>side</th></tr></thead>
+          <tbody>
+            <tr><td>P1 (0,0,0,0)</td><td>0 − 0 + 0 + 0 − 4 = −4</td><td>−1.512</td><td>below</td></tr>
+            <tr class="zero"><td>P2 (2,0,0,0)</td><td>4 − 0 + 0 + 0 − 4 = 0</td><td>+0.000</td><td><strong>on the plane</strong></td></tr>
+            <tr class="pick"><td>P3 (1,1,1,1)</td><td>2 − 1 + 1 + 1 − 4 = −1</td><td>−0.378</td><td>below</td></tr>
+            <tr><td>P4 (3,−1,0,2)</td><td>6 + 1 + 0 + 2 − 4 = 5</td><td>+1.890</td><td>above</td></tr>
+            <tr><td>P5 (0,2,1,1)</td><td>0 − 2 + 1 + 1 − 4 = −4</td><td>−1.512</td><td>below</td></tr>
+            <tr><td>P6 (4,1,−1,0)</td><td>8 − 1 − 1 + 0 − 4 = 2</td><td>+0.756</td><td>above</td></tr>
+            <tr class="pick"><td>P7 (1,0,2,1)</td><td>2 − 0 + 2 + 1 − 4 = 1</td><td>+0.378</td><td>above</td></tr>
+            <tr><td>P8 (2,1,0,3)</td><td>4 − 1 + 0 + 3 − 4 = 2</td><td>+0.756</td><td>above</td></tr>
+            <tr class="zero"><td>P9 (0,−1,0,3)</td><td>0 + 1 + 0 + 3 − 4 = 0</td><td>+0.000</td><td><strong>on the plane</strong></td></tr>
+            <tr><td>P10 (3,2,1,0)</td><td>6 − 2 + 1 + 0 − 4 = 1</td><td>+0.378</td><td>above</td></tr>
+          </tbody>
+        </table>
+
+        <div class="note green"><strong>Two points print exactly +0.000.</strong> P2 and P9 lie <em>on</em> the hyperplane, so the sign rule has literally nothing to say about them - the one case where the classifier has no answer. Notice they print <code>+0.000</code> and not <code>0.000</code> because the format string is <code>:+.3f</code>, which always shows a sign.</div>
+
+        <div class="note blue"><strong>The two f-string tricks in the print.</strong> <code>{counter:&lt;2}</code> left-aligns in a field of 2, <code>{str(point):^22}</code> centres the text in a field of 22, and <code>{value:+.3f}</code> forces a leading + or − with three decimals. That is what lines the output up into a table.</div>
+      </section>
+
+      <!-- ═══ 7. 2D DATASET ═══ -->
+      <section class="card topic-panel" id="topic-6">
+        <h2 class="step-title">Exercise 2 - the 2D dataset</h2>
+        <p>Eight points, two groups, two features. Small enough to check every number by hand:</p>
+
+        <pre class="code py"><code>import numpy as np
+import matplotlib.pyplot as plt
+
+# Create sample data: two groups of (x, y) points
+group_a = np.array([ [1, 2], [1.5, 3], [2, 2.5], [2.5, 3.5] ])
+group_b = np.array([ [5, 5], [5.5, 6], [6, 5.5], [6.5, 6.5] ])
+
+# Combine into training data
+points = np.vstack([group_a, group_b])
+labels = np.array([0, 0, 0, 0, 1, 1, 1, 1])  # 0 for group A, 1 for group B</code></pre>
+
+        <table class="data-table">
+          <thead><tr><th>index</th><th>point</th><th>group</th><th>label</th></tr></thead>
+          <tbody>
+            <tr><td>0</td><td>(1, 2)</td><td class="term ga">A</td><td>0</td></tr>
+            <tr><td>1</td><td>(1.5, 3)</td><td class="term ga">A</td><td>0</td></tr>
+            <tr><td>2</td><td>(2, 2.5)</td><td class="term ga">A</td><td>0</td></tr>
+            <tr class="pick"><td>3</td><td>(2.5, 3.5)</td><td class="term ga">A</td><td>0</td></tr>
+            <tr class="pick"><td>4</td><td>(5, 5)</td><td class="term gb">B</td><td>1</td></tr>
+            <tr><td>5</td><td>(5.5, 6)</td><td class="term gb">B</td><td>1</td></tr>
+            <tr><td>6</td><td>(6, 5.5)</td><td class="term gb">B</td><td>1</td></tr>
+            <tr><td>7</td><td>(6.5, 6.5)</td><td class="term gb">B</td><td>1</td></tr>
+          </tbody>
+        </table>
+
+        <div class="note blue"><strong>The two highlighted rows are the support vectors.</strong> We do not know that yet - it comes out of <code>SVC</code> at the end - but rows 3 and 4 are the two points facing each other across the gap, and they are the only two the final model will actually use.</div>
+
+        <div class="note"><strong><code>np.vstack</code></strong> stacks arrays on top of each other. Two (4,2) arrays become one (8,2) array - eight rows, two columns. sklearn always wants that shape: one row per sample, one column per feature.</div>
+
+        <div class="task-box">
+          <span class="task-num">Class exercise</span>
+          <p style="margin:6px 0 0">Find the line that separates group A from group B with the <strong>biggest possible margin</strong>. No sklearn. Fix <code>w2 = -1</code> so every line is <code>y = w1*x + b</code>, then search a grid of <code>w1</code> and <code>b</code>.</p>
+        </div>
+      </section>
+
+      <!-- ═══ 8. THE SEARCH ═══ -->
+      <section class="card topic-panel" id="topic-7">
+        <h2 class="step-title">Exercise 2 - the search loop</h2>
+        <p>The plan we wrote as comments before writing any code:</p>
+        <div class="steps-strip">
+          <div class="stepbox"><span class="n">Step 1</span><strong>Validity</strong><br>every group A point negative, every group B point positive. One mismatch and the line is thrown away.</div>
+          <div class="stepbox"><span class="n">Step 2</span><strong>Closest point</strong><br>collect all eight distances and take the <code>min</code>.</div>
+          <div class="stepbox"><span class="n">Step 3</span><strong>Keep the max</strong><br>remember the line whose minimum is the largest so far.</div>
+        </div>
+
+        <pre class="code py"><code>def get_signed_distance(point, w1, w2, b):
+    x1, x2 = point
+    numerator   = x1 * w1 + x2 * w2 + b
+    denominator = np.sqrt(w1**2 + w2**2)   # = np.linalg.norm
+    return numerator / denominator
+
+w1 = np.linspace(-5, 5, 100)
+# w2 will be -1
+b = np.linspace(-10, 20, 100)
+
+largest_distance_from_min = -1   # the largest distance from the closest point
+best_w1 = None
+best_b = None
+
+for w1_current in w1:
+    for b_current in b:
+        # step 1 check if all points are on the correct side
+        # if label == 0 --> get_signed_distance (negative)
+        # if label == 1 --> get_signed_distance (positive)
+        # if 1 point does not match --> continue
+        distances = []
+        valid = True
+
+        for point in group_a:
+            dist = get_signed_distance(point, w1_current, -1, b_current)
+            # should be negative, if positive -- the line is invalid
+            if dist &gt;= 0:
+                valid = False
+                break
+            else:
+                distances.append(abs(dist))
+        if not valid:
+            continue
+
+        for point in group_b:
+            dist = get_signed_distance(point, w1_current, -1, b_current)
+            # should be positive, if negative -- the line is invalid
+            if dist &lt;= 0:
+                valid = False
+                break
+            else:
+                distances.append(abs(dist))
+        if not valid:
+            continue
+
+        # step 2 - find the closest point to this surface
+        closest_point_distance = min(distances)
+        if closest_point_distance &gt; largest_distance_from_min:
+            largest_distance_from_min = closest_point_distance
+            best_w1 = w1_current
+            best_b = b_current
+
+print('w1', best_w1)
+print('w2', -1)
+print('b', best_b)
+print(largest_distance_from_min)</code></pre>
+
+        <div class="output"><span class="out-label">Output</span>w1 3.787878787878787
+w2 -1
+b -10.0
+1.005548803070833</div>
+
+        <div class="note"><strong>Why <code>w2 = -1</code> and not something else?</strong> Any non-vertical line can be written <code>y = w1*x + b</code>, which is <code>w1*x - 1*y + b = 0</code>. Fixing <code>w2 = -1</code> removes the scaling freedom (remember: doubling w and b gives the same line) and turns a three-number search into a two-number one. The price is that a perfectly vertical line can never be represented.</div>
+
+        <div class="note red"><strong>Two things went wrong here, and they are worth more than the answer.</strong><br><br>
+        <strong>1 · The sign convention picked the wrong family of lines.</strong> With <code>w2 = -1</code>, a <em>negative</em> signed distance means the point is <strong>above</strong> the line. So this code demanded that group A (lower-left) sits above the line and group B (upper-right) sits below it. Only a steep, positively-sloped line threading diagonally between the clusters can do that - which is why the answer is <code>y = 3.788x − 10</code> and not the intuitive north-west-to-south-east separator. Flip the two comparisons and re-run, and the search returns <code>w1 = -1.768</code>, <code>b = 10.909</code>, margin <code>1.442</code> - which is essentially what <code>SVC</code> will give us.<br><br>
+        <strong>2 · The winner landed on the edge of the grid.</strong> <code>b = -10.0</code> is the very first value of <code>np.linspace(-10, 20, 100)</code>. When the best candidate sits on the boundary of the search space, the search did not converge - it ran out of room. Widen the grid and it just keeps walking away.</div>
+
+        <table class="data-table">
+          <thead><tr><th>method</th><th>w₁</th><th>b</th><th>distance to closest point</th></tr></thead>
+          <tbody>
+            <tr><td class="term">brute force, as written</td><td>3.788</td><td>−10.000</td><td>1.0055</td></tr>
+            <tr><td class="term">brute force, signs flipped</td><td>−1.768</td><td>10.909</td><td>1.4423</td></tr>
+            <tr class="pick"><td class="term">SVC(kernel='linear')</td><td>−1.667</td><td>10.500</td><td><strong>1.4577</strong></td></tr>
+          </tbody>
+        </table>
+
+        <div class="note green"><strong>That last row is the exercise's whole point.</strong> The corridor <code>SVC</code> finds is 45% wider than the one 10 000 guesses found, and it takes two lines of code. The small gap between rows 2 and 3 is pure grid resolution - the true optimum has slope −1.667, which simply is not one of the 100 values in <code>np.linspace(-5, 5, 100)</code>.</div>
+
+        <div class="note blue"><strong>See the answer this search was reaching for.</strong> The <a class="resource-link" href="../../13_svm/index.html">SVM deck</a> opens with a slider that rotates the boundary through every angle and reports the margin for each one - so you can watch the number peak at exactly the value <code>SVC</code> returns, without searching a grid at all.</div>
+      </section>
+
+      <!-- ═══ 9. PLOTTING BRUTE FORCE ═══ -->
+      <section class="card topic-panel" id="topic-8">
+        <h2 class="step-title">Exercise 2 - plotting the result</h2>
+        <p>Drawing the winning line is easy - it is already in slope-intercept form. Drawing the <strong>margin</strong> lines needs one conversion:</p>
+
+        <pre class="code py"><code>fig, ax = plt.subplots(figsize=(10, 8))
+ax.set_xlabel('X coordinate')
+ax.set_ylabel('Y coordinate')
+ax.set_title(f'Brute Force SVM: y = {best_w1:.3f}x + {best_b:.3f}\nMargin = {largest_distance_from_min:.3f}')
+ax.grid(True, alpha=0.3)
+ax.set_xlim(0, 8)
+ax.set_ylim(0, 8)
+
+line_x = np.linspace(0, 10, 10)
+line_y = best_w1 * line_x + best_b
+ax.plot(line_x, line_y)
+
+ax.scatter(group_a[:, 0], group_a[:, 1], color='red')
+ax.scatter(group_b[:, 0], group_b[:, 1], color='blue')
+
+offset = largest_distance_from_min * np.sqrt(best_w1**2 + (-1)**2)
+
+# Upper margin line
+y_upper = best_w1 * line_x + (best_b + offset)
+ax.plot(line_x, y_upper, 'gray', linewidth=1, linestyle='--', label='Margin')
+
+# Lower margin line
+y_lower = best_w1 * line_x + (best_b - offset)
+ax.plot(line_x, y_lower, 'gray', linewidth=1, linestyle='--')
+
+plt.show()</code></pre>
+
+        <div class="note blue"><strong>Read the <code>offset</code> line carefully - it is the only real maths in the cell.</strong> <code>largest_distance_from_min</code> is a <em>perpendicular</em> distance, but we are shifting the line <em>vertically</em>. To move a line by <code>d</code> perpendicularly you shift its intercept by <code>d · ‖w‖</code>, and here <code>‖w‖ = √(w1² + 1)</code>. That is exactly <code>np.sqrt(best_w1**2 + (-1)**2)</code>.</div>
+
+        <div class="math-card">
+          <p>$$\text{vertical shift} = \text{perpendicular distance} \times \sqrt{w_1^2 + w_2^2}$$</p>
+          <p class="math-caption">A steep line needs a much bigger vertical shift to move the same real distance.</p>
+        </div>
+
+        <p>Check it with our numbers: <code>1.0055 × √(3.788² + 1) = 1.0055 × 3.918 = 3.940</code>. So the two dashed lines sit at <code>b = −10 ± 3.940</code>, that is <code>−6.06</code> and <code>−13.94</code>.</p>
+
+        <div class="note"><strong>A detail in the plot.</strong> <code>line_x = np.linspace(0, 10, 10)</code> only produces ten points, but a straight line needs just two - matplotlib joins them with segments and a straight line stays straight. For a <em>curve</em> you would want 100 or more.</div>
+      </section>
+
+      <!-- ═══ 10. SVC ═══ -->
+      <section class="card topic-panel" id="topic-9">
+        <h2 class="step-title">The same thing with <code>SVC</code></h2>
+        <p>Everything above - 10 000 candidates, two nested loops, a validity check - in four lines:</p>
+
+        <pre class="code py"><code>import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.svm import SVC
+
+# Create sample data: two groups of (x, y) points
+group_a = np.array([[1, 2], [1.5, 3], [2, 2.5], [2.5, 3.5]])
+group_b = np.array([[5, 5], [5.5, 6], [6, 5.5], [6.5, 6.5]])
+
+# Combine into training data
+points = np.vstack([group_a, group_b])
+labels = np.array([0, 0, 0, 0, 1, 1, 1, 1])  # 0 for group A, 1 for group B
+
+clf = SVC(kernel='linear')
+clf.fit(points, labels)
+
+w = clf.coef_[0]
+b = clf.intercept_[0]
+
+y_pred = clf.predict([[1, 2]])  # Important
+
+print('w', w)
+print('b', b)</code></pre>
+
+        <div class="output"><span class="out-label">Output</span>w [0.58823529 0.35294118]
+b -3.705882352941176</div>
+
+        <p>So the boundary sklearn found is:</p>
+        <div class="math-card">
+          <p>$$0.58824\,x + 0.35294\,y - 3.70588 = 0$$</p>
+        </div>
+
+        <table class="data-table">
+          <thead><tr><th>attribute</th><th>value here</th><th>what it is</th></tr></thead>
+          <tbody>
+            <tr><td class="term">clf.coef_</td><td>[[0.58824, 0.35294]]</td><td>the weight vector w - <strong>only exists for <code>kernel='linear'</code></strong></td></tr>
+            <tr><td class="term">clf.intercept_</td><td>[-3.70588]</td><td>the bias b</td></tr>
+            <tr><td class="term">clf.support_vectors_</td><td>[[2.5, 3.5], [5., 5.]]</td><td>the two points that hold the corridor open</td></tr>
+            <tr><td class="term">clf.support_</td><td>[3, 4]</td><td>their row indices in <code>points</code></td></tr>
+            <tr><td class="term">clf.n_support_</td><td>[1, 1]</td><td>one support vector from each class</td></tr>
+            <tr><td class="term">clf.dual_coef_</td><td>[[-0.23529, 0.23529]]</td><td>the internal weights αᵢyᵢ of the support vectors</td></tr>
+          </tbody>
+        </table>
+
+        <p>The margin follows straight from <code>w</code>:</p>
+        <div class="math-card">
+          <p>$$\|w\| = \sqrt{0.58824^2 + 0.35294^2} = 0.68599 \qquad \text{margin} = \frac{2}{\|w\|} = 2.9155$$</p>
+          <p class="math-caption">Half of that, 1.4577, is the distance from the boundary to each support vector.</p>
+        </div>
+
+        <div class="note green"><strong>Check the two support vectors by hand.</strong><br>
+        (2.5, 3.5) → 0.58824(2.5) + 0.35294(3.5) − 3.70588 = <strong>−1.000</strong><br>
+        (5, 5) &nbsp;&nbsp;&nbsp;&nbsp;→ 0.58824(5) + 0.35294(5) − 3.70588 = <strong>+1.000</strong><br>
+        Exactly ±1. That is not a coincidence - SVM fixes the scale of w and b so that the support vectors land on ±1, which is why the margin comes out as 2/‖w‖.</div>
+
+        <div class="note purple"><strong>Bonus: rebuild <code>w</code> from <code>dual_coef_</code>.</strong> The weight vector is nothing but a weighted sum of the support vectors - <code>w = Σ αᵢyᵢxᵢ</code>, and <code>dual_coef_</code> holds exactly those <code>αᵢyᵢ</code> numbers. Try it:<br>
+        <code>−0.23529 × (2.5, 3.5) + 0.23529 × (5, 5) = 0.23529 × (2.5, 1.5) = (0.58824, 0.35294)</code><br>
+        which is <code>coef_</code>, to the last digit. Six of the eight points contributed nothing at all.</div>
+
+        <div class="note red"><strong>Scale your features before <code>SVC</code>.</strong> The margin is measured in the raw units of your columns, so a column running 0–100000 completely drowns out a column running 0–1 - the same problem <code>MinMaxScaler</code> solved for KNN. Use <code>StandardScaler</code> inside a <code>Pipeline</code>. Our toy data gets away with it only because both axes already span roughly 1 to 7.</div>
+      </section>
+
+      <!-- ═══ 11. PLOTTING SVC ═══ -->
+      <section class="card topic-panel" id="topic-10">
+        <h2 class="step-title">Plotting the sklearn model</h2>
+        <p><code>SVC</code> gives us <code>w</code> and <code>b</code> in the general form <code>w1·x + w2·y + b = 0</code>, and matplotlib wants <code>y = mx + c</code>. One rearrangement:</p>
+
+        <div class="math-card">
+          <p>$$w_1x + w_2y + b = 0 \;\Longrightarrow\; y = -\frac{w_1}{w_2}x - \frac{b}{w_2}$$</p>
+        </div>
+
+        <pre class="code py"><code>################################### DISPLAY #######################################
+best_slope = -(w[0]/w[1])
+best_intercept = (-b / w[1])
+
+# Decision boundary
+line_x = np.linspace(0, 8, 100)
+line_y = best_slope * line_x + best_intercept
+
+# Margin lines (always ±1 with sklearn)
+# w1*x + w2*y + b = 1
+# w2*y = -w1*x - b + 1
+# y = -(w1/w2)*x - b/w2 + (1/w2)
+y_up = line_y + 1 / w[1]
+y_down = line_y - 1 / w[1]
+
+# --- Plot ---
+plt.scatter(group_a[:, 0], group_a[:, 1], color="red")
+plt.scatter(group_b[:, 0], group_b[:, 1], color="blue")
+plt.scatter(clf.support_vectors_[:, 0], clf.support_vectors_[:, 1],
+            edgecolors="black", facecolors="none", s=120)
+
+plt.plot(line_x, line_y, "k")       # decision boundary
+plt.plot(line_x, y_up, "k--")       # margin
+plt.plot(line_x, y_down, "k--")     # margin
+
+plt.xlim(0, 8)
+plt.ylim(0, 8)
+plt.grid(True, alpha=0.3)
+plt.show()
+
+print(w)
+print(b)</code></pre>
+
+        <div class="output"><span class="out-label">Output</span>[0.58823529 0.35294118]
+-3.705882352941176</div>
+
+        <p>Plugging the numbers in:</p>
+        <table class="data-table">
+          <thead><tr><th>quantity</th><th>calculation</th><th>value</th></tr></thead>
+          <tbody>
+            <tr><td class="term">best_slope</td><td>−(0.58824 / 0.35294)</td><td>−1.6667</td></tr>
+            <tr><td class="term">best_intercept</td><td>−(−3.70588 / 0.35294)</td><td>10.5000</td></tr>
+            <tr><td class="term">1 / w[1]</td><td>1 / 0.35294</td><td>2.8333</td></tr>
+          </tbody>
+        </table>
+
+        <p>So the boundary is <code>y = −1.667x + 10.5</code>, and the two dashed margin lines are the same line shifted vertically by ±2.833.</p>
+
+        <div class="note"><strong>Why the margin lines are always ±1.</strong> With brute force we had to compute the offset from the actual distance. With sklearn we do not - the solver <em>defines</em> the scale so that the support vectors satisfy <code>wᵀx + b = ±1</code>. Setting the equation to 1 and solving for y gives exactly <code>+1/w[1]</code>, so the shift is free.</div>
+
+        <div class="note blue"><strong><code>facecolors="none"</code> with <code>edgecolors="black"</code></strong> is the standard trick for circling the support vectors: a scatter marker with no fill and a visible outline drawn on top of the coloured points.</div>
+
+        <div class="note green"><strong>Compare the two plots side by side.</strong> Brute force drew a steep line climbing left to right; sklearn drew a line falling from top-left to bottom-right. Both separate the eight points perfectly - but only one of them has the widest possible corridor.</div>
+      </section>
+
+      <!-- ═══ 12. EVALUATION ═══ -->
+      <section class="card topic-panel" id="topic-11">
+        <h2 class="step-title">Evaluation</h2>
+        <p>Three metrics functions, one call each:</p>
+
+        <pre class="code py"><code># evaluation
+from sklearn.metrics import confusion_matrix, accuracy_score, classification_report
+
+y_pred = clf.predict(points)
+
+cm = confusion_matrix(labels, y_pred)
+print("prediction:", y_pred)
+print("true:      ", y_pred)
+print()
+print("Confusion matrix:\n", cm)
+
+print("Accuracy:", accuracy_score(labels, y_pred))
+
+print("Classification Report:\n")
+print(classification_report(labels, y_pred))</code></pre>
+
+        <div class="output"><span class="out-label">Output</span>prediction: [0 0 0 0 1 1 1 1]
+true:       [0 0 0 0 1 1 1 1]
+
+Confusion matrix:
+ [[4 0]
+ [0 4]]
+Accuracy: 1.0
+Classification Report:
+
+              precision    recall  f1-score   support
+
+           0       1.00      1.00      1.00         4
+           1       1.00      1.00      1.00         4
+
+    accuracy                           1.00         8
+   macro avg       1.00      1.00      1.00         8
+weighted avg       1.00      1.00      1.00         8</div>
+
+        <table class="data-table">
+          <thead><tr><th></th><th>predicted 0</th><th>predicted 1</th></tr></thead>
+          <tbody>
+            <tr><td class="term">actual 0</td><td style="color:var(--green);font-weight:700">4 correct</td><td>0</td></tr>
+            <tr><td class="term">actual 1</td><td>0</td><td style="color:var(--green);font-weight:700">4 correct</td></tr>
+          </tbody>
+        </table>
+
+        <div class="note red"><strong>Watch out - there is a typo in this cell.</strong> The second print says <code>print("true: ", y_pred)</code> but should say <code>labels</code>. Both lines print the predictions, so the two rows agree no matter what the model does. Here it happens not to matter because the model is perfect, but on a real dataset this line would hide every single error.</div>
+
+        <table class="data-table">
+          <thead><tr><th>metric</th><th>formula</th><th>the question it answers</th></tr></thead>
+          <tbody>
+            <tr><td class="term">accuracy</td><td>(TP + TN) / all</td><td>what share of predictions were right?</td></tr>
+            <tr><td class="term">precision</td><td>TP / (TP + FP)</td><td>when it says "yes", how often is it right?</td></tr>
+            <tr><td class="term">recall</td><td>TP / (TP + FN)</td><td>of all the real "yes" cases, how many did it catch?</td></tr>
+            <tr><td class="term">f1-score</td><td>2·P·R / (P + R)</td><td>one number balancing the two</td></tr>
+            <tr><td class="term">support</td><td>—</td><td>how many true rows of that class exist - not a score</td></tr>
+          </tbody>
+        </table>
+
+        <div class="note"><strong>A perfect score on eight training points means nothing.</strong> We evaluated on the same rows we fitted on, and the two groups are miles apart. This is a demonstration of the API, not evidence the model is good. On real data: <code>train_test_split</code> first, then score on the rows the model has never seen.</div>
+      </section>
+
+      <!-- ═══ 13. WHOLE SCRIPT ═══ -->
+      <section class="card topic-panel" id="topic-12">
+        <h2 class="step-title">The whole thing in one script</h2>
+        <p>Copy-paste and run - the brute-force version and the <code>SVC</code> version side by side, so you can see both answers at once:</p>
+
+        <pre class="code py"><code>import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.svm import SVC
+from sklearn.metrics import confusion_matrix, accuracy_score, classification_report
+
+# ---------- the data ----------
+group_a = np.array([[1, 2], [1.5, 3], [2, 2.5], [2.5, 3.5]])
+group_b = np.array([[5, 5], [5.5, 6], [6, 5.5], [6.5, 6.5]])
+points = np.vstack([group_a, group_b])
+labels = np.array([0, 0, 0, 0, 1, 1, 1, 1])
+
+# ---------- brute force ----------
+def get_signed_distance(point, w1, w2, b):
+    x1, x2 = point
+    return (x1 * w1 + x2 * w2 + b) / np.sqrt(w1**2 + w2**2)
+
+best = {'m': -1, 'w1': None, 'b': None}
+for w1_current in np.linspace(-5, 5, 100):
+    for b_current in np.linspace(-10, 20, 100):
+        distances, valid = [], True
+        for point in group_a:
+            d = get_signed_distance(point, w1_current, -1, b_current)
+            if d &gt;= 0:
+                valid = False
+                break
+            distances.append(abs(d))
+        if not valid:
+            continue
+        for point in group_b:
+            d = get_signed_distance(point, w1_current, -1, b_current)
+            if d &lt;= 0:
+                valid = False
+                break
+            distances.append(abs(d))
+        if not valid:
+            continue
+        m = min(distances)
+        if m &gt; best['m']:
+            best = {'m': m, 'w1': w1_current, 'b': b_current}
+
+print(f"brute force : y = {best['w1']:.3f}x + {best['b']:.3f}   margin = {best['m']:.4f}")
+
+# ---------- sklearn ----------
+clf = SVC(kernel='linear')
+clf.fit(points, labels)
+
+w = clf.coef_[0]
+b = clf.intercept_[0]
+norm = np.linalg.norm(w)
+
+print(f"SVC         : y = {-(w[0]/w[1]):.3f}x + {(-b/w[1]):.3f}   margin = {1/norm:.4f}")
+print('w', w)
+print('b', b)
+print('support vectors\n', clf.support_vectors_)
+print('support indices', clf.support_)
+
+# ---------- evaluation ----------
+y_pred = clf.predict(points)
+print("prediction:", y_pred)
+print("true:      ", labels)        # <- fixed: was y_pred in class
+print("Confusion matrix:\n", confusion_matrix(labels, y_pred))
+print("Accuracy:", accuracy_score(labels, y_pred))
+print(classification_report(labels, y_pred))
+
+# ---------- plot both ----------
+line_x = np.linspace(0, 8, 100)
+
+# brute force line + its margin
+bf_y = best['w1'] * line_x + best['b']
+offset = best['m'] * np.sqrt(best['w1']**2 + 1)
+plt.plot(line_x, bf_y, 'purple', label='brute force')
+plt.plot(line_x, bf_y + offset, 'purple', ls='--', lw=1)
+plt.plot(line_x, bf_y - offset, 'purple', ls='--', lw=1)
+
+# sklearn line + its margin
+sk_y = -(w[0]/w[1]) * line_x + (-b/w[1])
+plt.plot(line_x, sk_y, 'k', label='SVC')
+plt.plot(line_x, sk_y + 1/w[1], 'k--', lw=1)
+plt.plot(line_x, sk_y - 1/w[1], 'k--', lw=1)
+
+plt.scatter(group_a[:, 0], group_a[:, 1], color='red')
+plt.scatter(group_b[:, 0], group_b[:, 1], color='blue')
+plt.scatter(clf.support_vectors_[:, 0], clf.support_vectors_[:, 1],
+            edgecolors='black', facecolors='none', s=140)
+plt.xlim(0, 8); plt.ylim(0, 8)
+plt.grid(True, alpha=0.3); plt.legend()
+plt.show()</code></pre>
+
+        <div class="output"><span class="out-label">Output</span>brute force : y = 3.788x + -10.000   margin = 1.0055
+SVC         : y = -1.667x + 10.500   margin = 1.4577
+w [0.58823529 0.35294118]
+b -3.705882352941176
+support vectors
+ [[2.5 3.5]
+ [5.  5. ]]
+support indices [3 4]
+prediction: [0 0 0 0 1 1 1 1]
+true:       [0 0 0 0 1 1 1 1]
+Confusion matrix:
+ [[4 0]
+ [0 4]]
+Accuracy: 1.0</div>
+
+        <div class="note green"><strong>The two lines on the same plot is the takeaway of the whole lesson.</strong> Both separate the data perfectly, and their accuracy scores are identical - 1.0 each. Only the margin tells them apart, and that is the number SVM was built to maximize.</div>
+
+        <div class="task-box">
+          <span class="task-num">Homework</span>
+          <ul class="task-list">
+            <li>Flip the two sign tests in the brute-force loop (<code>&gt;= 0</code> ↔ <code>&lt;= 0</code>) and re-run. Which <code>w1</code> and <code>b</code> come out, and how close is the margin to SVC's 1.4577?</li>
+            <li>Widen the grid to <code>np.linspace(-40, 40, 801)</code> and <code>np.linspace(-120, 120, 1201)</code> with the <em>original</em> signs. Does the answer settle, or keep walking? Explain why.</li>
+            <li>Drop every row that is not in <code>clf.support_vectors_</code> and refit on the two rows that remain. Compare <code>coef_</code> and <code>intercept_</code> with the original. Explain the result in one sentence.</li>
+            <li>Do <code>P<sub>4</sub></code> and <code>P<sub>6</sub></code> from exercise 1 on paper, then check against the printed output.</li>
+            <li>Multiply the first column of <code>points</code> by 1000, refit, and compare <code>coef_</code>. Then wrap the model in <code>make_pipeline(StandardScaler(), SVC(kernel='linear'))</code> and try again.</li>
+            <li>Change <code>kernel='linear'</code> to <code>kernel='rbf'</code> on this dataset. Does anything change? Why not?</li>
+          </ul>
+        </div>
+
+        <div class="note blue">All the theory behind these lines - the hyperplane, the signed distance, the margin, <code>SVC</code> and its attributes, kernels and the four kernel types, and every <code>SVC</code> parameter - is in the <a class="resource-link" href="../../13_svm/index.html">SVM deck</a>, with a live solver you can play with.</div>
+      </section>
+
+    </main>
+  </div>
+
+  <div class="footer">Lesson 17 - August 9, 2026 - Support Vector Machines (SVM)</div>
+</div>
+
+<script>
+  const links = document.querySelectorAll('.topic-link');
+  const panels = document.querySelectorAll('.topic-panel');
+
+  function showTopic(id) {
+    panels.forEach(panel => panel.classList.toggle('active', panel.id === id));
+    links.forEach(link => link.classList.toggle('active', link.dataset.target === id));
+  }
+
+  links.forEach(link => {
+    if (link.dataset.target) {
+      link.addEventListener('click', () => {
+        showTopic(link.dataset.target);
+        location.hash = link.dataset.target;
+      });
+    }
+  });
+
+  const hash = location.hash.replace('#', '');
+  if (hash && document.getElementById(hash)) {
+    showTopic(hash);
+    // Drop the fragment once we have used it. The panel is display:none while the
+    // browser first resolves the anchor, and Chrome retries that scroll after KaTeX
+    // reflows the page - which lands it hundreds of pixels down. No fragment, no retry.
+    history.replaceState(null, '', location.pathname + location.search);
+    window.scrollTo(0, 0);
+  }
+
+  /* ── minimal Python highlighter, GitHub-dark palette ──
+     single pass so a quote inside a comment (and vice versa) can't confuse it */
+  (function () {
+    const KEYWORDS = new Set(['and','as','assert','async','await','break','class','continue',
+      'def','del','elif','else','except','finally','for','from','global','if','import','in',
+      'is','lambda','nonlocal','not','or','pass','raise','return','try','while','with','yield',
+      'None','True','False']);
+    const BUILTINS = new Set(['print','len','range','sorted','reversed','sum','min','max','abs',
+      'round','int','float','str','bool','list','dict','set','tuple','enumerate','zip','map',
+      'filter','type','isinstance','open','input','any','all']);
+    const PREFIX = /^(f|r|b|u|rb|br|fr|rf)$/i;
+
+    const esc = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const isIdStart = c => /[A-Za-z_]/.test(c);
+    const isId      = c => /[A-Za-z0-9_]/.test(c);
+    const wrap = (cls, t) => '<span class="' + cls + '">' + esc(t) + '</span>';
+
+    /* index just past the closing quote of the string starting at `start` */
+    function scanString(src, start) {
+      const q = src[start], n = src.length;
+      if (src.slice(start, start + 3) === q + q + q) {
+        let j = start + 3;
+        while (j < n && src.slice(j, j + 3) !== q + q + q) j++;
+        return Math.min(n, j + 3);
+      }
+      let j = start + 1;
+      while (j < n && src[j] !== q && src[j] !== '\n') {
+        if (src[j] === '\\') j++;
+        j++;
+      }
+      return (j < n && src[j] === q) ? j + 1 : j;
+    }
+
+    function highlight(src) {
+      let out = '', i = 0;
+      const n = src.length;
+      while (i < n) {
+        const c = src[i];
+
+        if (c === '#') {                                  // comment to end of line
+          let j = i;
+          while (j < n && src[j] !== '\n') j++;
+          out += wrap('hl-com', src.slice(i, j));
+          i = j;
+          continue;
+        }
+
+        if (isIdStart(c)) {                               // word, or a prefixed string
+          let j = i;
+          while (j < n && isId(src[j])) j++;
+          const word = src.slice(i, j), nxt = src[j];
+          if ((nxt === '"' || nxt === "'") && PREFIX.test(word)) {
+            const end = scanString(src, j);
+            out += wrap('hl-str', src.slice(i, end));
+            i = end;
+            continue;
+          }
+          let cls = null;
+          if (KEYWORDS.has(word)) cls = 'hl-kw';
+          else if (BUILTINS.has(word)) cls = 'hl-builtin';
+          else {
+            let k = j;
+            while (k < n && src[k] === ' ') k++;
+            if (src[k] === '(') cls = 'hl-fn';             // a call
+          }
+          out += cls ? wrap(cls, word) : esc(word);
+          i = j;
+          continue;
+        }
+
+        if (c === '"' || c === "'") {                     // plain string
+          const end = scanString(src, i);
+          out += wrap('hl-str', src.slice(i, end));
+          i = end;
+          continue;
+        }
+
+        if (/[0-9]/.test(c)) {                            // number
+          let j = i;
+          while (j < n && /[0-9._]/.test(src[j])) j++;
+          out += wrap('hl-num', src.slice(i, j));
+          i = j;
+          continue;
+        }
+
+        out += esc(c);
+        i++;
+      }
+      return out;
+    }
+
+    document.querySelectorAll('pre.code.py > code').forEach(el => {
+      if (el.dataset.hl) return;
+      el.innerHTML = highlight(el.textContent);
+      el.dataset.hl = '1';
+    });
+  })();
+</script>
+</body>
+</html>
