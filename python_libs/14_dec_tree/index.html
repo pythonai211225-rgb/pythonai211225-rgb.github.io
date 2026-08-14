@@ -1,0 +1,1279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Decision Trees — Gini, Splits &amp; export_text</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded',function(){
+    renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'\\(',right:'\\)',display:false}],throwOnError:false});
+    if (window.fitMath) fitMath();
+  });</script>
+  <style>
+    .page-layout { display:flex; height:calc(100vh - 54px); overflow:hidden; }
+    .sidebar { width:238px; min-width:238px; height:100%; overflow-y:auto; background:#0a0e14; border-right:1px solid var(--border); display:flex; flex-direction:column; scrollbar-width:thin; scrollbar-color:var(--border) transparent; flex-shrink:0; }
+    .sidebar-head { padding:20px 18px 14px; font-size:.65rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--border); }
+    .sidebar-nav { padding:8px 0; flex:1; }
+    .s-item { display:flex; align-items:center; gap:11px; padding:10px 18px; cursor:pointer; background:none; border:none; border-left:3px solid transparent; width:100%; text-align:left; transition:background .18s,border-color .18s; }
+    .s-item:hover { background:rgba(255,255,255,.04); }
+    .s-item.active { background:rgba(250,204,21,.08); border-left-color:var(--accent); }
+    .s-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; transition:transform .2s; }
+    .s-item.active .s-dot { transform:scale(1.45); box-shadow:0 0 8px currentColor; }
+    .s-num { font-size:.62rem; color:var(--border); font-family:'Courier New',monospace; font-weight:700; min-width:18px; }
+    .s-item.active .s-num { color:var(--accent); }
+    .s-label { font-size:.79rem; color:var(--muted); font-family:'Courier New',monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .s-item.active .s-label { color:var(--text); }
+    .s-item.done .s-label::after { content:' ✓'; color:var(--green); font-size:.7rem; }
+    .side-sep { border:none; border-top:1px solid var(--border); margin:14px 16px 6px; }
+    .side-part { padding:2px 18px 6px; font-size:.6rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:var(--accent); font-family:'Courier New',monospace; }
+
+    .panel-viewport { flex:1; overflow-y:auto; overflow-x:hidden; position:relative; }
+    .panel { display:none; flex-direction:column; min-height:100%; padding:40px 52px 100px; max-width:830px; margin:0 auto; animation:fadeIn .35s ease; }
+    .panel.active { display:flex; }
+    @keyframes fadeIn { from{opacity:0;transform:translateX(28px)} to{opacity:1;transform:translateX(0)} }
+    .panel.exit { display:flex; animation:fadeOut .25s ease forwards; }
+    @keyframes fadeOut { from{opacity:1;transform:translateX(0)} to{opacity:0;transform:translateX(-28px)} }
+
+    .m-hero { position:relative; height:200px; border-radius:18px; overflow:hidden; margin-bottom:26px; flex-shrink:0; }
+    .m-hero img { width:100%; height:100%; object-fit:cover; filter:brightness(.5) saturate(.8); transition:filter .45s; }
+    .panel.active .m-hero img { filter:brightness(.6) saturate(1.1); }
+    .m-hero-ov { position:absolute; inset:0; padding:26px 30px; display:flex; flex-direction:column; justify-content:flex-end; background:linear-gradient(0deg,rgba(0,0,0,.78) 0%,rgba(0,0,0,.15) 55%,transparent 100%); }
+    .m-breadcrumb { font-size:.62rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:rgba(255,255,255,.4); margin-bottom:5px; }
+    .m-name { font-size:1.7rem; font-weight:900; color:#fff; font-family:'Courier New',monospace; }
+    .m-tagline { font-size:.86rem; color:rgba(255,255,255,.62); margin-top:4px; }
+
+    .pills { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 20px; align-items:center; }
+    .pill { padding:5px 14px; border-radius:999px; font-size:.7rem; font-weight:700; letter-spacing:.06em; }
+    .pill-sig { font-family:'Courier New',monospace; font-size:.74rem; letter-spacing:0; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.12); color:var(--text); }
+    .pill-ret { background:rgba(16,185,129,.1); border:1px solid rgba(16,185,129,.3); color:var(--green); font-family:'Courier New',monospace; letter-spacing:0; }
+    .pill-note { background:rgba(249,115,22,.1); border:1px solid rgba(249,115,22,.3); color:var(--orange); font-family:'Courier New',monospace; font-size:.7rem; }
+    .pill-param { position:relative; cursor:help; transition:filter .18s; }
+    .pill-param:hover { filter:brightness(1.3); }
+    .pill-param .balloon { position:absolute; bottom:calc(100% + 14px); left:50%; transform:translateX(-50%) translateY(6px); width:240px; background:linear-gradient(155deg,#0e2845 0%,#071a2e 100%); border:1.5px solid rgba(240,182,62,.65); border-radius:14px; padding:13px 16px 11px; box-shadow:0 0 0 1px rgba(240,182,62,.1),0 18px 48px rgba(0,0,0,.72),0 0 36px rgba(240,182,62,.07); opacity:0; pointer-events:none; transition:opacity .22s ease,transform .22s ease; z-index:300; }
+    .pill-param:hover .balloon { opacity:1; transform:translateX(-50%) translateY(0); animation:balloonFloat 3s ease-in-out infinite; }
+    @keyframes balloonFloat { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(-5px)} }
+    .balloon-title { font-family:'Courier New',monospace; font-size:.7rem; font-weight:800; color:#f0b63e; letter-spacing:.04em; margin-bottom:6px; display:flex; align-items:center; gap:6px; }
+    .balloon-title::before { content:''; display:inline-block; width:7px; height:7px; border-radius:50%; background:#f0b63e; box-shadow:0 0 6px rgba(240,182,62,.7); flex-shrink:0; }
+    .balloon-body { font-size:.76rem; color:rgba(230,237,243,.78); line-height:1.6; font-family:'Segoe UI',system-ui,sans-serif; font-weight:400; }
+    .pill-param .balloon::after { content:''; position:absolute; bottom:-10px; left:50%; transform:translateX(-50%); border-left:10px solid transparent; border-right:10px solid transparent; border-top:10px solid rgba(240,182,62,.65); }
+    .pill-param .balloon::before { content:''; position:absolute; bottom:-8px; left:50%; transform:translateX(-50%); border-left:9px solid transparent; border-right:9px solid transparent; border-top:9px solid #071a2e; z-index:1; }
+
+    .m-desc { font-size:.95rem; color:var(--muted); line-height:1.75; margin-bottom:14px; }
+    .m-desc code { font-family:'Courier New',monospace; font-size:.88em; padding:1px 6px; border-radius:4px; background:rgba(255,255,255,.06); }
+
+    .demo-box { background:#060a10; border:1px solid var(--border); border-radius:14px; padding:22px 22px 18px; margin-top:20px; flex-shrink:0; display:flex; flex-direction:column; }
+    .demo-lbl { font-size:.64rem; font-weight:800; letter-spacing:.13em; text-transform:uppercase; color:var(--muted); margin-bottom:18px; display:flex; align-items:center; gap:8px; }
+    .demo-lbl::before { content:''; width:3px; height:12px; border-radius:2px; background:var(--accent); flex-shrink:0; }
+    .demo-controls { display:flex; flex-wrap:wrap; gap:18px; align-items:flex-end; margin-bottom:18px; }
+    .ctrl { display:flex; flex-direction:column; gap:5px; }
+    .ctrl label { font-size:.69rem; color:var(--muted); font-weight:600; }
+    .ctrl input[type=range] { -webkit-appearance:none; width:180px; height:4px; background:var(--border); border-radius:2px; outline:none; cursor:pointer; }
+    .ctrl input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:15px; height:15px; background:var(--accent); border-radius:50%; cursor:pointer; box-shadow:0 0 6px rgba(250,204,21,.5); }
+    .ctrl input[type=range]::-moz-range-thumb { width:15px; height:15px; background:var(--accent); border:none; border-radius:50%; cursor:pointer; }
+    .ctrl .cval { font-size:.7rem; color:var(--accent); font-family:'Courier New',monospace; font-weight:700; text-align:center; }
+    .demo-canvas-wrap { background:#020509; border-radius:10px; padding:14px; overflow:hidden; min-height:72px; order:4; }
+    canvas { display:block; margin:0 auto; }
+    .demo-out { font-family:'Courier New',monospace; font-size:.8rem; color:#10b981; line-height:1.65; margin-top:0; margin-bottom:14px; padding:11px 15px; background:rgba(16,185,129,.05); border:1px solid rgba(16,185,129,.18); border-radius:8px; white-space:pre-wrap; order:3; }
+
+    .seg { display:inline-flex; border:1px solid var(--border); border-radius:9px; overflow:hidden; }
+    .seg button { background:transparent; border:none; color:var(--muted); font-size:.72rem; font-weight:700; font-family:'Courier New',monospace; padding:7px 13px; cursor:pointer; transition:background .18s,color .18s; }
+    .seg button:hover { color:var(--text); background:rgba(255,255,255,.05); }
+    .seg button.on { background:rgba(250,204,21,.14); color:var(--accent); }
+    .play-btn { background:rgba(16,185,129,.12); border:1px solid rgba(16,185,129,.4); color:var(--green); font-family:'Courier New',monospace; font-size:.74rem; font-weight:800; padding:8px 16px; border-radius:9px; cursor:pointer; transition:background .18s,transform .12s; }
+    .play-btn:hover { background:rgba(16,185,129,.22); }
+    .play-btn:active { transform:scale(.96); }
+
+    .panel-nav { display:flex; justify-content:space-between; align-items:center; margin-top:40px; padding-top:24px; border-top:1px solid var(--border); flex-shrink:0; gap:10px; }
+    .pnav-btn { display:flex; align-items:center; gap:9px; padding:10px 20px; border-radius:10px; border:1px solid var(--border); background:transparent; color:var(--muted); font-size:.82rem; font-weight:700; cursor:pointer; transition:color .2s,border-color .2s,background .2s; }
+    .pnav-btn:hover:not(:disabled) { color:var(--text); border-color:var(--accent); background:rgba(250,204,21,.06); }
+    .pnav-btn:disabled { opacity:.28; cursor:default; }
+    .pnav-btn.next { background:rgba(250,204,21,.08); border-color:rgba(250,204,21,.35); color:var(--accent); }
+    .pnav-btn.next:hover { background:rgba(250,204,21,.16); border-color:var(--accent); }
+    .pnav-dots { display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:center; }
+    .pnav-dot { width:7px; height:7px; border-radius:50%; background:var(--border); transition:background .2s,transform .2s; cursor:pointer; border:none; padding:0; }
+    .pnav-dot.active { background:var(--accent); transform:scale(1.4); }
+
+    .overview-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:14px; margin-top:24px; }
+    .ov-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px 16px 16px; cursor:pointer; transition:border-color .2s,box-shadow .2s,transform .18s; display:flex; flex-direction:column; gap:8px; }
+    .ov-card:hover { transform:translateY(-3px); border-color:rgba(250,204,21,.4); box-shadow:0 8px 28px rgba(250,204,21,.08); }
+    .ov-card-num { font-size:.62rem; color:var(--muted); font-weight:800; letter-spacing:.1em; }
+    .ov-card-name { font-size:.9rem; font-family:'Courier New',monospace; font-weight:700; }
+    .ov-card-desc { font-size:.77rem; color:var(--muted); line-height:1.5; }
+
+    @media(max-width:700px){.sidebar{display:none}.panel{padding:20px 16px 80px}}
+    .katex { color: var(--text); }
+    /* No horizontal scrollbars on formulas: fitMath() in tree.js shrinks anything
+       too wide to scale, so the overflow is clipped rather than scrolled. */
+    .katex-display { margin: 6px 0; overflow-x: hidden; overflow-y: hidden; padding: 3px 0; }
+    .katex-display > .katex { max-width: none; }
+    .eq-box { background:rgba(59,130,246,.05); border:1px solid rgba(59,130,246,.2); border-radius:12px; padding:16px 20px; margin:16px 0; font-size:1.05rem; }
+    .eq-box.big { font-size:1.32rem; padding:24px 20px; }
+    .eq-box.small { font-size:.95rem; padding:14px 18px; }
+    .eq-box.gold { background:rgba(250,204,21,.05); border-color:rgba(250,204,21,.22); }
+    .eq-box.green { background:rgba(16,185,129,.05); border-color:rgba(16,185,129,.22); }
+    .eq-box.rose { background:rgba(244,63,94,.05); border-color:rgba(244,63,94,.22); }
+
+    .exercise-header{display:flex;align-items:flex-start;gap:16px;margin-bottom:24px;padding:20px;background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.2);border-radius:14px;position:relative;overflow:hidden;}
+    .exercise-header::before{content:'';position:absolute;top:-40px;right:-40px;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,rgba(251,191,36,.1) 0%,transparent 70%);pointer-events:none;}
+    .exercise-badge{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;font-size:1.8rem;font-weight:800;color:#0d1a2e;background:linear-gradient(135deg,#fbbf24,#f59e0b);box-shadow:0 6px 18px rgba(251,191,36,.35);flex-shrink:0;}
+    .ex-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px 16px;margin-bottom:14px;transition:border-color .2s;}
+    .ex-card:hover{border-color:rgba(250,204,21,.3);}
+    .ex-q-head{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+    .ex-num{font-size:.68rem;font-weight:800;letter-spacing:.1em;padding:3px 10px;border-radius:6px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--muted);font-family:'Courier New',monospace;}
+    .ex-task{font-size:.88rem;color:var(--muted);margin-bottom:10px;line-height:1.6;}
+    .ex-task code{font-family:'Courier New',monospace;font-size:.85em;padding:1px 6px;border-radius:4px;background:rgba(255,255,255,.06);}
+    details.hint{margin-top:10px;}
+    details.hint summary{cursor:pointer;font-size:.78rem;color:var(--accent);font-weight:700;}
+
+    .legend { display:flex; flex-wrap:wrap; gap:16px; justify-content:center; margin-bottom:10px; }
+    .lg { display:flex; align-items:center; gap:7px; font-size:.72rem; font-family:'Courier New',monospace; color:var(--muted); font-weight:700; }
+    .lg i { width:11px; height:11px; border-radius:50%; display:inline-block; }
+    .lg.sq i { border-radius:3px; }
+    .lg.hollow i { background:none !important; border:2px solid #e6edf3; }
+    .lg.ln i { width:20px; height:0; border-top:2px solid var(--text); border-radius:0; }
+    .lg.dash i { width:20px; height:0; border-top:2px dashed var(--muted); border-radius:0; }
+
+    .steps { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; margin:20px 0 6px; }
+    .step { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px 16px 14px; position:relative; overflow:hidden; transition:transform .2s,border-color .2s; }
+    .step:hover { transform:translateY(-3px); }
+    .step::after { content:attr(data-n); position:absolute; right:10px; bottom:-14px; font-size:3.4rem; font-weight:900; font-family:'Courier New',monospace; color:rgba(255,255,255,.04); line-height:1; }
+    .step h4 { font-size:.86rem; margin-bottom:6px; font-family:'Courier New',monospace; }
+    .step p { font-size:.78rem; color:var(--muted); line-height:1.55; }
+    .step.a { border-color:rgba(59,130,246,.32); } .step.a h4 { color:var(--blue); }
+    .step.b { border-color:rgba(250,204,21,.32); } .step.b h4 { color:var(--accent); }
+    .step.c { border-color:rgba(16,185,129,.32); } .step.c h4 { color:var(--green); }
+    .step.d { border-color:rgba(236,72,153,.32); } .step.d h4 { color:var(--pink); }
+
+    .pc-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:18px 0; }
+    @media(max-width:640px){ .pc-grid{grid-template-columns:1fr} }
+    .pc { border-radius:14px; border:1px solid var(--border); padding:18px 20px 14px; }
+    .pc h4 { font-size:.9rem; margin-bottom:12px; font-family:'Courier New',monospace; display:flex; align-items:center; gap:8px; }
+    .pc ol { margin:0; padding-left:20px; }
+    .pc li { font-size:.82rem; color:var(--muted); line-height:1.6; margin-bottom:7px; }
+    .pc.good { border-color:rgba(16,185,129,.3); background:rgba(16,185,129,.04); } .pc.good h4 { color:var(--green); }
+    .pc.bad  { border-color:rgba(244,63,94,.3);  background:rgba(244,63,94,.04); }  .pc.bad h4  { color:#f43f5e; }
+
+    /* the little data table used all through the deck */
+    table.dt td.A { color:#10b981; font-weight:700; }
+    table.dt td.B { color:#f97316; font-weight:700; }
+    tr.win td { background:rgba(250,204,21,.09) !important; }
+
+    /* node-anatomy chips */
+    .term-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; margin:18px 0; }
+    .term { border:1px solid var(--border); border-radius:12px; padding:14px 16px 12px; background:var(--surface); }
+    .term h5 { font-family:'Courier New',monospace; font-size:.84rem; margin-bottom:5px; }
+    .term p { font-size:.78rem; color:var(--muted); line-height:1.55; }
+    .visual-pair { display:grid; grid-template-columns:1fr 1fr; gap:12px; width:100%; }
+    .visual-pane { min-width:0; background:#020509; border:1px solid rgba(255,255,255,.07); border-radius:12px; padding:12px; }
+    .visual-pane-title { display:flex; align-items:center; gap:8px; margin-bottom:9px; color:var(--muted); font:700 .66rem 'Courier New',monospace; letter-spacing:.08em; text-transform:uppercase; }
+    .visual-pane-title b { display:grid; place-items:center; width:20px; height:20px; border-radius:6px; background:rgba(250,204,21,.12); color:var(--accent); }
+    .tree-board { margin:18px 0; padding:18px; border:1px solid rgba(6,182,212,.24); border-radius:16px; background:radial-gradient(circle at 50% 0,rgba(6,182,212,.08),transparent 50%),#020509; }
+    .tree-board svg { display:block; width:100%; height:auto; min-height:390px; }
+    .tree-board .edge { stroke:rgba(230,237,243,.36); stroke-width:2; fill:none; }
+    .tree-board .subtree-halo { fill:rgba(250,204,21,.035); stroke:rgba(250,204,21,.55); stroke-width:1.5; stroke-dasharray:7 6; }
+    .tree-board .node-box { stroke-width:2; rx:10; }
+    .tree-board text { font-family:'Courier New',monospace; fill:#e6edf3; text-anchor:middle; }
+    .tree-board .node-main { font-size:13px; font-weight:800; }
+    .tree-board .node-sub { font-size:10px; fill:rgba(230,237,243,.62); }
+    .tree-board .edge-label { font-size:11px; font-weight:800; fill:#facc15; }
+    .tree-board .guide { stroke:rgba(6,182,212,.32); stroke-width:1; stroke-dasharray:4 5; }
+    .tree-board .guide-label { font-size:10px; font-weight:800; fill:#06b6d4; text-anchor:start; }
+    .diagram-caption { margin-top:10px; color:var(--muted); font-size:.78rem; line-height:1.55; text-align:center; }
+    .anatomy-key { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:14px 0 22px; }
+    .anatomy-key .term { padding:12px 13px 10px; }
+    .anatomy-key .term h5 { display:flex; align-items:center; gap:7px; }
+    .key-dot { width:9px; height:9px; border-radius:50%; flex:none; }
+    @media(max-width:720px){ .visual-pair{grid-template-columns:1fr}.anatomy-key{grid-template-columns:1fr 1fr}.tree-board{padding:8px}.tree-board svg{min-height:330px} }
+  </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">← Python Libs</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item active" href="index.html">01</a>
+  </div>
+</nav>
+
+<div class="page-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-head">Decision Trees</div>
+    <nav class="sidebar-nav">
+      <button class="s-item active" data-panel="0" onclick="goTo(0)"><span class="s-num">00</span><span class="s-dot" style="background:#8b5cf6"></span><span class="s-label">Overview</span></button>
+      <button class="s-item" data-panel="1" onclick="goTo(1)"><span class="s-num">01</span><span class="s-dot" style="background:#facc15"></span><span class="s-label">The idea</span></button>
+      <button class="s-item" data-panel="2" onclick="goTo(2)"><span class="s-num">02</span><span class="s-dot" style="background:#06b6d4"></span><span class="s-label">Anatomy of a tree</span></button>
+      <button class="s-item" data-panel="3" onclick="goTo(3)"><span class="s-num">03</span><span class="s-dot" style="background:#10b981"></span><span class="s-label">Gini impurity</span></button>
+      <button class="s-item" data-panel="4" onclick="goTo(4)"><span class="s-num">04</span><span class="s-dot" style="background:#ec4899"></span><span class="s-label">Weighted Gini &amp; gain</span></button>
+      <button class="s-item" data-panel="5" onclick="goTo(5)"><span class="s-num">05</span><span class="s-dot" style="background:#f97316"></span><span class="s-label">Choosing the split</span></button>
+      <button class="s-item" data-panel="6" onclick="goTo(6)"><span class="s-num">06</span><span class="s-dot" style="background:#3b82f6"></span><span class="s-label">Train / test split</span></button>
+      <button class="s-item" data-panel="7" onclick="goTo(7)"><span class="s-num">07</span><span class="s-dot" style="background:#f43f5e"></span><span class="s-label">In Python</span></button>
+      <button class="s-item" data-panel="8" onclick="goTo(8)"><span class="s-num">08</span><span class="s-dot" style="background:#14b8a6"></span><span class="s-label">Regression tree</span></button>
+      <button class="s-item" data-panel="9" onclick="goTo(9)"><span class="s-num">09</span><span class="s-dot" style="background:#a855f7"></span><span class="s-label">Overfitting &amp; pruning</span></button>
+      <button class="s-item" data-panel="10" onclick="goTo(10)"><span class="s-num">10</span><span class="s-dot" style="background:#10b981"></span><span class="s-label">Pros &amp; cons</span></button>
+      <button class="s-item" data-panel="11" onclick="goTo(11)"><span class="s-num">11</span><span class="s-dot" style="background:#fbbf24"></span><span class="s-label">Exercises</span></button>
+      <hr class="side-sep">
+      <div class="side-part">Appendix</div>
+      <button class="s-item" data-panel="12" onclick="goTo(12)"><span class="s-num">A1</span><span class="s-dot" style="background:#8b5cf6"></span><span class="s-label">Entropy vs Gini</span></button>
+      <button class="s-item" data-panel="13" onclick="goTo(13)"><span class="s-num">A2</span><span class="s-dot" style="background:#06b6d4"></span><span class="s-label">Drawing the tree</span></button>
+      <hr class="side-sep">
+      <a class="s-item" style="text-decoration:none" href="../lessons/18_lesson/index.html"><span class="s-num">→</span><span class="s-dot" style="background:#22c55e"></span><span class="s-label">Lesson 18 code</span></a>
+    </nav>
+  </aside>
+
+  <!-- PANEL VIEWPORT -->
+  <div class="panel-viewport" id="viewport">
+
+    <!-- ══ PANEL 0: Overview ══ -->
+    <div class="panel active" id="panel-0">
+      <div class="hero" style="margin-bottom:36px;">
+        <span class="topic-label"><span class="dot"></span>Decision Trees · Deck 14 · Lesson 18</span>
+        <h1>Decision Trees</h1>
+        <p>No distances, no weights, no scaling. A decision tree just asks <strong>yes/no questions</strong> — one feature and one threshold at a time — and keeps asking the question that makes the groups <strong>purest</strong>. Watch one mixed group of rows split its way down into four clean ones:</p>
+        <div class="demo-canvas-wrap" style="background:#020509;border-radius:12px;padding:14px;position:relative;z-index:1;"><canvas id="cv-overview" height="340"></canvas></div>
+      </div>
+      <div class="overview-grid" style="margin-top:0;">
+        <div class="ov-card" onclick="goTo(1)"><div class="ov-card-num">01 / 11</div><div class="ov-card-name" style="color:#facc15">The idea</div><div class="ov-card-desc">Twenty questions, learned from data. Split, split, stop.</div></div>
+        <div class="ov-card" onclick="goTo(2)"><div class="ov-card-num">02 / 11</div><div class="ov-card-name" style="color:#06b6d4">Anatomy of a tree</div><div class="ov-card-desc">Root, decision node, leaf, edge, depth, height, subtree.</div></div>
+        <div class="ov-card" onclick="goTo(3)"><div class="ov-card-num">03 / 11</div><div class="ov-card-name" style="color:#10b981">Gini impurity</div><div class="ov-card-desc">G(Q) = 1 − Σ pc² — how mixed one node is.</div></div>
+        <div class="ov-card" onclick="goTo(4)"><div class="ov-card-num">04 / 11</div><div class="ov-card-name" style="color:#ec4899">Weighted Gini &amp; gain</div><div class="ov-card-desc">Score a split: weight the children, subtract from the parent.</div></div>
+        <div class="ov-card" onclick="goTo(5)"><div class="ov-card-num">05 / 11</div><div class="ov-card-name" style="color:#f97316">Choosing the split</div><div class="ov-card-desc">Try every feature × every threshold, keep the best gain.</div></div>
+        <div class="ov-card" onclick="goTo(6)"><div class="ov-card-num">06 / 11</div><div class="ov-card-name" style="color:#3b82f6">Train / test split</div><div class="ov-card-desc">train_test_split — why scoring on training data lies.</div></div>
+        <div class="ov-card" onclick="goTo(7)"><div class="ov-card-num">07 / 11</div><div class="ov-card-name" style="color:#f43f5e">In Python</div><div class="ov-card-desc">DecisionTreeClassifier, export_text, tree_.impurity.</div></div>
+        <div class="ov-card" onclick="goTo(8)"><div class="ov-card-num">08 / 11</div><div class="ov-card-name" style="color:#14b8a6">Regression tree</div><div class="ov-card-desc">Same splits, but average a number instead of voting.</div></div>
+        <div class="ov-card" onclick="goTo(9)"><div class="ov-card-num">09 / 11</div><div class="ov-card-name" style="color:#a855f7">Overfitting &amp; pruning</div><div class="ov-card-desc">max_depth, min_samples_leaf, pre- vs post-pruning.</div></div>
+        <div class="ov-card" onclick="goTo(10)"><div class="ov-card-num">10 / 11</div><div class="ov-card-name" style="color:#10b981">Pros &amp; cons</div><div class="ov-card-desc">Readable and fast — and the easiest model to overfit.</div></div>
+        <div class="ov-card" onclick="goTo(11)"><div class="ov-card-num">11 / 11</div><div class="ov-card-name" style="color:#fbbf24">Exercises</div><div class="ov-card-desc">Your turn — Gini by hand, then in code.</div></div>
+        <div class="ov-card" onclick="goTo(12)"><div class="ov-card-num">APPENDIX A1</div><div class="ov-card-name" style="color:#8b5cf6">Entropy vs Gini</div><div class="ov-card-desc">The other criterion, and when it changes the answer.</div></div>
+        <div class="ov-card" onclick="goTo(13)"><div class="ov-card-num">APPENDIX A2</div><div class="ov-card-name" style="color:#06b6d4">Drawing the tree</div><div class="ov-card-desc">plot_tree, export_text and export_graphviz.</div></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" disabled>← Prev</button>
+        <div class="pnav-dots" id="dots-0"></div>
+        <button class="pnav-btn next" onclick="goTo(1)">The idea →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 1: The idea ══ -->
+    <div class="panel" id="panel-1">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1518186285589-2f7649de83e0?w=900&q=75&fit=crop&h=200" alt="Rows of data" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">TREES 01 / 11 · The Algorithm</div>
+          <div class="m-name">The idea</div>
+          <div class="m-tagline">Twenty questions — but the questions are learned from the data</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">DecisionTreeClassifier()</span>
+        <span class="pill pill-param" style="background:rgba(250,204,21,.1);color:var(--accent);border:1px solid rgba(250,204,21,.28);">split
+          <span class="balloon"><span class="balloon-title">a split — one question</span><span class="balloon-body">Always of the form <code>feature &lt;= threshold</code>. One feature, one number, two children.</span></span>
+        </span>
+        <span class="pill pill-ret">→ a class label</span>
+      </div>
+      <p class="m-desc">A <strong>decision tree</strong> learns a small flowchart from labelled examples. At every box it asks one yes/no question about one feature. Your answer chooses a branch; a leaf at the end makes the prediction.</p>
+      <div class="tree-board" style="margin-top:4px">
+        <svg viewBox="0 0 720 330" role="img" aria-labelledby="first-tree-title first-tree-desc">
+          <title id="first-tree-title">A decision tree that classifies fruit</title><desc id="first-tree-desc">The root asks whether width is at most 7.35. Yes predicts apple. No leads to a height question and then apple or pear.</desc>
+          <path class="edge" d="M360 74 L190 145 M360 74 L530 145 M530 203 L445 270 M530 203 L615 270"/>
+          <text class="edge-label" x="267" y="112">YES ✓</text><text class="edge-label" x="453" y="112">NO ✕</text>
+          <text class="edge-label" x="482" y="241">YES ✓</text><text class="edge-label" x="578" y="241">NO ✕</text>
+          <rect class="node-box" x="270" y="18" width="180" height="56" fill="rgba(249,115,22,.20)" stroke="#f97316"/><text class="node-main" x="360" y="41">width ≤ 7.35?</text><text class="node-sub" x="360" y="59">start here · all fruit</text>
+          <rect class="node-box" x="112" y="145" width="156" height="58" rx="28" fill="rgba(16,185,129,.20)" stroke="#10b981"/><text class="node-main" x="190" y="169">APPLE</text><text class="node-sub" x="190" y="187">prediction leaf</text>
+          <rect class="node-box" x="440" y="145" width="180" height="58" fill="rgba(6,182,212,.18)" stroke="#06b6d4"/><text class="node-main" x="530" y="169">height ≤ 7.4?</text><text class="node-sub" x="530" y="187">ask another question</text>
+          <rect class="node-box" x="372" y="270" width="146" height="48" rx="24" fill="rgba(16,185,129,.20)" stroke="#10b981"/><text class="node-main" x="445" y="299">APPLE</text>
+          <rect class="node-box" x="542" y="270" width="146" height="48" rx="24" fill="rgba(168,85,247,.20)" stroke="#a855f7"/><text class="node-main" x="615" y="299">PEAR</text>
+        </svg>
+        <div class="diagram-caption">Begin at the top and follow one path. A prediction needs only comparisons—no distance calculation and no feature scaling.</div>
+      </div>
+      <div class="steps">
+        <div class="step a" data-n="1"><h4>1 · Ask</h4><p>Pick <strong>one feature</strong> and <strong>one threshold</strong>: "is <code>X1 &lt;= 2.5</code>?" Every row goes left or right.</p></div>
+        <div class="step b" data-n="2"><h4>2 · Score</h4><p>Measure how <strong>pure</strong> the two groups came out. Keep the question that separates the classes best.</p></div>
+        <div class="step c" data-n="3"><h4>3 · Repeat</h4><p>Do the same inside each group. Stop when a group is pure, or a limit says stop.</p></div>
+      </div>
+      <div class="callout blue">
+        🎯 <strong>Two everyday examples from class.</strong> <em>Should I accept this job offer?</em> → "salary at least $50,000?" → "commute more than 1 hour?" → "free coffee?" → accept / decline. <em>Is this fruit an apple or a pear?</em> → "width &lt; 7.35?" → "height &lt; 7.4?" → apple / pear. Same shape, one learned from a person, one learned from data.
+      </div>
+      <p class="m-desc">Training discovers both parts of each question: <strong>which feature</strong> to use and <strong>where to place the threshold</strong>. The same learned split has two views: a branch in the tree and a horizontal or vertical cut through the data.</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — add one split at a time and watch the rectangles appear</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>how many splits the tree is allowed</label><input type="range" min="0" max="4" value="0" step="1" id="id-d" oninput="drawIdea()"><span class="cval" id="id-dv">0</span></div>
+          <button class="play-btn" onclick="growIdea()">▶ grow the tree</button>
+        </div>
+        <div class="demo-out" id="out-idea"></div>
+        <div class="visual-pair">
+          <div class="visual-pane"><div class="visual-pane-title"><b>1</b> the data is cut</div><canvas id="cv-idea" height="300"></canvas></div>
+          <div class="visual-pane"><div class="visual-pane-title"><b>2</b> the cuts become a tree</div><canvas id="cv-idea-tree" height="300"></canvas></div>
+        </div>
+      </div>
+      <div class="callout green">
+        💡 <strong>No scaling needed — ever.</strong> A tree only ever asks "is this value bigger than that number?", and that comparison does not care whether the column runs 0–1 or 0–100000. KNN and SVM both fall apart without a scaler; a tree does not even notice. It is the one algorithm where you can skip <code>StandardScaler</code> with a clear conscience.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(0)">← Overview</button>
+        <div class="pnav-dots" id="dots-1"></div>
+        <button class="pnav-btn next" onclick="goTo(2)">Anatomy of a tree →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 2: Anatomy ══ -->
+    <div class="panel" id="panel-2">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1509228468518-180dd4864904?w=900&q=75&fit=crop&h=200" alt="Structure" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">TREES 02 / 11 · The Vocabulary</div>
+          <div class="m-name">Anatomy of a tree</div>
+          <div class="m-tagline">Root, node, leaf, edge, depth, height, subtree</div>
+        </div>
+      </div>
+      <p class="m-desc">Use this picture as the map. Boxes that ask questions are decision nodes; rounded boxes that answer are leaves.</p>
+      <div class="tree-board">
+        <svg viewBox="0 0 760 430" role="img" aria-labelledby="anatomy-title anatomy-desc">
+          <title id="anatomy-title">Anatomy of a decision tree</title><desc id="anatomy-desc">An annotated tree showing root, decision nodes, leaves, edges, parent, children, depth levels and a subtree.</desc>
+          <rect class="subtree-halo" x="375" y="116" width="365" height="298" rx="22"/><text x="707" y="139" class="edge-label" text-anchor="end">SUBTREE</text>
+          <line class="guide" x1="60" y1="52" x2="710" y2="52"/><line class="guide" x1="60" y1="180" x2="710" y2="180"/><line class="guide" x1="60" y1="328" x2="710" y2="328"/>
+          <text class="guide-label" x="4" y="56">depth 0</text><text class="guide-label" x="4" y="184">depth 1</text><text class="guide-label" x="4" y="332">depth 2</text>
+          <path class="edge" d="M380 88 L205 151 M380 88 L555 151 M555 217 L460 302 M555 217 L650 302"/>
+          <text class="edge-label" x="292" y="127">TRUE</text><text class="edge-label" x="468" y="127">FALSE</text><text class="edge-label" x="493" y="267">TRUE</text><text class="edge-label" x="617" y="267">FALSE</text>
+          <rect class="node-box" x="284" y="20" width="192" height="68" fill="rgba(249,115,22,.20)" stroke="#f97316"/><text class="node-main" x="380" y="45">ROOT NODE</text><text class="node-sub" x="380" y="64">weight ≤ 5.0?</text><text class="node-sub" x="380" y="78">contains every row</text>
+          <rect class="node-box" x="125" y="151" width="160" height="66" rx="28" fill="rgba(59,130,246,.20)" stroke="#3b82f6"/><text class="node-main" x="205" y="177">LEAF</text><text class="node-sub" x="205" y="196">predict class A</text>
+          <rect class="node-box" x="465" y="151" width="180" height="66" fill="rgba(16,185,129,.18)" stroke="#10b981"/><text class="node-main" x="555" y="176">DECISION NODE</text><text class="node-sub" x="555" y="196">height ≤ 6.1?</text>
+          <rect class="node-box" x="390" y="302" width="140" height="56" rx="25" fill="rgba(59,130,246,.20)" stroke="#3b82f6"/><text class="node-main" x="460" y="328">LEAF</text><text class="node-sub" x="460" y="345">class A</text>
+          <rect class="node-box" x="580" y="302" width="140" height="56" rx="25" fill="rgba(59,130,246,.20)" stroke="#3b82f6"/><text class="node-main" x="650" y="328">LEAF</text><text class="node-sub" x="650" y="345">class B</text>
+          <text class="node-sub" x="380" y="107">parent of both nodes below</text><text class="node-sub" x="555" y="239">parent</text><text class="node-sub" x="555" y="390">its two children ↑</text>
+          <path d="M88 111 L280 111" stroke="#a855f7" stroke-width="1.5"/><text x="78" y="115" class="edge-label" text-anchor="end">EDGE</text>
+        </svg>
+        <div class="diagram-caption">A node and everything below it form a subtree. The yellow dashed area is a complete smaller tree rooted at <code>height ≤ 6.1?</code>.</div>
+      </div>
+      <div class="anatomy-key">
+        <div class="term"><h5><i class="key-dot" style="background:#f97316"></i>Root</h5><p>The top node. It starts with all training rows and has no parent.</p></div>
+        <div class="term"><h5><i class="key-dot" style="background:#10b981"></i>Decision node</h5><p>An internal node containing one question and two children.</p></div>
+        <div class="term"><h5><i class="key-dot" style="background:#3b82f6"></i>Leaf</h5><p>A terminal node. It makes the final class or numeric prediction.</p></div>
+        <div class="term"><h5><i class="key-dot" style="background:#a855f7"></i>Edge</h5><p>A connection carrying the True or False result to a child.</p></div>
+      </div>
+      <div class="callout orange">
+        ⚠️ <strong>Depth and height are measured in opposite directions.</strong> Depth counts <em>down from the root</em>, height counts <em>up from the leaves</em>. The depth of the root is 0; the height of the root is the depth of the deepest leaf. <code>max_depth</code> in sklearn limits the first one.
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — hover the slider through the levels and watch what lights up</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>highlight depth</label><input type="range" min="-1" max="3" value="-1" step="1" id="an-d" oninput="drawAnatomy()"><span class="cval" id="an-dv">all</span></div>
+          <div class="ctrl"><label>show</label>
+            <div class="seg" id="an-seg">
+              <button class="on" onclick="setAn(0)">depth</button><button onclick="setAn(1)">height</button><button onclick="setAn(2)">subtree</button>
+            </div>
+          </div>
+        </div>
+        <div class="demo-out" id="out-anatomy"></div>
+        <div class="demo-canvas-wrap">
+          <div class="legend">
+            <span class="lg sq"><i style="background:#f97316"></i>root</span>
+            <span class="lg sq"><i style="background:#10b981"></i>decision node</span>
+            <span class="lg"><i style="background:#3b82f6"></i>leaf</span>
+          </div>
+          <canvas id="cv-anatomy" height="410"></canvas>
+        </div>
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue">sklearn</th><th class="blue">what it gives you</th></tr></thead>
+        <tbody>
+          <tr class="show"><td><code>clf.get_depth()</code></td><td>The depth of the deepest leaf.</td></tr>
+          <tr class="show"><td><code>clf.get_n_leaves()</code></td><td>How many leaves the tree ended up with.</td></tr>
+          <tr class="show"><td><code>clf.tree_.node_count</code></td><td>Every node, leaves included.</td></tr>
+          <tr class="show"><td><code>clf.tree_.feature</code></td><td>Which feature each node splits on. <code>-2</code> means "this is a leaf".</td></tr>
+          <tr class="show"><td><code>clf.tree_.threshold</code></td><td>The number each node compares against.</td></tr>
+          <tr class="show"><td><code>clf.tree_.impurity</code></td><td>The Gini value of every node — the array we printed in class.</td></tr>
+        </tbody>
+      </table>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(1)">← The idea</button>
+        <div class="pnav-dots" id="dots-2"></div>
+        <button class="pnav-btn next" onclick="goTo(3)">Gini impurity →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 3: Gini impurity ══ -->
+    <div class="panel" id="panel-3">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1518133910546-b6c2fb7d79e3?w=900&q=75&fit=crop&h=200" alt="Equations" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">TREES 03 / 11 · The Mathematics</div>
+          <div class="m-name">Gini impurity</div>
+          <div class="m-tagline">One number for "how mixed is this group?"</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">criterion='gini'</span>
+        <span class="pill pill-param" style="background:rgba(16,185,129,.1);color:var(--green);border:1px solid rgba(16,185,129,.28);">pc
+          <span class="balloon"><span class="balloon-title">pc — the share of class c</span><span class="balloon-body">How many rows of class c divided by how many rows the node holds. The shares always add up to 1.</span></span>
+        </span>
+        <span class="pill pill-ret">→ 0 = pure, bigger = more mixed</span>
+      </div>
+      <p class="m-desc">Before any formula, look at the same ten rows arranged three ways:</p>
+<!-- order:0 because .demo-canvas-wrap carries order:4 for use inside a .demo-box,
+           and the panel itself is a flex column — without it this lands after the nav -->
+      <div class="demo-canvas-wrap" style="margin:18px 0;order:0;"><canvas id="cv-pure" height="230"></canvas></div>
+      <p class="m-desc">You can tell them apart without arithmetic. The first group holds <strong>one class only</strong> — reach in, pull out a row, and you already know its label. The last is a <strong>coin flip</strong> — the group tells you nothing. That is what <strong>impurity</strong> means: how far a group is from holding a single class.</p>
+      <p class="m-desc">A tree has to make that judgement at every node, thousands of times, so it needs it as <strong>one number</strong> rather than an impression. That number is the <strong>Gini impurity</strong>. Written the way it appeared on the board:</p>
+      <div class="eq-box big" style="text-align:center;">
+        $$G(Q) = \sum_{c \in C} p_c\,(1 - p_c)$$
+      </div>
+      <p class="m-desc">where \(Q\) is a node, \(C\) is the set of classes, \(p_c\) is the probability that a random row in the node belongs to class \(c\), and \(1 - p_c\) is the probability it does not. Multiply out the sum and you get the version everybody actually uses:</p>
+      <div class="eq-box big green" style="text-align:center;">
+        $$G(Q) = 1 - \sum_{c \in C} p_c^{\,2}$$
+      </div>
+      <p class="m-desc">And for a <strong>binary</strong> problem — two classes only — it collapses to:</p>
+      <div class="eq-box small" style="text-align:center;">
+        $$G(Q) = 1 - \bigl[(p_1)^2 + (p_2)^2\bigr]$$
+      </div>
+      <div class="callout blue">
+        📐 <strong>Read it as a bet.</strong> Reach into the node, pull out a row at random, and guess its class by drawing a second row at random. Gini is the probability that you guess <em>wrong</em>. A pure node can never be wrong → 0. A 50/50 node is wrong half the time → 0.5.
+      </div>
+      <p class="m-desc">The worked example from the board — a node with <strong>10 rows: 7 of class A, 3 of class B</strong>:</p>
+      <div class="eq-box">
+        $$G(Q) = 1 - \bigl[(7/10)^2 + (3/10)^2\bigr] = 1 - [0.49 + 0.09] = 1 - 0.58 = \mathbf{0.42}$$
+      </div>
+      <p class="m-desc">And the six cases we worked through in class, in one table:</p>
+      <table class="dt">
+        <thead><tr><th class="blue">#</th><th class="blue">node contents</th><th class="blue">calculation</th><th class="blue">G(Q)</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>1</td><td>A: 5&nbsp;&nbsp;B: 5</td><td>1 − [(5/10)² + (5/10)²] = 1 − 0.5</td><td><strong>0.5</strong></td></tr>
+          <tr class="show"><td>2</td><td>A: 10&nbsp;&nbsp;B: 0</td><td>1 − [(0/10)² + (10/10)²] = 1 − 1</td><td><strong>0</strong> — pure</td></tr>
+          <tr class="show"><td>3</td><td>A: 0&nbsp;&nbsp;B: 10</td><td>1 − [(10/10)² + (0/10)²] = 1 − 1</td><td><strong>0</strong> — pure</td></tr>
+          <tr class="show"><td>4</td><td>A: 7&nbsp;&nbsp;B: 3</td><td>1 − [0.49 + 0.09]</td><td><strong>0.42</strong></td></tr>
+          <tr class="show"><td>5</td><td>A: 2&nbsp;&nbsp;B: 2&nbsp;&nbsp;C: 2</td><td>1 − 3·(1/3)² = 1 − 1/3</td><td><strong>2/3 ≈ 0.667</strong></td></tr>
+          <tr class="show"><td>6</td><td>A: 3&nbsp;&nbsp;B: 3&nbsp;&nbsp;C: 3&nbsp;&nbsp;D: 3</td><td>1 − 4·(1/4)² = 1 − 1/4</td><td><strong>3/4 = 0.75</strong></td></tr>
+        </tbody>
+      </table>
+      <div class="callout orange">
+        🔢 <strong>Notice rows 5 and 6.</strong> The more classes there are, the higher Gini can climb. With <code>k</code> equally-sized classes the maximum is exactly <strong>1 − 1/k</strong> — so 0.5 for two classes, 0.667 for three, 0.75 for four. Gini is <em>not</em> capped at 0.5; that is only the two-class case.
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — drag the mix and watch the curve. Where is it highest?</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>rows of class A (out of 10)</label><input type="range" min="0" max="10" value="7" step="1" id="gi-a" oninput="drawGini()"><span class="cval" id="gi-av">7</span></div>
+        </div>
+        <div class="demo-out" id="out-gini"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-gini" height="330"></canvas></div>
+      </div>
+      <div class="callout green">
+        ✅ <strong>The shape is the whole point.</strong> Gini is <strong>0 at both ends</strong> (all A, or all B) and <strong>peaks dead centre</strong>. A tree is always trying to walk downhill on this curve — every split it makes should leave its children lower than the parent.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(2)">← Anatomy of a tree</button>
+        <div class="pnav-dots" id="dots-3"></div>
+        <button class="pnav-btn next" onclick="goTo(4)">Weighted Gini &amp; gain →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 4: Weighted Gini & gain ══ -->
+    <div class="panel" id="panel-4">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=900&q=75&fit=crop&h=200" alt="Scales" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">TREES 04 / 11 · The Mathematics</div>
+          <div class="m-name">Weighted Gini &amp; gain</div>
+          <div class="m-tagline">One number for "how good was that question?"</div>
+        </div>
+      </div>
+      <p class="m-desc">Gini scores <em>one</em> node. A question turns one node into <em>two</em>, so before we can say whether the question was any good, the whole <strong>level below</strong> needs a single score of its own — and a child holding 5 rows has to count for more than a child holding 1. Here is one question on eight rows — four of class A, four of class B:</p>
+      <!-- order:0 because .demo-canvas-wrap carries order:4 for use inside a .demo-box,
+           and the panel itself is a flex column -->
+      <div class="demo-canvas-wrap" style="margin:18px 0;order:0;"><canvas id="cv-weighted" height="300"></canvas></div>
+      <p class="m-desc">Read it top to bottom. The parent level is one box, an even 4/4 mix, and scores <strong>0.500</strong>. The question sends <strong>5 of the 8 rows</strong> left and <strong>3</strong> right, and those two children are <em>not</em> equally mixed — 3 A · 2 B scores 0.480, while 1 A · 2 B scores 0.444. A plain average of the two would be wrong, because the left child speaks for five rows and the right for only three. Weighting each child by <strong>how many rows it holds</strong> gives <strong>0.467</strong> — the one number that stands for the entire level. The <strong>gain</strong> is then nothing more than the drop from one level to the next: <strong>0.500 − 0.467 = 0.033</strong>.</p>
+      <p class="m-desc">Written out, the score for a level — the <strong>weighted Gini</strong> — is:</p>
+      <div class="eq-box big" style="text-align:center;">
+        $$G_{\text{split}} = \frac{n_{\text{left}}}{n}\,G(\text{left}) \;+\; \frac{n_{\text{right}}}{n}\,G(\text{right})$$
+      </div>
+      <p class="m-desc">And the <strong>Gini gain</strong> is simply how much impurity the question removed:</p>
+      <div class="eq-box big gold" style="text-align:center;">
+        $$\text{Gain} = G(\text{parent}) - G_{\text{split}}$$
+      </div>
+      <div class="callout blue">
+        📌 <strong>Gain is never negative</strong> for the best split, and a gain of <strong>0</strong> means the question was useless — the mixture in the children is exactly as bad as it was in the parent. The tree simply picks the question with the <strong>largest gain</strong>.
+      </div>
+      <p class="m-desc">Now the exercise from class. Six rows, two features, two classes:</p>
+      <table class="dt">
+        <thead><tr><th class="blue">row</th><th class="blue">X1</th><th class="blue">X2</th><th class="blue">Y</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>0</td><td>1</td><td>3</td><td class="A">A</td></tr>
+          <tr class="show"><td>1</td><td>2</td><td>1</td><td class="A">A</td></tr>
+          <tr class="show"><td>2</td><td>3</td><td>2</td><td class="B">B</td></tr>
+          <tr class="show"><td>3</td><td>4</td><td>3</td><td class="B">B</td></tr>
+          <tr class="show"><td>4</td><td>5</td><td>1</td><td class="A">A</td></tr>
+          <tr class="show"><td>5</td><td>6</td><td>2</td><td class="B">B</td></tr>
+        </tbody>
+      </table>
+      <p class="m-desc">The root holds 3 A and 3 B, so <strong>G(parent) = 1 − [(3/6)² + (3/6)²] = 0.5</strong>. Two candidate questions were put on the board:</p>
+
+      <div class="eq-box small">
+        <strong style="color:var(--accent);font-family:'Courier New',monospace">Option 1 — X1 &gt; 3</strong>
+        $$\text{Yes (rows 3,4,5): A:1 B:2} \;\Rightarrow\; 1 - \left[\tfrac{1}{9} + \tfrac{4}{9}\right] = \tfrac{4}{9} \approx 0.444$$
+        $$\text{No (rows 0,1,2): A:2 B:1} \;\Rightarrow\; 1 - \left[\tfrac{4}{9} + \tfrac{1}{9}\right] = \tfrac{4}{9} \approx 0.444$$
+        $$G_{\text{split}} = \tfrac{3}{6}(0.444) + \tfrac{3}{6}(0.444) = 0.444 \qquad \text{Gain} = 0.5 - 0.444 = \mathbf{0.056}$$
+      </div>
+
+      <div class="eq-box small rose">
+        <strong style="color:#f43f5e;font-family:'Courier New',monospace">Option 2 — X2 &lt;= 2</strong>
+        $$\text{Yes (rows 1,2,4,5): A:2 B:2} \;\Rightarrow\; 1 - [0.25 + 0.25] = 0.5$$
+        $$\text{No (rows 0,3): A:1 B:1} \;\Rightarrow\; 1 - [0.25 + 0.25] = 0.5$$
+        $$G_{\text{split}} = \tfrac{4}{6}(0.5) + \tfrac{2}{6}(0.5) = 0.5 \qquad \text{Gain} = 0.5 - 0.5 = \mathbf{0}$$
+      </div>
+
+      <div class="callout green">
+        🏆 <strong>Option 1 wins.</strong> It removes 0.056 of impurity; option 2 removes nothing at all — both of its children are still perfectly 50/50, so the question told us literally nothing. That is the answer to the question left open in the notebook.
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — pick any feature and any threshold and score it yourself</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>split on</label>
+            <div class="seg" id="gn-seg">
+              <button class="on" onclick="setGnF(0)">X1</button><button onclick="setGnF(1)">X2</button>
+            </div>
+          </div>
+          <div class="ctrl"><label>threshold</label><input type="range" min="0.5" max="6.5" value="3.5" step="0.5" id="gn-t" oninput="drawGain()"><span class="cval" id="gn-tv">3.5</span></div>
+        </div>
+        <div class="demo-out" id="out-gain"></div>
+        <div class="demo-canvas-wrap">
+          <div class="legend">
+            <span class="lg"><i style="background:#10b981"></i>class A</span>
+            <span class="lg"><i style="background:#f97316"></i>class B</span>
+            <span class="lg ln"><i></i>the question</span>
+          </div>
+          <canvas id="cv-gain" height="330"></canvas>
+        </div>
+      </div>
+      <div class="callout orange">
+        🧪 <strong>Try to beat 0.056.</strong> Slide the threshold on X1 to <strong>2.5</strong> — the gain jumps to <strong>0.25</strong>, four times better than either option on the board. That is the split sklearn actually chooses, and the next slide explains how it found it.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(3)">← Gini impurity</button>
+        <div class="pnav-dots" id="dots-4"></div>
+        <button class="pnav-btn next" onclick="goTo(5)">Choosing the split →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 5: Choosing the split ══ -->
+    <div class="panel" id="panel-5">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1543286386-2e659306cd6c?w=900&q=75&fit=crop&h=200" alt="Search" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">TREES 05 / 11 · The Algorithm</div>
+          <div class="m-name">Choosing the split</div>
+          <div class="m-tagline">Try everything. Keep the best. Repeat.</div>
+        </div>
+      </div>
+      <p class="m-desc">There is no clever formula here — the tree is genuinely brute force, and that is fine because the search is small. At every node:</p>
+      <div class="steps">
+        <div class="step a" data-n="1"><h4>1 · Candidates</h4><p>For each feature, sort the values and take the <strong>midpoint between every pair of neighbours</strong>. Those are the only thresholds worth trying.</p></div>
+        <div class="step b" data-n="2"><h4>2 · Score</h4><p>Split the rows, compute the <strong>weighted Gini</strong>, subtract from the parent to get the gain.</p></div>
+        <div class="step c" data-n="3"><h4>3 · Keep the best</h4><p>Take the highest gain, make the two children, and run the whole thing again inside each one.</p></div>
+      </div>
+      <div class="callout blue">
+        📌 <strong>Why midpoints?</strong> With X1 values 1,2,3,4,5,6 the thresholds tried are 1.5, 2.5, 3.5, 4.5, 5.5 — five candidates, not infinitely many. Any threshold between two data points splits the rows identically, so the midpoint is a fair representative. That is why <code>export_text</code> prints <code>X1 &lt;= 2.50</code> and not <code>X1 &lt;= 2</code>.
+      </div>
+      <p class="m-desc">Run it by hand on the six rows and there are only <strong>seven</strong> candidate splits in total — five on X1, two on X2:</p>
+      <table class="dt">
+        <thead><tr><th class="blue">split</th><th class="blue">left group</th><th class="blue">right group</th><th class="blue">weighted Gini</th><th class="blue">gain</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>X1 &lt;= 1.5</td><td>A</td><td>A B B A B</td><td>0.400</td><td>0.100</td></tr>
+          <tr class="show win"><td><strong>X1 &lt;= 2.5</strong></td><td>A A</td><td>B B A B</td><td><strong>0.250</strong></td><td><strong>0.250</strong> ← best</td></tr>
+          <tr class="show"><td>X1 &lt;= 3.5</td><td>A A B</td><td>B A B</td><td>0.444</td><td>0.056</td></tr>
+          <tr class="show"><td>X1 &lt;= 4.5</td><td>A A B B</td><td>A B</td><td>0.500</td><td>0.000</td></tr>
+          <tr class="show"><td>X1 &lt;= 5.5</td><td>A A B B A</td><td>B</td><td>0.400</td><td>0.100</td></tr>
+          <tr class="show win"><td><strong>X2 &lt;= 1.5</strong></td><td>A A</td><td>A B B B</td><td><strong>0.250</strong></td><td><strong>0.250</strong> ← tie</td></tr>
+          <tr class="show"><td>X2 &lt;= 2.5</td><td>A B A B</td><td>A B</td><td>0.500</td><td>0.000</td></tr>
+        </tbody>
+      </table>
+      <div class="callout orange">
+        ⚠️ <strong>Two splits tie at 0.250.</strong> <code>X1 &lt;= 2.5</code> and <code>X2 &lt;= 1.5</code> are equally good, and sklearn has to pick one. It breaks the tie using <code>random_state</code> — which is exactly why that argument exists and why you should always set it. With <code>random_state=42</code> this data gives <code>X1 &lt;= 2.50</code> as the root.
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — every candidate scored, side by side. Press play to watch the search.</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>candidate being tested</label><input type="range" min="0" max="6" value="6" step="1" id="sc-i" oninput="drawScan()"><span class="cval" id="sc-iv">all</span></div>
+          <button class="play-btn" onclick="runScan()">▶ run the search</button>
+        </div>
+        <div class="demo-out" id="out-scan"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-scan" height="300"></canvas></div>
+      </div>
+      <div class="callout green">
+        💡 <strong>When does it stop?</strong> A node becomes a leaf when its Gini hits <strong>0</strong> (pure — nothing left to gain), when <strong>no split gives any gain</strong>, or when a limit like <code>max_depth</code> says stop. Left alone, a tree keeps splitting until every leaf is pure — which is exactly how it overfits.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(4)">← Weighted Gini &amp; gain</button>
+        <div class="pnav-dots" id="dots-5"></div>
+        <button class="pnav-btn next" onclick="goTo(6)">Train / test split →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 6: Train / test ══ -->
+    <div class="panel" id="panel-6">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=900&q=75&fit=crop&h=200" alt="Split" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">TREES 06 / 11 · Good Practice</div>
+          <div class="m-name">Train / test split</div>
+          <div class="m-tagline">A tree can memorize anything. Hold some rows back.</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">train_test_split(X, y, test_size=0.2, random_state=42)</span>
+        <span class="pill pill-ret">→ X_train, X_test, y_train, y_test</span>
+      </div>
+      <div class="callout red" style="border-left:4px solid #f43f5e;background:rgba(244,63,94,.07);">
+        🚨 <strong>Every accuracy printed so far in this deck is a lie.</strong> We fitted on all six rows and then scored on the same six rows — of course it is 1.0. A tree that is allowed to grow freely will <em>always</em> reach 100% on its own training data, because it keeps splitting until every leaf is pure. That number tells you nothing about new data.
+      </div>
+      <p class="m-desc">The fix is one line. Hold part of the data back, never let the model see it during <code>fit</code>, and score on that:</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — the split from class</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">from</span> sklearn.model_selection <span class="kw">import</span> train_test_split
+
+<span class="cm"># Simple example data: [feature1, feature2], labels (0 or 1)</span>
+X = [[<span class="num">1</span>, <span class="num">2</span>], [<span class="num">2</span>, <span class="num">3</span>], [<span class="num">3</span>, <span class="num">1</span>], [<span class="num">4</span>, <span class="num">5</span>],
+     [<span class="num">5</span>, <span class="num">4</span>], [<span class="num">6</span>, <span class="num">7</span>], [<span class="num">7</span>, <span class="num">6</span>], [<span class="num">8</span>, <span class="num">8</span>]]
+y = [<span class="num">0</span>, <span class="num">0</span>, <span class="num">0</span>, <span class="num">1</span>, <span class="num">1</span>, <span class="num">1</span>, <span class="num">1</span>, <span class="num">0</span>]   <span class="cm"># not perfectly separable!</span>
+
+X_train, X_test, y_train, y_test = <span class="fn">train_test_split</span>(
+        X, y, test_size=<span class="num">0.2</span>, random_state=<span class="num">42</span>)
+
+clf = <span class="cls">DecisionTreeClassifier</span>(criterion=<span class="str">'gini'</span>, random_state=<span class="num">42</span>)
+clf.<span class="fn">fit</span>(X_train, y_train)          <span class="cm"># fit on train only</span>
+
+y_pred = clf.<span class="fn">predict</span>(X_test)        <span class="cm"># score on rows it never saw</span>
+<span class="fn">print</span>(<span class="str">"Accuracy:"</span>, <span class="fn">accuracy_score</span>(y_test, y_pred))</pre>
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue">argument</th><th class="blue">what it does</th></tr></thead>
+        <tbody>
+          <tr class="show"><td><code>test_size=0.2</code></td><td>20% of the rows go to test. With 8 rows that is <strong>2 test</strong> and <strong>6 train</strong>. You can also pass an integer count.</td></tr>
+          <tr class="show"><td><code>random_state=42</code></td><td>Fixes the shuffle so the split is the same every run. Without it, your accuracy changes on every execution and you cannot compare anything.</td></tr>
+          <tr class="show"><td><code>shuffle=True</code></td><td>The default. Rows are shuffled before splitting — critical if your data is sorted by label.</td></tr>
+          <tr class="show"><td><code>stratify=y</code></td><td>Not used in class, but you should: it keeps the class proportions the same in train and test. Essential on imbalanced data.</td></tr>
+        </tbody>
+      </table>
+      <div class="callout blue">
+        🖨️ <strong>What the split actually produced</strong> with <code>random_state=42</code>:
+        <pre style="background:#010409;border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-top:10px;font-family:'Courier New',monospace;font-size:.78rem;color:#10b981;">train (6 rows): [1,2]→0  [8,8]→0  [3,1]→0  [5,4]→1  [4,5]→1  [7,6]→1
+test  (2 rows): [2,3]→0  [6,7]→1
+
+Accuracy: 1.0
+Confusion Matrix:
+ [[1 0]
+  [0 1]]</pre>
+      </div>
+      <div class="callout orange">
+        ⚠️ <strong>A test set of two rows is not evidence either.</strong> One row flipping takes you from 100% to 50%. This is a teaching example — on real data you want hundreds of test rows, and for small datasets you use <code>cross_val_score</code> instead, which scores on every row exactly once across several folds.
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — move the split and watch train accuracy stay perfect while test accuracy wobbles</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>test_size</label><input type="range" min="1" max="4" value="2" step="1" id="ts-n" oninput="drawTT()"><span class="cval" id="ts-nv">0.25 · 2 rows</span></div>
+          <div class="ctrl"><label>random_state</label><input type="range" min="0" max="9" value="4" step="1" id="ts-r" oninput="drawTT()"><span class="cval" id="ts-rv">4</span></div>
+        </div>
+        <div class="demo-out" id="out-tt"></div>
+        <div class="demo-canvas-wrap">
+          <div class="legend">
+            <span class="lg"><i style="background:#10b981"></i>class 0</span>
+            <span class="lg"><i style="background:#f97316"></i>class 1</span>
+            <span class="lg hollow"><i></i>held out for test</span>
+          </div>
+          <canvas id="cv-tt" height="330"></canvas>
+        </div>
+      </div>
+      <div class="callout green">
+        💡 <strong>Watch the two numbers.</strong> Train accuracy sits at 1.000 no matter what you do — the tree memorizes whatever it is given. Test accuracy jumps around between 0.5 and 1.0 as you move <code>random_state</code>. <strong>Only the second number is information.</strong>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(5)">← Choosing the split</button>
+        <div class="pnav-dots" id="dots-6"></div>
+        <button class="pnav-btn next" onclick="goTo(7)">In Python →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 7: In Python ══ -->
+    <div class="panel" id="panel-7">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1518770660439-4636190af475?w=900&q=75&fit=crop&h=200" alt="Circuits" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">TREES 07 / 11 · The Code</div>
+          <div class="m-name">In Python</div>
+          <div class="m-tagline">Three lines to fit, one line to read the whole model</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">from sklearn.tree import DecisionTreeClassifier</span>
+        <span class="pill pill-param" style="background:rgba(244,63,94,.1);color:#f43f5e;border:1px solid rgba(244,63,94,.28);">criterion
+          <span class="balloon"><span class="balloon-title">criterion='gini'</span><span class="balloon-body">The impurity measure. The other option is <code>'entropy'</code> — see appendix A1.</span></span>
+        </span>
+        <span class="pill pill-ret">→ a fitted classifier</span>
+      </div>
+      <p class="m-desc">The full example, using a <code>DataFrame</code> so the feature names carry through into the printed rules — this is the last cell we wrote in class:</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — copy, paste, run</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">from</span> sklearn.tree <span class="kw">import</span> <span class="cls">DecisionTreeClassifier</span>, export_text
+<span class="kw">from</span> sklearn.metrics <span class="kw">import</span> accuracy_score, confusion_matrix
+<span class="kw">import</span> pandas <span class="kw">as</span> <span class="lib">pd</span>
+
+<span class="cm"># 1. Create Data with DataFrame</span>
+df = <span class="lib">pd</span>.<span class="fn">DataFrame</span>({
+    <span class="str">'weight'</span>: [<span class="num">2</span>, <span class="num">4</span>, <span class="num">6</span>, <span class="num">8</span>, <span class="num">10</span>, <span class="num">12</span>],
+    <span class="str">'height'</span>: [<span class="num">5</span>, <span class="num">3</span>, <span class="num">4</span>, <span class="num">5</span>, <span class="num">3</span>, <span class="num">4</span>],
+    <span class="str">'Target'</span>: [<span class="str">'A'</span>, <span class="str">'A'</span>, <span class="str">'B'</span>, <span class="str">'B'</span>, <span class="str">'A'</span>, <span class="str">'B'</span>]
+})
+
+X = df[[<span class="str">'weight'</span>, <span class="str">'height'</span>]]      <span class="cm"># features</span>
+y = df[<span class="str">'Target'</span>]                  <span class="cm"># label</span>
+
+<span class="cm"># 2. Build Model</span>
+clf = <span class="cls">DecisionTreeClassifier</span>(criterion=<span class="str">'gini'</span>, random_state=<span class="num">42</span>)
+clf.<span class="fn">fit</span>(X, y)
+
+<span class="cm"># 3. Predict &amp; Test</span>
+y_pred = clf.<span class="fn">predict</span>(X)
+
+<span class="cm"># 4. Show Metrics</span>
+<span class="fn">print</span>(<span class="str">"Accuracy:"</span>, <span class="fn">accuracy_score</span>(y, y_pred))
+<span class="fn">print</span>(<span class="str">"Confusion Matrix:\n"</span>, <span class="fn">confusion_matrix</span>(y, y_pred))
+
+<span class="cm"># 5. Show Rules</span>
+tree_rules = <span class="fn">export_text</span>(clf, feature_names=<span class="fn">list</span>(X.columns), show_weights=<span class="kw">True</span>)
+<span class="fn">print</span>(<span class="str">"\nTree Rules:\n"</span>, tree_rules)
+
+<span class="cm"># 6. Show Gini Impurities for all tree nodes</span>
+<span class="fn">print</span>(<span class="str">"Node Impurities (Gini):"</span>, clf.tree_.impurity)</pre>
+      </div>
+      <div class="callout blue">
+        🖨️ <strong>Output:</strong>
+        <pre style="background:#010409;border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-top:10px;font-family:'Courier New',monospace;font-size:.78rem;color:#10b981;">Accuracy: 1.0
+Confusion Matrix:
+ [[3 0]
+  [0 3]]
+
+Tree Rules:
+ |--- weight &lt;= 5.00
+|   |--- weights: [2.00, 0.00] class: A
+|--- weight &gt;  5.00
+|   |--- height &lt;= 3.50
+|   |   |--- weights: [1.00, 0.00] class: A
+|   |--- height &gt;  3.50
+|   |   |--- weights: [0.00, 3.00] class: B
+
+Node Impurities (Gini): [0.5   0.    0.375 0.    0.   ]</pre>
+      </div>
+      <p class="m-desc"><strong>How to read <code>export_text</code>.</strong> Every <code>|</code> is one level of depth, and each pair of lines at the same indentation is the yes/no branch of one question:</p>
+      <table class="dt">
+        <thead><tr><th class="blue">line</th><th class="blue">meaning</th></tr></thead>
+        <tbody>
+          <tr class="show"><td><code>|--- weight &lt;= 5.00</code></td><td>The root question. Rows with weight ≤ 5 go this way.</td></tr>
+          <tr class="show"><td><code>|&nbsp;&nbsp;&nbsp;|--- weights: [2.00, 0.00] class: A</code></td><td>A <strong>leaf</strong>. It holds 2 rows of class A and 0 of class B, so it predicts A.</td></tr>
+          <tr class="show"><td><code>|--- weight &gt;&nbsp; 5.00</code></td><td>The other branch of the same question — same indentation.</td></tr>
+          <tr class="show"><td><code>|&nbsp;&nbsp;&nbsp;|--- height &lt;= 3.50</code></td><td>A second question, asked only inside the right branch.</td></tr>
+        </tbody>
+      </table>
+      <div class="callout orange">
+        📌 <strong><code>show_weights=True</code> is what prints the <code>[2.00, 0.00]</code> counts</strong> — the number of training rows of each class that landed in the leaf, in the order of <code>clf.classes_</code> (alphabetical: A then B). Without it you only get <code>class: A</code> and lose all the evidence behind it.
+      </div>
+      <p class="m-desc">And the impurity array lines up with the tree node by node — five nodes, printed in depth-first order:</p>
+      <table class="dt">
+        <thead><tr><th class="blue">node</th><th class="blue">rows</th><th class="blue">A / B</th><th class="blue">Gini</th><th class="blue">what it is</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>0 root</td><td>6</td><td>3 / 3</td><td><strong>0.5</strong></td><td>weight ≤ 5.00 ?</td></tr>
+          <tr class="show"><td>1 left</td><td>2</td><td>2 / 0</td><td><strong>0.0</strong></td><td>leaf → A (pure)</td></tr>
+          <tr class="show"><td>2 right</td><td>4</td><td>1 / 3</td><td><strong>0.375</strong></td><td>height ≤ 3.50 ?</td></tr>
+          <tr class="show"><td>3</td><td>1</td><td>1 / 0</td><td><strong>0.0</strong></td><td>leaf → A (pure)</td></tr>
+          <tr class="show"><td>4</td><td>3</td><td>0 / 3</td><td><strong>0.0</strong></td><td>leaf → B (pure)</td></tr>
+        </tbody>
+      </table>
+      <div class="callout green">
+        ✅ <strong>Check node 2 by hand.</strong> It holds 1 A and 3 B, so <code>1 − [(1/4)² + (3/4)²] = 1 − [0.0625 + 0.5625] = 0.375</code>. Exactly the third number sklearn printed. Every entry in that array is one Gini calculation you can now do yourself.
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — the real fitted tree. Move a new sample and watch it fall through.</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>weight</label><input type="range" min="1" max="13" value="7" step="0.5" id="tr-x" oninput="drawTreeDemo()"><span class="cval" id="tr-xv">7</span></div>
+          <div class="ctrl"><label>height</label><input type="range" min="2" max="6" value="5" step="0.5" id="tr-y" oninput="drawTreeDemo()"><span class="cval" id="tr-yv">5</span></div>
+        </div>
+        <div class="demo-out" id="out-tree"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-tree" height="330"></canvas></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(6)">← Train / test split</button>
+        <div class="pnav-dots" id="dots-7"></div>
+        <button class="pnav-btn next" onclick="goTo(8)">Regression tree →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 8: Regression ══ -->
+    <div class="panel" id="panel-8">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1509228627152-72ae9ae6848d?w=900&q=75&fit=crop&h=200" alt="Steps" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">TREES 08 / 11 · The Other Half</div>
+          <div class="m-name">Regression tree</div>
+          <div class="m-tagline">Same splits — but average a number instead of voting</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">from sklearn.tree import DecisionTreeRegressor</span>
+        <span class="pill pill-param" style="background:rgba(20,184,166,.1);color:var(--cyan);border:1px solid rgba(20,184,166,.28);">criterion
+          <span class="balloon"><span class="balloon-title">criterion='squared_error'</span><span class="balloon-body">The regression default. Gini and entropy are for classes; here the impurity is variance.</span></span>
+        </span>
+        <span class="pill pill-ret">→ a number, not a label</span>
+      </div>
+      <p class="m-desc">Nine points, one feature <code>x</code>, one number <code>y</code> to predict — no classes anywhere. The whole process, at <code>max_depth=2</code>:</p>
+      <div class="visual-pair" style="margin:18px 0;">
+        <div class="visual-pane"><div class="visual-pane-title"><b>1</b> the numbers are cut into groups</div><canvas id="cv-regcut" height="300"></canvas></div>
+        <div class="visual-pane"><div class="visual-pane-title"><b>2</b> the groups become a tree</div><canvas id="cv-regtree" height="300"></canvas></div>
+      </div>
+      <p class="m-desc">Left pane, in order. The tree cuts the x-axis at <strong>4.50</strong>, then again at <strong>3.50</strong> and <strong>6.50</strong> — the dashed verticals. Each of the four groups then predicts <strong>one number: the mean of the y values inside it</strong>, drawn as the flat cyan bars. The short dotted drops are how far each point still sits from its own group's mean; square them and average them and you have the node's impurity — <strong>MSE in the place where Gini used to be</strong>. Right pane: the same three cuts drawn as a tree, every leaf carrying <code>value =</code> the mean of its group.</p>
+      <p class="m-desc">So a tree does not have to predict a class. Change two things and the same algorithm predicts a <strong>number</strong>:</p>
+      <table class="dt">
+        <thead><tr><th class="blue"></th><th class="blue">classification</th><th class="blue">regression</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>impurity of a node</td><td><strong>Gini</strong> — how mixed the classes are</td><td><strong>variance / MSE</strong> — how spread out the numbers are</td></tr>
+          <tr class="show"><td>a leaf predicts</td><td>the <strong>majority class</strong> in it</td><td>the <strong>mean</strong> of the values in it</td></tr>
+          <tr class="show"><td>sklearn class</td><td><code>DecisionTreeClassifier</code></td><td><code>DecisionTreeRegressor</code></td></tr>
+          <tr class="show"><td>default criterion</td><td><code>'gini'</code></td><td><code>'squared_error'</code></td></tr>
+          <tr class="show"><td>scoring</td><td><code>accuracy_score</code></td><td><code>mean_squared_error</code>, <code>r2_score</code></td></tr>
+        </tbody>
+      </table>
+      <p class="m-desc">Everything else — the midpoint candidates, the weighted average of the children, keeping the biggest reduction — is identical. The impurity of a node is just:</p>
+      <div class="eq-box" style="text-align:center;">
+        $$\text{MSE}(Q) = \frac{1}{n}\sum_{i \in Q} (y_i - \bar{y}_Q)^2 \qquad\text{where } \bar{y}_Q \text{ is the mean of the node}$$
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — a regression tree</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> numpy <span class="kw">as</span> <span class="lib">np</span>
+<span class="kw">from</span> sklearn.tree <span class="kw">import</span> <span class="cls">DecisionTreeRegressor</span>, export_text
+<span class="kw">from</span> sklearn.metrics <span class="kw">import</span> mean_squared_error, r2_score
+
+<span class="cm"># one feature, one number to predict</span>
+X = <span class="lib">np</span>.<span class="fn">array</span>([[<span class="num">1</span>], [<span class="num">2</span>], [<span class="num">3</span>], [<span class="num">4</span>], [<span class="num">5</span>], [<span class="num">6</span>], [<span class="num">7</span>], [<span class="num">8</span>], [<span class="num">9</span>]])
+y = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">2.1</span>, <span class="num">3.4</span>, <span class="num">3.0</span>, <span class="num">5.2</span>, <span class="num">6.8</span>, <span class="num">6.1</span>, <span class="num">8.4</span>, <span class="num">9.0</span>, <span class="num">8.2</span>])
+
+reg = <span class="cls">DecisionTreeRegressor</span>(max_depth=<span class="num">2</span>, random_state=<span class="num">42</span>)
+reg.<span class="fn">fit</span>(X, y)
+
+<span class="fn">print</span>(<span class="fn">export_text</span>(reg, feature_names=[<span class="str">"x"</span>]))
+<span class="fn">print</span>(<span class="str">"predict(5) ="</span>, reg.<span class="fn">predict</span>([[<span class="num">5</span>]]))
+<span class="fn">print</span>(<span class="str">"MSE ="</span>, <span class="fn">mean_squared_error</span>(y, reg.<span class="fn">predict</span>(X)))
+<span class="fn">print</span>(<span class="str">"R2  ="</span>, <span class="fn">r2_score</span>(y, reg.<span class="fn">predict</span>(X)))</pre>
+      </div>
+      <div class="callout orange">
+        🪜 <strong>A regression tree draws a staircase, never a slope.</strong> Every leaf outputs one constant, so the prediction is flat inside each region and jumps at the boundaries. That has a hard consequence: a tree <strong>cannot extrapolate</strong>. Feed it <code>x = 100</code> and it returns the mean of whatever leaf 100 falls into — the value of the right-most leaf, forever. Linear regression would keep climbing; a tree flattens out.
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — deepen the tree and watch the staircase get finer</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>max_depth</label><input type="range" min="1" max="6" value="2" step="1" id="rg-d" oninput="drawReg()"><span class="cval" id="rg-dv">2</span></div>
+          <div class="ctrl"><label>min_samples_leaf</label><input type="range" min="1" max="4" value="1" step="1" id="rg-l" oninput="drawReg()"><span class="cval" id="rg-lv">1</span></div>
+        </div>
+        <div class="demo-out" id="out-reg"></div>
+        <div class="demo-canvas-wrap">
+          <div class="legend">
+            <span class="lg"><i style="background:#facc15"></i>training points</span>
+            <span class="lg ln"><i style="border-color:#06b6d4"></i>the tree's prediction</span>
+          </div>
+          <canvas id="cv-reg" height="330"></canvas>
+        </div>
+      </div>
+      <div class="callout green">
+        💡 <strong>Push max_depth to 6.</strong> The staircase gets a step for every single training point and the MSE hits 0 — a perfect fit that has learned the noise as if it were signal. Same overfitting story as classification, just easier to see.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(7)">← In Python</button>
+        <div class="pnav-dots" id="dots-8"></div>
+        <button class="pnav-btn next" onclick="goTo(9)">Overfitting &amp; pruning →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 9: Overfitting & pruning ══ -->
+    <div class="panel" id="panel-9">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1477346611705-65d1883cee1e?w=900&q=75&fit=crop&h=200" alt="Pruning" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">TREES 09 / 11 · The Weakness</div>
+          <div class="m-name">Overfitting &amp; pruning</div>
+          <div class="m-tagline">Left alone, a tree memorizes. Pruning is the cure.</div>
+        </div>
+      </div>
+      <p class="m-desc"><strong>Pruning</strong> reduces the size of a decision tree by removing sections that add little classification power. The goal is to cut complexity and prevent overfitting. When a subtree is pruned it is replaced by a single leaf holding the <strong>majority class</strong> (classification) or the <strong>average value</strong> (regression) of the leaves it swallowed.</p>
+      <div class="pc-grid">
+        <div class="pc good">
+          <h4>✂️ Pre-pruning (early stopping)</h4>
+          <ol>
+            <li><code>max_depth</code> — the maximum depth of the tree.</li>
+            <li><code>min_samples_split</code> — the minimum rows a node needs before it is allowed to split at all.</li>
+            <li><code>min_samples_leaf</code> — the minimum rows that must land in each leaf.</li>
+            <li><code>max_leaf_nodes</code> — a hard cap on the number of leaves.</li>
+          </ol>
+          <p style="font-size:.8rem;color:var(--muted);margin-top:8px">These limits are set <strong>before</strong> the tree is grown. This is what you will actually use.</p>
+        </div>
+        <div class="pc bad">
+          <h4>🌳 Post-pruning</h4>
+          <ol>
+            <li>Grow the <strong>full</strong> tree first, with no limits at all.</li>
+            <li>Then cut back branches that do not improve performance on held-out data.</li>
+            <li>In sklearn this is <code>ccp_alpha</code> (cost-complexity pruning).</li>
+          </ol>
+          <p style="font-size:.8rem;color:var(--muted);margin-top:8px">Less common in scikit-learn practice, more common in academic treatments — but <code>ccp_alpha</code> is there if you want it.</p>
+        </div>
+      </div>
+      <div class="callout orange">
+        ⚠️ <strong>The signature of an overfitted tree</strong> is a big gap between training and test accuracy. Train 1.00 / test 0.62 means the tree learned the specific rows, not the pattern. Trees are more prone to this than almost any other model, because nothing stops them splitting until every leaf holds a single row.
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — a noisy dataset. Grow the tree and watch train and test come apart.</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>max_depth</label><input type="range" min="1" max="9" value="9" step="1" id="pr-d" oninput="drawPrune()"><span class="cval" id="pr-dv">9</span></div>
+          <div class="ctrl"><label>min_samples_leaf</label><input type="range" min="1" max="12" value="1" step="1" id="pr-l" oninput="drawPrune()"><span class="cval" id="pr-lv">1</span></div>
+        </div>
+        <div class="demo-out" id="out-prune"></div>
+        <div class="demo-canvas-wrap">
+          <div class="legend">
+            <span class="lg"><i style="background:#10b981"></i>class A</span>
+            <span class="lg"><i style="background:#f97316"></i>class B</span>
+            <span class="lg hollow"><i></i>test row</span>
+          </div>
+          <canvas id="cv-prune" height="340"></canvas>
+        </div>
+      </div>
+      <div class="callout green">
+        💡 <strong>Find the sweet spot.</strong> The true rule behind this data is a single corner block — <code>x1 &lt; 5 AND x2 &lt; 5</code> — which a <strong>depth-2</strong> tree can express exactly. Everything deeper is fitting the 20% of labels that were flipped at random. Drag the depth slider and watch the two numbers move in opposite directions:
+        <pre style="background:#010409;border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-top:10px;font-family:'Courier New',monospace;font-size:.76rem;color:#10b981;">depth   leaves   train    test     gap
+  1        2     0.724    0.594    0.131   &lt;- too blunt
+  2        4     0.840    0.734    0.105   &lt;- best test score
+  4       12     0.891    0.672    0.219
+  6       21     0.929    0.625    0.304
+  9       32     0.968    0.594    0.374   &lt;- worst test score</pre>
+        Train accuracy climbs the whole way. <strong>Test accuracy peaks at depth 2 and then falls.</strong> That divergence is overfitting, and pruning is what stops it.
+      </div>
+      <div class="callout blue">
+        🔧 <strong><code>min_samples_leaf</code> does the same job from the other end.</strong> Leave <code>max_depth</code> at 9 and raise <code>min_samples_leaf</code> to <strong>6</strong> instead: the tree drops from 32 leaves to 16, train falls to 0.846, and <strong>test recovers to 0.703</strong>. You do not have to limit the depth — you just have to stop leaves from being built out of one or two rows.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(8)">← Regression tree</button>
+        <div class="pnav-dots" id="dots-9"></div>
+        <button class="pnav-btn next" onclick="goTo(10)">Pros &amp; cons →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 10: Pros & cons ══ -->
+    <div class="panel" id="panel-10">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1464802686167-b939a6910659?w=900&q=75&fit=crop&h=200" alt="Balance" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">TREES 10 / 11 · The Verdict</div>
+          <div class="m-name">Pros &amp; cons</div>
+          <div class="m-tagline">The most readable model there is — and the easiest to overfit</div>
+        </div>
+      </div>
+      <div class="pc-grid">
+        <div class="pc good">
+          <h4>✅ Advantages</h4>
+          <ol>
+            <li><strong>You can read it.</strong> <code>export_text</code> prints the entire model as if-statements a non-programmer can follow. Nothing else in ML gives you that.</li>
+            <li><strong>No scaling, no normalization.</strong> Comparisons do not care about units.</li>
+            <li><strong>Handles mixed feature types</strong> and is unbothered by outliers in the features.</li>
+            <li><strong>Non-linear by construction</strong> — no kernel needed.</li>
+            <li><strong>Fast</strong> to train and near-instant to predict; prediction is just walking down a few comparisons.</li>
+            <li><strong>Feature importance for free</strong> via <code>clf.feature_importances_</code>.</li>
+          </ol>
+        </div>
+        <div class="pc bad">
+          <h4>❌ Disadvantages</h4>
+          <ol>
+            <li><strong>Overfits badly</strong> if left unpruned — this is <em>the</em> problem with trees.</li>
+            <li><strong>Unstable.</strong> Change a few rows and you can get a completely different tree. Splits are greedy, so an early change cascades.</li>
+            <li><strong>Axis-aligned only.</strong> A diagonal boundary has to be approximated with a staircase of rectangles.</li>
+            <li><strong>Cannot extrapolate</strong> in regression — output is flat outside the training range.</li>
+            <li><strong>Biased toward the majority class</strong> on imbalanced data; use <code>class_weight='balanced'</code>.</li>
+            <li><strong>Greedy, not optimal.</strong> It takes the best split now, which is not always the best tree overall.</li>
+          </ol>
+        </div>
+      </div>
+      <div class="callout blue">
+        ⚖️ <strong>Honest verdict.</strong> A single decision tree is rarely the best-scoring model — but it is the best <em>explainable</em> one, and it is the building block for everything that is: <strong>Random Forest</strong> averages hundreds of trees grown on random subsets, and <strong>Gradient Boosting</strong> (XGBoost, LightGBM) grows trees that each fix the previous one's mistakes. Both fix the instability while keeping the strengths. Learn the tree and you have learned the foundation of the models that win competitions.
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue">use a single tree when…</th><th class="blue">use something else when…</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>Somebody must be able to read the rules</td><td>You only care about the score → Random Forest / boosting</td></tr>
+          <tr class="show"><td>You want a fast, honest baseline</td><td>The boundary is genuinely diagonal → SVM / logistic regression</td></tr>
+          <tr class="show"><td>Features are mixed types and unscaled</td><td>You need smooth extrapolation → linear regression</td></tr>
+          <tr class="show"><td>The dataset is small and clean</td><td>The data is noisy → an ensemble averages the noise away</td></tr>
+        </tbody>
+      </table>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(9)">← Overfitting &amp; pruning</button>
+        <div class="pnav-dots" id="dots-10"></div>
+        <button class="pnav-btn next" onclick="goTo(11)">Exercises →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 11: Exercises ══ -->
+    <div class="panel" id="panel-11">
+      <div class="exercise-header">
+        <div class="exercise-badge">✍</div>
+        <div>
+          <h2 style="font-size:1.4rem;margin-bottom:6px;">Exercises</h2>
+          <p style="font-size:.88rem;color:var(--muted);margin:0;">Paper first, then code. Every answer can be checked against a demo in this deck.</p>
+        </div>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q1</span><strong>Gini by hand</strong></div>
+        <div class="ex-task">Compute G(Q) for a node holding <strong>A: 4, B: 6</strong>, and for a node holding <strong>A: 1, B: 1, C: 8</strong>. Which is more impure?</div>
+        <details class="hint"><summary>▸ hint</summary><div class="ex-task" style="margin-top:8px">First: 1 − [(0.4)² + (0.6)²] = 1 − [0.16 + 0.36] = <strong>0.48</strong>. Second: 1 − [(0.1)² + (0.1)² + (0.8)²] = 1 − [0.01 + 0.01 + 0.64] = <strong>0.34</strong>. The two-class node is more impure, even though the other one has three classes — what matters is the balance, not the class count.</div></details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q2</span><strong>Finish the class exercise</strong></div>
+        <div class="ex-task">This is the question the notebook left open. For the six-row dataset, option 2 was <code>X2 &lt;= 2</code>. Work out the Gini of each side, the weighted Gini and the gain — then say which option is better, 1 or 2.</div>
+        <details class="hint"><summary>▸ hint</summary><div class="ex-task" style="margin-top:8px">Yes: rows 1,2,4,5 → A:2 B:2 → 0.5. No: rows 0,3 → A:1 B:1 → 0.5. Weighted = (4/6)(0.5) + (2/6)(0.5) = <strong>0.5</strong>. Gain = 0.5 − 0.5 = <strong>0</strong>. Option 1 (gain 0.056) wins — option 2 is a completely useless question.</div></details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q3</span><strong>Beat both options</strong></div>
+        <div class="ex-task">Still on the six rows: find the split with the <strong>highest possible</strong> gain by trying every midpoint on both features. How many candidates are there in total?</div>
+        <details class="hint"><summary>▸ hint</summary><div class="ex-task" style="margin-top:8px">Seven candidates — five on X1 (1.5, 2.5, 3.5, 4.5, 5.5) and two on X2 (1.5, 2.5). The winner is a tie at gain <strong>0.25</strong> between <code>X1 ≤ 2.5</code> and <code>X2 ≤ 1.5</code>. The <a onclick="goTo(5)" style="color:var(--accent);cursor:pointer;font-weight:700;">split-search demo</a> shows all seven at once.</div></details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q4</span><strong>Read the impurity array</strong></div>
+        <div class="ex-task">Fit the <code>weight</code> / <code>height</code> tree and print <code>clf.tree_.impurity</code>. You get <code>[0.5, 0., 0.375, 0., 0.]</code>. Which node is the <code>0.375</code>, and what rows does it hold? Verify the number by hand.</div>
+        <details class="hint"><summary>▸ hint</summary><div class="ex-task" style="margin-top:8px">Node 2 — the right child of the root, holding the 4 rows with weight &gt; 5. Those are 1 A and 3 B, so 1 − [(1/4)² + (3/4)²] = 1 − 0.625 = <strong>0.375</strong>.</div></details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q5</span><strong>Prove the overfitting</strong></div>
+        <div class="ex-task">Take the 8-row dataset from the train/test slide. Fit with <code>max_depth=None</code> and print both <code>clf.score(X_train, y_train)</code> and <code>clf.score(X_test, y_test)</code>. Then loop <code>max_depth</code> from 1 to 6 and print both scores for each. Where do they diverge?</div>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q6</span><strong>Scaling does nothing</strong></div>
+        <div class="ex-task">Multiply the <code>weight</code> column by 1000 and refit. Compare <code>export_text</code> before and after. What changed, and what did not?</div>
+        <details class="hint"><summary>▸ hint</summary><div class="ex-task" style="margin-top:8px">Only the printed threshold changes — <code>weight &lt;= 5.00</code> becomes <code>weight &lt;= 5000.00</code>. The structure, the predictions and the accuracy are all identical. Try the same experiment with KNN or SVM and the result falls apart.</div></details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q7</span><strong>Gini vs entropy</strong></div>
+        <div class="ex-task">Refit the six-row dataset with <code>criterion='entropy'</code> and compare <code>export_text</code> with the Gini version. Same tree or different? Then try it on the 8-row noisy dataset.</div>
+        <details class="hint"><summary>▸ hint</summary><div class="ex-task" style="margin-top:8px">Identical here. The two criteria rank splits almost the same way and disagree only in close calls — <a onclick="goTo(12)" style="color:var(--accent);cursor:pointer;font-weight:700;">appendix A1</a> plots them on top of each other.</div></details>
+      </div>
+
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(10)">← Pros &amp; cons</button>
+        <div class="pnav-dots" id="dots-11"></div>
+        <button class="pnav-btn next" onclick="goTo(12)">Appendix A1 →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 12: A1 entropy vs gini ══ -->
+    <div class="panel" id="panel-12">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1504639725590-34d0984388bd?w=900&q=75&fit=crop&h=200" alt="Maths" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Appendix A1 · The Other Criterion</div>
+          <div class="m-name">Entropy vs Gini</div>
+          <div class="m-tagline">Two ways to say "mixed", and they almost always agree</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">criterion='entropy'</span>
+        <span class="pill pill-ret">→ information gain instead of Gini gain</span>
+      </div>
+      <div class="callout green">
+        ✅ <strong>Short answer — keep <code>'gini'</code>.</strong> It is sklearn's default, it costs no logarithm, and on real data the two criteria pick the <em>same</em> split the overwhelming majority of the time. Everything below this line explains <em>why</em> that is safe to do — none of it changes the answer.
+      </div>
+      <p class="m-desc">The choice only becomes a real decision in the cases in the middle column. If none of them describes you, you are in row one:</p>
+      <table class="dt">
+        <thead><tr><th class="blue">criterion</th><th class="blue">choose it exactly when</th><th class="blue">cost of being wrong</th></tr></thead>
+        <tbody>
+          <tr class="show"><td><code>'gini'</code><br>← the default</td><td>Every time none of the rows below applies — which is nearly always. Cheapest to compute, and the name every reader of your code already expects.</td><td>None worth measuring.</td></tr>
+          <tr class="show"><td><code>'entropy'</code></td><td>You are reproducing <strong>ID3 / C4.5</strong>, a textbook, or a course that speaks in <em>information gain</em>; <strong>or</strong> your grid search has budget to spare and you want one more knob in it; <strong>or</strong> a marking scheme names entropy explicitly.</td><td>A few logarithms. Marginally slower to fit.</td></tr>
+          <tr class="show"><td><code>'log_loss'</code></td><td>Never as a genuine third option — sklearn computes it identically to <code>'entropy'</code>. It exists so the name lines up with the loss used elsewhere in the library.</td><td>None — it <em>is</em> entropy.</td></tr>
+        </tbody>
+      </table>
+      <p class="m-desc">And if you still cannot decide, do not argue about it — hand both to a grid search and let your own data settle it. It costs one extra fit per configuration:</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — let the data choose</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">from</span> sklearn.model_selection <span class="kw">import</span> <span class="cls">GridSearchCV</span>
+
+grid = <span class="cls">GridSearchCV</span>(
+    <span class="cls">DecisionTreeClassifier</span>(random_state=<span class="num">42</span>),
+    {<span class="str">'criterion'</span>: [<span class="str">'gini'</span>, <span class="str">'entropy'</span>],
+     <span class="str">'max_depth'</span>: [<span class="num">2</span>, <span class="num">3</span>, <span class="num">4</span>, <span class="num">5</span>]},
+    cv=<span class="num">5</span>)
+grid.<span class="fn">fit</span>(X_train, y_train)
+<span class="fn">print</span>(grid.best_params_)   <span class="cm"># max_depth will matter; criterion almost never will</span></pre>
+      </div>
+      <p class="m-desc">The rest of this appendix is the <em>why</em>. Gini is not the only way to score a node — the other classic measure comes from information theory: <strong>entropy</strong>, the average number of bits you need to describe which class a random row belongs to.</p>
+      <div class="eq-box big" style="text-align:center;">
+        $$H(Q) = -\sum_{c \in C} p_c \log_2 p_c$$
+      </div>
+      <p class="m-desc">Same shape of idea, same use. Weight the children the same way, and the difference from the parent is called <strong>information gain</strong> rather than Gini gain:</p>
+      <div class="eq-box small gold" style="text-align:center;">
+        $$\text{Information Gain} = H(\text{parent}) - \left[\frac{n_L}{n}H(L) + \frac{n_R}{n}H(R)\right]$$
+      </div>
+      <p class="m-desc">The two on the same node, so you can see how close they run:</p>
+      <table class="dt">
+        <thead><tr><th class="blue">node</th><th class="blue">Gini</th><th class="blue">Entropy</th><th class="blue">verdict</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>A: 10&nbsp; B: 0</td><td>0.000</td><td>0.000</td><td>pure — both agree</td></tr>
+          <tr class="show"><td>A: 9&nbsp;&nbsp; B: 1</td><td>0.180</td><td>0.469</td><td>entropy reacts harder</td></tr>
+          <tr class="show"><td>A: 7&nbsp;&nbsp; B: 3</td><td>0.420</td><td>0.881</td><td>—</td></tr>
+          <tr class="show"><td>A: 5&nbsp;&nbsp; B: 5</td><td>0.500</td><td>1.000</td><td>worst case for both</td></tr>
+          <tr class="show"><td>4 classes, equal</td><td>0.750</td><td>2.000</td><td>max = 1−1/k vs log₂k</td></tr>
+        </tbody>
+      </table>
+      <div class="callout blue">
+        📐 <strong>Different ranges, same shape.</strong> For two classes Gini tops out at <strong>0.5</strong> and entropy at <strong>1.0</strong>; for k equal classes it is <strong>1 − 1/k</strong> versus <strong>log₂k</strong>. Both are 0 when pure and maximal when perfectly balanced. Since a tree only ever compares candidates <em>at the same node</em>, the different scale does not matter — only the ranking does.
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — both curves at once. Notice they peak in the same place.</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>share of class A</label><input type="range" min="0" max="100" value="70" step="1" id="en-p" oninput="drawEnt()"><span class="cval" id="en-pv">0.70</span></div>
+          <div class="ctrl"><label>scale</label>
+            <div class="seg" id="en-seg">
+              <button class="on" onclick="setEn(0)">raw</button><button onclick="setEn(1)">entropy ÷ 2</button>
+            </div>
+          </div>
+        </div>
+        <div class="demo-out" id="out-ent"></div>
+        <div class="demo-canvas-wrap">
+          <div class="legend">
+            <span class="lg ln"><i style="border-color:#10b981"></i>Gini</span>
+            <span class="lg ln"><i style="border-color:#8b5cf6"></i>Entropy</span>
+          </div>
+          <canvas id="cv-ent" height="330"></canvas>
+        </div>
+      </div>
+      <div class="callout green">
+        ✅ <strong>Switch to "entropy ÷ 2" in the demo.</strong> Halved, the entropy curve sits almost exactly on top of the Gini curve — entropy is very slightly higher in the middle range, which is why it can prefer a marginally more balanced split. In practice the two produce the same tree on almost every dataset.
+      </div>
+      <div class="callout orange">
+        📌 <strong>Do not tune this first.</strong> <code>max_depth</code> and <code>min_samples_leaf</code> change your score far more than <code>criterion</code> ever will. If a switch from gini to entropy noticeably changes your results, that is usually a sign the tree is unstable — which means it is overfitting.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(11)">← Exercises</button>
+        <div class="pnav-dots" id="dots-12"></div>
+        <button class="pnav-btn next" onclick="goTo(13)">Appendix A2 →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 13: A2 drawing ══ -->
+    <div class="panel" id="panel-13">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1501139083538-0139583c060f?w=900&q=75&fit=crop&h=200" alt="Drawing" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Appendix A2 · Reference</div>
+          <div class="m-name">Drawing the tree</div>
+          <div class="m-tagline">Three ways to see the model you just fitted</div>
+        </div>
+      </div>
+      <p class="m-desc">There are three ways to get a trained tree out of sklearn and in front of a human. Two are built in and need nothing extra; the third is prettier but needs an install.</p>
+
+      <p class="m-desc"><strong>1 · <code>plot_tree</code> — a real picture, no extra packages.</strong> This is the one to use:</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — plot_tree</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> matplotlib.pyplot <span class="kw">as</span> <span class="lib">plt</span>
+<span class="kw">from</span> sklearn.tree <span class="kw">import</span> plot_tree
+
+<span class="lib">plt</span>.<span class="fn">figure</span>(figsize=(<span class="num">12</span>, <span class="num">7</span>))
+<span class="fn">plot_tree</span>(clf,
+          feature_names=[<span class="str">'weight'</span>, <span class="str">'height'</span>],
+          class_names=clf.classes_,      <span class="cm"># the label on each leaf</span>
+          filled=<span class="kw">True</span>,                   <span class="cm"># colour by majority class</span>
+          rounded=<span class="kw">True</span>,
+          fontsize=<span class="num">11</span>)
+<span class="lib">plt</span>.<span class="fn">show</span>()</pre>
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue">argument</th><th class="blue">what it changes</th></tr></thead>
+        <tbody>
+          <tr class="show"><td><code>filled=True</code></td><td>Colours each box by its majority class; the stronger the colour, the purer the node.</td></tr>
+          <tr class="show"><td><code>feature_names</code></td><td>Without it every box says <code>X[0]</code>, <code>X[1]</code> instead of real names.</td></tr>
+          <tr class="show"><td><code>class_names</code></td><td>Adds <code>class = A</code> to each box. Pass <code>clf.classes_</code>.</td></tr>
+          <tr class="show"><td><code>max_depth=3</code></td><td>Draws only the top levels — essential for a big tree, otherwise the text is unreadable.</td></tr>
+          <tr class="show"><td><code>proportion=True</code></td><td>Shows fractions instead of raw counts.</td></tr>
+        </tbody>
+      </table>
+      <div class="callout blue">
+        📦 <strong>Each box in <code>plot_tree</code> holds five lines:</strong> the <strong>question</strong> (leaves have none), <strong>gini</strong> — the impurity of that node, <strong>samples</strong> — how many training rows reached it, <strong>value</strong> — the count per class in <code>classes_</code> order, and <strong>class</strong> — the majority. Exactly the numbers <code>export_text</code> prints, laid out as a picture.
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — the same fitted tree, drawn the way plot_tree draws it</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>max_depth shown</label><input type="range" min="1" max="3" value="3" step="1" id="dw-d" oninput="drawDraw()"><span class="cval" id="dw-dv">3</span></div>
+          <div class="ctrl"><label>options</label>
+            <div class="seg" id="dw-seg">
+              <button class="on" onclick="setDw(0)">filled=True</button><button onclick="setDw(1)">filled=False</button>
+            </div>
+          </div>
+        </div>
+        <div class="demo-out" id="out-draw"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-draw" height="360"></canvas></div>
+      </div>
+
+      <p class="m-desc"><strong>2 · <code>export_text</code> — the rules as plain text.</strong> Nothing to install, pastes into an email, and diffs cleanly in git. This is what we used in class:</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — export_text</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">from</span> sklearn.tree <span class="kw">import</span> export_text
+
+<span class="fn">print</span>(<span class="fn">export_text</span>(clf,
+                  feature_names=<span class="fn">list</span>(X.columns),
+                  show_weights=<span class="kw">True</span>,     <span class="cm"># print the per-class counts</span>
+                  decimals=<span class="num">2</span>,
+                  max_depth=<span class="num">10</span>))</pre>
+      </div>
+
+      <p class="m-desc"><strong>3 · <code>export_graphviz</code> — the publication-quality version.</strong> Needs the <code>graphviz</code> package installed, so it is the one that breaks on other people's machines:</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — export_graphviz</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">from</span> sklearn.tree <span class="kw">import</span> export_graphviz
+<span class="kw">import</span> graphviz                     <span class="cm"># pip install graphviz</span>
+
+dot = <span class="fn">export_graphviz</span>(clf,
+                      feature_names=[<span class="str">'weight'</span>, <span class="str">'height'</span>],
+                      class_names=clf.classes_,
+                      filled=<span class="kw">True</span>, rounded=<span class="kw">True</span>,
+                      special_characters=<span class="kw">True</span>)
+
+graph = graphviz.<span class="cls">Source</span>(dot)
+graph.<span class="fn">render</span>(<span class="str">'my_tree'</span>, format=<span class="str">'png'</span>)     <span class="cm"># writes my_tree.png</span>
+graph                                    <span class="cm"># displays inline in Jupyter</span></pre>
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue">method</th><th class="blue">install needed</th><th class="blue">best for</th></tr></thead>
+        <tbody>
+          <tr class="show"><td><code>plot_tree</code></td><td>none — matplotlib only</td><td>Almost always the right answer. Fast, inline, saves as PNG.</td></tr>
+          <tr class="show"><td><code>export_text</code></td><td>none</td><td>Reading the exact rules, pasting into a report, checking a small tree.</td></tr>
+          <tr class="show"><td><code>export_graphviz</code></td><td><code>pip install graphviz</code> + system binary</td><td>The nicest-looking output, for a paper or a slide deck.</td></tr>
+        </tbody>
+      </table>
+      <div class="callout orange">
+        ⚠️ <strong>Big trees are unreadable as pictures.</strong> Past about depth 4 the boxes shrink to nothing. Pass <code>max_depth=3</code> to <code>plot_tree</code> to see just the top of the tree, or use <code>export_text</code> and read it as rules instead. If your tree is too big to draw, that is usually a hint it needs pruning anyway.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(12)">← Entropy vs Gini</button>
+        <div class="pnav-dots" id="dots-13"></div>
+        <button class="pnav-btn next" onclick="goTo(0)">Back to Overview →</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="tree.js"></script>
+</body>
+</html>

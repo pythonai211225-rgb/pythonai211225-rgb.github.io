@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 18 - Decision Trees</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      renderMathInElement(document.body, {
+        delimiters: [
+          { left: '$$', right: '$$', display: true },
+          { left: '\\(', right: '\\)', display: false }
+        ],
+        throwOnError: false
+      });
+    });
+  </script>
+  <style>
+    :root {
+      --bg: #f8fbff;
+      --surface: #ffffff;
+      --ink: #142033;
+      --muted: #52657d;
+      --blue: #2563eb;
+      --blue-dark: #143b73;
+      --cyan: #e7fbff;
+      --green: #0f9f6e;
+      --orange: #f97316;
+      --red: #dc2626;
+      --purple: #7c3aed;
+      --border: #bfd0ea;
+      --code-bg: #101a2c;
+      --code-text: #dceaff;
+      --soft-blue: #eef6ff;
+      --soft-green: #effbf5;
+      --soft-orange: #fff7ed;
+      --soft-red: #fef2f2;
+      --soft-purple: #f5f1ff;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Trebuchet MS", "Lucida Sans", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 10%, #e9f7ff 0%, transparent 34%),
+        radial-gradient(circle at 88% 18%, #effbf5 0%, transparent 32%),
+        linear-gradient(180deg, var(--bg) 0%, #ffffff 56%, #f1f8ff 100%);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    .wrap { max-width: 1140px; margin: 0 auto; padding: 28px 20px 60px; }
+    .layout { display: grid; grid-template-columns: 268px 1fr; gap: 22px; align-items: start; }
+
+    .side-nav {
+      position: sticky; top: 20px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 18px 14px;
+      box-shadow: 0 4px 16px rgba(37,99,235,.08);
+      max-height: calc(100vh - 40px); overflow-y: auto;
+    }
+    .side-title { font-size: .8rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--blue); margin: 0 0 10px; }
+    .part-label { display: block; padding: 8px 4px 4px; font-size: .7rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--green); }
+    .topic-link {
+      display: block; width: 100%; border: 1px solid transparent; border-radius: 9px;
+      padding: 7px 10px; background: transparent; color: var(--muted); cursor: pointer;
+      text-align: left; font: inherit; margin: 2px 0; transition: .16s ease;
+    }
+    .topic-link:hover { background: #f0f7ff; color: var(--blue-dark); border-color: var(--border); }
+    .topic-link.active { background: #e9f1ff; color: var(--blue-dark); border-color: var(--blue); font-weight: 700; }
+    .side-divider { border: none; border-top: 1px solid var(--border); margin: 12px 4px; }
+    .nav-back { display: block; padding: 7px 10px; color: var(--blue); font-weight: 700; text-decoration: none; font-size: .9rem; }
+    .nav-back:hover { text-decoration: underline; }
+
+    .hero {
+      background: linear-gradient(135deg, var(--surface) 0%, var(--soft-blue) 54%, var(--soft-green) 100%);
+      border: 1px solid var(--border); border-radius: 16px; padding: 28px;
+      box-shadow: 0 12px 30px rgba(37,99,235,.12); margin-bottom: 22px;
+    }
+    .tag { display: inline-block; padding: 5px 12px; border-radius: 999px; background: #e7fbff; color: #0f766e; font-weight: 800; font-size: .82rem; border: 1px solid #99e6ef; }
+    h1 { margin: 14px 0 10px; color: var(--blue-dark); font-size: clamp(2rem, 5vw, 3.2rem); line-height: 1.05; }
+    .hero p { max-width: 830px; color: var(--muted); font-size: 1.06rem; }
+    .hero-chips { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .hero-chip { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: .78rem; font-weight: 700; background: rgba(20,184,166,.1); color: #0f766e; border: 1px solid rgba(20,184,166,.3); }
+
+    .card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      padding: 22px; margin-bottom: 16px; box-shadow: 0 7px 22px rgba(37,99,235,.08);
+    }
+    .topic-panel { display: none; }
+    .topic-panel.active { display: block; }
+    .step-title { margin: 0 0 12px; color: var(--blue-dark); font-size: 1.25rem; }
+
+    code { font-family: Consolas, "Courier New", monospace; }
+
+    .math-card {
+      border: 1px solid #b7c8e4; border-radius: 12px;
+      background: linear-gradient(135deg, #ffffff 0%, #f1f7ff 100%);
+      padding: 18px; margin: 18px 0; text-align: center;
+    }
+    .math-caption { color: var(--muted); margin: 8px 0 0; font-size: .95rem; }
+    .katex { color: var(--blue-dark); }
+    .katex-display { margin: 6px 0; overflow-x: auto; overflow-y: hidden; padding: 3px 0; }
+    .data-table .katex, .math-caption .katex, p .katex { font-size: 1em; }
+
+    .resource-link { display: inline-block; color: var(--blue-dark); font-weight: 800; text-decoration: none; border-bottom: 2px solid rgba(37,99,235,.35); }
+    .resource-link:hover { color: var(--blue); border-bottom-color: var(--blue); }
+    .resource-links { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 4px; }
+
+    .code {
+      background: var(--code-bg); color: var(--code-text); border-radius: 10px;
+      border: 1px solid #304563; padding: 16px 18px; overflow-x: auto; margin: 12px 0;
+      font-size: .95rem; line-height: 1.5; white-space: pre;
+    }
+    .output {
+      background: #f7fbff; color: #1a2d49; border: 1px solid var(--border);
+      border-left: 5px solid var(--blue); border-radius: 10px; padding: 12px 14px;
+      overflow-x: auto; margin: 8px 0 16px; font-family: Consolas, "Courier New", monospace; white-space: pre-wrap;
+    }
+    .output.warn { border-left-color: var(--red); background: var(--soft-red); }
+    .out-label { display: block; font-family: "Trebuchet MS", sans-serif; font-size: .72rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+
+    .note { background: var(--soft-orange); border: 1px solid #fed7aa; border-left: 5px solid var(--orange); border-radius: 10px; padding: 12px 14px; margin: 12px 0; }
+    .note.blue { background: var(--soft-blue); border-color: #bcd4f6; border-left-color: var(--blue); }
+    .note.red { background: var(--soft-red); border-color: #fecaca; border-left-color: var(--red); }
+    .note.green { background: var(--soft-green); border-color: #b6ebd4; border-left-color: var(--green); }
+    .note.purple { background: var(--soft-purple); border-color: #ddd0fb; border-left-color: var(--purple); }
+
+    .task-box { border: 1px solid var(--border); border-left: 5px solid var(--blue); border-radius: 10px; padding: 14px 16px; margin: 12px 0; background: #fbfdff; }
+    .task-num { font-weight: 900; color: var(--blue); text-transform: uppercase; letter-spacing: .08em; font-size: .78rem; }
+
+    .data-table { width: 100%; border-collapse: collapse; margin: 16px 0; background: #fbfdff; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .data-table th { background: var(--soft-blue); color: var(--blue-dark); text-align: left; padding: 10px 14px; font-size: .9rem; border-bottom: 2px solid var(--border); }
+    .data-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); font-family: Consolas, "Courier New", monospace; }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table td.term { font-family: inherit; font-weight: 700; color: var(--blue-dark); }
+    .data-table tr.pick td { background: #fffbe8; }
+    .data-table tr.zero td { background: #f3f7ff; }
+
+    .ca { color: var(--green);  font-weight: 700; }
+    .cb { color: var(--orange); font-weight: 700; }
+
+    .steps-strip { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; margin: 16px 0; }
+    .stepbox { border: 1px solid var(--border); border-radius: 10px; padding: 14px; background: #fbfdff; }
+    .stepbox .n { display: block; font-size: .72rem; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; color: var(--blue); margin-bottom: 4px; }
+    .stepbox strong { color: var(--blue-dark); }
+
+    .term-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin: 16px 0; }
+    .term { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; background: #fbfdff; }
+    .term h5 { margin: 0 0 4px; font-size: .92rem; color: var(--blue-dark); }
+    .term p { margin: 0; font-size: .88rem; color: var(--muted); }
+
+    .footer { text-align: center; color: var(--muted); font-size: .9rem; margin-top: 18px; }
+    .task-list { margin: 6px 0 0; padding-left: 20px; }
+    .task-list li { margin: 4px 0; }
+
+    @media (max-width: 880px) {
+      .layout { grid-template-columns: 1fr; }
+      .side-nav { position: static; max-height: none; }
+      .wrap { padding: 18px 12px 44px; }
+      .steps-strip { grid-template-columns: 1fr; }
+    }
+    /* ── GitHub-dark Python syntax colours ── */
+    pre.code.py { color: #c9d1d9; }
+    pre.code.py .hl-com     { color: #8b949e; font-style: italic; }
+    pre.code.py .hl-kw      { color: #ff7b72; }
+    pre.code.py .hl-str     { color: #a5d6ff; }
+    pre.code.py .hl-num     { color: #79c0ff; }
+    pre.code.py .hl-fn      { color: #d2a8ff; }
+    pre.code.py .hl-builtin { color: #ffa657; }
+  </style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="layout">
+    <aside class="side-nav">
+      <p class="side-title">Lesson 18</p>
+      <span class="part-label">Class Code</span>
+      <button class="topic-link active" data-target="topic-github">1. GitHub Repo</button>
+      <span class="part-label">Theory on the Board</span>
+      <button class="topic-link" data-target="topic-1">2. What a decision tree is</button>
+      <button class="topic-link" data-target="topic-2">3. The vocabulary</button>
+      <button class="topic-link" data-target="topic-3">4. Pruning</button>
+      <span class="part-label">Gini</span>
+      <button class="topic-link" data-target="topic-4">5. Gini impurity</button>
+      <button class="topic-link" data-target="topic-5">6. The six cases</button>
+      <span class="part-label">Class Exercise</span>
+      <button class="topic-link" data-target="topic-6">7. The dataset</button>
+      <button class="topic-link" data-target="topic-7">8. Option 1 - X1 &gt; 3</button>
+      <button class="topic-link" data-target="topic-8">9. Option 2 - the answer</button>
+      <span class="part-label">Doing It With sklearn</span>
+      <button class="topic-link" data-target="topic-9">10. DecisionTreeClassifier</button>
+      <button class="topic-link" data-target="topic-10">11. export_text</button>
+      <button class="topic-link" data-target="topic-11">12. train_test_split</button>
+      <button class="topic-link" data-target="topic-12">13. The DataFrame version</button>
+      <button class="topic-link" data-target="topic-13">14. The whole script</button>
+      <hr class="side-divider">
+      <a class="nav-back" href="../../14_dec_tree/index.html">Theory deck: Decision Trees</a>
+      <a class="nav-back" href="../../index.html">Back to Python libs</a>
+    </aside>
+
+    <main>
+      <section class="hero">
+        <span class="tag">Lesson - August 12, 2026</span>
+        <h1>Decision Trees: the code we wrote in class</h1>
+        <p>Today we computed Gini impurity on paper six different ways, scored two candidate splits by hand, then let <code>DecisionTreeClassifier</code> find a better one in three lines and printed the whole model as text. This page is the <strong>code</strong> from class, cell by cell, with the outputs we actually saw. The full theory - the gain formula, the split search, regression trees, pruning, entropy - lives in the <a class="resource-link" href="../../14_dec_tree/index.html">Decision Trees deck</a>.</p>
+        <div class="hero-chips">
+          <span class="hero-chip">Gini impurity</span>
+          <span class="hero-chip">weighted Gini</span>
+          <span class="hero-chip">Gini gain</span>
+          <span class="hero-chip">DecisionTreeClassifier</span>
+          <span class="hero-chip">criterion='gini'</span>
+          <span class="hero-chip">export_text</span>
+          <span class="hero-chip">show_weights</span>
+          <span class="hero-chip">tree_.impurity</span>
+          <span class="hero-chip">train_test_split</span>
+          <span class="hero-chip">classification_report</span>
+        </div>
+      </section>
+
+      <!-- ═══ 1. GITHUB ═══ -->
+      <section class="card topic-panel active" id="topic-github">
+        <h2 class="step-title">Open Class Code</h2>
+        <p>Open the original notebook from today's class on GitHub: <code>dec_tree1_12_aug_2026.ipynb</code>.</p>
+        <div class="resource-links">
+          <a class="resource-link" href="https://github.com/pythonai211225-rgb/12.08.2026/blob/main/dec_tree1_12_aug_2026.ipynb" target="_blank" rel="noopener">
+            pythonai211225-rgb/12.08.2026
+          </a>
+        </div>
+        <div class="note blue">This repository contains the class code for August 12, 2026.</div>
+        <p>The imports we started with:</p>
+        <pre class="code py"><code>import numpy as np
+import pandas as pd
+from IPython.display import display
+import matplotlib.pyplot as plt
+import seaborn as sns</code></pre>
+        <p>And the ones we added from <code>sklearn</code> once the coding started:</p>
+        <pre class="code py"><code>from sklearn.tree import DecisionTreeClassifier
+from sklearn.tree import export_text
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import (accuracy_score, precision_score, recall_score,
+                             f1_score, confusion_matrix, classification_report)</code></pre>
+        <div class="note green"><strong>Nothing to scale today.</strong> No <code>MinMaxScaler</code>, no <code>StandardScaler</code>. A decision tree only ever compares a value to a threshold, and that comparison does not care about units - so unlike KNN and SVM, a tree needs no preprocessing at all.</div>
+      </section>
+
+      <!-- ═══ 2. WHAT IT IS ═══ -->
+      <section class="card topic-panel" id="topic-1">
+        <h2 class="step-title">What a decision tree is</h2>
+        <p>A <strong>decision tree</strong> is a <strong>supervised learning</strong> algorithm that imitates the way people make decisions. The algorithm splits the data into smaller and smaller pieces based on the values of specific <strong>features</strong>, and builds a structure shaped like a tree.</p>
+
+        <div class="steps-strip">
+          <div class="stepbox"><span class="n">Inner nodes</span><strong>Features</strong><br>each internal node represents a property of the data - a question about one feature.</div>
+          <div class="stepbox"><span class="n">Branches</span><strong>The rules</strong><br>the edges leaving a node carry the yes/no answer to its question.</div>
+          <div class="stepbox"><span class="n">Leaves</span><strong>The result</strong><br>the final nodes hold the outcome - the predicted class.</div>
+        </div>
+
+        <p>Two examples from the board:</p>
+        <table class="data-table">
+          <thead><tr><th>question</th><th>the tree</th></tr></thead>
+          <tbody>
+            <tr><td class="term">Should I accept this job offer?</td><td>salary ≥ $50,000? → commute over 1 hour? → free coffee? → accept / decline</td></tr>
+            <tr><td class="term">Is this fruit an apple or a pear?</td><td>width &lt; 7.35? → height &lt; 7.4? → apple / pear</td></tr>
+          </tbody>
+        </table>
+
+        <div class="note blue"><strong>The main advantage</strong> of decision trees is that they are <strong>simple</strong> - you can read the model, interpret it, and display it visually. <strong>The main disadvantage</strong> is the tendency to <strong>overfit</strong>: low accuracy on predictions, and a bias when handling unbalanced datasets.</div>
+
+        <div class="note"><strong>Notice what the fruit example draws.</strong> Two cuts - one horizontal at width 7.35, one vertical at height 7.4 - split the plane into <strong>rectangles</strong>. Every question is <code>feature ≤ number</code>, so a tree can only ever draw boundaries parallel to the axes. It can never draw the diagonal line that SVM found last lesson.</div>
+
+        <div class="note green"><strong>See it move.</strong> The <a class="resource-link" href="../../14_dec_tree/index.html">deck</a> opens with the same six-row dataset being carved one split at a time, so you can watch the rectangles appear.</div>
+      </section>
+
+      <!-- ═══ 3. VOCABULARY ═══ -->
+      <section class="card topic-panel" id="topic-2">
+        <h2 class="step-title">The vocabulary</h2>
+        <p>Every one of these words appears in the sklearn documentation and in the output of <code>export_text</code>, so they are worth learning properly:</p>
+
+        <div class="term-grid">
+          <div class="term"><h5>Root node</h5><p>The single node at the top. It holds all the training rows before any question is asked.</p></div>
+          <div class="term"><h5>Decision node</h5><p>Any internal node. Holds a question and has exactly two children.</p></div>
+          <div class="term"><h5>Leaf node</h5><p>A node with no children. Holds the answer - the predicted class.</p></div>
+          <div class="term"><h5>Edge</h5><p>The line from a parent to a child. Carries the yes/no result of the parent's question.</p></div>
+          <div class="term"><h5>Parent / child</h5><p>The node above, and the two directly below it.</p></div>
+          <div class="term"><h5>Subtree</h5><p>A node together with everything hanging below it. A subtree is itself a valid tree.</p></div>
+          <div class="term"><h5>Depth</h5><p>How far a node sits <strong>below the root</strong>. The root is depth 0.</p></div>
+          <div class="term"><h5>Height</h5><p>The longest path <strong>down</strong> to a leaf, in edges. Every leaf has height 0.</p></div>
+        </div>
+
+        <div class="note"><strong>Depth and height run in opposite directions.</strong> Depth counts downwards from the root; height counts upwards from the leaves. The root has depth 0 and height equal to the depth of the deepest leaf. <code>max_depth</code> in sklearn limits the first of the two.</div>
+
+        <table class="data-table">
+          <thead><tr><th>in sklearn</th><th>what it gives you</th></tr></thead>
+          <tbody>
+            <tr><td class="term">clf.get_depth()</td><td>the depth of the deepest leaf</td></tr>
+            <tr><td class="term">clf.get_n_leaves()</td><td>how many leaves the tree has</td></tr>
+            <tr><td class="term">clf.tree_.node_count</td><td>every node, leaves included</td></tr>
+            <tr><td class="term">clf.tree_.feature</td><td>which feature each node splits on (<code>-2</code> = leaf)</td></tr>
+            <tr><td class="term">clf.tree_.threshold</td><td>the number each node compares against</td></tr>
+            <tr><td class="term">clf.tree_.impurity</td><td>the Gini value of every node - the array we printed</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ═══ 4. PRUNING ═══ -->
+      <section class="card topic-panel" id="topic-3">
+        <h2 class="step-title">Pruning</h2>
+        <p><strong>Pruning</strong> is a technique that reduces the size of a decision tree by removing sections that provide little power to classify instances. The goal is to reduce complexity and prevent overfitting.</p>
+        <p>When a subtree is pruned it is typically replaced with a <strong>leaf node</strong> representing the <strong>average value</strong> (for regression) or the <strong>majority class</strong> (for classification) of the original subtree's leaves.</p>
+
+        <div class="note purple"><strong>1 · Pre-pruning (early stopping).</strong> We stop the tree from growing too deep by setting limits <em>before</em> it is grown:
+          <ul style="margin:6px 0 0">
+            <li><code>max_depth</code> - maximum depth of the tree</li>
+            <li><code>min_samples_split</code> - minimum number of samples to allow a split</li>
+            <li><code>min_samples_leaf</code> - minimum samples required at a leaf node</li>
+          </ul>
+        </div>
+
+        <div class="note"><strong>2 · Post-pruning.</strong> Grow the full tree first, then cut back branches that do not improve generalization. This is less commonly used in scikit-learn and more common in academic contexts - though sklearn does offer it as <code>ccp_alpha</code>.</div>
+
+        <div class="note red"><strong>Why this matters more for trees than for anything else.</strong> Nothing stops a tree from splitting until every leaf holds a single row. When that happens, training accuracy is exactly 1.0 and the model has memorized the data instead of learning the pattern. Every accuracy of <code>1.0</code> you will see on this page is that effect, not evidence of a good model.</div>
+
+        <div class="note green"><strong>Watch it happen.</strong> The <a class="resource-link" href="../../14_dec_tree/index.html">deck</a> has a noisy dataset with <code>max_depth</code> and <code>min_samples_leaf</code> sliders, showing train and test accuracy side by side as the tree grows.</div>
+      </section>
+
+      <!-- ═══ 5. GINI ═══ -->
+      <section class="card topic-panel" id="topic-4">
+        <h2 class="step-title">Gini impurity</h2>
+        <p>To choose which question to ask, the tree needs to score how <strong>mixed</strong> a group of rows is. That score is the <strong>Gini impurity</strong>. The formula as written on the board:</p>
+
+        <div class="math-card">
+          <p>$$G(Q) = \sum_{c \in C} p_c\,(1 - p_c)$$</p>
+        </div>
+
+        <table class="data-table">
+          <thead><tr><th>symbol</th><th>meaning</th></tr></thead>
+          <tbody>
+            <tr><td class="term">Q</td><td>a particular node in the decision tree</td></tr>
+            <tr><td class="term">G(Q)</td><td>the Gini impurity value of that node</td></tr>
+            <tr><td class="term">C</td><td>the set of categories (classes) in the node</td></tr>
+            <tr><td class="term">p<sub>c</sub></td><td>the probability that an object in the node belongs to category c</td></tr>
+            <tr><td class="term">1 − p<sub>c</sub></td><td>the probability that an object does <em>not</em> belong to category c</td></tr>
+            <tr><td class="term">Σ</td><td>the sum over all categories in the node</td></tr>
+          </tbody>
+        </table>
+
+        <p>Multiply out the sum and you get the equivalent form that everybody actually uses:</p>
+        <div class="math-card">
+          <p>$$G(Q) = 1 - \sum_{c \in C} p_c^{\,2}$$</p>
+        </div>
+
+        <p>And for a <strong>binary</strong> classification - two categories only - it simplifies to:</p>
+        <div class="math-card">
+          <p>$$G(Q) = 1 - \bigl[(p_1)^2 + (p_2)^2\bigr]$$</p>
+        </div>
+
+        <p>The worked example from the board. A dataset of <strong>10 samples: 7 belong to category A, 3 to category B</strong>:</p>
+        <div class="math-card">
+          <p>$$G(Q) = 1 - \bigl[(7/10)^2 + (3/10)^2\bigr]$$</p>
+          <p>$$G(Q) = 1 - [0.49 + 0.09]$$</p>
+          <p>$$G(Q) = 1 - 0.58 = \mathbf{0.42}$$</p>
+        </div>
+
+        <div class="note blue"><strong>Read Gini as a bet.</strong> Pull one row out of the node at random, then guess its class by drawing a second row at random. Gini is the probability that you guess <em>wrong</em>. A pure node can never be wrong, so it scores 0.</div>
+      </section>
+
+      <!-- ═══ 6. SIX CASES ═══ -->
+      <section class="card topic-panel" id="topic-5">
+        <h2 class="step-title">The six cases we did on paper</h2>
+        <p>These are the two scratch cells exactly as we typed them in class:</p>
+
+        <pre class="code"><code># 1) A: 5  B: 5 = 0.5
+# 2) A: 10 B: 0 = 0  1 - [(0/10)**2 + (10/10)**2) = 1 - [0 + 1] = 1 - 1 = 0
+# 3) A: 0  B: 10 = 0</code></pre>
+
+        <pre class="code"><code># 5) A: 2 B: 2 C: 2        = 1 - [(1/3)**2 + (1/3)**2 + (1/3)**2] = 1 - 1/3 = 2/3
+# 6) A: 3 B: 3 C: 3 D: 3   = 1 - [(1/4)**2 + (1/4)**2 + (1/4)**2 + (1/4)**2] = 1 - 1/4 = 3/4</code></pre>
+
+        <p>All six in one table:</p>
+        <table class="data-table">
+          <thead><tr><th>#</th><th>node contents</th><th>calculation</th><th>G(Q)</th></tr></thead>
+          <tbody>
+            <tr class="pick"><td>1</td><td>A: 5&nbsp; B: 5</td><td>1 − [(5/10)² + (5/10)²] = 1 − 0.5</td><td><strong>0.5</strong> - worst case</td></tr>
+            <tr class="zero"><td>2</td><td>A: 10&nbsp; B: 0</td><td>1 − [0 + 1]</td><td><strong>0</strong> - pure</td></tr>
+            <tr class="zero"><td>3</td><td>A: 0&nbsp; B: 10</td><td>1 − [1 + 0]</td><td><strong>0</strong> - pure</td></tr>
+            <tr><td>4</td><td>A: 7&nbsp; B: 3</td><td>1 − [0.49 + 0.09]</td><td><strong>0.42</strong></td></tr>
+            <tr><td>5</td><td>A: 2&nbsp; B: 2&nbsp; C: 2</td><td>1 − 3·(1/3)² = 1 − 1/3</td><td><strong>2/3 ≈ 0.667</strong></td></tr>
+            <tr><td>6</td><td>A: 3&nbsp; B: 3&nbsp; C: 3&nbsp; D: 3</td><td>1 − 4·(1/4)² = 1 − 1/4</td><td><strong>3/4 = 0.75</strong></td></tr>
+          </tbody>
+        </table>
+
+        <div class="note"><strong>Look at cases 5 and 6.</strong> The more classes there are, the higher Gini can climb. With <strong>k</strong> equally sized classes the maximum is exactly:
+          <div class="math-card" style="margin:10px 0 0">
+            <p>$$G_{\max} = 1 - \frac{1}{k}$$</p>
+            <p class="math-caption">0.5 for two classes, 0.667 for three, 0.75 for four. Gini is <em>not</em> capped at 0.5 - that is only the binary case.</p>
+          </div>
+        </div>
+
+        <div class="note green"><strong>Note the typo in case 2.</strong> The comment in the notebook writes <code>1 - [(0/10)**2 + (10/10)**2)</code> - the brackets do not match, and the two proportions are written in the other order from case 3. It is a scratch comment, not code, so nothing breaks - but if you copy it into a cell it will not run.</div>
+
+        <div class="task-box">
+          <span class="task-num">Class exercise</span>
+          <p style="margin:6px 0 0">Case 4 was left for you: a node with <strong>A: 7, B: 3</strong>. Do it on paper before looking at the row above.</p>
+        </div>
+      </section>
+
+      <!-- ═══ 7. THE DATASET ═══ -->
+      <section class="card topic-panel" id="topic-6">
+        <h2 class="step-title">The exercise dataset</h2>
+        <p>Six rows, two features, two classes. Small enough that every number on this page can be checked by hand:</p>
+
+        <table class="data-table">
+          <thead><tr><th>row</th><th>X1</th><th>X2</th><th>Y</th></tr></thead>
+          <tbody>
+            <tr><td>0</td><td>1</td><td>3</td><td class="term ca">A</td></tr>
+            <tr><td>1</td><td>2</td><td>1</td><td class="term ca">A</td></tr>
+            <tr><td>2</td><td>3</td><td>2</td><td class="term cb">B</td></tr>
+            <tr><td>3</td><td>4</td><td>3</td><td class="term cb">B</td></tr>
+            <tr><td>4</td><td>5</td><td>1</td><td class="term ca">A</td></tr>
+            <tr><td>5</td><td>6</td><td>2</td><td class="term cb">B</td></tr>
+          </tbody>
+        </table>
+
+        <p>The starting point - the root node holds all six rows, 3 A and 3 B:</p>
+        <div class="math-card">
+          <p>$$G(\text{root}) = 1 - \bigl[(3/6)^2 + (3/6)^2\bigr] = 1 - [0.25 + 0.25] = \mathbf{0.5}$$</p>
+          <p class="math-caption">The worst possible value for two classes - a perfect 50/50 mix.</p>
+        </div>
+
+        <p>And this is the cell that set up the exercise:</p>
+        <pre class="code"><code>START
+GI = 0.5
+
+Option 1: x1 > 3
+Option 2: x2 &lt;= 2</code></pre>
+
+        <p>To score either option we need two more formulas. The <strong>weighted Gini</strong> combines the two children, weighting each by how many rows it holds:</p>
+        <div class="math-card">
+          <p>$$G_{\text{split}} = \frac{n_{\text{yes}}}{n}\,G(\text{yes}) + \frac{n_{\text{no}}}{n}\,G(\text{no})$$</p>
+        </div>
+
+        <p>And the <strong>Gini gain</strong> is how much impurity the question removed:</p>
+        <div class="math-card">
+          <p>$$\text{Gain} = G(\text{parent}) - G_{\text{split}}$$</p>
+          <p class="math-caption">Bigger gain = better question. A gain of 0 means the question told us nothing.</p>
+        </div>
+
+        <div class="task-box">
+          <span class="task-num">Class exercise</span>
+          <p style="margin:6px 0 0">Compute the Gini of each side for both options, then the weighted Gini, then the gain. Which option is better - 1 or 2?</p>
+        </div>
+      </section>
+
+      <!-- ═══ 8. OPTION 1 ═══ -->
+      <section class="card topic-panel" id="topic-7">
+        <h2 class="step-title">Option 1 — X1 &gt; 3</h2>
+        <p>This is the cell exactly as we typed it in class:</p>
+
+        <pre class="code"><code># Option 1 x1 > 3
+# Yes:
+# A: 1 B: 2
+# 1 - [(1/3)**2 + (2/3)**2] = 1 - [1/9 + 4/9] = 1 - 5/9 = 4/9 ~0.44
+# No:
+# A: 2 B: 1
+# 1 - [(2/3)**2 + (1/3)**2] = 1 - [4/9 + 1/9] = 1 - 5/9 = 4/9 ~0.44
+# Option 2: x2 &lt;= 2
+# Yes: ? No: ? Weighted: ? Gain: ? -- which option was better? 1 or 2?</code></pre>
+
+        <p>Where those counts come from:</p>
+        <table class="data-table">
+          <thead><tr><th>branch</th><th>rows</th><th>classes</th><th>Gini</th></tr></thead>
+          <tbody>
+            <tr><td class="term">Yes — X1 &gt; 3</td><td>3, 4, 5 → (4,3)=B, (5,1)=A, (6,2)=B</td><td>A: 1&nbsp; B: 2</td><td>4/9 ≈ 0.444</td></tr>
+            <tr><td class="term">No — X1 ≤ 3</td><td>0, 1, 2 → (1,3)=A, (2,1)=A, (3,2)=B</td><td>A: 2&nbsp; B: 1</td><td>4/9 ≈ 0.444</td></tr>
+          </tbody>
+        </table>
+
+        <p>Both sides hold 3 rows, so the weighting is even:</p>
+        <div class="math-card">
+          <p>$$G_{\text{split}} = \tfrac{3}{6}\,(0.444) + \tfrac{3}{6}\,(0.444) = 0.444$$</p>
+          <p>$$\text{Gain} = 0.5 - 0.444 = \mathbf{0.056}$$</p>
+        </div>
+
+        <div class="note blue"><strong>0.056 is a small gain</strong>, but it is not nothing - both children lean slightly toward one class where the parent was perfectly balanced. Now do option 2 and compare.</div>
+      </section>
+
+      <!-- ═══ 9. OPTION 2 ═══ -->
+      <section class="card topic-panel" id="topic-8">
+        <h2 class="step-title">Option 2 — X2 ≤ 2 — the answer</h2>
+        <p>This is the question the notebook left open. Split the same six rows on <code>X2 &lt;= 2</code>:</p>
+
+        <table class="data-table">
+          <thead><tr><th>branch</th><th>rows</th><th>classes</th><th>Gini</th></tr></thead>
+          <tbody>
+            <tr><td class="term">Yes — X2 ≤ 2</td><td>1, 2, 4, 5 → A, B, A, B</td><td>A: 2&nbsp; B: 2</td><td>1 − [0.25 + 0.25] = 0.5</td></tr>
+            <tr><td class="term">No — X2 &gt; 2</td><td>0, 3 → A, B</td><td>A: 1&nbsp; B: 1</td><td>1 − [0.25 + 0.25] = 0.5</td></tr>
+          </tbody>
+        </table>
+
+        <p>This time the sides are uneven - 4 rows against 2 - so the weights matter:</p>
+        <div class="math-card">
+          <p>$$G_{\text{split}} = \tfrac{4}{6}\,(0.5) + \tfrac{2}{6}\,(0.5) = 0.5$$</p>
+          <p>$$\text{Gain} = 0.5 - 0.5 = \mathbf{0}$$</p>
+        </div>
+
+        <table class="data-table">
+          <thead><tr><th>option</th><th>weighted Gini</th><th>gain</th><th>verdict</th></tr></thead>
+          <tbody>
+            <tr class="pick"><td class="term">1 — X1 &gt; 3</td><td>0.444</td><td><strong>0.056</strong></td><td>better</td></tr>
+            <tr><td class="term">2 — X2 ≤ 2</td><td>0.500</td><td><strong>0.000</strong></td><td>useless</td></tr>
+          </tbody>
+        </table>
+
+        <div class="note green"><strong>Option 1 wins.</strong> Option 2 has a gain of exactly zero: both of its children are still perfectly 50/50, so the question separated nothing at all. Asking it would produce two nodes just as confused as the one we started with.</div>
+
+        <div class="note"><strong>But neither option is the best.</strong> The tree does not pick from two hand-written options - it tries <em>every</em> threshold on <em>every</em> feature. On these six rows there are only seven candidates, and two of them score far better:</div>
+
+        <table class="data-table">
+          <thead><tr><th>split</th><th>left group</th><th>right group</th><th>weighted Gini</th><th>gain</th></tr></thead>
+          <tbody>
+            <tr><td>X1 ≤ 1.5</td><td>A</td><td>A B B A B</td><td>0.400</td><td>0.100</td></tr>
+            <tr class="pick"><td><strong>X1 ≤ 2.5</strong></td><td>A A</td><td>B B A B</td><td><strong>0.250</strong></td><td><strong>0.250</strong> ← best</td></tr>
+            <tr><td>X1 ≤ 3.5</td><td>A A B</td><td>B A B</td><td>0.444</td><td>0.056 ← option 1</td></tr>
+            <tr><td>X1 ≤ 4.5</td><td>A A B B</td><td>A B</td><td>0.500</td><td>0.000</td></tr>
+            <tr><td>X1 ≤ 5.5</td><td>A A B B A</td><td>B</td><td>0.400</td><td>0.100</td></tr>
+            <tr class="pick"><td><strong>X2 ≤ 1.5</strong></td><td>A A</td><td>A B B B</td><td><strong>0.250</strong></td><td><strong>0.250</strong> ← tie</td></tr>
+            <tr><td>X2 ≤ 2.5</td><td>A B A B</td><td>A B</td><td>0.500</td><td>0.000 ← option 2</td></tr>
+          </tbody>
+        </table>
+
+        <div class="note blue"><strong>Why the thresholds are all halves.</strong> The tree only tries the <strong>midpoints between neighbouring values</strong>. X1 takes the values 1,2,3,4,5,6, so the candidates are 1.5, 2.5, 3.5, 4.5, 5.5 - five of them, not infinitely many. Any threshold between two data points splits the rows identically, so the midpoint stands in for all of them. That is why <code>export_text</code> prints <code>X1 &lt;= 2.50</code> and never <code>X1 &lt;= 2</code>.</div>
+
+        <div class="note purple"><strong>Two splits tie at 0.250.</strong> <code>X1 ≤ 2.5</code> and <code>X2 ≤ 1.5</code> are equally good and sklearn has to break the tie somehow - it uses <code>random_state</code>. With <code>random_state=42</code> this data gives <code>X1 &lt;= 2.50</code> as the root. That is exactly why you should always set that argument.</div>
+
+        <div class="note green"><strong>Try it yourself.</strong> The <a class="resource-link" href="../../14_dec_tree/index.html">deck</a> has this dataset with a feature toggle and a threshold slider, printing the two child Ginis, the weighted Gini and the gain live - plus a bar chart of all seven candidates at once.</div>
+      </section>
+
+      <!-- ═══ 10. DecisionTreeClassifier ═══ -->
+      <section class="card topic-panel" id="topic-9">
+        <h2 class="step-title">The same thing with <code>DecisionTreeClassifier</code></h2>
+        <p>Everything above - the candidates, the weighted Gini, the comparison - in three lines:</p>
+
+        <pre class="code py"><code>from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import (accuracy_score, precision_score, recall_score,
+                             f1_score, confusion_matrix, classification_report)
+import numpy as np
+
+# Data
+X = np.array([[1, 3], [2, 1], [3, 2], [4, 3], [5, 1], [6, 2]])
+
+y = np.array(['A', 'A', 'B', 'B', 'A', 'B'])  # -- class
+
+clf = DecisionTreeClassifier(criterion='gini', random_state=42)
+clf.fit(X, y)
+
+y_pred = clf.predict(X)
+
+# Metrics
+accuracy = accuracy_score(y, y_pred)
+precision = precision_score(y, y_pred, average='macro')
+recall = recall_score(y, y_pred, average='macro')
+f1 = f1_score(y, y_pred, average='macro')
+cm = confusion_matrix(y, y_pred)
+report = classification_report(y, y_pred)
+
+print("Accuracy:", accuracy)
+print("Precision (macro):", precision)
+print("Recall (macro):", recall)
+print("F1 Score (macro):", f1)
+print("Confusion Matrix:\n", cm)
+print("Classification Report:\n", report)</code></pre>
+
+        <div class="output"><span class="out-label">Output</span>Accuracy: 1.0
+Precision (macro): 1.0
+Recall (macro): 1.0
+F1 Score (macro): 1.0
+Confusion Matrix:
+ [[3 0]
+ [0 3]]
+Classification Report:
+               precision    recall  f1-score   support
+
+           A       1.00      1.00      1.00         3
+           B       1.00      1.00      1.00         3
+
+    accuracy                           1.00         6
+   macro avg       1.00      1.00      1.00         6
+weighted avg       1.00      1.00      1.00         6</div>
+
+        <table class="data-table">
+          <thead><tr><th>argument</th><th>what it does</th></tr></thead>
+          <tbody>
+            <tr><td class="term">criterion='gini'</td><td>the impurity measure - the default. The alternative is <code>'entropy'</code>.</td></tr>
+            <tr><td class="term">random_state=42</td><td>fixes the tie-breaking between equally good splits. Without it the tree can change between runs.</td></tr>
+            <tr><td class="term">average='macro'</td><td>for precision/recall/f1 with more than one class: score each class separately, then take the plain unweighted mean.</td></tr>
+          </tbody>
+        </table>
+
+        <div class="note red"><strong>Accuracy 1.0 is not good news here.</strong> We fitted on all six rows and then scored on the same six rows. An unpruned tree will <em>always</em> reach 100% on its own training data, because it keeps splitting until every leaf is pure. This number says nothing about new data - which is exactly why the next cell introduces <code>train_test_split</code>.</div>
+      </section>
+
+      <!-- ═══ 11. EXPORT_TEXT ═══ -->
+      <section class="card topic-panel" id="topic-10">
+        <h2 class="step-title">Reading the tree with <code>export_text</code></h2>
+        <p>Fitting a model is only half of it - a decision tree is the one model you can actually <em>read</em>. This cell uses a second dataset, with X1 spread out from 2 to 12:</p>
+
+        <pre class="code py"><code>from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import accuracy_score, confusion_matrix
+from sklearn.tree import export_text
+import numpy as np
+
+# Data
+X = np.array([
+    [2, 5],
+    [4, 3],
+    [6, 4],
+    [8, 5],
+    [10, 3],
+    [12, 4]
+])
+
+y = np.array(['A', 'A', 'B', 'B', 'A', 'B'])  # -- class
+
+# Model
+clf = DecisionTreeClassifier(criterion='gini', random_state=42)
+clf.fit(X, y)
+
+# Predictions
+y_pred = clf.predict(X)
+
+# Metrics
+accuracy = accuracy_score(y, y_pred)
+cm = confusion_matrix(y, y_pred)
+
+print("Accuracy:", accuracy)
+print("Confusion Matrix:\n", cm)
+
+tree_rules = export_text(clf, feature_names=["X1", "X2"], show_weights=True)
+print(tree_rules)
+
+clf.tree_.impurity</code></pre>
+
+        <div class="output"><span class="out-label">Output</span>Accuracy: 1.0
+Confusion Matrix:
+ [[3 0]
+ [0 3]]
+|--- X1 &lt;= 5.00
+|   |--- weights: [2.00, 0.00] class: A
+|--- X1 &gt;  5.00
+|   |--- X2 &lt;= 3.50
+|   |   |--- weights: [1.00, 0.00] class: A
+|   |--- X2 &gt;  3.50
+|   |   |--- weights: [0.00, 3.00] class: B
+
+array([0.5  , 0.   , 0.375, 0.   , 0.   ])</div>
+
+        <p><strong>How to read that output.</strong> Every <code>|</code> is one level of depth, and two lines at the same indentation are the two branches of one question:</p>
+        <table class="data-table">
+          <thead><tr><th>line</th><th>meaning</th></tr></thead>
+          <tbody>
+            <tr><td>|--- X1 &lt;= 5.00</td><td>the root question - rows with X1 ≤ 5 go this way</td></tr>
+            <tr><td>|&nbsp;&nbsp;&nbsp;|--- weights: [2.00, 0.00] class: A</td><td>a <strong>leaf</strong>: 2 rows of A, 0 of B → predicts A</td></tr>
+            <tr><td>|--- X1 &gt;&nbsp; 5.00</td><td>the other branch of the same question - same indentation</td></tr>
+            <tr><td>|&nbsp;&nbsp;&nbsp;|--- X2 &lt;= 3.50</td><td>a second question, asked only inside the right branch</td></tr>
+          </tbody>
+        </table>
+
+        <div class="note"><strong><code>show_weights=True</code></strong> is what prints the <code>[2.00, 0.00]</code> counts - the number of training rows of each class that landed in that leaf, in the order of <code>clf.classes_</code> (alphabetical: A then B). Leave it out and you only get <code>class: A</code>, with no evidence behind it.</div>
+
+        <p>And the impurity array lines up with the tree node by node - five nodes, in depth-first order:</p>
+        <table class="data-table">
+          <thead><tr><th>node</th><th>rows</th><th>A / B</th><th>Gini</th><th>what it is</th></tr></thead>
+          <tbody>
+            <tr class="pick"><td>0 — root</td><td>6</td><td>3 / 3</td><td><strong>0.5</strong></td><td>X1 ≤ 5.00 ?</td></tr>
+            <tr class="zero"><td>1 — left</td><td>2</td><td>2 / 0</td><td><strong>0.0</strong></td><td>leaf → A (pure)</td></tr>
+            <tr class="pick"><td>2 — right</td><td>4</td><td>1 / 3</td><td><strong>0.375</strong></td><td>X2 ≤ 3.50 ?</td></tr>
+            <tr class="zero"><td>3</td><td>1</td><td>1 / 0</td><td><strong>0.0</strong></td><td>leaf → A (pure)</td></tr>
+            <tr class="zero"><td>4</td><td>3</td><td>0 / 3</td><td><strong>0.0</strong></td><td>leaf → B (pure)</td></tr>
+          </tbody>
+        </table>
+
+        <div class="note green"><strong>Check node 2 by hand.</strong> It holds 1 A and 3 B, so
+          <code>1 − [(1/4)² + (3/4)²] = 1 − [0.0625 + 0.5625] = 0.375</code> - exactly the third number in the array. Every entry in <code>clf.tree_.impurity</code> is one Gini calculation you can now do yourself.</div>
+
+        <div class="note blue"><strong>A Jupyter detail.</strong> The last line is <code>clf.tree_.impurity</code> with no <code>print()</code>. In a notebook the value of the last expression is displayed automatically, which is why the array appears with <code>array([...])</code> around it. In a <code>.py</code> script that line would compute the array and silently throw it away - you would need <code>print()</code>.</div>
+      </section>
+
+      <!-- ═══ 12. TRAIN TEST SPLIT ═══ -->
+      <section class="card topic-panel" id="topic-11">
+        <h2 class="step-title">Holding data back — <code>train_test_split</code></h2>
+        <p>Every accuracy so far was measured on the same rows the model was fitted on. This cell fixes that, and deliberately uses data that is <strong>not</strong> perfectly separable:</p>
+
+        <pre class="code py"><code>from sklearn.model_selection import train_test_split
+
+# Simple example data: [feature1, feature2], labels (0 or 1)
+X = [
+    [1, 2],
+    [2, 3],
+    [3, 1],
+    [4, 5],
+    [5, 4],
+    [6, 7],
+    [7, 6],
+    [8, 8]
+]
+y = [0, 0, 0, 1, 1, 1, 1, 0]  # Labels (not perfectly separable!) -- class
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+clf = DecisionTreeClassifier(criterion='gini', random_state=42)
+clf.fit(X_train, y_train)
+
+# Predictions
+y_pred = clf.predict(X_test)
+
+# Metrics
+accuracy = accuracy_score(y_test, y_pred)
+cm = confusion_matrix(y_test, y_pred)
+
+print("Accuracy:", accuracy)
+print("Confusion Matrix:\n", cm)
+
+tree_rules = export_text(clf, feature_names=["X1", "X2"], show_weights=True)
+print(tree_rules)</code></pre>
+
+        <div class="output"><span class="out-label">Output</span>Accuracy: 1.0
+Confusion Matrix:
+ [[1 0]
+ [0 1]]
+|--- X1 &lt;= 3.50
+|   |--- weights: [2.00, 0.00] class: 0
+|--- X1 &gt;  3.50
+|   |--- X2 &lt;= 7.00
+|   |   |--- weights: [0.00, 3.00] class: 1
+|   |--- X2 &gt;  7.00
+|   |   |--- weights: [1.00, 0.00] class: 0</div>
+
+        <table class="data-table">
+          <thead><tr><th>argument</th><th>what it does</th></tr></thead>
+          <tbody>
+            <tr><td class="term">test_size=0.2</td><td>20% of the rows go to test. With 8 rows that is <strong>2 test</strong> and <strong>6 train</strong>. An integer works too.</td></tr>
+            <tr><td class="term">random_state=42</td><td>fixes the shuffle so the split is identical every run. Without it your accuracy changes on every execution.</td></tr>
+            <tr><td class="term">shuffle=True</td><td>the default - rows are shuffled before splitting. Critical if your data is sorted by label.</td></tr>
+            <tr><td class="term">stratify=y</td><td>not used in class, but you should: it keeps the class proportions the same in train and test.</td></tr>
+          </tbody>
+        </table>
+
+        <p>What the split actually produced with <code>random_state=42</code>:</p>
+        <div class="output"><span class="out-label">The split</span>train (6 rows): [1,2]→0  [8,8]→0  [3,1]→0  [5,4]→1  [4,5]→1  [7,6]→1
+test  (2 rows): [2,3]→0  [6,7]→1</div>
+
+        <div class="note"><strong>Notice the last leaf.</strong> <code>X2 &gt; 7.00 → class 0</code> catches exactly one row: <code>[8,8]</code>, the deliberate odd one out - a point in the far corner labelled 0 while all its neighbours are 1. The tree grew an entire branch for that single row. That is overfitting caught in the act, visible in the printed rules.</div>
+
+        <div class="note red"><strong>A test set of two rows is not evidence either.</strong> One row flipping takes you from 100% to 50%. This is a teaching example - on real data you want hundreds of test rows, and for small datasets you use <code>cross_val_score</code>, which scores every row exactly once across several folds.</div>
+      </section>
+
+      <!-- ═══ 13. DATAFRAME ═══ -->
+      <section class="card topic-panel" id="topic-12">
+        <h2 class="step-title">The DataFrame version</h2>
+        <p>The last cell of the lesson - the same data as the <code>export_text</code> cell, but built with pandas so the <strong>column names carry through into the printed rules</strong>:</p>
+
+        <pre class="code py"><code>from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import accuracy_score, confusion_matrix
+from sklearn.tree import export_text
+import pandas as pd
+
+# 1. Create Data with DataFrame
+df = pd.DataFrame({
+    'weight': [2, 4, 6, 8, 10, 12],
+    'height': [5, 3, 4, 5, 3, 4],
+    'Target': ['A', 'A', 'B', 'B', 'A', 'B']
+})
+
+# Split into features (X) and label (y)
+X = df[['weight', 'height']]
+y = df['Target']
+
+# 2. Build Model
+clf = DecisionTreeClassifier(criterion='gini', random_state=42)
+clf.fit(X, y)
+
+# 3. Predict &amp; Test
+y_pred = clf.predict(X)
+
+# 4. Show Metrics
+accuracy = accuracy_score(y, y_pred)
+cm = confusion_matrix(y, y_pred)
+
+print("Accuracy:", accuracy)
+print("Confusion Matrix:\n", cm)
+
+# 5. Show Rules
+tree_rules = export_text(clf, feature_names=list(X.columns), show_weights=True)
+print("\nTree Rules:\n", tree_rules)
+
+# 6. Show Gini Impurities for all tree nodes
+print("Node Impurities (Gini):", clf.tree_.impurity)</code></pre>
+
+        <div class="output"><span class="out-label">Output</span>Accuracy: 1.0
+Confusion Matrix:
+ [[3 0]
+ [0 3]]
+
+Tree Rules:
+ |--- weight &lt;= 5.00
+|   |--- weights: [2.00, 0.00] class: A
+|--- weight &gt;  5.00
+|   |--- height &lt;= 3.50
+|   |   |--- weights: [1.00, 0.00] class: A
+|   |--- height &gt;  3.50
+|   |   |--- weights: [0.00, 3.00] class: B
+
+Node Impurities (Gini): [0.5   0.    0.375 0.    0.   ]</div>
+
+        <div class="note green"><strong>Same tree, better output.</strong> The numbers are identical to the NumPy version - <code>weight</code> is the old X1, <code>height</code> is the old X2. The only difference is that the rules now say <code>weight &lt;= 5.00</code> instead of <code>X1 &lt;= 5.00</code>. On a real dataset with twenty columns, that difference is the whole reason to use a DataFrame.</div>
+
+        <div class="note blue"><strong><code>feature_names=list(X.columns)</code></strong> is the line doing the work. <code>X.columns</code> is a pandas <code>Index</code>, and <code>export_text</code> wants a plain list - hence the <code>list(...)</code>.</div>
+
+        <div class="note"><strong>Two ways to write it, one result.</strong> <code>X = df[['weight','height']]</code> with double brackets returns a <strong>DataFrame</strong> (2-D, which is what sklearn wants). Single brackets, <code>df['weight']</code>, return a <strong>Series</strong> (1-D) - which is right for <code>y</code>, and would raise an error for <code>X</code>.</div>
+      </section>
+
+      <!-- ═══ 14. WHOLE SCRIPT ═══ -->
+      <section class="card topic-panel" id="topic-13">
+        <h2 class="step-title">The whole thing in one script</h2>
+        <p>Copy-paste and run - the Gini calculations done by hand and by sklearn side by side, so you can see they agree:</p>
+
+        <pre class="code py"><code>import numpy as np
+import pandas as pd
+from sklearn.tree import DecisionTreeClassifier, export_text
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+from sklearn.model_selection import train_test_split
+
+# ---------- Gini by hand ----------
+def gini(labels):
+    labels = list(labels)
+    n = len(labels)
+    if n == 0:
+        return 0.0
+    return 1 - sum((labels.count(c) / n) ** 2 for c in set(labels))
+
+# the six cases from the board
+print('A5 B5  ', gini(list('AAAAABBBBB')))        # 0.5
+print('A10 B0 ', gini(list('AAAAAAAAAA')))        # 0.0
+print('A7 B3  ', gini(list('AAAAAAABBB')))        # 0.42
+print('A2B2C2 ', gini(list('AABBCC')))            # 0.6667
+print('3 each ', gini(list('AAABBBCCCDDD')))      # 0.75
+
+# ---------- the exercise dataset ----------
+X = np.array([[1, 3], [2, 1], [3, 2], [4, 3], [5, 1], [6, 2]])
+y = np.array(['A', 'A', 'B', 'B', 'A', 'B'])
+
+print('\nroot gini =', gini(y))                   # 0.5
+
+# score any split by hand
+def score(feature, thr):
+    mask = X[:, feature] &lt;= thr
+    left, right = y[mask], y[~mask]
+    w = len(left) / len(y) * gini(left) + len(right) / len(y) * gini(right)
+    return w, gini(y) - w
+
+# the two options from the board
+w1, g1 = score(0, 3)      # X1 &lt;= 3   is the same split as "X1 > 3"
+w2, g2 = score(1, 2)      # X2 &lt;= 2
+print(f'option 1  X1 &lt;= 3 : weighted={w1:.4f}  gain={g1:.4f}')
+print(f'option 2  X2 &lt;= 2 : weighted={w2:.4f}  gain={g2:.4f}')
+
+# every candidate the tree would actually try
+print('\nall candidate splits:')
+for f, name in [(0, 'X1'), (1, 'X2')]:
+    vals = sorted(set(X[:, f]))
+    for a, b in zip(vals, vals[1:]):
+        thr = (a + b) / 2
+        w, g = score(f, thr)
+        print(f'  {name} &lt;= {thr:&lt;4} weighted={w:.4f}  gain={g:.4f}')
+
+# ---------- the same thing with sklearn ----------
+clf = DecisionTreeClassifier(criterion='gini', random_state=42)
+clf.fit(X, y)
+
+print('\nsklearn picked:')
+print(export_text(clf, feature_names=['X1', 'X2'], show_weights=True))
+print('impurity  ', clf.tree_.impurity)
+print('feature   ', clf.tree_.feature)      # -2 means leaf
+print('threshold ', clf.tree_.threshold)
+print('depth     ', clf.get_depth(), ' leaves', clf.get_n_leaves())
+print('accuracy  ', accuracy_score(y, clf.predict(X)))
+
+# ---------- with a DataFrame, and a proper train/test split ----------
+df = pd.DataFrame({
+    'weight': [2, 4, 6, 8, 10, 12],
+    'height': [5, 3, 4, 5, 3, 4],
+    'Target': ['A', 'A', 'B', 'B', 'A', 'B']
+})
+clf2 = DecisionTreeClassifier(criterion='gini', random_state=42)
+clf2.fit(df[['weight', 'height']], df['Target'])
+print('\n', export_text(clf2, feature_names=['weight', 'height'], show_weights=True))
+print('Node Impurities (Gini):', clf2.tree_.impurity)</code></pre>
+
+        <div class="output"><span class="out-label">Output</span>A5 B5   0.5
+A10 B0  0.0
+A7 B3   0.42000000000000004
+A2B2C2  0.6666666666666667
+3 each  0.75
+
+root gini = 0.5
+option 1  X1 &lt;= 3 : weighted=0.4444  gain=0.0556
+option 2  X2 &lt;= 2 : weighted=0.5000  gain=0.0000
+
+all candidate splits:
+  X1 &lt;= 1.5  weighted=0.4000  gain=0.1000
+  X1 &lt;= 2.5  weighted=0.2500  gain=0.2500
+  X1 &lt;= 3.5  weighted=0.4444  gain=0.0556
+  X1 &lt;= 4.5  weighted=0.5000  gain=0.0000
+  X1 &lt;= 5.5  weighted=0.4000  gain=0.1000
+  X2 &lt;= 1.5  weighted=0.2500  gain=0.2500
+  X2 &lt;= 2.5  weighted=0.5000  gain=0.0000
+
+sklearn picked:
+|--- X1 &lt;= 2.50
+|   |--- weights: [2.00, 0.00] class: A
+|--- X1 &gt;  2.50
+|   |--- X2 &lt;= 1.50
+|   |   |--- weights: [1.00, 0.00] class: A
+|   |--- X2 &gt;  1.50
+|   |   |--- weights: [0.00, 3.00] class: B
+
+impurity   [0.5   0.    0.375 0.    0.   ]
+feature    [ 0 -2  1 -2 -2]
+threshold  [ 2.5 -2.   1.5 -2.  -2. ]
+depth      2  leaves 3
+accuracy   1.0</div>
+
+        <div class="note green"><strong>The hand calculation and sklearn agree exactly.</strong> Option 1 scores 0.0556 by hand; sklearn's own list of candidates has <code>X1 &lt;= 3.5</code> at 0.0556. Option 2 scores 0.0000; <code>X2 &lt;= 2.5</code> scores 0.0000. And the split sklearn actually chose - <code>X1 &lt;= 2.50</code>, gain 0.25 - is sitting right there in the table, four times better than either option on the board.</div>
+
+        <div class="task-box">
+          <span class="task-num">Homework</span>
+          <ul class="task-list">
+            <li>Compute G(Q) by hand for a node with <strong>A: 4, B: 6</strong>, and for <strong>A: 1, B: 1, C: 8</strong>. Which is more impure? Was that the answer you expected?</li>
+            <li>Re-run the six-row model with <code>criterion='entropy'</code>. Same tree or different? Compare the two <code>export_text</code> outputs.</li>
+            <li>Multiply the <code>weight</code> column by 1000 and refit. What changed in <code>export_text</code>, and what did not? Try the same experiment with <code>KNeighborsClassifier</code>.</li>
+            <li>On the 8-row train/test dataset, loop <code>max_depth</code> from 1 to 6 and print both <code>clf.score(X_train, y_train)</code> and <code>clf.score(X_test, y_test)</code>. Where do the two numbers come apart?</li>
+            <li>Draw the <code>weight</code>/<code>height</code> tree with <code>plot_tree(clf, feature_names=['weight','height'], class_names=clf.classes_, filled=True)</code>. Which box holds the 0.375?</li>
+            <li>Swap <code>DecisionTreeClassifier</code> for <code>DecisionTreeRegressor</code> on <code>x = 1..9</code> and <code>y = [2.1, 3.4, 3.0, 5.2, 6.8, 6.1, 8.4, 9.0, 8.2]</code> with <code>max_depth=2</code>. What does <code>predict([[5]])</code> return, and why is it not on the line?</li>
+          </ul>
+        </div>
+
+        <div class="note blue">All the theory behind these lines - the gain formula, the full split search, regression trees, overfitting and pruning, entropy versus Gini, and how to draw the tree - is in the <a class="resource-link" href="../../14_dec_tree/index.html">Decision Trees deck</a>, where every tree is grown live in the browser.</div>
+      </section>
+
+    </main>
+  </div>
+
+  <div class="footer">Lesson 18 - August 12, 2026 - Decision Trees</div>
+</div>
+
+<script>
+  const links = document.querySelectorAll('.topic-link');
+  const panels = document.querySelectorAll('.topic-panel');
+
+  function showTopic(id) {
+    panels.forEach(panel => panel.classList.toggle('active', panel.id === id));
+    links.forEach(link => link.classList.toggle('active', link.dataset.target === id));
+  }
+
+  links.forEach(link => {
+    if (link.dataset.target) {
+      link.addEventListener('click', () => {
+        showTopic(link.dataset.target);
+        location.hash = link.dataset.target;
+      });
+    }
+  });
+
+  const hash = location.hash.replace('#', '');
+  if (hash && document.getElementById(hash)) {
+    showTopic(hash);
+    // Drop the fragment once we have used it. The panel is display:none while the
+    // browser first resolves the anchor, and Chrome retries that scroll after KaTeX
+    // reflows the page - which lands it hundreds of pixels down. No fragment, no retry.
+    history.replaceState(null, '', location.pathname + location.search);
+    window.scrollTo(0, 0);
+  }
+
+  /* ── minimal Python highlighter, GitHub-dark palette ──
+     single pass so a quote inside a comment (and vice versa) can't confuse it */
+  (function () {
+    const KEYWORDS = new Set(['and','as','assert','async','await','break','class','continue',
+      'def','del','elif','else','except','finally','for','from','global','if','import','in',
+      'is','lambda','nonlocal','not','or','pass','raise','return','try','while','with','yield',
+      'None','True','False']);
+    const BUILTINS = new Set(['print','len','range','sorted','reversed','sum','min','max','abs',
+      'round','int','float','str','bool','list','dict','set','tuple','enumerate','zip','map',
+      'filter','type','isinstance','open','input','any','all']);
+    const PREFIX = /^(f|r|b|u|rb|br|fr|rf)$/i;
+
+    const esc = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const isIdStart = c => /[A-Za-z_]/.test(c);
+    const isId      = c => /[A-Za-z0-9_]/.test(c);
+    const wrap = (cls, t) => '<span class="' + cls + '">' + esc(t) + '</span>';
+
+    /* index just past the closing quote of the string starting at `start` */
+    function scanString(src, start) {
+      const q = src[start], n = src.length;
+      if (src.slice(start, start + 3) === q + q + q) {
+        let j = start + 3;
+        while (j < n && src.slice(j, j + 3) !== q + q + q) j++;
+        return Math.min(n, j + 3);
+      }
+      let j = start + 1;
+      while (j < n && src[j] !== q && src[j] !== '\n') {
+        if (src[j] === '\\') j++;
+        j++;
+      }
+      return (j < n && src[j] === q) ? j + 1 : j;
+    }
+
+    function highlight(src) {
+      let out = '', i = 0;
+      const n = src.length;
+      while (i < n) {
+        const c = src[i];
+
+        if (c === '#') {                                  // comment to end of line
+          let j = i;
+          while (j < n && src[j] !== '\n') j++;
+          out += wrap('hl-com', src.slice(i, j));
+          i = j;
+          continue;
+        }
+
+        if (isIdStart(c)) {                               // word, or a prefixed string
+          let j = i;
+          while (j < n && isId(src[j])) j++;
+          const word = src.slice(i, j), nxt = src[j];
+          if ((nxt === '"' || nxt === "'") && PREFIX.test(word)) {
+            const end = scanString(src, j);
+            out += wrap('hl-str', src.slice(i, end));
+            i = end;
+            continue;
+          }
+          let cls = null;
+          if (KEYWORDS.has(word)) cls = 'hl-kw';
+          else if (BUILTINS.has(word)) cls = 'hl-builtin';
+          else {
+            let k = j;
+            while (k < n && src[k] === ' ') k++;
+            if (src[k] === '(') cls = 'hl-fn';             // a call
+          }
+          out += cls ? wrap(cls, word) : esc(word);
+          i = j;
+          continue;
+        }
+
+        if (c === '"' || c === "'") {                     // plain string
+          const end = scanString(src, i);
+          out += wrap('hl-str', src.slice(i, end));
+          i = end;
+          continue;
+        }
+
+        if (/[0-9]/.test(c)) {                            // number
+          let j = i;
+          while (j < n && /[0-9._]/.test(src[j])) j++;
+          out += wrap('hl-num', src.slice(i, j));
+          i = j;
+          continue;
+        }
+
+        out += esc(c);
+        i++;
+      }
+      return out;
+    }
+
+    document.querySelectorAll('pre.code.py > code').forEach(el => {
+      if (el.dataset.hl) return;
+      el.innerHTML = highlight(el.textContent);
+      el.dataset.hl = '1';
+    });
+  })();
+</script>
+</body>
+</html>
