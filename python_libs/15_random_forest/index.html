@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Random Forest — Bagging, Voting &amp; Out-of-Bag</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded',function(){
+    renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'\\(',right:'\\)',display:false}],throwOnError:false});
+    if (window.fitMath) fitMath();
+  });</script>
+  <style>
+    .page-layout { display:flex; height:calc(100vh - 54px); overflow:hidden; }
+    .sidebar { width:238px; min-width:238px; height:100%; overflow-y:auto; background:#0a0e14; border-right:1px solid var(--border); display:flex; flex-direction:column; scrollbar-width:thin; scrollbar-color:var(--border) transparent; flex-shrink:0; }
+    .sidebar-head { padding:20px 18px 14px; font-size:.65rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--border); }
+    .sidebar-nav { padding:8px 0; flex:1; }
+    .s-item { display:flex; align-items:center; gap:11px; padding:10px 18px; cursor:pointer; background:none; border:none; border-left:3px solid transparent; width:100%; text-align:left; transition:background .18s,border-color .18s; }
+    .s-item:hover { background:rgba(255,255,255,.04); }
+    .s-item.active { background:rgba(250,204,21,.08); border-left-color:var(--accent); }
+    .s-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; transition:transform .2s; }
+    .s-item.active .s-dot { transform:scale(1.45); box-shadow:0 0 8px currentColor; }
+    .s-num { font-size:.62rem; color:var(--border); font-family:'Courier New',monospace; font-weight:700; min-width:18px; }
+    .s-item.active .s-num { color:var(--accent); }
+    .s-label { font-size:.79rem; color:var(--muted); font-family:'Courier New',monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .s-item.active .s-label { color:var(--text); }
+    .s-item.done .s-label::after { content:' ✓'; color:var(--green); font-size:.7rem; }
+    .side-sep { border:none; border-top:1px solid var(--border); margin:14px 16px 6px; }
+    .side-part { padding:2px 18px 6px; font-size:.6rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:var(--accent); font-family:'Courier New',monospace; }
+
+    .panel-viewport { flex:1; overflow-y:auto; overflow-x:hidden; position:relative; }
+    .panel { display:none; flex-direction:column; min-height:100%; padding:40px 52px 100px; max-width:830px; margin:0 auto; animation:fadeIn .35s ease; }
+    .panel.active { display:flex; }
+    @keyframes fadeIn { from{opacity:0;transform:translateX(28px)} to{opacity:1;transform:translateX(0)} }
+    .panel.exit { display:flex; animation:fadeOut .25s ease forwards; }
+    @keyframes fadeOut { from{opacity:1;transform:translateX(0)} to{opacity:0;transform:translateX(-28px)} }
+
+    .m-hero { position:relative; height:200px; border-radius:18px; overflow:hidden; margin-bottom:26px; flex-shrink:0; }
+    .m-hero img { width:100%; height:100%; object-fit:cover; filter:brightness(.5) saturate(.8); transition:filter .45s; }
+    .panel.active .m-hero img { filter:brightness(.6) saturate(1.1); }
+    .m-hero-ov { position:absolute; inset:0; padding:26px 30px; display:flex; flex-direction:column; justify-content:flex-end; background:linear-gradient(0deg,rgba(0,0,0,.78) 0%,rgba(0,0,0,.15) 55%,transparent 100%); }
+    .m-breadcrumb { font-size:.62rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:rgba(255,255,255,.4); margin-bottom:5px; }
+    .m-name { font-size:1.7rem; font-weight:900; color:#fff; font-family:'Courier New',monospace; }
+    .m-tagline { font-size:.86rem; color:rgba(255,255,255,.62); margin-top:4px; }
+
+    .pills { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 20px; align-items:center; }
+    .pill { padding:5px 14px; border-radius:999px; font-size:.7rem; font-weight:700; letter-spacing:.06em; }
+    .pill-sig { font-family:'Courier New',monospace; font-size:.74rem; letter-spacing:0; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.12); color:var(--text); }
+    .pill-ret { background:rgba(16,185,129,.1); border:1px solid rgba(16,185,129,.3); color:var(--green); font-family:'Courier New',monospace; letter-spacing:0; }
+    .pill-note { background:rgba(249,115,22,.1); border:1px solid rgba(249,115,22,.3); color:var(--orange); font-family:'Courier New',monospace; font-size:.7rem; }
+    .pill-param { position:relative; cursor:help; transition:filter .18s; }
+    .pill-param:hover { filter:brightness(1.3); }
+    .pill-param .balloon { position:absolute; bottom:calc(100% + 14px); left:50%; transform:translateX(-50%) translateY(6px); width:240px; background:linear-gradient(155deg,#0e2845 0%,#071a2e 100%); border:1.5px solid rgba(240,182,62,.65); border-radius:14px; padding:13px 16px 11px; box-shadow:0 0 0 1px rgba(240,182,62,.1),0 18px 48px rgba(0,0,0,.72),0 0 36px rgba(240,182,62,.07); opacity:0; pointer-events:none; transition:opacity .22s ease,transform .22s ease; z-index:300; }
+    .pill-param:hover .balloon { opacity:1; transform:translateX(-50%) translateY(0); animation:balloonFloat 3s ease-in-out infinite; }
+    @keyframes balloonFloat { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(-5px)} }
+    .balloon-title { font-family:'Courier New',monospace; font-size:.7rem; font-weight:800; color:#f0b63e; letter-spacing:.04em; margin-bottom:6px; display:flex; align-items:center; gap:6px; }
+    .balloon-title::before { content:''; display:inline-block; width:7px; height:7px; border-radius:50%; background:#f0b63e; box-shadow:0 0 6px rgba(240,182,62,.7); flex-shrink:0; }
+    .balloon-body { font-size:.76rem; color:rgba(230,237,243,.78); line-height:1.6; font-family:'Segoe UI',system-ui,sans-serif; font-weight:400; }
+    .pill-param .balloon::after { content:''; position:absolute; bottom:-10px; left:50%; transform:translateX(-50%); border-left:10px solid transparent; border-right:10px solid transparent; border-top:10px solid rgba(240,182,62,.65); }
+    .pill-param .balloon::before { content:''; position:absolute; bottom:-8px; left:50%; transform:translateX(-50%); border-left:9px solid transparent; border-right:9px solid transparent; border-top:9px solid #071a2e; z-index:1; }
+
+    .m-desc { font-size:.95rem; color:var(--muted); line-height:1.75; margin-bottom:14px; }
+    .m-desc code { font-family:'Courier New',monospace; font-size:.88em; padding:1px 6px; border-radius:4px; background:rgba(255,255,255,.06); }
+
+    .demo-box { background:#060a10; border:1px solid var(--border); border-radius:14px; padding:22px 22px 18px; margin-top:20px; flex-shrink:0; display:flex; flex-direction:column; }
+    .demo-lbl { font-size:.64rem; font-weight:800; letter-spacing:.13em; text-transform:uppercase; color:var(--muted); margin-bottom:18px; display:flex; align-items:center; gap:8px; }
+    .demo-lbl::before { content:''; width:3px; height:12px; border-radius:2px; background:var(--accent); flex-shrink:0; }
+    .demo-controls { display:flex; flex-wrap:wrap; gap:18px; align-items:flex-end; margin-bottom:18px; }
+    .ctrl { display:flex; flex-direction:column; gap:5px; }
+    .ctrl label { font-size:.69rem; color:var(--muted); font-weight:600; }
+    .ctrl input[type=range] { -webkit-appearance:none; width:180px; height:4px; background:var(--border); border-radius:2px; outline:none; cursor:pointer; }
+    .ctrl input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:15px; height:15px; background:var(--accent); border-radius:50%; cursor:pointer; box-shadow:0 0 6px rgba(250,204,21,.5); }
+    .ctrl input[type=range]::-moz-range-thumb { width:15px; height:15px; background:var(--accent); border:none; border-radius:50%; cursor:pointer; }
+    .ctrl .cval { font-size:.7rem; color:var(--accent); font-family:'Courier New',monospace; font-weight:700; text-align:center; }
+    .demo-canvas-wrap { background:#020509; border-radius:10px; padding:14px; overflow:hidden; min-height:72px; order:4; }
+    canvas { display:block; margin:0 auto; }
+    .demo-out { font-family:'Courier New',monospace; font-size:.8rem; color:#10b981; line-height:1.65; margin-top:0; margin-bottom:14px; padding:11px 15px; background:rgba(16,185,129,.05); border:1px solid rgba(16,185,129,.18); border-radius:8px; white-space:pre-wrap; order:3; }
+
+    .seg { display:inline-flex; border:1px solid var(--border); border-radius:9px; overflow:hidden; }
+    .seg button { background:transparent; border:none; color:var(--muted); font-size:.72rem; font-weight:700; font-family:'Courier New',monospace; padding:7px 13px; cursor:pointer; transition:background .18s,color .18s; }
+    .seg button:hover { color:var(--text); background:rgba(255,255,255,.05); }
+    .seg button.on { background:rgba(250,204,21,.14); color:var(--accent); }
+    .play-btn { background:rgba(16,185,129,.12); border:1px solid rgba(16,185,129,.4); color:var(--green); font-family:'Courier New',monospace; font-size:.74rem; font-weight:800; padding:8px 16px; border-radius:9px; cursor:pointer; transition:background .18s,transform .12s; }
+    .play-btn:hover { background:rgba(16,185,129,.22); }
+    .play-btn:active { transform:scale(.96); }
+
+    .panel-nav { display:flex; justify-content:space-between; align-items:center; margin-top:40px; padding-top:24px; border-top:1px solid var(--border); flex-shrink:0; gap:10px; }
+    .pnav-btn { display:flex; align-items:center; gap:9px; padding:10px 20px; border-radius:10px; border:1px solid var(--border); background:transparent; color:var(--muted); font-size:.82rem; font-weight:700; cursor:pointer; transition:color .2s,border-color .2s,background .2s; }
+    .pnav-btn:hover:not(:disabled) { color:var(--text); border-color:var(--accent); background:rgba(250,204,21,.06); }
+    .pnav-btn:disabled { opacity:.28; cursor:default; }
+    .pnav-btn.next { background:rgba(250,204,21,.08); border-color:rgba(250,204,21,.35); color:var(--accent); }
+    .pnav-btn.next:hover { background:rgba(250,204,21,.16); border-color:var(--accent); }
+    .pnav-dots { display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:center; }
+    .pnav-dot { width:7px; height:7px; border-radius:50%; background:var(--border); transition:background .2s,transform .2s; cursor:pointer; border:none; padding:0; }
+    .pnav-dot.active { background:var(--accent); transform:scale(1.4); }
+
+    .overview-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:14px; margin-top:24px; }
+    .ov-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px 16px 16px; cursor:pointer; transition:border-color .2s,box-shadow .2s,transform .18s; display:flex; flex-direction:column; gap:8px; }
+    .ov-card:hover { transform:translateY(-3px); border-color:rgba(250,204,21,.4); box-shadow:0 8px 28px rgba(250,204,21,.08); }
+    .ov-card-num { font-size:.62rem; color:var(--muted); font-weight:800; letter-spacing:.1em; }
+    .ov-card-name { font-size:.9rem; font-family:'Courier New',monospace; font-weight:700; }
+    .ov-card-desc { font-size:.77rem; color:var(--muted); line-height:1.5; }
+
+    @media(max-width:700px){.sidebar{display:none}.panel{padding:20px 16px 80px}}
+    .katex { color: var(--text); }
+    /* No horizontal scrollbars on formulas: fitMath() in tree.js shrinks anything
+       too wide to scale, so the overflow is clipped rather than scrolled. */
+    .katex-display { margin: 6px 0; overflow-x: hidden; overflow-y: hidden; padding: 3px 0; }
+    .katex-display > .katex { max-width: none; }
+    .eq-box { background:rgba(59,130,246,.05); border:1px solid rgba(59,130,246,.2); border-radius:12px; padding:16px 20px; margin:16px 0; font-size:1.05rem; }
+    .eq-box.big { font-size:1.32rem; padding:24px 20px; }
+    .eq-box.small { font-size:.95rem; padding:14px 18px; }
+    .eq-box.gold { background:rgba(250,204,21,.05); border-color:rgba(250,204,21,.22); }
+    .eq-box.green { background:rgba(16,185,129,.05); border-color:rgba(16,185,129,.22); }
+    .eq-box.rose { background:rgba(244,63,94,.05); border-color:rgba(244,63,94,.22); }
+
+    .exercise-header{display:flex;align-items:flex-start;gap:16px;margin-bottom:24px;padding:20px;background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.2);border-radius:14px;position:relative;overflow:hidden;}
+    .exercise-header::before{content:'';position:absolute;top:-40px;right:-40px;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,rgba(251,191,36,.1) 0%,transparent 70%);pointer-events:none;}
+    .exercise-badge{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;font-size:1.8rem;font-weight:800;color:#0d1a2e;background:linear-gradient(135deg,#fbbf24,#f59e0b);box-shadow:0 6px 18px rgba(251,191,36,.35);flex-shrink:0;}
+    .ex-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px 16px;margin-bottom:14px;transition:border-color .2s;}
+    .ex-card:hover{border-color:rgba(250,204,21,.3);}
+    .ex-q-head{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+    .ex-num{font-size:.68rem;font-weight:800;letter-spacing:.1em;padding:3px 10px;border-radius:6px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--muted);font-family:'Courier New',monospace;}
+    .ex-task{font-size:.88rem;color:var(--muted);margin-bottom:10px;line-height:1.6;}
+    .ex-task code{font-family:'Courier New',monospace;font-size:.85em;padding:1px 6px;border-radius:4px;background:rgba(255,255,255,.06);}
+    details.hint{margin-top:10px;}
+    details.hint summary{cursor:pointer;font-size:.78rem;color:var(--accent);font-weight:700;}
+
+    .legend { display:flex; flex-wrap:wrap; gap:16px; justify-content:center; margin-bottom:10px; }
+    .lg { display:flex; align-items:center; gap:7px; font-size:.72rem; font-family:'Courier New',monospace; color:var(--muted); font-weight:700; }
+    .lg i { width:11px; height:11px; border-radius:50%; display:inline-block; }
+    .lg.sq i { border-radius:3px; }
+    .lg.hollow i { background:none !important; border:2px solid #e6edf3; }
+    .lg.ln i { width:20px; height:0; border-top:2px solid var(--text); border-radius:0; }
+    .lg.dash i { width:20px; height:0; border-top:2px dashed var(--muted); border-radius:0; }
+
+    .steps { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; margin:20px 0 6px; }
+    .step { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px 16px 14px; position:relative; overflow:hidden; transition:transform .2s,border-color .2s; }
+    .step:hover { transform:translateY(-3px); }
+    .step::after { content:attr(data-n); position:absolute; right:10px; bottom:-14px; font-size:3.4rem; font-weight:900; font-family:'Courier New',monospace; color:rgba(255,255,255,.04); line-height:1; }
+    .step h4 { font-size:.86rem; margin-bottom:6px; font-family:'Courier New',monospace; }
+    .step p { font-size:.78rem; color:var(--muted); line-height:1.55; }
+    .step.a { border-color:rgba(59,130,246,.32); } .step.a h4 { color:var(--blue); }
+    .step.b { border-color:rgba(250,204,21,.32); } .step.b h4 { color:var(--accent); }
+    .step.c { border-color:rgba(16,185,129,.32); } .step.c h4 { color:var(--green); }
+    .step.d { border-color:rgba(236,72,153,.32); } .step.d h4 { color:var(--pink); }
+
+    .pc-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:18px 0; }
+    @media(max-width:640px){ .pc-grid{grid-template-columns:1fr} }
+    .pc { border-radius:14px; border:1px solid var(--border); padding:18px 20px 14px; }
+    .pc h4 { font-size:.9rem; margin-bottom:12px; font-family:'Courier New',monospace; display:flex; align-items:center; gap:8px; }
+    .pc ol { margin:0; padding-left:20px; }
+    .pc li { font-size:.82rem; color:var(--muted); line-height:1.6; margin-bottom:7px; }
+    .pc.good { border-color:rgba(16,185,129,.3); background:rgba(16,185,129,.04); } .pc.good h4 { color:var(--green); }
+    .pc.bad  { border-color:rgba(244,63,94,.3);  background:rgba(244,63,94,.04); }  .pc.bad h4  { color:#f43f5e; }
+
+    /* the little data table used all through the deck */
+    table.dt td.A { color:#10b981; font-weight:700; }
+    table.dt td.B { color:#f97316; font-weight:700; }
+    tr.win td { background:rgba(250,204,21,.09) !important; }
+
+    /* node-anatomy chips */
+    .term-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; margin:18px 0; }
+    .term { border:1px solid var(--border); border-radius:12px; padding:14px 16px 12px; background:var(--surface); }
+    .term h5 { font-family:'Courier New',monospace; font-size:.84rem; margin-bottom:5px; }
+    .term p { font-size:.78rem; color:var(--muted); line-height:1.55; }
+    .visual-pair { display:grid; grid-template-columns:1fr 1fr; gap:12px; width:100%; }
+    .visual-pane { min-width:0; background:#020509; border:1px solid rgba(255,255,255,.07); border-radius:12px; padding:12px; }
+    .visual-pane-title { display:flex; align-items:center; gap:8px; margin-bottom:9px; color:var(--muted); font:700 .66rem 'Courier New',monospace; letter-spacing:.08em; text-transform:uppercase; }
+    .visual-pane-title b { display:grid; place-items:center; width:20px; height:20px; border-radius:6px; background:rgba(250,204,21,.12); color:var(--accent); }
+    .tree-board { margin:18px 0; padding:18px; border:1px solid rgba(6,182,212,.24); border-radius:16px; background:radial-gradient(circle at 50% 0,rgba(6,182,212,.08),transparent 50%),#020509; }
+    .tree-board svg { display:block; width:100%; height:auto; min-height:390px; }
+    .tree-board .edge { stroke:rgba(230,237,243,.36); stroke-width:2; fill:none; }
+    .tree-board .subtree-halo { fill:rgba(250,204,21,.035); stroke:rgba(250,204,21,.55); stroke-width:1.5; stroke-dasharray:7 6; }
+    .tree-board .node-box { stroke-width:2; rx:10; }
+    .tree-board text { font-family:'Courier New',monospace; fill:#e6edf3; text-anchor:middle; }
+    .tree-board .node-main { font-size:13px; font-weight:800; }
+    .tree-board .node-sub { font-size:10px; fill:rgba(230,237,243,.62); }
+    .tree-board .edge-label { font-size:11px; font-weight:800; fill:#facc15; }
+    .tree-board .guide { stroke:rgba(6,182,212,.32); stroke-width:1; stroke-dasharray:4 5; }
+    .tree-board .guide-label { font-size:10px; font-weight:800; fill:#06b6d4; text-anchor:start; }
+    .diagram-caption { margin-top:10px; color:var(--muted); font-size:.78rem; line-height:1.55; text-align:center; }
+    .anatomy-key { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:14px 0 22px; }
+    .anatomy-key .term { padding:12px 13px 10px; }
+    .anatomy-key .term h5 { display:flex; align-items:center; gap:7px; }
+    .key-dot { width:9px; height:9px; border-radius:50%; flex:none; }
+    @media(max-width:720px){ .visual-pair{grid-template-columns:1fr}.anatomy-key{grid-template-columns:1fr 1fr}.tree-board{padding:8px}.tree-board svg{min-height:330px} }
+  </style>
+  <style>
+    /* ── deck-15 only: the bits that are about forests rather than trees ── */
+    .forest-strip { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:10px; margin:18px 0; }
+    .fchip { border:1px solid var(--border); border-radius:12px; padding:12px 13px 10px; background:var(--surface); text-align:center; }
+    .fchip b { display:block; font-family:'Courier New',monospace; font-size:.8rem; margin-bottom:4px; }
+    .fchip span { font-size:.72rem; color:var(--muted); line-height:1.5; }
+
+    /* the confusion matrix printed by the notebook */
+    .cm-wrap { display:flex; gap:18px; align-items:center; flex-wrap:wrap; margin:18px 0; }
+    table.cm { border-collapse:collapse; font-family:'Courier New',monospace; font-size:.82rem; }
+    table.cm th { padding:7px 12px; color:var(--muted); font-weight:700; font-size:.7rem; letter-spacing:.06em; text-transform:uppercase; }
+    table.cm td { width:74px; height:56px; text-align:center; font-size:1.25rem; font-weight:800; border:1px solid var(--border); }
+    table.cm td.hit  { background:rgba(59,130,246,.32); color:#dbeafe; }
+    table.cm td.miss { background:rgba(59,130,246,.05); color:var(--muted); }
+    .cm-note { font-size:.8rem; color:var(--muted); line-height:1.6; flex:1; min-width:200px; }
+
+    /* parameter reference rows */
+    .prm { display:grid; grid-template-columns:200px 1fr; gap:14px; padding:13px 0; border-bottom:1px solid var(--border); }
+    .prm:last-child { border-bottom:none; }
+    .prm code { font-size:.8rem; }
+    .prm p { font-size:.82rem; color:var(--muted); line-height:1.6; margin:0; }
+    .prm .dflt { display:block; font-size:.68rem; color:var(--accent); font-family:'Courier New',monospace; margin-top:5px; }
+    @media(max-width:620px){ .prm{grid-template-columns:1fr;gap:6px} }
+
+    .out-pre { background:#010409; border:1px solid var(--border); border-radius:8px; padding:12px 14px; margin-top:10px;
+               font-family:'Courier New',monospace; font-size:.78rem; color:#10b981; overflow-x:auto; line-height:1.6; }
+  </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">← Python Libs</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item" href="../14_dec_tree/index.html">← Deck 14 · Decision Trees</a>
+    <a class="nav-item active" href="index.html">Deck 15</a>
+  </div>
+</nav>
+
+<div class="page-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-head">Random Forest</div>
+    <nav class="sidebar-nav">
+      <button class="s-item active" data-panel="0" onclick="goTo(0)"><span class="s-num">00</span><span class="s-dot" style="background:#8b5cf6"></span><span class="s-label">Overview</span></button>
+      <button class="s-item" data-panel="1" onclick="goTo(1)"><span class="s-num">01</span><span class="s-dot" style="background:#f43f5e"></span><span class="s-label">One tree is not enough</span></button>
+      <button class="s-item" data-panel="2" onclick="goTo(2)"><span class="s-num">02</span><span class="s-dot" style="background:#facc15"></span><span class="s-label">Ensemble models</span></button>
+      <button class="s-item" data-panel="3" onclick="goTo(3)"><span class="s-num">03</span><span class="s-dot" style="background:#06b6d4"></span><span class="s-label">Bootstrapping</span></button>
+      <button class="s-item" data-panel="4" onclick="goTo(4)"><span class="s-num">04</span><span class="s-dot" style="background:#ec4899"></span><span class="s-label">Random features</span></button>
+      <button class="s-item" data-panel="5" onclick="goTo(5)"><span class="s-num">05</span><span class="s-dot" style="background:#10b981"></span><span class="s-label">Voting &amp; averaging</span></button>
+      <button class="s-item" data-panel="6" onclick="goTo(6)"><span class="s-num">06</span><span class="s-dot" style="background:#f97316"></span><span class="s-label">Out-of-Bag error</span></button>
+      <button class="s-item" data-panel="7" onclick="goTo(7)"><span class="s-num">07</span><span class="s-dot" style="background:#3b82f6"></span><span class="s-label">In Python</span></button>
+      <button class="s-item" data-panel="8" onclick="goTo(8)"><span class="s-num">08</span><span class="s-dot" style="background:#14b8a6"></span><span class="s-label">Key parameters</span></button>
+      <button class="s-item" data-panel="9" onclick="goTo(9)"><span class="s-num">09</span><span class="s-dot" style="background:#a855f7"></span><span class="s-label">Pros &amp; cons</span></button>
+      <button class="s-item" data-panel="10" onclick="goTo(10)"><span class="s-num">10</span><span class="s-dot" style="background:#fbbf24"></span><span class="s-label">Exercises</span></button>
+      <hr class="side-sep">
+      <div class="side-part">Appendix</div>
+      <button class="s-item" data-panel="11" onclick="goTo(11)"><span class="s-num">A1</span><span class="s-dot" style="background:#8b5cf6"></span><span class="s-label">One tree vs the forest</span></button>
+      <button class="s-item" data-panel="12" onclick="goTo(12)"><span class="s-num">A2</span><span class="s-dot" style="background:#06b6d4"></span><span class="s-label">feature_importances_</span></button>
+      <hr class="side-sep">
+      <a class="s-item" style="text-decoration:none" href="../14_dec_tree/index.html"><span class="s-num">←</span><span class="s-dot" style="background:#22c55e"></span><span class="s-label">Deck 14 · one tree</span></a>
+    </nav>
+  </aside>
+
+  <!-- PANEL VIEWPORT -->
+  <div class="panel-viewport" id="viewport">
+
+    <!-- ══ PANEL 0: Overview ══ -->
+    <div class="panel active" id="panel-0">
+      <div class="hero" style="margin-bottom:36px;">
+        <span class="topic-label"><span class="dot"></span>Random Forest · Deck 15</span>
+        <h1>Random Forest</h1>
+        <p>One decision tree is a single opinion, and a nervous one — change a few rows and it changes its mind. A <strong>random forest</strong> grows hundreds of deliberately different trees and lets them <strong>vote</strong>. Watch seven real trees appear, one after another, and then decide a case none of them has seen:</p>
+        <div class="demo-canvas-wrap" style="background:#020509;border-radius:12px;padding:14px;position:relative;z-index:1;"><canvas id="cv-overview" height="392"></canvas></div>
+      </div>
+      <div class="overview-grid" style="margin-top:0;">
+        <div class="ov-card" onclick="goTo(1)"><div class="ov-card-num">01 / 10</div><div class="ov-card-name" style="color:#f43f5e">One tree is not enough</div><div class="ov-card-desc">Overfitting, tunnel vision, and a model that will not sit still.</div></div>
+        <div class="ov-card" onclick="goTo(2)"><div class="ov-card-num">02 / 10</div><div class="ov-card-name" style="color:#facc15">Ensemble models</div><div class="ov-card-desc">Many weak opinions, combined, beat one strong one.</div></div>
+        <div class="ov-card" onclick="goTo(3)"><div class="ov-card-num">03 / 10</div><div class="ov-card-name" style="color:#06b6d4">Bootstrapping</div><div class="ov-card-desc">Sample the rows with replacement — 63% in, 37% out.</div></div>
+        <div class="ov-card" onclick="goTo(4)"><div class="ov-card-num">04 / 10</div><div class="ov-card-name" style="color:#ec4899">Random features</div><div class="ov-card-desc">max_features — hide columns so the trees stop agreeing.</div></div>
+        <div class="ov-card" onclick="goTo(5)"><div class="ov-card-num">05 / 10</div><div class="ov-card-name" style="color:#10b981">Voting &amp; averaging</div><div class="ov-card-desc">Majority vote to classify, plain mean to regress.</div></div>
+        <div class="ov-card" onclick="goTo(6)"><div class="ov-card-num">06 / 10</div><div class="ov-card-name" style="color:#f97316">Out-of-Bag error</div><div class="ov-card-desc">A free validation score — no train_test_split needed.</div></div>
+        <div class="ov-card" onclick="goTo(7)"><div class="ov-card-num">07 / 10</div><div class="ov-card-name" style="color:#3b82f6">In Python</div><div class="ov-card-desc">RandomForestClassifier, oob_score_, classification_report.</div></div>
+        <div class="ov-card" onclick="goTo(8)"><div class="ov-card-num">08 / 10</div><div class="ov-card-name" style="color:#14b8a6">Key parameters</div><div class="ov-card-desc">n_estimators, max_features, bootstrap, oob_score.</div></div>
+        <div class="ov-card" onclick="goTo(9)"><div class="ov-card-num">09 / 10</div><div class="ov-card-name" style="color:#a855f7">Pros &amp; cons</div><div class="ov-card-desc">Accurate and forgiving — and no longer readable.</div></div>
+        <div class="ov-card" onclick="goTo(10)"><div class="ov-card-num">10 / 10</div><div class="ov-card-name" style="color:#fbbf24">Exercises</div><div class="ov-card-desc">Your turn — bootstrap by hand, then in code.</div></div>
+        <div class="ov-card" onclick="goTo(11)"><div class="ov-card-num">APPENDIX A1</div><div class="ov-card-name" style="color:#8b5cf6">One tree vs the forest</div><div class="ov-card-desc">The same data, side by side. Watch the variance disappear.</div></div>
+        <div class="ov-card" onclick="goTo(12)"><div class="ov-card-num">APPENDIX A2</div><div class="ov-card-name" style="color:#06b6d4">feature_importances_</div><div class="ov-card-desc">Which column actually mattered — and how much to trust it.</div></div>
+      </div>
+      <div class="callout green">
+        🌲 <strong>Everything on this page is really computed.</strong> The trees above were grown in your browser by the same algorithm sklearn runs — bootstrap the rows, restrict the features at every split, grow CART, vote — on the same 20 students the notebook uses. Nothing here is a drawing of a forest; it is a forest.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" disabled>← Prev</button>
+        <div class="pnav-dots" id="dots-0"></div>
+        <button class="pnav-btn next" onclick="goTo(1)">One tree is not enough →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 1: One tree is not enough ══ -->
+    <div class="panel" id="panel-1">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1509228468518-180dd4864904?w=900&q=75&fit=crop&h=200" alt="A single tree" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">FOREST 01 / 10 · The Problem</div>
+          <div class="m-name">One tree is not enough</div>
+          <div class="m-tagline">Readable, fast — and unable to make up its mind</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">DecisionTreeClassifier()</span>
+        <span class="pill pill-param" style="background:rgba(244,63,94,.1);color:#f43f5e;border:1px solid rgba(244,63,94,.28);">variance
+          <span class="balloon"><span class="balloon-title">variance — the disease</span><span class="balloon-body">How much the fitted model changes when the training data changes a little. A deep tree has a lot of it; that is what the forest is built to cure.</span></span>
+        </span>
+        <span class="pill pill-note">→ fix it by averaging</span>
+      </div>
+      <p class="m-desc">Deck 14 built a single decision tree and it worked. So why is there a deck 15? Because a lone tree suffers from three problems, and they are all the same problem wearing different hats.</p>
+      <div class="steps">
+        <div class="step d" data-n="1"><h4>1 · Overfitting</h4><p>Left unpruned, the tree keeps splitting until every leaf is pure. It learns the training rows <strong>too</strong> well and has learned the noise along with the signal.</p></div>
+        <div class="step b" data-n="2"><h4>2 · Tunnel vision</h4><p>At every split it takes the <strong>single best feature</strong>. One strong column dominates the whole model and the columns behind it never get a say.</p></div>
+        <div class="step a" data-n="3"><h4>3 · Instability</h4><p>Change a handful of rows and you get a <strong>completely different tree</strong>. Splits are greedy, so one changed decision at the top cascades all the way down.</p></div>
+      </div>
+      <div class="callout orange">
+        💳 <strong>The example from the lesson.</strong> You want to predict whether a customer will be approved for credit, from their <code>age</code> and <code>salary</code>. A single decision tree can build extremely precise rules for the customers you already have — and still be wrong about the next one who walks in, because those rules were fitted to the exact people in your table rather than to the shape of the problem.
+      </div>
+      <p class="m-desc">Instability is the easiest of the three to see. Below is the same 20 students every time; the only thing that changes is <strong>which rows the tree was given</strong>. Drag the slider and watch the model redraw itself — the root question, the depth, and the boundary all move.</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — one tree, resampled. Same data, different tree.</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>resample the training rows</label><input type="range" min="0" max="7" value="0" step="1" id="sh-seed" oninput="drawShake()"><span class="cval" id="sh-seedv">0</span></div>
+        </div>
+        <div class="demo-out" id="out-shake"></div>
+        <div class="visual-pair">
+          <div class="visual-pane"><div class="visual-pane-title"><b>1</b> the boundary it draws</div><canvas id="cv-shake" height="290"></canvas></div>
+          <div class="visual-pane"><div class="visual-pane-title"><b>2</b> the tree it grew</div><canvas id="cv-shake-tree" height="290"></canvas></div>
+        </div>
+      </div>
+      <div class="callout blue">
+        🎯 <strong>This is variance, and variance can be averaged away.</strong> Each of those trees is wrong in a <em>different</em> direction. If you could grow many of them and take the consensus, the individual errors would cancel and the shared signal would survive. That single sentence is the entire idea of a random forest — the rest of this deck is the mechanics of making the trees different enough for it to work.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(0)">← Overview</button>
+        <div class="pnav-dots" id="dots-1"></div>
+        <button class="pnav-btn next" onclick="goTo(2)">Ensemble models →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 2: Ensemble models ══ -->
+    <div class="panel" id="panel-2">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1518770660439-4636190af475?w=900&q=75&fit=crop&h=200" alt="Many parts, one system" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">FOREST 02 / 10 · The Principle</div>
+          <div class="m-name">Ensemble models</div>
+          <div class="m-tagline">Many ordinary opinions, combined, beat one expert</div>
+        </div>
+      </div>
+      <p class="m-desc"><strong>Ensemble models</strong> are a machine learning approach that combine multiple individual models — known as <strong>base estimators</strong> — in the prediction process. Ensemble models offer a solution to overcome the technical challenges of building a single estimator.</p>
+      <p class="m-desc">Each base estimator is trained on its own view of the problem and draws its own boundary. None of them is right everywhere. Combining them produces a boundary that <strong>none of the individual models could have drawn</strong>:</p>
+      <div class="tree-board">
+        <svg viewBox="0 0 720 400" role="img" aria-labelledby="ens-title ens-desc">
+          <title id="ens-title">Three base classifiers combined into one boundary</title>
+          <desc id="ens-desc">Three separate classifiers each draw a different decision boundary. Their outputs feed into a summation node, which produces a single combined decision boundary.</desc>
+          <text class="guide-label" x="8" y="18">LAYER 1 — the base estimators</text>
+          <g>
+            <rect class="node-box" x="30" y="30" width="180" height="104" fill="rgba(6,182,212,.07)" stroke="rgba(6,182,212,.5)"/>
+            <path d="M46 118 L196 118 M46 118 L46 44" stroke="rgba(230,237,243,.45)" stroke-width="1.4" fill="none"/>
+            <path d="M52 112 C 100 96, 118 60, 190 50" stroke="#06b6d4" stroke-width="2.4" fill="none"/>
+            <circle cx="70" cy="102" r="4" fill="#f97316"/><circle cx="92" cy="106" r="4" fill="#f97316"/><circle cx="76" cy="86" r="4" fill="#f97316"/>
+            <circle cx="150" cy="72" r="4" fill="#10b981"/><circle cx="172" cy="88" r="4" fill="#10b981"/><circle cx="132" cy="58" r="4" fill="#10b981"/>
+            <circle cx="118" cy="94" r="4" fill="#10b981"/><circle cx="160" cy="110" r="4" fill="#f97316"/>
+            <text class="node-sub" x="120" y="150">classifier 1</text>
+          </g>
+          <g>
+            <rect class="node-box" x="270" y="30" width="180" height="104" fill="rgba(236,72,153,.07)" stroke="rgba(236,72,153,.5)"/>
+            <path d="M286 118 L436 118 M286 118 L286 44" stroke="rgba(230,237,243,.45)" stroke-width="1.4" fill="none"/>
+            <path d="M348 112 L348 44" stroke="#ec4899" stroke-width="2.4" fill="none"/>
+            <circle cx="310" cy="102" r="4" fill="#f97316"/><circle cx="332" cy="106" r="4" fill="#f97316"/><circle cx="316" cy="86" r="4" fill="#f97316"/>
+            <circle cx="390" cy="72" r="4" fill="#10b981"/><circle cx="412" cy="88" r="4" fill="#10b981"/><circle cx="372" cy="58" r="4" fill="#10b981"/>
+            <circle cx="358" cy="94" r="4" fill="#10b981"/><circle cx="400" cy="110" r="4" fill="#f97316"/>
+            <text class="node-sub" x="360" y="150">classifier 2</text>
+          </g>
+          <g>
+            <rect class="node-box" x="510" y="30" width="180" height="104" fill="rgba(168,85,247,.07)" stroke="rgba(168,85,247,.5)"/>
+            <path d="M526 118 L676 118 M526 118 L526 44" stroke="rgba(230,237,243,.45)" stroke-width="1.4" fill="none"/>
+            <path d="M532 82 L676 82" stroke="#a855f7" stroke-width="2.4" fill="none"/>
+            <circle cx="550" cy="102" r="4" fill="#f97316"/><circle cx="572" cy="106" r="4" fill="#f97316"/><circle cx="556" cy="86" r="4" fill="#f97316"/>
+            <circle cx="630" cy="72" r="4" fill="#10b981"/><circle cx="652" cy="88" r="4" fill="#f97316"/><circle cx="612" cy="58" r="4" fill="#10b981"/>
+            <circle cx="598" cy="94" r="4" fill="#f97316"/><circle cx="640" cy="110" r="4" fill="#f97316"/>
+            <text class="node-sub" x="600" y="150">classifier 3</text>
+          </g>
+          <path class="edge" d="M120 160 L346 208 M360 160 L360 208 M600 160 L374 208"/>
+          <circle cx="360" cy="228" r="22" fill="rgba(250,204,21,.12)" stroke="#facc15" stroke-width="2"/>
+          <text class="node-main" x="360" y="234" style="font-size:19px;fill:#facc15">Σ</text>
+          <text class="guide-label" x="392" y="232">combine — vote or average</text>
+          <path class="edge" d="M360 250 L360 278"/>
+          <text class="guide-label" x="8" y="278">LAYER 2 — the ensemble</text>
+          <g>
+            <rect class="node-box" x="270" y="284" width="180" height="104" fill="rgba(250,204,21,.06)" stroke="rgba(250,204,21,.55)"/>
+            <path d="M286 372 L436 372 M286 372 L286 298" stroke="rgba(230,237,243,.45)" stroke-width="1.4" fill="none"/>
+            <path d="M292 366 C 330 350, 340 320, 348 298" stroke="#facc15" stroke-width="2.6" fill="none"/>
+            <path d="M348 298 C 368 330, 400 348, 434 356" stroke="#facc15" stroke-width="2.6" fill="none"/>
+            <circle cx="310" cy="356" r="4" fill="#f97316"/><circle cx="332" cy="360" r="4" fill="#f97316"/><circle cx="316" cy="340" r="4" fill="#f97316"/>
+            <circle cx="390" cy="326" r="4" fill="#10b981"/><circle cx="412" cy="342" r="4" fill="#10b981"/><circle cx="372" cy="312" r="4" fill="#10b981"/>
+            <circle cx="358" cy="348" r="4" fill="#10b981"/><circle cx="400" cy="364" r="4" fill="#f97316"/>
+            <text class="node-sub" x="360" y="404">combined boundary</text>
+          </g>
+        </svg>
+        <div class="diagram-caption">Each base estimator gets some region wrong. The combination keeps what they agree on and lets the disagreements cancel — the bottom boundary bends in a way no single straight-line classifier above it could.</div>
+      </div>
+      <p class="m-desc">Why should averaging mediocre models help at all? Because <strong>being right is contagious and being wrong is not</strong>. If every voter is right slightly more often than a coin flip and their mistakes are independent, the majority is right far more often than any one of them. Move the sliders:</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — the crowd, as the crowd gets bigger</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>how good each single voter is</label><input type="range" min="35" max="85" value="60" step="1" id="cr-p" oninput="drawCrowd()"><span class="cval" id="cr-pv">0.60</span></div>
+          <div class="ctrl"><label>how many voters</label><input type="range" min="0" max="25" value="5" step="1" id="cr-k" oninput="drawCrowd()"><span class="cval" id="cr-kv">11</span></div>
+        </div>
+        <div class="demo-out" id="out-crowd"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-crowd" height="290"></canvas></div>
+      </div>
+      <p class="m-desc">The curve is a binomial sum. With \(K\) voters each independently right with probability \(p\), the majority is right with probability:</p>
+      <div class="eq-box" style="text-align:center;">
+        $$P(\text{majority right}) = \sum_{i > K/2} \binom{K}{i}\, p^{\,i} (1-p)^{K-i}$$
+      </div>
+      <div class="callout orange">
+        ⚠️ <strong>Read the two halves of that curve.</strong> Above <code>p = 0.5</code> the crowd climbs toward certainty. <strong>Below it, the crowd collapses toward zero</strong> — a committee of voters who are each worse than a coin flip is far worse than one of them alone, because they reliably agree on the wrong answer. An ensemble amplifies whatever its members are; it does not manufacture skill. Drag the first slider under 0.50 and watch it happen.
+      </div>
+      <p class="m-desc">There are two families of ensemble, and it is worth knowing which one you are in:</p>
+      <table class="dt">
+        <thead><tr><th class="blue"></th><th class="blue">bagging — Random Forest</th><th class="blue">boosting — XGBoost, AdaBoost</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>how the models are built</td><td>All at once, <strong>independently</strong></td><td>One after another, each fixing the last one's mistakes</td></tr>
+          <tr class="show"><td>what it reduces</td><td><strong>Variance</strong> — the wobble</td><td><strong>Bias</strong> — the systematic error</td></tr>
+          <tr class="show"><td>base models are</td><td>Deep, low-bias, overfitting trees</td><td>Shallow stumps that barely work alone</td></tr>
+          <tr class="show"><td>can it run in parallel</td><td>Yes — <code>n_jobs=-1</code> and it scales</td><td>No, each model needs the previous one</td></tr>
+          <tr class="show"><td>overfits if you add models</td><td>No — more trees never hurts</td><td>Yes — more rounds eventually overfit</td></tr>
+        </tbody>
+      </table>
+      <div class="callout green">
+        🎓 <strong>The one-line difference.</strong> Bagging says "we all guess separately, then we vote." Boosting says "you guess, I will study whatever you got wrong." Random Forest is <em>bagging plus one extra trick</em> — the random features of panel 04 — and that trick is what puts the <em>random</em> in the name.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(1)">← One tree is not enough</button>
+        <div class="pnav-dots" id="dots-2"></div>
+        <button class="pnav-btn next" onclick="goTo(3)">Bootstrapping →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 3: Bootstrapping ══ -->
+    <div class="panel" id="panel-3">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1504639725590-34d0984388bd?w=900&q=75&fit=crop&h=200" alt="Drawing samples" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">FOREST 03 / 10 · Trick One</div>
+          <div class="m-name">Bootstrapping</div>
+          <div class="m-tagline">Sample with replacement — the same row can come twice, or never</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">bootstrap=True</span>
+        <span class="pill pill-param" style="background:rgba(6,182,212,.1);color:var(--cyan);border:1px solid rgba(6,182,212,.28);">with replacement
+          <span class="balloon"><span class="balloon-title">with replacement</span><span class="balloon-body">Every draw is from the full table. A row you have already taken is still in the pot, so it can be taken again.</span></span>
+        </span>
+        <span class="pill pill-ret">→ ≈63% in, ≈37% out</span>
+      </div>
+      <p class="m-desc"><strong>Bootstrapping</strong> is the process of creating a new sample from the data you already have, by <strong>drawing rows at random with replacement</strong>. Two things follow immediately:</p>
+      <div class="term-grid">
+        <div class="term"><h5 style="color:var(--green)">A row may be picked more than once</h5><p>It then carries more weight in that tree — as if that student had enrolled twice.</p></div>
+        <div class="term"><h5 style="color:var(--cyan)">A row may not be picked at all</h5><p>That tree never sees it. Panel 06 turns exactly this into a free validation set.</p></div>
+      </div>
+      <p class="m-desc"><strong>The point:</strong> every tree sees a slightly different version of the data, and that is what creates the <strong>diversity</strong> between trees that the vote depends on. The textbook example: from five rows <code>A, B, C, D, E</code> one tree might be built on <code>A, B, B, D, E</code> — <code>B</code> twice, <code>C</code> nowhere.</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — one bootstrap sample of the 20 students, drawn for real</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>which tree's sample</label><input type="range" min="0" max="7" value="0" step="1" id="bt-k" oninput="drawBoot()"><span class="cval" id="bt-kv">1</span></div>
+        </div>
+        <div class="demo-out" id="out-boot"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-boot" height="236"></canvas></div>
+      </div>
+      <p class="m-desc">Notice that the "kept" number hovers around <strong>13 of 20</strong> however many times you resample. That is not a coincidence. A given row survives one draw with probability \(1 - 1/n\), and there are \(n\) independent draws, so the chance it is <em>never</em> picked is:</p>
+      <div class="eq-box" style="text-align:center;">
+        $$P(\text{row is left out}) = \left(1 - \frac{1}{n}\right)^{n} \;\xrightarrow[\;n \to \infty\;]{}\; \frac{1}{e} \approx 0.368$$
+      </div>
+      <p class="m-desc">So roughly <strong>63.2%</strong> of the rows go into each tree and <strong>36.8%</strong> stay out — and that is true whether you have 20 rows or 20 million. For \(n = 20\) the exact figure is \((19/20)^{20} = 0.358\), already within one point of the limit.</p>
+      <table class="dt">
+        <thead><tr><th class="blue">n</th><th class="blue">(1 − 1/n)ⁿ</th><th class="blue">left out</th><th class="blue">in the bag</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>5</td><td>0.328</td><td>32.8%</td><td>67.2%</td></tr>
+          <tr class="show"><td>20</td><td>0.358</td><td>35.8%</td><td>64.2%</td></tr>
+          <tr class="show"><td>100</td><td>0.366</td><td>36.6%</td><td>63.4%</td></tr>
+          <tr class="show"><td>∞</td><td>1/e = 0.368</td><td>36.8%</td><td><strong>63.2%</strong></td></tr>
+        </tbody>
+      </table>
+      <div class="callout blue">
+        📦 <strong>Where the name comes from.</strong> Bagging = <strong>B</strong>ootstrap <strong>Agg</strong>regat<strong>ing</strong>: bootstrap the rows, aggregate the answers. Set <code>bootstrap=False</code> and every tree gets the identical full dataset — the trees become near-copies, the vote stops helping, and <code>oob_score</code> stops working entirely because nothing is ever left out.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(2)">← Ensemble models</button>
+        <div class="pnav-dots" id="dots-3"></div>
+        <button class="pnav-btn next" onclick="goTo(4)">Random features →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 4: Random features ══ -->
+    <div class="panel" id="panel-4">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=900&q=75&fit=crop&h=200" alt="Choosing columns" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">FOREST 04 / 10 · Trick Two</div>
+          <div class="m-name">Random features</div>
+          <div class="m-tagline">Hide most of the columns at every split, on purpose</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">max_features='sqrt'</span>
+        <span class="pill pill-param" style="background:rgba(236,72,153,.1);color:var(--pink);border:1px solid rgba(236,72,153,.28);">at every split
+          <span class="balloon"><span class="balloon-title">at every split, not every tree</span><span class="balloon-body">The dice are rolled again at each node. One tree can use a different subset at its root than at its children.</span></span>
+        </span>
+        <span class="pill pill-ret">→ decorrelated trees</span>
+      </div>
+      <p class="m-desc">Bootstrapping alone is not enough. If one feature is much stronger than the rest, <strong>every</strong> tree will put it at the root no matter which rows it got — and 100 trees that all begin with the same question are 100 trees that make the same mistakes. Voting cannot cancel an error they all share.</p>
+      <p class="m-desc">So a random forest adds a second dose of randomness: <strong>at each split, only a random subset of the features may be considered.</strong> Not a subset per tree — a fresh draw at every single node.</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — the root split, when only some columns are on the table</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>roll the dice</label><input type="range" min="0" max="7" value="0" step="1" id="ft-seed" oninput="drawFeat()"><span class="cval" id="ft-seedv">0</span></div>
+          <div class="ctrl"><label>max_features</label><input type="range" min="1" max="3" value="1" step="1" id="ft-mf" oninput="drawFeat()"><span class="cval" id="ft-mfv">1</span></div>
+        </div>
+        <div class="demo-out" id="out-feat"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-feat" height="208"></canvas></div>
+      </div>
+      <div class="callout pink" style="border-left-color:var(--pink);background:rgba(236,72,153,.07)">
+        🎲 <strong>Look at what just happened.</strong> <code>study_hours</code> is far and away the best split, at gain <strong>0.409</strong>. But with <code>max_features=1</code> it is only drawn about a third of the time — so two thirds of the trees are <em>forced</em> to root themselves on <code>sleep_hours</code> (gain 0.188) or <code>had_breakfast</code> (gain 0.180) instead. Each of those trees is individually worse. Collectively they are what makes the forest work, because they are wrong about different things.
+      </div>
+      <p class="m-desc">How many features get drawn is the <code>max_features</code> parameter, and the defaults encode this trade-off:</p>
+      <table class="dt">
+        <thead><tr><th class="blue">setting</th><th class="blue">features per split</th><th class="blue">effect</th></tr></thead>
+        <tbody>
+          <tr class="show"><td><code>'sqrt'</code></td><td>√(total) — 3 of 9, 10 of 100</td><td><strong>The classification default.</strong> Strong decorrelation.</td></tr>
+          <tr class="show"><td><code>1.0</code> / <code>None</code></td><td>all of them</td><td>The regression default. No feature randomness at all — this is plain bagging.</td></tr>
+          <tr class="show"><td><code>'log2'</code></td><td>log₂(total)</td><td>Even fewer. More diversity, weaker individual trees.</td></tr>
+          <tr class="show"><td>an int or float</td><td>exactly that many / that fraction</td><td>Manual control when you know your data.</td></tr>
+        </tbody>
+      </table>
+      <div class="callout orange">
+        🔁 <strong>The trade-off in one sentence.</strong> Lower <code>max_features</code> → weaker individual trees but <strong>less correlated</strong> ones → usually a better forest. Raise it and each tree gets better while the forest gets worse, because the trees start agreeing with each other. It is the parameter most worth tuning, and it is the one people forget.
+      </div>
+      <div class="callout green">
+        🧾 <strong>Why the model is called <em>random</em> forest.</strong> Two independent sources of randomness, stacked: <strong>random rows</strong> (panel 03) and <strong>random columns</strong> (this one). Take away the second and you have bagging; take away both and you have 100 identical trees and a very slow decision tree.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(3)">← Bootstrapping</button>
+        <div class="pnav-dots" id="dots-4"></div>
+        <button class="pnav-btn next" onclick="goTo(5)">Voting &amp; averaging →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 5: Voting & averaging ══ -->
+    <div class="panel" id="panel-5">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=900&q=75&fit=crop&h=200" alt="Counting the votes" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">FOREST 05 / 10 · The Answer</div>
+          <div class="m-name">Voting &amp; averaging</div>
+          <div class="m-tagline">Count the ballots for a class, take the mean for a number</div>
+        </div>
+      </div>
+      <p class="m-desc">Every tree has now been grown on its own rows, with its own restricted view of the columns. A new row arrives; each tree walks it down to a leaf and produces an answer. All that is left is to combine them — and how you combine them depends on what you are predicting.</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — move the student and watch seven real trees disagree</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>study_hours</label><input type="range" min="1" max="9" value="5" step="1" id="vt-study" oninput="drawVote()"><span class="cval" id="vt-studyv">5</span></div>
+          <div class="ctrl"><label>sleep_hours</label><input type="range" min="3" max="9" value="6" step="1" id="vt-sleep" oninput="drawVote()"><span class="cval" id="vt-sleepv">6</span></div>
+          <div class="ctrl"><label>had_breakfast</label><input type="range" min="0" max="1" value="0" step="1" id="vt-bf" oninput="drawVote()"><span class="cval" id="vt-bfv">no</span></div>
+        </div>
+        <div class="demo-out" id="out-vote"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-vote" height="210"></canvas></div>
+      </div>
+      <p class="m-desc">Formally: if \(T_1(x), T_2(x), \dots, T_K(x)\) are the trees, the forest's prediction is</p>
+      <div class="eq-box gold" style="text-align:center;">
+        $$\textbf{classification:}\quad \text{Prediction}(x) = \text{Majority Vote}\big(T_1(x), T_2(x), \dots, T_K(x)\big)$$
+      </div>
+      <div class="eq-box green" style="text-align:center;">
+        $$\textbf{regression:}\quad \text{Prediction}(x) = \frac{1}{K}\sum_{i=1}^{K} T_i(x)$$
+      </div>
+      <p class="m-desc">That is the whole of <code>RandomForestClassifier.predict</code> and <code>RandomForestRegressor.predict</code>. Two lines of maths on top of a hundred trees.</p>
+      <div class="callout blue">
+        🔍 <strong>One detail worth knowing: sklearn does not actually count hard votes.</strong> <code>RandomForestClassifier</code> averages the trees' <em>class probabilities</em> — each leaf reports the class proportions of its training rows — and then takes the <code>argmax</code>. So a tree that lands in a 51/49 leaf contributes a hesitant 0.51, not a confident 1. Usually it gives the same answer as majority voting; when it differs, the probability version is the better one, because a tree that is unsure gets less say. <code>predict_proba</code> returns that average directly.
+      </div>
+      <div class="callout green">
+        📈 <strong>Regression works the same way, with a mean.</strong> <code>RandomForestRegressor</code> averages the leaf values. This quietly fixes the ugliest habit of a single regression tree: one tree outputs a coarse staircase of a few constants, while the mean of 100 staircases that step in different places is a much smoother curve. It still cannot extrapolate past the training range — averaging flat things gives you a flat thing — but inside the range it is far less blocky.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(4)">← Random features</button>
+        <div class="pnav-dots" id="dots-5"></div>
+        <button class="pnav-btn next" onclick="goTo(6)">Out-of-Bag error →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 6: Out-of-Bag error ══ -->
+    <div class="panel" id="panel-6">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1532012197267-da84d127e765?w=900&q=75&fit=crop&h=200" alt="What was left out" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">FOREST 06 / 10 · The Free Lunch</div>
+          <div class="m-name">Out-of-Bag error</div>
+          <div class="m-tagline">A validation score you get without holding anything back</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">oob_score=True</span>
+        <span class="pill pill-ret">→ rf.oob_score_</span>
+        <span class="pill pill-note">needs bootstrap=True</span>
+      </div>
+      <p class="m-desc">Panel 03 left something on the table. When you bootstrap, about <strong>37% of the rows never make it into a given tree</strong>. Those rows are, from that tree's point of view, unseen data — a test set that was created for free, by accident, and that is different for every tree.</p>
+      <p class="m-desc">The <strong>out-of-bag</strong> idea is simply to use it. To score row <em>i</em>, ask only the trees that never saw row <em>i</em>, and let those trees vote. Do that for every row and you have a genuine held-out accuracy for the whole forest — with <strong>no <code>train_test_split</code> anywhere</strong>.</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — cyan means "this tree never saw this row, so it may grade it"</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>n_estimators</label><input type="range" min="1" max="14" value="8" step="1" id="ob-k" oninput="drawOob()"><span class="cval" id="ob-kv">8</span></div>
+        </div>
+        <div class="demo-out" id="out-oob"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-oobgrid" height="236"></canvas></div>
+      </div>
+      <div class="callout orange">
+        ⚠️ <strong>Drag that slider down to 1 or 2 and watch it break.</strong> With one tree, most rows have <em>no</em> grader at all — the score is computed from the handful of rows that happened to fall out of the bag, and it jumps around wildly. OOB is only trustworthy once every row has a decent number of graders, which in practice means <strong>at least ~50 trees</strong>. sklearn will warn you with <code>"Some inputs do not have OOB scores"</code> when the forest is too small.
+      </div>
+      <div class="steps">
+        <div class="step c" data-n="1"><h4>1 · Grow</h4><p>Each tree is trained on its bootstrap sample and remembers nothing about the rest.</p></div>
+        <div class="step a" data-n="2"><h4>2 · Grade</h4><p>Row <em>i</em> is predicted by the subset of trees for which it was out of bag — roughly a third of them.</p></div>
+        <div class="step b" data-n="3"><h4>3 · Score</h4><p><code>oob_score_</code> is the accuracy of those predictions over every row that had at least one grader.</p></div>
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue"></th><th class="blue">train_test_split</th><th class="blue">oob_score_</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>rows used for training</td><td>70–80% of them</td><td><strong>all of them</strong></td></tr>
+          <tr class="show"><td>extra cost</td><td>you lose a chunk of your data</td><td>free — it falls out of bagging</td></tr>
+          <tr class="show"><td>how many models</td><td>one fit</td><td>one fit</td></tr>
+          <tr class="show"><td>compare to</td><td>a single held-out split</td><td>roughly K-fold cross-validation</td></tr>
+          <tr class="show"><td>works when</td><td>always</td><td>only with <code>bootstrap=True</code> and enough trees</td></tr>
+        </tbody>
+      </table>
+      <div class="callout green">
+        💡 <strong>Use it as a free sanity check, not as a replacement for a test set.</strong> OOB is excellent for comparing settings — try <code>max_features=1</code> against <code>'sqrt'</code> and read both <code>oob_score_</code> values without refitting anything else. But if you then <em>choose</em> a setting because its OOB score was highest, that score has been used for selection and is no longer an unbiased estimate. Keep a real test set for the number you report.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(5)">← Voting &amp; averaging</button>
+        <div class="pnav-dots" id="dots-6"></div>
+        <button class="pnav-btn next" onclick="goTo(7)">In Python →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 7: In Python ══ -->
+    <div class="panel" id="panel-7">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1518186285589-2f7649de83e0?w=900&q=75&fit=crop&h=200" alt="Rows of data" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">FOREST 07 / 10 · The Code</div>
+          <div class="m-name">In Python</div>
+          <div class="m-tagline">Twenty students, one hundred trees, four lines that matter</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">from sklearn.ensemble import RandomForestClassifier</span>
+        <span class="pill pill-ret">→ .predict() · .oob_score_</span>
+      </div>
+      <p class="m-desc">This is the notebook's dataset, unchanged: 20 students, three features — hours studied, hours slept, and whether they had breakfast — and whether they passed the exam.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — a random forest, end to end</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> numpy <span class="kw">as</span> <span class="lib">np</span>
+<span class="kw">import</span> seaborn <span class="kw">as</span> <span class="lib">sns</span>
+<span class="kw">from</span> matplotlib <span class="kw">import</span> pyplot <span class="kw">as</span> <span class="lib">plt</span>
+<span class="kw">from</span> sklearn.ensemble <span class="kw">import</span> <span class="cls">RandomForestClassifier</span>
+<span class="kw">from</span> sklearn.model_selection <span class="kw">import</span> train_test_split
+<span class="kw">from</span> sklearn.metrics <span class="kw">import</span> accuracy_score, confusion_matrix, classification_report
+
+<span class="cm"># students: study hours, sleep hours, breakfast (1=yes) -> passed (1) or failed (0)</span>
+study_hours   = [<span class="num">2</span>, <span class="num">8</span>, <span class="num">5</span>, <span class="num">1</span>, <span class="num">7</span>, <span class="num">3</span>, <span class="num">6</span>, <span class="num">4</span>, <span class="num">9</span>, <span class="num">2</span>, <span class="num">7</span>, <span class="num">4</span>, <span class="num">8</span>, <span class="num">3</span>, <span class="num">6</span>, <span class="num">9</span>, <span class="num">5</span>, <span class="num">3</span>, <span class="num">7</span>, <span class="num">2</span>]
+sleep_hours   = [<span class="num">5</span>, <span class="num">8</span>, <span class="num">9</span>, <span class="num">3</span>, <span class="num">7</span>, <span class="num">8</span>, <span class="num">6</span>, <span class="num">7</span>, <span class="num">9</span>, <span class="num">6</span>, <span class="num">8</span>, <span class="num">5</span>, <span class="num">7</span>, <span class="num">6</span>, <span class="num">9</span>, <span class="num">8</span>, <span class="num">7</span>, <span class="num">5</span>, <span class="num">8</span>, <span class="num">4</span>]
+had_breakfast = [<span class="num">1</span>, <span class="num">1</span>, <span class="num">0</span>, <span class="num">0</span>, <span class="num">1</span>, <span class="num">0</span>, <span class="num">1</span>, <span class="num">0</span>, <span class="num">1</span>, <span class="num">0</span>, <span class="num">1</span>, <span class="num">0</span>, <span class="num">1</span>, <span class="num">1</span>, <span class="num">0</span>, <span class="num">1</span>, <span class="num">0</span>, <span class="num">0</span>, <span class="num">1</span>, <span class="num">0</span>]
+
+X = <span class="lib">np</span>.<span class="fn">column_stack</span>((study_hours, sleep_hours, had_breakfast))
+y = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">0</span>, <span class="num">1</span>, <span class="num">1</span>, <span class="num">0</span>, <span class="num">1</span>, <span class="num">0</span>, <span class="num">1</span>, <span class="num">0</span>, <span class="num">1</span>, <span class="num">0</span>, <span class="num">1</span>, <span class="num">0</span>, <span class="num">1</span>, <span class="num">0</span>, <span class="num">1</span>, <span class="num">1</span>, <span class="num">0</span>, <span class="num">0</span>, <span class="num">1</span>, <span class="num">0</span>])
+
+X_train, X_test, y_train, y_test = <span class="fn">train_test_split</span>(
+    X, y, test_size=<span class="num">0.3</span>, random_state=<span class="num">42</span>)
+
+rf_clf = <span class="cls">RandomForestClassifier</span>(n_estimators=<span class="num">100</span>, bootstrap=<span class="kw">True</span>,
+                                oob_score=<span class="kw">True</span>, random_state=<span class="num">42</span>)
+rf_clf.<span class="fn">fit</span>(X_train, y_train)
+
+y_pred = rf_clf.<span class="fn">predict</span>(X_test)
+
+<span class="fn">print</span>(<span class="str">f"Model Accuracy: {accuracy_score(y_test, y_pred):.2f}"</span>)
+<span class="fn">print</span>(<span class="str">f"Out-of-Bag Accuracy: {rf_clf.oob_score_:.2f}"</span>)
+
+<span class="fn">print</span>(<span class="str">"\nClassification Report:"</span>)
+<span class="fn">print</span>(<span class="fn">classification_report</span>(y_test, y_pred))
+
+cm = <span class="fn">confusion_matrix</span>(y_test, y_pred)
+<span class="lib">plt</span>.<span class="fn">figure</span>(figsize=(<span class="num">6</span>, <span class="num">4</span>))
+<span class="lib">sns</span>.<span class="fn">heatmap</span>(cm, annot=<span class="kw">True</span>, fmt=<span class="str">"d"</span>, cmap=<span class="str">"Blues"</span>,
+            xticklabels=[<span class="str">"Failed (0)"</span>, <span class="str">"Passed (1)"</span>],
+            yticklabels=[<span class="str">"Failed (0)"</span>, <span class="str">"Passed (1)"</span>])
+<span class="lib">plt</span>.<span class="fn">title</span>(<span class="str">"Confusion Matrix"</span>)
+<span class="lib">plt</span>.<span class="fn">xlabel</span>(<span class="str">"Predicted Labels"</span>)
+<span class="lib">plt</span>.<span class="fn">ylabel</span>(<span class="str">"True Labels"</span>)
+<span class="lib">plt</span>.<span class="fn">show</span>()</pre>
+      </div>
+      <div class="callout blue">
+        🖨️ <strong>Output:</strong>
+        <pre class="out-pre">Model Accuracy: 1.00
+Out-of-Bag Accuracy: 0.93
+
+Classification Report:
+              precision    recall  f1-score   support
+
+           0       1.00      1.00      1.00         3
+           1       1.00      1.00      1.00         3
+
+    accuracy                           1.00         6
+   macro avg       1.00      1.00      1.00         6
+weighted avg       1.00      1.00      1.00         6</pre>
+      </div>
+      <p class="m-desc">And the confusion matrix the <code>heatmap</code> draws — six test rows, all six on the diagonal:</p>
+      <div class="cm-wrap">
+        <table class="cm">
+          <thead><tr><th></th><th>pred Failed</th><th>pred Passed</th></tr></thead>
+          <tbody>
+            <tr><th>true Failed</th><td class="hit">3</td><td class="miss">0</td></tr>
+            <tr><th>true Passed</th><td class="miss">0</td><td class="hit">3</td></tr>
+          </tbody>
+        </table>
+        <div class="cm-note">Nothing off the diagonal, so precision, recall and f1 are all 1.00 for both classes. <strong>Do not celebrate.</strong> The test set is <em>six rows</em>; one mistake would have dropped accuracy to 0.83. The number to actually look at is the one underneath it.</div>
+      </div>
+      <div class="callout orange">
+        🎯 <strong>Read <code>oob_score_</code>, not the accuracy.</strong> Test accuracy is <strong>1.00</strong> on six rows; out-of-bag accuracy is <strong>0.93</strong>, computed across all 14 training rows using only the trees that never saw each one. The second number is built on more than twice the evidence, and it is the one that will still be roughly true tomorrow. When a 6-row test set and a 14-row OOB estimate disagree, believe the OOB.
+      </div>
+      <div class="forest-strip">
+        <div class="fchip"><b style="color:var(--accent)">n_estimators=100</b><span>100 trees, each on its own bootstrap sample</span></div>
+        <div class="fchip"><b style="color:var(--cyan)">bootstrap=True</b><span>sample the rows with replacement</span></div>
+        <div class="fchip"><b style="color:var(--green)">oob_score=True</b><span>keep the leftovers and grade with them</span></div>
+        <div class="fchip"><b style="color:var(--pink)">random_state=42</b><span>fix the dice so the run repeats</span></div>
+      </div>
+      <div class="callout green">
+        🔁 <strong>Regression is the same import, one word different.</strong> <code>from sklearn.ensemble import RandomForestRegressor</code>, then <code>RandomForestRegressor(n_estimators=100, oob_score=True)</code>. Score it with <code>mean_squared_error</code> and <code>r2_score</code> instead of accuracy — and note that <code>max_features</code> defaults to <strong>all</strong> features for regression, not <code>'sqrt'</code>.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(6)">← Out-of-Bag error</button>
+        <div class="pnav-dots" id="dots-7"></div>
+        <button class="pnav-btn next" onclick="goTo(8)">Key parameters →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 8: Key parameters ══ -->
+    <div class="panel" id="panel-8">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1518133910546-b6c2fb7d79e3?w=900&q=75&fit=crop&h=200" alt="Dials and settings" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">FOREST 08 / 10 · The Dials</div>
+          <div class="m-name">Key parameters</div>
+          <div class="m-tagline">Four that matter, and one that only costs you time</div>
+        </div>
+      </div>
+      <div class="term-grid" style="grid-template-columns:1fr">
+        <div class="term" style="padding:4px 18px">
+          <div class="prm"><div><code>n_estimators</code><span class="dflt">default 100</span></div><p>How many trees to grow. More trees is monotonically better for accuracy — and then it stops mattering. It <strong>cannot overfit</strong>; the only cost of a bigger number is time and memory.</p></div>
+          <div class="prm"><div><code>max_features</code><span class="dflt">'sqrt' · regression: 1.0</span></div><p>How many features may be drawn at each split. This controls how <strong>different</strong> the trees are from one another, and it is the parameter most worth tuning.</p></div>
+          <div class="prm"><div><code>bootstrap</code><span class="dflt">default True</span></div><p>Whether to sample the rows with replacement. Turn it off and every tree gets the whole dataset — and OOB scoring becomes impossible.</p></div>
+          <div class="prm"><div><code>oob_score</code><span class="dflt">default False</span></div><p>If True, the model uses the rows that were left out of each bootstrap sample to estimate accuracy — a held-out score without a separate test set.</p></div>
+          <div class="prm"><div><code>max_depth</code><span class="dflt">default None</span></div><p>How deep each tree may go. Unlike a single tree, leaving this at <code>None</code> is normally <strong>correct</strong> — the forest wants deep, low-bias trees and cures the overfitting by averaging.</p></div>
+          <div class="prm"><div><code>min_samples_leaf</code><span class="dflt">default 1</span></div><p>The gentler brake. Raise it to 3–5 on noisy data if the forest is still overfitting, before you reach for <code>max_depth</code>.</p></div>
+          <div class="prm"><div><code>n_jobs</code><span class="dflt">default None</span></div><p>How many cores to use. The trees are independent, so <code>n_jobs=-1</code> gives you a near-linear speed-up for free. There is almost no reason not to set it.</p></div>
+          <div class="prm"><div><code>class_weight</code><span class="dflt">default None</span></div><p><code>'balanced'</code> reweights the classes by frequency. Reach for it when one class is rare, or the forest will happily predict the majority class every time.</p></div>
+          <div class="prm"><div><code>random_state</code><span class="dflt">default None</span></div><p>Fixes both dice — the bootstrap draws and the feature draws — so your run reproduces. Set it in teaching and in tests; leave it out when you want an honest sense of the variance.</p></div>
+        </div>
+      </div>
+      <p class="m-desc">The one people ask about first is <code>n_estimators</code>, and the honest answer is a curve. Twenty students are far too few to see it — the OOB score there can only move in steps of 1/20 — so this demo uses a bigger, noisier set: <strong>240 rows, two features, and 12% of the labels flipped on purpose</strong>.</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — out-of-bag score as trees are added, one at a time</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>n_estimators</label><input type="range" min="1" max="60" value="30" step="1" id="nt-k" oninput="drawNtrees()"><span class="cval" id="nt-kv">30</span></div>
+          <div class="ctrl"><label>max_features</label><input type="range" min="1" max="2" value="1" step="1" id="nt-mf" oninput="drawNtrees()"><span class="cval" id="nt-mfv">1</span></div>
+        </div>
+        <div class="demo-out" id="out-ntrees"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-ntrees" height="290"></canvas></div>
+      </div>
+      <div class="callout blue">
+        📉 <strong>The shape is always this shape:</strong> a climb over the first ten or twenty trees, then a plateau that no amount of extra trees will lift. That is why <code>n_estimators</code> is the one hyper-parameter you can safely set too high — <strong>more trees cannot overfit.</strong> If 500 trees fit in your time budget, use 500 and spend your tuning effort on <code>max_features</code> instead.
+      </div>
+      <div class="callout purple">
+        🪤 <strong>But look at the left edge of the curve — it dips.</strong> With <code>max_features=1</code> the score falls from 0.802 at one tree to 0.776 at two before it starts climbing. That is <em>not</em> the forest getting worse; it is the <strong>measurement</strong> getting worse. With two trees each row is graded by roughly 0.7 trees on average, so <code>oob_score_</code> is being computed from almost nothing (this is exactly the warning from panel 06). The model's true error falls monotonically the whole way; only the estimate of it wobbles. Read the right-hand two thirds of any OOB curve and ignore the left.
+      </div>
+      <div class="callout orange">
+        🔬 <strong>Why the two <code>max_features</code> curves nearly touch here.</strong> This demo has only <em>two</em> features, so drawing 1 of 2 versus 2 of 2 is barely any decorrelation — there is almost nothing to hide. The gap between the settings opens up when you have dozens of columns and a few of them are much stronger than the rest, which is exactly the situation the parameter was invented for. With two features, bootstrapping is doing nearly all the work.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(7)">← In Python</button>
+        <div class="pnav-dots" id="dots-8"></div>
+        <button class="pnav-btn next" onclick="goTo(9)">Pros &amp; cons →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 9: Pros & cons ══ -->
+    <div class="panel" id="panel-9">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1464802686167-b939a6910659?w=900&q=75&fit=crop&h=200" alt="Balance" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">FOREST 09 / 10 · The Verdict</div>
+          <div class="m-name">Pros &amp; cons</div>
+          <div class="m-tagline">The best default model in classical ML — and you can no longer read it</div>
+        </div>
+      </div>
+      <div class="pc-grid">
+        <div class="pc good">
+          <h4>✅ Advantages</h4>
+          <ol>
+            <li><strong>Much more accurate than one tree</strong>, on almost any tabular dataset, with almost no tuning.</li>
+            <li><strong>Very hard to overfit.</strong> Adding trees cannot cause overfitting — <code>n_estimators</code> is the one hyper-parameter you cannot get wrong by setting it high.</li>
+            <li><strong>Stable.</strong> Change a few rows and the forest barely moves. Appendix A1 shows this side by side.</li>
+            <li><strong>Free validation</strong> via <code>oob_score_</code> — no held-out split required.</li>
+            <li><strong>Still needs no scaling</strong>, still handles mixed feature types, still shrugs at outliers.</li>
+            <li><strong>Feature importances</strong> out of the box, averaged over every tree rather than read off one.</li>
+            <li><strong>Parallel by construction</strong> — <code>n_jobs=-1</code> and it scales across cores.</li>
+          </ol>
+        </div>
+        <div class="pc bad">
+          <h4>❌ Disadvantages</h4>
+          <ol>
+            <li><strong>You have lost the explanation.</strong> One tree was a flowchart a non-programmer could read; 100 trees are not. This is the real price.</li>
+            <li><strong>Slower and much bigger.</strong> 100 trees is 100× the training work and 100× the memory of one.</li>
+            <li><strong>Prediction is slower too</strong> — every tree must be walked. It matters in low-latency serving.</li>
+            <li><strong>Still cannot extrapolate</strong> in regression. Averaging flat things gives you a flat thing.</li>
+            <li><strong>Still axis-aligned.</strong> A diagonal boundary is a finer staircase, not a diagonal.</li>
+            <li><strong>Importances are biased</strong> toward high-cardinality and continuous features — see appendix A2.</li>
+            <li><strong>Beaten by gradient boosting</strong> on most tabular leaderboards, if you are willing to tune.</li>
+          </ol>
+        </div>
+      </div>
+      <div class="callout blue">
+        ⚖️ <strong>Honest verdict.</strong> Random Forest is the best <em>default</em> in classical machine learning: it works out of the box, it is nearly impossible to misconfigure catastrophically, and it gives you a validation score for free. Fit one first on any new tabular problem to find out what "good" looks like. If you need the last few points of accuracy, move to gradient boosting; if you need to <em>explain</em> the decision, go back to one pruned tree and accept the accuracy you lose.
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue">use a random forest when…</th><th class="blue">use something else when…</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>You want a strong baseline in ten minutes</td><td>Somebody must read the rules → one pruned tree</td></tr>
+          <tr class="show"><td>The data is noisy and you fear overfitting</td><td>You need the top of the leaderboard → XGBoost / LightGBM</td></tr>
+          <tr class="show"><td>You have plenty of rows and mixed column types</td><td>Prediction must be sub-millisecond → a linear model</td></tr>
+          <tr class="show"><td>You want validation without giving up data</td><td>The data is images, audio or text → a neural network</td></tr>
+          <tr class="show"><td>You want to know which columns matter</td><td>You must extrapolate beyond the training range → linear regression</td></tr>
+        </tbody>
+      </table>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(8)">← Key parameters</button>
+        <div class="pnav-dots" id="dots-9"></div>
+        <button class="pnav-btn next" onclick="goTo(10)">Exercises →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 10: Exercises ══ -->
+    <div class="panel" id="panel-10">
+      <div class="exercise-header">
+        <div class="exercise-badge">✍</div>
+        <div>
+          <h2 style="font-size:1.4rem;margin-bottom:6px;">Exercises</h2>
+          <p style="font-size:.88rem;color:var(--muted);margin:0;">Paper first, then code. Every answer can be checked against a demo in this deck.</p>
+        </div>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q1</span><strong>Bootstrap by hand</strong></div>
+        <div class="ex-task">You have five rows: <code>A, B, C, D, E</code>. Draw a bootstrap sample of size 5 using a coin, a die, anything random. Which rows appear twice? Which are out of bag? Repeat it three times and average the fraction left out — how close do you get to 36.8%?</div>
+        <details class="hint"><summary>▸ hint</summary><div class="ex-task" style="margin-top:8px">For n = 5 the exact probability that a given row is never drawn is (4/5)<sup>5</sup> = <strong>0.328</strong>, so expect about 1.6 of the 5 rows to be out of bag each time. Three trials will be noisy — that is the honest lesson.</div></details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q2</span><strong>Why 63%?</strong></div>
+        <div class="ex-task">Show that the probability a particular row is left out of a bootstrap sample of size <em>n</em> is <code>(1 - 1/n)**n</code>, and compute it for n = 10, 100, 1000. What number is it converging to, and why is that number famous?</div>
+        <details class="hint"><summary>▸ hint</summary><div class="ex-task" style="margin-top:8px">Each of the n draws independently misses that row with probability (1 − 1/n). It converges to <strong>1/e ≈ 0.3679</strong>, straight from the definition of e. So ≈63.2% of rows go in.</div></details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q3</span><strong>Count the votes</strong></div>
+        <div class="ex-task">Five trees predict <code>[1, 0, 1, 1, 0]</code> for a row. What does <code>predict</code> return? Now suppose their <code>predict_proba</code> outputs for class 1 are <code>[0.51, 0.10, 0.55, 0.52, 0.05]</code>. What does sklearn <em>actually</em> return, and why is it different?</div>
+        <details class="hint"><summary>▸ hint</summary><div class="ex-task" style="margin-top:8px">Hard majority: 3 votes for 1, so class <strong>1</strong>. But sklearn averages the probabilities: (0.51+0.10+0.55+0.52+0.05)/5 = <strong>0.346</strong> → argmax picks class <strong>0</strong>. The three "yes" trees were barely sure; the two "no" trees were certain. This is the panel-05 callout in numbers.</div></details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q4</span><strong>Break the forest on purpose</strong></div>
+        <div class="ex-task">Refit the notebook's forest with <code>bootstrap=False</code>. What happens to <code>oob_score_</code>, and why? Then set <code>max_features=None</code> as well. How similar are the 100 trees now — check with <code>export_text(rf_clf.estimators_[0])</code> against <code>estimators_[7]</code>.</div>
+        <details class="hint"><summary>▸ hint</summary><div class="ex-task" style="margin-top:8px">With <code>bootstrap=False</code> nothing is ever left out, so there is no OOB set at all — sklearn raises an error when you also ask for <code>oob_score=True</code>. With <code>max_features=None</code> on top of it, every tree sees the same rows and the same columns, so all 100 trees are identical and the forest is an expensive single tree.</div></details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q5</span><strong>Find the plateau</strong></div>
+        <div class="ex-task">Loop <code>n_estimators</code> over <code>[1, 2, 5, 10, 25, 50, 100, 200, 500]</code>, fit a forest with <code>oob_score=True</code> each time and print the score. Plot it. Where does the curve stop climbing — and does it ever come back down?</div>
+        <details class="hint"><summary>▸ hint</summary><div class="ex-task" style="margin-top:8px">It climbs steeply, then plateaus, and it does not come back down in any sustained way: <code>n_estimators</code> cannot overfit. Expect the first two or three points to be erratic — with that few trees the OOB score is measured from almost no data, not from a worse model. On 20 rows the whole curve will be jumpy, which is why the panel-08 demo uses 240 rows instead.</div></details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q6</span><strong>One tree against the forest</strong></div>
+        <div class="ex-task">Fit a <code>DecisionTreeClassifier</code> and a <code>RandomForestClassifier</code> on the same data, but loop <code>random_state</code> from 0 to 9 for both and collect the ten test accuracies. Compare the <strong>mean</strong> and the <strong>standard deviation</strong> of each list. Which model wins on which statistic?</div>
+        <details class="hint"><summary>▸ hint</summary><div class="ex-task" style="margin-top:8px">The means may be close; the standard deviations will not be. That gap <em>is</em> variance reduction — the thing the whole deck is about. Appendix A1 shows the same experiment as a picture.</div></details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q7</span><strong>Trust the importances?</strong></div>
+        <div class="ex-task">Add a column of pure random noise to <code>X</code> and refit. Print <code>rf_clf.feature_importances_</code>. Does the noise column get exactly zero? Now add a second noise column with 100 distinct random values instead of 2 — which noise column scores higher, and what does that tell you?</div>
+        <details class="hint"><summary>▸ hint</summary><div class="ex-task" style="margin-top:8px">Neither gets zero, and the <strong>high-cardinality</strong> noise column scores higher — more distinct values means more candidate thresholds means more chances to look useful. This is the built-in bias of impurity-based importances; <code>permutation_importance</code> is the fix.</div></details>
+      </div>
+
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(9)">← Pros &amp; cons</button>
+        <div class="pnav-dots" id="dots-10"></div>
+        <button class="pnav-btn next" onclick="goTo(11)">Appendix A1 →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 11: A1 — one tree vs the forest ══ -->
+    <div class="panel" id="panel-11">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1477346611705-65d1883cee1e?w=900&q=75&fit=crop&h=200" alt="A forest" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">APPENDIX A1 · The Proof</div>
+          <div class="m-name">One tree vs the forest</div>
+          <div class="m-tagline">Same data, same resample — one picture jumps, the other does not</div>
+        </div>
+      </div>
+      <p class="m-desc">Every claim in this deck reduces to one: <strong>averaging kills variance</strong>. Here it is as a picture. Both panes are fed the same bootstrap sample of the same 240 rows. On the left, one tree grown on it. On the right, forty trees grown the same way and then voted.</p>
+      <p class="m-desc">Drag the slider. The left boundary tears itself up and redraws — new islands, new corners, a different held-out accuracy every time. The right boundary breathes slightly and stays where it is.</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — 240 rows, 12% label noise, one resample at a time</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>resample the training rows</label><input type="range" min="0" max="7" value="0" step="1" id="a1-seed" oninput="drawCompare()"><span class="cval" id="a1-seedv">0</span></div>
+        </div>
+        <div class="demo-out" id="out-a1"></div>
+        <div class="visual-pair">
+          <div class="visual-pane"><div class="visual-pane-title"><b>1</b> one tree</div><canvas id="cv-a1a" height="280"></canvas></div>
+          <div class="visual-pane"><div class="visual-pane-title"><b>2</b> forty trees, voted</div><canvas id="cv-a1b" height="280"></canvas></div>
+        </div>
+      </div>
+      <div class="callout green">
+        📊 <strong>Watch the two accuracy numbers, not just the pictures.</strong> Across the eight resamples the single tree's held-out accuracy swings from about <strong>0.68 to 0.90</strong> — a 22-point range on identical data. The forest stays inside a band about <strong>2½ points</strong> wide the whole time. Same algorithm, same rows; the only difference is that one of them is an average.
+      </div>
+      <div class="callout blue">
+        🧠 <strong>Why the forest's boundary looks smooth when every tree in it is a staircase.</strong> Each tree can only cut on axis-aligned lines, and each puts its steps in a slightly different place because it saw different rows and different columns. Where the trees agree, the vote is unanimous and the region is solid. Where they disagree, the boundary lands wherever 50% of them flip — and averaging forty staircases whose steps are offset from one another produces something that approximates the diagonal none of them could draw.
+      </div>
+      <div class="callout orange">
+        ⚠️ <strong>What averaging does not fix.</strong> Variance, yes. <strong>Bias, no.</strong> If the true boundary is something trees fundamentally cannot represent, every tree is wrong in the <em>same</em> direction and the average is wrong too — you can see it at the far left of the right-hand pane, where the curved boundary still gets approximated by steps. Bagging cancels disagreement, and there is nothing to cancel when the models agree on a mistake.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(10)">← Exercises</button>
+        <div class="pnav-dots" id="dots-11"></div>
+        <button class="pnav-btn next" onclick="goTo(12)">Appendix A2 →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 12: A2 — feature_importances_ ══ -->
+    <div class="panel" id="panel-12">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1509228627152-72ae9ae6848d?w=900&q=75&fit=crop&h=200" alt="Ranking" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">APPENDIX A2 · The Consolation Prize</div>
+          <div class="m-name">feature_importances_</div>
+          <div class="m-tagline">You cannot read the model, but you can ask which column mattered</div>
+        </div>
+      </div>
+      <p class="m-desc">A forest is not readable as rules — but it can still tell you <strong>which columns it leaned on</strong>. Every split reduces impurity by some amount; attribute that reduction to the feature that made the split, weight it by how many rows passed through, sum it over the tree, and average over all the trees. That is <code>feature_importances_</code>, also called <strong>mean decrease in impurity</strong>.</p>
+      <div class="eq-box" style="text-align:center;">
+        $$\text{imp}(f) = \frac{1}{K}\sum_{k=1}^{K}\;\sum_{\substack{\text{nodes } t \text{ in tree } k \\ \text{that split on } f}} \frac{n_t}{n}\Big(G_t - \tfrac{n_L}{n_t}G_L - \tfrac{n_R}{n_t}G_R\Big)$$
+      </div>
+      <p class="m-desc">The inner bracket is exactly the <strong>Gini gain</strong> from deck 14. Nothing new — just bookkeeping, then normalised so the values sum to 1.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — which column mattered</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> pandas <span class="kw">as</span> <span class="lib">pd</span>
+
+names = [<span class="str">"study_hours"</span>, <span class="str">"sleep_hours"</span>, <span class="str">"had_breakfast"</span>]
+
+<span class="fn">print</span>(<span class="lib">pd</span>.<span class="cls">Series</span>(rf_clf.feature_importances_, index=names)
+        .<span class="fn">sort_values</span>(ascending=<span class="kw">False</span>))</pre>
+      </div>
+      <div class="callout blue">
+        🖨️ <strong>Output:</strong>
+        <pre class="out-pre">study_hours      0.5287
+sleep_hours      0.3170
+had_breakfast    0.1543
+dtype: float64</pre>
+      </div>
+      <p class="m-desc">Hours studied carries about half the model, sleep another third, breakfast the rest. But these numbers are themselves estimates — and with few trees they are <strong>noisy</strong> estimates. Drop the tree count and reroll the seed:</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — the same importances, recomputed from a forest grown in your browser</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>reroll the forest</label><input type="range" min="0" max="7" value="0" step="1" id="a2-seed" oninput="drawImp()"><span class="cval" id="a2-seedv">0</span></div>
+          <div class="ctrl"><label>n_estimators</label><input type="range" min="3" max="100" value="100" step="1" id="a2-n" oninput="drawImp()"><span class="cval" id="a2-nv">100</span></div>
+        </div>
+        <div class="demo-out" id="out-imp"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-imp" height="186"></canvas></div>
+      </div>
+      <div class="callout orange">
+        ⚠️ <strong>Three ways this number will mislead you.</strong>
+        <br>① <strong>It is biased toward high-cardinality features.</strong> A column with 500 distinct values offers 499 candidate thresholds and will look important next to a yes/no column, even if it is pure noise.
+        <br>② <strong>Correlated features split the credit.</strong> Two nearly identical columns each get about half the importance, and both look half as useful as either really is. Drop one and the other's score doubles.
+        <br>③ <strong>It is measured on training data.</strong> A feature the model overfitted to still scores highly, because impurity fell on the rows it was fitted to.
+      </div>
+      <div class="callout green">
+        ✅ <strong>The fix, when the answer actually matters.</strong> Use <code>permutation_importance</code> from <code>sklearn.inspection</code>: shuffle one column <em>in the test set</em>, re-score, and see how much accuracy you lost. It is measured on held-out data, it is model-agnostic, and it has none of the cardinality bias. It costs one extra scoring pass per feature — cheap, and worth it before you tell somebody a column does not matter.
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — the honest version</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">from</span> sklearn.inspection <span class="kw">import</span> permutation_importance
+
+r = <span class="fn">permutation_importance</span>(rf_clf, X_test, y_test,
+                           n_repeats=<span class="num">30</span>, random_state=<span class="num">42</span>)
+
+<span class="kw">for</span> i <span class="kw">in</span> r.importances_mean.<span class="fn">argsort</span>()[::-<span class="num">1</span>]:
+    <span class="fn">print</span>(<span class="str">f"{names[i]:&lt;15} {r.importances_mean[i]:.4f} +/- {r.importances_std[i]:.4f}"</span>)</pre>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(11)">← Appendix A1</button>
+        <div class="pnav-dots" id="dots-12"></div>
+        <button class="pnav-btn next" onclick="goTo(0)">Back to Overview →</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="forest.js"></script>
+</body>
+</html>

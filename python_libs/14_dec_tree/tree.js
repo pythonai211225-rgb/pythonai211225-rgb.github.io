@@ -396,8 +396,10 @@ function renderTree(c, root, opts) {
 
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     const lines = [];
+    let mseLine = -1;                 /* regression impurity gets its own colour */
     if (!isLeaf) lines.push(names[nd.f] + ' <= ' + nd.thr.toFixed(2));
     if (opts.showStats !== false) {
+      if (typeof nd.value === 'number') mseLine = lines.length;
       lines.push((typeof nd.value === 'number' ? 'mse = ' : 'gini = ') + nd.imp.toFixed(3));
       lines.push('samples = ' + nd.n);
       if (typeof nd.value === 'number') lines.push('value = ' + nd.value.toFixed(2));
@@ -410,7 +412,10 @@ function renderTree(c, root, opts) {
     }
     ctx.font = 'bold 9px Courier New';
     lines.slice(0, 4).forEach((t, i) => {
-      haloText(ctx, t, x, y + 6 + i * 11, i === 0 && !isLeaf ? COL.text : 'rgba(230,237,243,.72)');
+      haloText(ctx, t, x, y + 6 + i * 11,
+               i === mseLine ? COL.accent
+             : i === 0 && !isLeaf ? COL.text
+             : 'rgba(230,237,243,.72)');
     });
 
     if (!nd.leaf && !cut) { draw(nd.left, nd); draw(nd.right, nd); }
@@ -1222,98 +1227,10 @@ clf.tree_.impurity = [${impurityList(DW_TREE).map(v => v.toFixed(3)).join(', ')}
 
 /* ═══ PANEL 8: regression ═══ */
 /* the still picture that opens the slide: the same depth-2 tree the code block
-   below fits, shown as groups-with-a-mean on the left and as a tree on the right */
+   below fits, drawn as a tree with mse in place of gini */
 const RG_TREE = fit(RX, RY, { criterion: 'mse', maxDepth: 2 });
-function regLeaves(nd, lo, hi, out) {
-  out = out || [];
-  if (nd.leaf) { out.push({ lo, hi, v: nd.value }); return out; }
-  regLeaves(nd.left, lo, nd.thr, out);
-  regLeaves(nd.right, nd.thr, hi, out);
-  return out;
-}
-function regCuts(nd, out) {
-  out = out || [];
-  if (nd.leaf) return out;
-  out.push(nd.thr); regCuts(nd.left, out); regCuts(nd.right, out);
-  return out;
-}
-function drawRegIdea() {
-  /* ── pane 1: the x-axis is cut, and each group predicts its own mean ── */
-  const p = plotSetup('cv-regcut', 0, 10, 0, 11, 1, 2);
-  axLabels(p, 'x', 'y');
-  const { ctx, sx, sy } = p;
-
-  ctx.save(); ctx.setLineDash([4, 4]); ctx.strokeStyle = 'rgba(230,237,243,.32)'; ctx.lineWidth = 1.4;
-  regCuts(RG_TREE).forEach(thr => {
-    ctx.beginPath(); ctx.moveTo(sx(thr), 0); ctx.lineTo(sx(thr), p.H); ctx.stroke();
-  });
-  ctx.restore();
-
-  /* how far each point still sits from its group's mean — squared and averaged,
-     these drops are the MSE that replaces Gini */
-  ctx.save(); ctx.setLineDash([2, 3]); ctx.strokeStyle = 'rgba(250,204,21,.55)'; ctx.lineWidth = 1.2;
-  RX.forEach((xa, i) => {
-    ctx.beginPath(); ctx.moveTo(sx(xa[0]), sy(RY[i]));
-    ctx.lineTo(sx(xa[0]), sy(predictOne(RG_TREE, xa))); ctx.stroke();
-  });
-  ctx.restore();
-
-  /* points first, then the means over them, then the labels last — haloText
-     punches the value through whatever it lands on */
-  RX.forEach((xa, i) => plotPoint(p, xa[0], RY[i], COL.accent, null, 5));
-  const bars = regLeaves(RG_TREE, 0, 10);
-  bars.forEach(L => {
-    ctx.save(); ctx.strokeStyle = COL.cyan; ctx.lineWidth = 3.2;
-    ctx.beginPath(); ctx.moveTo(sx(L.lo), sy(L.v)); ctx.lineTo(sx(L.hi), sy(L.v)); ctx.stroke(); ctx.restore();
-  });
-  ctx.font = 'bold 9px Courier New'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-  bars.forEach(L => haloText(ctx, f2(L.v), (sx(L.lo) + sx(L.hi)) / 2, sy(L.v) - 7, COL.cyan));
-
-  /* below the 'y' axis label, which axLabels puts in the top-left corner */
-  ctx.font = 'bold 10px Courier New'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  haloText(ctx, 'every group predicts its own mean', 32, 26, 'rgba(230,237,243,.55)');
-
-  /* ── pane 2: the same cuts, drawn as the tree ── */
-  renderTree(canvasSetup('cv-regtree'), RG_TREE, { names: ['x'], filled: true });
-}
-
 function drawReg() {
-  drawRegIdea();                    // the still picture at the top of the slide
-  const d = +$('rg-d').value, ml = +$('rg-l').value;
-  $('rg-dv').textContent = d; $('rg-lv').textContent = ml;
-  const t = fit(RX, RY, { criterion: 'mse', maxDepth: d, minLeaf: ml });
-  const preds = RX.map(x => predictOne(t, x));
-  const mse = RY.reduce((a, y, i) => a + (y - preds[i]) ** 2, 0) / RY.length;
-  const mean = RY.reduce((a, b) => a + b, 0) / RY.length;
-  const ssTot = RY.reduce((a, y) => a + (y - mean) ** 2, 0);
-  const r2 = 1 - (mse * RY.length) / ssTot;
-  $('out-reg').textContent =
-`DecisionTreeRegressor(max_depth=${d}, min_samples_leaf=${ml})
-leaves = ${countLeaves(t)}      actual depth = ${treeDepth(t)}
-predict(5) = ${f3(predictOne(t, [5]))}      MSE = ${f4(mse)}      R2 = ${f4(r2)}
-${countLeaves(t) >= 9 ? '--> one leaf per training point: MSE 0, and it has memorized the noise'
- : countLeaves(t) <= 2 ? '--> only two steps: it is underfitting badly'
- : '--> a reasonable staircase'}`;
-
-  animate('reg', 420, t2 => {
-    const p = plotSetup('cv-reg', 0, 10, 0, 11, 1, 2);
-    axLabels(p, 'x', 'y');
-    const { ctx, sx, sy } = p;
-    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, p.W, p.H); ctx.clip();
-    ctx.strokeStyle = COL.cyan; ctx.lineWidth = 3; ctx.beginPath();
-    const N = 300, lim = 10 * t2;
-    let started = false;
-    for (let i = 0; i <= N; i++) {
-      const x = i / N * 10;
-      if (x > lim) break;
-      const yv = predictOne(t, [x]);
-      if (!started) { ctx.moveTo(sx(x), sy(yv)); started = true; } else ctx.lineTo(sx(x), sy(yv));
-    }
-    ctx.stroke(); ctx.restore();
-    for (let i = 0; i < RX.length; i++) plotPoint(p, RX[i][0], RY[i], COL.accent, null, 5);
-    ctx.font = 'bold 11px Courier New'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    haloText(ctx, countLeaves(t) + ' leaves   MSE = ' + f3(mse), 14, 12, COL.cyan);
-  });
+  renderTree(canvasSetup('cv-regtree'), RG_TREE, { names: ['x'], filled: true });
 }
 
 /* ═══ PANEL 9: overfitting & pruning ═══ */

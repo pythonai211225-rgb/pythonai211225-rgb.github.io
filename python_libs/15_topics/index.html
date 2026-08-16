@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Scaling, Cross-Validation &amp; the Elbow</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded',function(){
+    renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'\\(',right:'\\)',display:false}],throwOnError:false});
+    if (window.fitMath) fitMath();
+  });</script>
+  <style>
+    .page-layout { display:flex; height:calc(100vh - 54px); overflow:hidden; }
+    .sidebar { width:238px; min-width:238px; height:100%; overflow-y:auto; background:#0a0e14; border-right:1px solid var(--border); display:flex; flex-direction:column; scrollbar-width:thin; scrollbar-color:var(--border) transparent; flex-shrink:0; }
+    .sidebar-head { padding:20px 18px 14px; font-size:.65rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--border); }
+    .sidebar-nav { padding:8px 0; flex:1; }
+    .s-item { display:flex; align-items:center; gap:11px; padding:10px 18px; cursor:pointer; background:none; border:none; border-left:3px solid transparent; width:100%; text-align:left; transition:background .18s,border-color .18s; }
+    .s-item:hover { background:rgba(255,255,255,.04); }
+    .s-item.active { background:rgba(250,204,21,.08); border-left-color:var(--accent); }
+    .s-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; transition:transform .2s; }
+    .s-item.active .s-dot { transform:scale(1.45); box-shadow:0 0 8px currentColor; }
+    .s-num { font-size:.62rem; color:var(--border); font-family:'Courier New',monospace; font-weight:700; min-width:18px; }
+    .s-item.active .s-num { color:var(--accent); }
+    .s-label { font-size:.79rem; color:var(--muted); font-family:'Courier New',monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .s-item.active .s-label { color:var(--text); }
+    .s-item.done .s-label::after { content:' ✓'; color:var(--green); font-size:.7rem; }
+    .side-sep { border:none; border-top:1px solid var(--border); margin:14px 16px 6px; }
+    .side-part { padding:2px 18px 6px; font-size:.6rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:var(--accent); font-family:'Courier New',monospace; }
+
+    .panel-viewport { flex:1; overflow-y:auto; overflow-x:hidden; position:relative; }
+    .panel { display:none; flex-direction:column; min-height:100%; padding:40px 52px 100px; max-width:830px; margin:0 auto; animation:fadeIn .35s ease; }
+    .panel.active { display:flex; }
+    @keyframes fadeIn { from{opacity:0;transform:translateX(28px)} to{opacity:1;transform:translateX(0)} }
+    .panel.exit { display:flex; animation:fadeOut .25s ease forwards; }
+    @keyframes fadeOut { from{opacity:1;transform:translateX(0)} to{opacity:0;transform:translateX(-28px)} }
+
+    .m-hero { position:relative; height:200px; border-radius:18px; overflow:hidden; margin-bottom:26px; flex-shrink:0; }
+    .m-hero img { width:100%; height:100%; object-fit:cover; filter:brightness(.5) saturate(.8); transition:filter .45s; }
+    .panel.active .m-hero img { filter:brightness(.6) saturate(1.1); }
+    .m-hero-ov { position:absolute; inset:0; padding:26px 30px; display:flex; flex-direction:column; justify-content:flex-end; background:linear-gradient(0deg,rgba(0,0,0,.78) 0%,rgba(0,0,0,.15) 55%,transparent 100%); }
+    .m-breadcrumb { font-size:.62rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:rgba(255,255,255,.4); margin-bottom:5px; }
+    .m-name { font-size:1.7rem; font-weight:900; color:#fff; font-family:'Courier New',monospace; }
+    .m-tagline { font-size:.86rem; color:rgba(255,255,255,.62); margin-top:4px; }
+
+    .pills { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 20px; align-items:center; }
+    .pill { padding:5px 14px; border-radius:999px; font-size:.7rem; font-weight:700; letter-spacing:.06em; }
+    .pill-sig { font-family:'Courier New',monospace; font-size:.74rem; letter-spacing:0; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.12); color:var(--text); }
+    .pill-ret { background:rgba(16,185,129,.1); border:1px solid rgba(16,185,129,.3); color:var(--green); font-family:'Courier New',monospace; letter-spacing:0; }
+    .pill-note { background:rgba(249,115,22,.1); border:1px solid rgba(249,115,22,.3); color:var(--orange); font-family:'Courier New',monospace; font-size:.7rem; }
+    .pill-param { position:relative; cursor:help; transition:filter .18s; }
+    .pill-param:hover { filter:brightness(1.3); }
+    .pill-param .balloon { position:absolute; bottom:calc(100% + 14px); left:50%; transform:translateX(-50%) translateY(6px); width:240px; background:linear-gradient(155deg,#0e2845 0%,#071a2e 100%); border:1.5px solid rgba(240,182,62,.65); border-radius:14px; padding:13px 16px 11px; box-shadow:0 0 0 1px rgba(240,182,62,.1),0 18px 48px rgba(0,0,0,.72),0 0 36px rgba(240,182,62,.07); opacity:0; pointer-events:none; transition:opacity .22s ease,transform .22s ease; z-index:300; }
+    .pill-param:hover .balloon { opacity:1; transform:translateX(-50%) translateY(0); animation:balloonFloat 3s ease-in-out infinite; }
+    @keyframes balloonFloat { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(-5px)} }
+    .balloon-title { font-family:'Courier New',monospace; font-size:.7rem; font-weight:800; color:#f0b63e; letter-spacing:.04em; margin-bottom:6px; display:flex; align-items:center; gap:6px; }
+    .balloon-title::before { content:''; display:inline-block; width:7px; height:7px; border-radius:50%; background:#f0b63e; box-shadow:0 0 6px rgba(240,182,62,.7); flex-shrink:0; }
+    .balloon-body { font-size:.76rem; color:rgba(230,237,243,.78); line-height:1.6; font-family:'Segoe UI',system-ui,sans-serif; font-weight:400; }
+    .pill-param .balloon::after { content:''; position:absolute; bottom:-10px; left:50%; transform:translateX(-50%); border-left:10px solid transparent; border-right:10px solid transparent; border-top:10px solid rgba(240,182,62,.65); }
+    .pill-param .balloon::before { content:''; position:absolute; bottom:-8px; left:50%; transform:translateX(-50%); border-left:9px solid transparent; border-right:9px solid transparent; border-top:9px solid #071a2e; z-index:1; }
+
+    .m-desc { font-size:.95rem; color:var(--muted); line-height:1.75; margin-bottom:14px; }
+    .m-desc code { font-family:'Courier New',monospace; font-size:.88em; padding:1px 6px; border-radius:4px; background:rgba(255,255,255,.06); }
+
+    .demo-box { background:#060a10; border:1px solid var(--border); border-radius:14px; padding:22px 22px 18px; margin-top:20px; flex-shrink:0; display:flex; flex-direction:column; }
+    .demo-lbl { font-size:.64rem; font-weight:800; letter-spacing:.13em; text-transform:uppercase; color:var(--muted); margin-bottom:18px; display:flex; align-items:center; gap:8px; }
+    .demo-lbl::before { content:''; width:3px; height:12px; border-radius:2px; background:var(--accent); flex-shrink:0; }
+    .demo-controls { display:flex; flex-wrap:wrap; gap:18px; align-items:flex-end; margin-bottom:18px; }
+    .ctrl { display:flex; flex-direction:column; gap:5px; }
+    .ctrl label { font-size:.69rem; color:var(--muted); font-weight:600; }
+    .ctrl input[type=range] { -webkit-appearance:none; width:180px; height:4px; background:var(--border); border-radius:2px; outline:none; cursor:pointer; }
+    .ctrl input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:15px; height:15px; background:var(--accent); border-radius:50%; cursor:pointer; box-shadow:0 0 6px rgba(250,204,21,.5); }
+    .ctrl input[type=range]::-moz-range-thumb { width:15px; height:15px; background:var(--accent); border:none; border-radius:50%; cursor:pointer; }
+    .ctrl .cval { font-size:.7rem; color:var(--accent); font-family:'Courier New',monospace; font-weight:700; text-align:center; }
+    .demo-canvas-wrap { background:#020509; border-radius:10px; padding:14px; overflow:hidden; min-height:72px; order:4; }
+    canvas { display:block; margin:0 auto; }
+    .demo-out { font-family:'Courier New',monospace; font-size:.8rem; color:#10b981; line-height:1.65; margin-top:0; margin-bottom:14px; padding:11px 15px; background:rgba(16,185,129,.05); border:1px solid rgba(16,185,129,.18); border-radius:8px; white-space:pre-wrap; order:3; }
+
+    .seg { display:inline-flex; border:1px solid var(--border); border-radius:9px; overflow:hidden; }
+    .seg button { background:transparent; border:none; color:var(--muted); font-size:.72rem; font-weight:700; font-family:'Courier New',monospace; padding:7px 13px; cursor:pointer; transition:background .18s,color .18s; }
+    .seg button:hover { color:var(--text); background:rgba(255,255,255,.05); }
+    .seg button.on { background:rgba(250,204,21,.14); color:var(--accent); }
+    .play-btn { background:rgba(16,185,129,.12); border:1px solid rgba(16,185,129,.4); color:var(--green); font-family:'Courier New',monospace; font-size:.74rem; font-weight:800; padding:8px 16px; border-radius:9px; cursor:pointer; transition:background .18s,transform .12s; }
+    .play-btn:hover { background:rgba(16,185,129,.22); }
+    .play-btn:active { transform:scale(.96); }
+
+    .panel-nav { display:flex; justify-content:space-between; align-items:center; margin-top:40px; padding-top:24px; border-top:1px solid var(--border); flex-shrink:0; gap:10px; }
+    .pnav-btn { display:flex; align-items:center; gap:9px; padding:10px 20px; border-radius:10px; border:1px solid var(--border); background:transparent; color:var(--muted); font-size:.82rem; font-weight:700; cursor:pointer; transition:color .2s,border-color .2s,background .2s; }
+    .pnav-btn:hover:not(:disabled) { color:var(--text); border-color:var(--accent); background:rgba(250,204,21,.06); }
+    .pnav-btn:disabled { opacity:.28; cursor:default; }
+    .pnav-btn.next { background:rgba(250,204,21,.08); border-color:rgba(250,204,21,.35); color:var(--accent); }
+    .pnav-btn.next:hover { background:rgba(250,204,21,.16); border-color:var(--accent); }
+    .pnav-dots { display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:center; }
+    .pnav-dot { width:7px; height:7px; border-radius:50%; background:var(--border); transition:background .2s,transform .2s; cursor:pointer; border:none; padding:0; }
+    .pnav-dot.active { background:var(--accent); transform:scale(1.4); }
+
+    .overview-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:14px; margin-top:24px; }
+    .ov-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px 16px 16px; cursor:pointer; transition:border-color .2s,box-shadow .2s,transform .18s; display:flex; flex-direction:column; gap:8px; }
+    .ov-card:hover { transform:translateY(-3px); border-color:rgba(250,204,21,.4); box-shadow:0 8px 28px rgba(250,204,21,.08); }
+    .ov-card-num { font-size:.62rem; color:var(--muted); font-weight:800; letter-spacing:.1em; }
+    .ov-card-name { font-size:.9rem; font-family:'Courier New',monospace; font-weight:700; }
+    .ov-card-desc { font-size:.77rem; color:var(--muted); line-height:1.5; }
+
+    @media(max-width:700px){.sidebar{display:none}.panel{padding:20px 16px 80px}}
+    .katex { color: var(--text); }
+    /* No horizontal scrollbars on formulas: fitMath() in tree.js shrinks anything
+       too wide to scale, so the overflow is clipped rather than scrolled. */
+    .katex-display { margin: 6px 0; overflow-x: hidden; overflow-y: hidden; padding: 3px 0; }
+    .katex-display > .katex { max-width: none; }
+    .eq-box { background:rgba(59,130,246,.05); border:1px solid rgba(59,130,246,.2); border-radius:12px; padding:16px 20px; margin:16px 0; font-size:1.05rem; }
+    .eq-box.big { font-size:1.32rem; padding:24px 20px; }
+    .eq-box.small { font-size:.95rem; padding:14px 18px; }
+    .eq-box.gold { background:rgba(250,204,21,.05); border-color:rgba(250,204,21,.22); }
+    .eq-box.green { background:rgba(16,185,129,.05); border-color:rgba(16,185,129,.22); }
+    .eq-box.rose { background:rgba(244,63,94,.05); border-color:rgba(244,63,94,.22); }
+
+    .exercise-header{display:flex;align-items:flex-start;gap:16px;margin-bottom:24px;padding:20px;background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.2);border-radius:14px;position:relative;overflow:hidden;}
+    .exercise-header::before{content:'';position:absolute;top:-40px;right:-40px;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,rgba(251,191,36,.1) 0%,transparent 70%);pointer-events:none;}
+    .exercise-badge{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;font-size:1.8rem;font-weight:800;color:#0d1a2e;background:linear-gradient(135deg,#fbbf24,#f59e0b);box-shadow:0 6px 18px rgba(251,191,36,.35);flex-shrink:0;}
+    .ex-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px 16px;margin-bottom:14px;transition:border-color .2s;}
+    .ex-card:hover{border-color:rgba(250,204,21,.3);}
+    .ex-q-head{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+    .ex-num{font-size:.68rem;font-weight:800;letter-spacing:.1em;padding:3px 10px;border-radius:6px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--muted);font-family:'Courier New',monospace;}
+    .ex-task{font-size:.88rem;color:var(--muted);margin-bottom:10px;line-height:1.6;}
+    .ex-task code{font-family:'Courier New',monospace;font-size:.85em;padding:1px 6px;border-radius:4px;background:rgba(255,255,255,.06);}
+    details.hint{margin-top:10px;}
+    details.hint summary{cursor:pointer;font-size:.78rem;color:var(--accent);font-weight:700;}
+
+    .legend { display:flex; flex-wrap:wrap; gap:16px; justify-content:center; margin-bottom:10px; }
+    .lg { display:flex; align-items:center; gap:7px; font-size:.72rem; font-family:'Courier New',monospace; color:var(--muted); font-weight:700; }
+    .lg i { width:11px; height:11px; border-radius:50%; display:inline-block; }
+    .lg.sq i { border-radius:3px; }
+    .lg.hollow i { background:none !important; border:2px solid #e6edf3; }
+    .lg.ln i { width:20px; height:0; border-top:2px solid var(--text); border-radius:0; }
+    .lg.dash i { width:20px; height:0; border-top:2px dashed var(--muted); border-radius:0; }
+
+    .steps { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; margin:20px 0 6px; }
+    .step { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px 16px 14px; position:relative; overflow:hidden; transition:transform .2s,border-color .2s; }
+    .step:hover { transform:translateY(-3px); }
+    .step::after { content:attr(data-n); position:absolute; right:10px; bottom:-14px; font-size:3.4rem; font-weight:900; font-family:'Courier New',monospace; color:rgba(255,255,255,.04); line-height:1; }
+    .step h4 { font-size:.86rem; margin-bottom:6px; font-family:'Courier New',monospace; }
+    .step p { font-size:.78rem; color:var(--muted); line-height:1.55; }
+    .step.a { border-color:rgba(59,130,246,.32); } .step.a h4 { color:var(--blue); }
+    .step.b { border-color:rgba(250,204,21,.32); } .step.b h4 { color:var(--accent); }
+    .step.c { border-color:rgba(16,185,129,.32); } .step.c h4 { color:var(--green); }
+    .step.d { border-color:rgba(236,72,153,.32); } .step.d h4 { color:var(--pink); }
+
+    .pc-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:18px 0; }
+    @media(max-width:640px){ .pc-grid{grid-template-columns:1fr} }
+    .pc { border-radius:14px; border:1px solid var(--border); padding:18px 20px 14px; }
+    .pc h4 { font-size:.9rem; margin-bottom:12px; font-family:'Courier New',monospace; display:flex; align-items:center; gap:8px; }
+    .pc ol { margin:0; padding-left:20px; }
+    .pc li { font-size:.82rem; color:var(--muted); line-height:1.6; margin-bottom:7px; }
+    .pc.good { border-color:rgba(16,185,129,.3); background:rgba(16,185,129,.04); } .pc.good h4 { color:var(--green); }
+    .pc.bad  { border-color:rgba(244,63,94,.3);  background:rgba(244,63,94,.04); }  .pc.bad h4  { color:#f43f5e; }
+
+    /* the little data table used all through the deck */
+    table.dt td.A { color:#10b981; font-weight:700; }
+    table.dt td.B { color:#f97316; font-weight:700; }
+    tr.win td { background:rgba(250,204,21,.09) !important; }
+
+    /* node-anatomy chips */
+    .term-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; margin:18px 0; }
+    .term { border:1px solid var(--border); border-radius:12px; padding:14px 16px 12px; background:var(--surface); }
+    .term h5 { font-family:'Courier New',monospace; font-size:.84rem; margin-bottom:5px; }
+    .term p { font-size:.78rem; color:var(--muted); line-height:1.55; }
+    .visual-pair { display:grid; grid-template-columns:1fr 1fr; gap:12px; width:100%; }
+    .visual-pane { min-width:0; background:#020509; border:1px solid rgba(255,255,255,.07); border-radius:12px; padding:12px; }
+    .visual-pane-title { display:flex; align-items:center; gap:8px; margin-bottom:9px; color:var(--muted); font:700 .66rem 'Courier New',monospace; letter-spacing:.08em; text-transform:uppercase; }
+    .visual-pane-title b { display:grid; place-items:center; width:20px; height:20px; border-radius:6px; background:rgba(250,204,21,.12); color:var(--accent); }
+    .tree-board { margin:18px 0; padding:18px; border:1px solid rgba(6,182,212,.24); border-radius:16px; background:radial-gradient(circle at 50% 0,rgba(6,182,212,.08),transparent 50%),#020509; }
+    .tree-board svg { display:block; width:100%; height:auto; min-height:390px; }
+    .tree-board .edge { stroke:rgba(230,237,243,.36); stroke-width:2; fill:none; }
+    .tree-board .subtree-halo { fill:rgba(250,204,21,.035); stroke:rgba(250,204,21,.55); stroke-width:1.5; stroke-dasharray:7 6; }
+    .tree-board .node-box { stroke-width:2; rx:10; }
+    .tree-board text { font-family:'Courier New',monospace; fill:#e6edf3; text-anchor:middle; }
+    .tree-board .node-main { font-size:13px; font-weight:800; }
+    .tree-board .node-sub { font-size:10px; fill:rgba(230,237,243,.62); }
+    .tree-board .edge-label { font-size:11px; font-weight:800; fill:#facc15; }
+    .tree-board .guide { stroke:rgba(6,182,212,.32); stroke-width:1; stroke-dasharray:4 5; }
+    .tree-board .guide-label { font-size:10px; font-weight:800; fill:#06b6d4; text-anchor:start; }
+    .diagram-caption { margin-top:10px; color:var(--muted); font-size:.78rem; line-height:1.55; text-align:center; }
+    .anatomy-key { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:14px 0 22px; }
+    .anatomy-key .term { padding:12px 13px 10px; }
+    .anatomy-key .term h5 { display:flex; align-items:center; gap:7px; }
+    .key-dot { width:9px; height:9px; border-radius:50%; flex:none; }
+    @media(max-width:720px){ .visual-pair{grid-template-columns:1fr}.anatomy-key{grid-template-columns:1fr 1fr}.tree-board{padding:8px}.tree-board svg{min-height:330px} }
+  </style>
+  <style>
+    /* ── deck-15b only ── */
+    .out-pre { background:#010409; border:1px solid var(--border); border-radius:8px; padding:12px 14px; margin-top:10px;
+               font-family:'Courier New',monospace; font-size:.78rem; color:#10b981; overflow-x:auto; line-height:1.6; }
+    .prm { display:grid; grid-template-columns:210px 1fr; gap:14px; padding:13px 0; border-bottom:1px solid var(--border); }
+    .prm:last-child { border-bottom:none; }
+    .prm code { font-size:.8rem; }
+    .prm p { font-size:.82rem; color:var(--muted); line-height:1.6; margin:0; }
+    @media(max-width:620px){ .prm{grid-template-columns:1fr;gap:6px} }
+    .fchip-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin:18px 0; }
+    .fchip { border:1px solid var(--border); border-radius:12px; padding:12px 13px 10px; background:var(--surface); text-align:center; }
+    .fchip b { display:block; font-family:'Courier New',monospace; font-size:.8rem; margin-bottom:4px; }
+    .fchip span { font-size:.72rem; color:var(--muted); line-height:1.5; }
+    /* the little fruit table */
+    table.dt td.fr-apple  { color:#10b981; font-weight:700; }
+    table.dt td.fr-orange { color:#f97316; font-weight:700; }
+    table.dt td.fr-banana { color:#facc15; font-weight:700; }
+    .bad-code { border-color:rgba(244,63,94,.4) !important; }
+    .bad-code .code-header { background:rgba(244,63,94,.08); border-color:rgba(244,63,94,.3); }
+    .good-code { border-color:rgba(16,185,129,.4) !important; }
+    .good-code .code-header { background:rgba(16,185,129,.08); border-color:rgba(16,185,129,.3); }
+  </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">← Python Libs</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item" href="../10_knn/index.html">KNN</a>
+    <a class="nav-item active" href="index.html">Topics</a>
+  </div>
+</nav>
+
+<div class="page-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-head">Scaling &amp; CV</div>
+    <nav class="sidebar-nav">
+      <button class="s-item active" data-panel="0" onclick="goTo(0)"><span class="s-num">00</span><span class="s-dot" style="background:#8b5cf6"></span><span class="s-label">Overview</span></button>
+      <button class="s-item" data-panel="1" onclick="goTo(1)"><span class="s-num">01</span><span class="s-dot" style="background:#f43f5e"></span><span class="s-label">Why scaling matters</span></button>
+      <button class="s-item" data-panel="2" onclick="goTo(2)"><span class="s-num">02</span><span class="s-dot" style="background:#10b981"></span><span class="s-label">MinMaxScaler</span></button>
+      <button class="s-item" data-panel="3" onclick="goTo(3)"><span class="s-num">03</span><span class="s-dot" style="background:#a855f7"></span><span class="s-label">StandardScaler</span></button>
+      <button class="s-item" data-panel="4" onclick="goTo(4)"><span class="s-num">04</span><span class="s-dot" style="background:#06b6d4"></span><span class="s-label">Which scaler when</span></button>
+      <button class="s-item" data-panel="5" onclick="goTo(5)"><span class="s-num">05</span><span class="s-dot" style="background:#f97316"></span><span class="s-label">fit vs transform</span></button>
+      <button class="s-item" data-panel="6" onclick="goTo(6)"><span class="s-num">06</span><span class="s-dot" style="background:#facc15"></span><span class="s-label">Cross-validation</span></button>
+      <button class="s-item" data-panel="7" onclick="goTo(7)"><span class="s-num">07</span><span class="s-dot" style="background:#3b82f6"></span><span class="s-label">CV with KNN</span></button>
+      <button class="s-item" data-panel="8" onclick="goTo(8)"><span class="s-num">08</span><span class="s-dot" style="background:#ec4899"></span><span class="s-label">The elbow method</span></button>
+      <button class="s-item" data-panel="9" onclick="goTo(9)"><span class="s-num">09</span><span class="s-dot" style="background:#fbbf24"></span><span class="s-label">Exercises</span></button>
+      <hr class="side-sep">
+      <div class="side-part">Appendix</div>
+      <button class="s-item" data-panel="10" onclick="goTo(10)"><span class="s-num">A1</span><span class="s-dot" style="background:#8b5cf6"></span><span class="s-label">More CV splitters</span></button>
+      <button class="s-item" data-panel="11" onclick="goTo(11)"><span class="s-num">A2</span><span class="s-dot" style="background:#06b6d4"></span><span class="s-label">Pipeline</span></button>
+      <hr class="side-sep">
+      <a class="s-item" style="text-decoration:none" href="../10_knn/index.html"><span class="s-num">←</span><span class="s-dot" style="background:#22c55e"></span><span class="s-label">Deck 10 · KNN</span></a>
+    </nav>
+  </aside>
+
+  <!-- PANEL VIEWPORT -->
+  <div class="panel-viewport" id="viewport">
+
+    <!-- ══ PANEL 0: Overview ══ -->
+    <div class="panel active" id="panel-0">
+      <div class="hero" style="margin-bottom:36px;">
+        <span class="topic-label"><span class="dot"></span>Three Topics · Scaling · Cross-Validation · The Elbow</span>
+        <h1>Scaling &amp; Cross-Validation</h1>
+        <p>Two habits that sit underneath every model you have built so far. <strong>Scaling</strong> puts your columns on a common ruler so that no feature wins just for being measured in big numbers. <strong>Cross-validation</strong> scores a model without wasting a single row on a test set that only gets used once. Watch both, on the nine fruits from the lesson:</p>
+        <div class="demo-canvas-wrap" style="background:#020509;border-radius:12px;padding:14px;position:relative;z-index:1;"><canvas id="cv-overview" height="360"></canvas></div>
+      </div>
+      <div class="overview-grid" style="margin-top:0;">
+        <div class="ov-card" onclick="goTo(1)"><div class="ov-card-num">01 / 09</div><div class="ov-card-name" style="color:#f43f5e">Why scaling matters</div><div class="ov-card-desc">Distance is decided by whichever column has the biggest numbers.</div></div>
+        <div class="ov-card" onclick="goTo(2)"><div class="ov-card-num">02 / 09</div><div class="ov-card-name" style="color:#10b981">MinMaxScaler</div><div class="ov-card-desc">(X − min) / (max − min) — everything into [0, 1].</div></div>
+        <div class="ov-card" onclick="goTo(3)"><div class="ov-card-num">03 / 09</div><div class="ov-card-name" style="color:#a855f7">StandardScaler</div><div class="ov-card-desc">(X − μ) / σ — mean zero, standard deviation one.</div></div>
+        <div class="ov-card" onclick="goTo(4)"><div class="ov-card-num">04 / 09</div><div class="ov-card-name" style="color:#06b6d4">Which scaler when</div><div class="ov-card-desc">One outlier is all it takes to separate them.</div></div>
+        <div class="ov-card" onclick="goTo(5)"><div class="ov-card-num">05 / 09</div><div class="ov-card-name" style="color:#f97316">fit vs transform</div><div class="ov-card-desc">The one mistake that quietly inflates every score you report.</div></div>
+        <div class="ov-card" onclick="goTo(6)"><div class="ov-card-num">06 / 09</div><div class="ov-card-name" style="color:#facc15">Cross-validation</div><div class="ov-card-desc">K folds, K models, every row tested exactly once.</div></div>
+        <div class="ov-card" onclick="goTo(7)"><div class="ov-card-num">07 / 09</div><div class="ov-card-name" style="color:#3b82f6">CV with KNN</div><div class="ov-card-desc">cross_val_score over k — the notebook's fruit demo.</div></div>
+        <div class="ov-card" onclick="goTo(8)"><div class="ov-card-num">08 / 09</div><div class="ov-card-name" style="color:#ec4899">The elbow method</div><div class="ov-card-desc">Where the curve stops paying — and how to read the bend.</div></div>
+        <div class="ov-card" onclick="goTo(9)"><div class="ov-card-num">09 / 09</div><div class="ov-card-name" style="color:#fbbf24">Exercises</div><div class="ov-card-desc">Scale by hand, then find the elbow yourself.</div></div>
+        <div class="ov-card" onclick="goTo(10)"><div class="ov-card-num">APPENDIX A1</div><div class="ov-card-name" style="color:#8b5cf6">More CV splitters</div><div class="ov-card-desc">KFold, StratifiedKFold, LeaveOneOut — and why cv=1 is illegal.</div></div>
+        <div class="ov-card" onclick="goTo(11)"><div class="ov-card-num">APPENDIX A2</div><div class="ov-card-name" style="color:#06b6d4">Pipeline</div><div class="ov-card-desc">Scaling inside cross-validation, done correctly.</div></div>
+      </div>
+      <div class="callout green">
+        🧮 <strong>Everything here is really computed.</strong> The scalers, the folds, the KNN votes and the k-means runs all execute in your browser on the notebook's own data — which is why the cross-validation table in panel 07 reproduces sklearn's output fold by fold, not just on average.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" disabled>← Prev</button>
+        <div class="pnav-dots" id="dots-0"></div>
+        <button class="pnav-btn next" onclick="goTo(1)">Why scaling matters →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 1: Why scaling matters ══ -->
+    <div class="panel" id="panel-1">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=900&q=75&fit=crop&h=200" alt="Measuring" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">TOPICS 01 / 09 · The Problem</div>
+          <div class="m-name">Why scaling matters</div>
+          <div class="m-tagline">Whichever column has the biggest numbers wins the argument</div>
+        </div>
+      </div>
+      <p class="m-desc">Here is the fruit dataset from the lesson. Three features, three completely different units:</p>
+      <table class="dt">
+        <thead><tr><th class="blue">fruit</th><th class="blue">color (0–255)</th><th class="blue">size (cm)</th><th class="blue">weight (g)</th></tr></thead>
+        <tbody>
+          <tr class="show"><td class="fr-apple">apple</td><td>200, 50, 220</td><td>7, 7, 6</td><td>150, 160, 140</td></tr>
+          <tr class="show"><td class="fr-orange">orange</td><td>240, 250, 230</td><td>9, 8, 9</td><td>170, 165, 180</td></tr>
+          <tr class="show"><td class="fr-banana">banana</td><td>30, 40, 20</td><td>12, 13, 11</td><td>120, 130, 115</td></tr>
+          <tr class="show"><td><strong>range</strong></td><td><strong>20 → 250</strong> (span 230)</td><td><strong>6 → 13</strong> (span 7)</td><td><strong>115 → 180</strong> (span 65)</td></tr>
+        </tbody>
+      </table>
+      <p class="m-desc">KNN, SVM, K-Means and every other distance-based model measure how far apart two rows are with the Euclidean distance:</p>
+      <div class="eq-box" style="text-align:center;">
+        $$d(a, b) = \sqrt{(a_{\text{color}} - b_{\text{color}})^2 + (a_{\text{size}} - b_{\text{size}})^2 + (a_{\text{weight}} - b_{\text{weight}})^2}$$
+      </div>
+      <p class="m-desc">Every feature is squared and added into the same sum — so a column that moves in <strong>hundreds</strong> contributes hundreds of times more than a column that moves in <strong>single digits</strong>. Size can never matter, no matter how well it separates the fruit. Pick any two fruits and watch who actually owns the distance between them:</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — where the distance between two fruits actually comes from</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>first fruit</label><input type="range" min="0" max="8" value="0" step="1" id="wh-a" oninput="drawWhy()"><span class="cval" id="wh-av">apple #0</span></div>
+          <div class="ctrl"><label>second fruit</label><input type="range" min="0" max="8" value="6" step="1" id="wh-b" oninput="drawWhy()"><span class="cval" id="wh-bv">banana #6</span></div>
+        </div>
+        <div class="demo-out" id="out-why"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-why" height="210"></canvas></div>
+      </div>
+      <div class="callout orange">
+        ⚖️ <strong>This is not a rounding detail — it decides the prediction.</strong> Run the notebook's KNN on the raw fruit table and cross-validation gives <strong>0.89</strong> at k=1. Scale it first and the same model gives <strong>1.00</strong>. Nothing changed except the units, and units are not information.
+      </div>
+      <div class="callout blue">
+        🎯 <strong>Which models care?</strong> Anything that measures a <em>distance</em> or fits a <em>weight per feature</em>: <strong>KNN, SVM, K-Means, PCA, linear and logistic regression with regularisation, neural networks.</strong> Anything that only ever asks "is this value bigger than that number?" does not: <strong>decision trees, random forests, gradient boosting.</strong> That is why decks 14 and 15 could skip scaling entirely and this one cannot.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(0)">← Overview</button>
+        <div class="pnav-dots" id="dots-1"></div>
+        <button class="pnav-btn next" onclick="goTo(2)">MinMaxScaler →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 2: MinMaxScaler ══ -->
+    <div class="panel" id="panel-2">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1504639725590-34d0984388bd?w=900&q=75&fit=crop&h=200" alt="A ruler" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">TOPICS 02 / 09 · Normalization</div>
+          <div class="m-name">MinMaxScaler</div>
+          <div class="m-tagline">Squeeze every column into the same [0, 1] box</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">from sklearn.preprocessing import MinMaxScaler</span>
+        <span class="pill pill-ret">→ every column in [0, 1]</span>
+      </div>
+      <p class="m-desc"><strong>Normalization</strong> rescales features to a specific range, typically <strong>[0, 1]</strong>. Take a column, subtract its smallest value so the minimum sits at zero, then divide by its span so the maximum lands on one:</p>
+      <div class="eq-box big" style="text-align:center;">
+        $$X_{normalized} = \frac{X - X_{min}}{X_{max} - X_{min}}$$
+      </div>
+      <p class="m-desc">Nothing about the <em>shape</em> of the data changes — it is a straight line stretch, so the histogram is identical except for the numbers on the axis. That is the whole point: the relative distances inside a column are preserved, and only the units are thrown away.</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — the notebook's 100 normal values, before and after</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>drag the largest value (an outlier appears)</label><input type="range" min="87" max="500" value="87" step="1" id="mm-out" oninput="drawMinMax()"><span class="cval" id="mm-outv">87</span></div>
+        </div>
+        <div class="demo-out" id="out-mm"></div>
+        <div class="visual-pair">
+          <div class="visual-pane"><div class="visual-pane-title"><b>1</b> original</div><canvas id="cv-mm-a" height="230"></canvas></div>
+          <div class="visual-pane"><div class="visual-pane-title"><b>2</b> min-max scaled</div><canvas id="cv-mm-b" height="230"></canvas></div>
+        </div>
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — normalization</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> numpy <span class="kw">as</span> <span class="lib">np</span>
+<span class="kw">import</span> matplotlib.pyplot <span class="kw">as</span> <span class="lib">plt</span>
+<span class="kw">from</span> sklearn.preprocessing <span class="kw">import</span> <span class="cls">MinMaxScaler</span>
+
+<span class="cm"># Generate sample data</span>
+<span class="lib">np</span>.random.<span class="fn">seed</span>(<span class="num">42</span>)
+original_data = <span class="lib">np</span>.random.<span class="fn">normal</span>(loc=<span class="num">50</span>, scale=<span class="num">20</span>, size=<span class="num">100</span>)
+
+<span class="cm"># Apply normalization</span>
+scaler = <span class="cls">MinMaxScaler</span>()
+normalized_data = scaler.<span class="fn">fit_transform</span>(original_data.<span class="fn">reshape</span>(-<span class="num">1</span>, <span class="num">1</span>)).<span class="fn">flatten</span>()
+
+<span class="cm"># Visualization</span>
+<span class="lib">plt</span>.<span class="fn">figure</span>(figsize=(<span class="num">12</span>, <span class="num">6</span>))
+<span class="lib">plt</span>.<span class="fn">subplot</span>(<span class="num">1</span>, <span class="num">2</span>, <span class="num">1</span>)
+<span class="lib">plt</span>.<span class="fn">hist</span>(original_data, bins=<span class="num">20</span>, alpha=<span class="num">0.7</span>)
+<span class="lib">plt</span>.<span class="fn">title</span>(<span class="str">'Original Data'</span>)
+
+<span class="lib">plt</span>.<span class="fn">subplot</span>(<span class="num">1</span>, <span class="num">2</span>, <span class="num">2</span>)
+<span class="lib">plt</span>.<span class="fn">hist</span>(normalized_data, bins=<span class="num">20</span>, alpha=<span class="num">0.7</span>)
+<span class="lib">plt</span>.<span class="fn">title</span>(<span class="str">'Normalized Data (Min-Max)'</span>)
+
+<span class="lib">plt</span>.<span class="fn">tight_layout</span>()
+<span class="lib">plt</span>.<span class="fn">show</span>()</pre>
+      </div>
+      <div class="callout blue">
+        📐 <strong>The numbers for this sample.</strong> The 100 values run from <code>-2.395</code> to <code>87.046</code>. So <code>X_min = -2.395</code>, <code>X_max - X_min = 89.441</code>, and every value becomes <code>(X + 2.395) / 89.441</code>. The smallest lands exactly on <strong>0.0</strong>, the largest exactly on <strong>1.0</strong>, and the mean moves from 47.92 to <strong>0.563</strong> — not to 0.5, because the data is not symmetric inside its own range.
+      </div>
+      <div class="callout orange">
+        ⚠️ <strong>Now drag the slider.</strong> One value pushed out to 500 and the other 99 are crushed into the bottom fifth of the range. MinMax gives you a <em>guaranteed</em> [0, 1] output, and it pays for that guarantee by handing the entire scale over to the two most extreme rows in the column. Panel 04 is about exactly this.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(1)">← Why scaling matters</button>
+        <div class="pnav-dots" id="dots-2"></div>
+        <button class="pnav-btn next" onclick="goTo(3)">StandardScaler →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 3: StandardScaler ══ -->
+    <div class="panel" id="panel-3">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1509228627152-72ae9ae6848d?w=900&q=75&fit=crop&h=200" alt="A bell curve" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">TOPICS 03 / 09 · Standardization</div>
+          <div class="m-name">StandardScaler</div>
+          <div class="m-tagline">Re-centre on zero, then measure everything in standard deviations</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">from sklearn.preprocessing import StandardScaler</span>
+        <span class="pill pill-ret">→ mean 0, std 1</span>
+      </div>
+      <p class="m-desc"><strong>Standardization</strong> transforms data to have <strong>zero mean and unit variance</strong>. Subtract the column's mean, then divide by its standard deviation:</p>
+      <div class="eq-box big" style="text-align:center;">
+        $$X_{standardized} = \frac{X - \mu}{\sigma}$$
+      </div>
+      <p class="m-desc">where \(\mu\) is the mean of the feature and \(\sigma\) is the standard deviation, computed as:</p>
+      <div class="eq-box" style="text-align:center;">
+        $$\sigma = \sqrt{\frac{1}{N}\sum_{i=1}^{N}(x_i - \mu)^2}$$
+      </div>
+      <p class="m-desc">with \(N\) the number of samples, \(x_i\) each individual value and \(\mu\) the mean of the values. The result is called a <strong>z-score</strong>: it answers "how many standard deviations from average is this?", which is a question you can ask of any column in any unit and get a comparable answer.</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — the same 100 values, standardized</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>drag the largest value (an outlier appears)</label><input type="range" min="87" max="500" value="87" step="1" id="ss-out" oninput="drawStandard()"><span class="cval" id="ss-outv">87</span></div>
+        </div>
+        <div class="demo-out" id="out-ss"></div>
+        <div class="visual-pair">
+          <div class="visual-pane"><div class="visual-pane-title"><b>1</b> original</div><canvas id="cv-ss-a" height="230"></canvas></div>
+          <div class="visual-pane"><div class="visual-pane-title"><b>2</b> z-score scaled</div><canvas id="cv-ss-b" height="230"></canvas></div>
+        </div>
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — standardization</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> numpy <span class="kw">as</span> <span class="lib">np</span>
+<span class="kw">import</span> matplotlib.pyplot <span class="kw">as</span> <span class="lib">plt</span>
+<span class="kw">from</span> sklearn.preprocessing <span class="kw">import</span> <span class="cls">StandardScaler</span>
+
+<span class="cm"># Generate sample data</span>
+<span class="lib">np</span>.random.<span class="fn">seed</span>(<span class="num">42</span>)
+original_data = <span class="lib">np</span>.random.<span class="fn">normal</span>(loc=<span class="num">50</span>, scale=<span class="num">20</span>, size=<span class="num">100</span>)
+
+<span class="cm"># Apply standardization</span>
+scaler = <span class="cls">StandardScaler</span>()
+standardized_data = scaler.<span class="fn">fit_transform</span>(original_data.<span class="fn">reshape</span>(-<span class="num">1</span>, <span class="num">1</span>)).<span class="fn">flatten</span>()
+
+<span class="lib">plt</span>.<span class="fn">figure</span>(figsize=(<span class="num">12</span>, <span class="num">6</span>))
+<span class="lib">plt</span>.<span class="fn">subplot</span>(<span class="num">1</span>, <span class="num">2</span>, <span class="num">1</span>)
+<span class="lib">plt</span>.<span class="fn">hist</span>(original_data, bins=<span class="num">20</span>, alpha=<span class="num">0.7</span>)
+<span class="lib">plt</span>.<span class="fn">title</span>(<span class="str">'Original Data'</span>)
+
+<span class="lib">plt</span>.<span class="fn">subplot</span>(<span class="num">1</span>, <span class="num">2</span>, <span class="num">2</span>)
+<span class="lib">plt</span>.<span class="fn">hist</span>(standardized_data, bins=<span class="num">20</span>, alpha=<span class="num">0.7</span>)
+<span class="lib">plt</span>.<span class="fn">title</span>(<span class="str">'Standardized Data (Z-score)'</span>)
+
+<span class="lib">plt</span>.<span class="fn">tight_layout</span>()
+<span class="lib">plt</span>.<span class="fn">show</span>()</pre>
+      </div>
+      <div class="callout purple">
+        📊 <strong>The empirical rule — 68-95-99.7.</strong> Once a column is in z-scores you can read it at a glance, because for anything roughly normal: about <strong>68%</strong> of values fall within ±1σ, about <strong>95%</strong> within ±2σ, and about <strong>99.7%</strong> within ±3σ. A z-score beyond ±3 is a genuine rarity — roughly 3 in 1000 — which is why <code>|z| &gt; 3</code> is the most common outlier rule there is. On the notebook's actual sample the split comes out <strong>65% / 95% / 100%</strong>, which is the empirical rule doing its job on 100 draws.
+      </div>
+      <div class="callout blue">
+        🔢 <strong>Two details worth knowing.</strong> ① sklearn divides by <strong>N</strong>, not N−1 — it uses the population standard deviation, so a hand-computed <code>np.std(x, ddof=1)</code> will differ slightly. ② The output is <strong>not bounded</strong>. Standardizing does not put your data in a box; it only recentres and rescales it, so a value can legitimately come out at −4 or +7.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(2)">← MinMaxScaler</button>
+        <div class="pnav-dots" id="dots-3"></div>
+        <button class="pnav-btn next" onclick="goTo(4)">Which scaler when →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 4: Which scaler when ══ -->
+    <div class="panel" id="panel-4">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1464802686167-b939a6910659?w=900&q=75&fit=crop&h=200" alt="Balance" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">TOPICS 04 / 09 · The Choice</div>
+          <div class="m-name">Which scaler when</div>
+          <div class="m-tagline">One outlier is all it takes to tell them apart</div>
+        </div>
+      </div>
+      <p class="m-desc">Both scalers do the same job — put columns on a common ruler — and on clean, well-behaved data they give almost identical results. The difference only shows up at the edges. Drag one value out and watch the two react:</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — the same outlier, seen by both scalers</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>push the largest value out</label><input type="range" min="87" max="500" value="87" step="1" id="cmp-out" oninput="drawCompare()"><span class="cval" id="cmp-outv">87</span></div>
+        </div>
+        <div class="demo-out" id="out-cmp"></div>
+        <div class="visual-pair">
+          <div class="visual-pane"><div class="visual-pane-title"><b>1</b> MinMaxScaler</div><canvas id="cv-cmp-a" height="230"></canvas></div>
+          <div class="visual-pane"><div class="visual-pane-title"><b>2</b> StandardScaler</div><canvas id="cv-cmp-b" height="230"></canvas></div>
+        </div>
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue"></th><th class="blue">MinMaxScaler</th><th class="blue">StandardScaler</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>formula</td><td><code>(X − min) / (max − min)</code></td><td><code>(X − μ) / σ</code></td></tr>
+          <tr class="show"><td>output range</td><td><strong>exactly [0, 1]</strong></td><td>unbounded, centred on 0</td></tr>
+          <tr class="show"><td>depends on</td><td>the two most extreme rows</td><td>every row in the column</td></tr>
+          <tr class="show"><td>outliers</td><td><strong>very sensitive</strong> — one value can flatten the rest</td><td>tolerant — an outlier just gets a big z-score</td></tr>
+          <tr class="show"><td>assumes normality</td><td>no</td><td>no, but it is most meaningful when roughly normal</td></tr>
+          <tr class="show"><td>keeps zeros sparse</td><td>yes, if the min is 0</td><td>no — shifting by μ destroys sparsity</td></tr>
+          <tr class="show"><td>reach for it when</td><td>you need a bounded input: neural nets, image pixels, anything expecting [0,1]</td><td><strong>the usual default</strong> — KNN, SVM, PCA, logistic and linear regression</td></tr>
+        </tbody>
+      </table>
+      <div class="callout green">
+        ✅ <strong>If you only remember one rule.</strong> Default to <code>StandardScaler</code>. Reach for <code>MinMaxScaler</code> when something downstream genuinely requires a bounded range, or when you know the column has hard natural limits (a percentage, a pixel, an exam grade out of 100) and no outliers. If your data has real outliers and you need robustness, there is a third option — <code>RobustScaler</code>, which uses the median and the interquartile range instead of μ and σ, so extreme values barely move it at all.
+      </div>
+      <div class="callout orange">
+        ⚠️ <strong>Whatever you pick, scale the features and not the target.</strong> <code>y</code> stays in its own units for a classifier, and for a regressor you only scale it if you have a specific reason and remember to invert the transform before you report anything.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(3)">← StandardScaler</button>
+        <div class="pnav-dots" id="dots-4"></div>
+        <button class="pnav-btn next" onclick="goTo(5)">fit vs transform →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 5: fit vs transform ══ -->
+    <div class="panel" id="panel-5">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1518133910546-b6c2fb7d79e3?w=900&q=75&fit=crop&h=200" alt="Two sets of dials" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">TOPICS 05 / 09 · The Trap</div>
+          <div class="m-name">fit vs transform</div>
+          <div class="m-tagline">The mistake that quietly inflates every score you report</div>
+        </div>
+      </div>
+      <div class="fchip-row">
+        <div class="fchip"><b style="color:var(--accent)">.fit(X)</b><span>Learn the statistics — min/max, or μ/σ. Changes the scaler, returns nothing useful.</span></div>
+        <div class="fchip"><b style="color:var(--cyan)">.transform(X)</b><span>Apply the statistics it already learned. Changes the data.</span></div>
+        <div class="fchip"><b style="color:var(--green)">.fit_transform(X)</b><span>Both, in one call. Convenient — and the source of the bug.</span></div>
+      </div>
+      <p class="m-desc">A scaler is a <strong>model</strong>. It has parameters, it learns them from data, and — exactly like every other model — it must learn them from the <strong>training set only</strong>. The test set has to be transformed with the training set's numbers, even when that pushes it outside [0, 1].</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — a test set that drifts higher than the training set</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>how far the test set has drifted</label><input type="range" min="0" max="30" value="8" step="1" id="lk-shift" oninput="drawLeak()"><span class="cval" id="lk-shiftv">8</span></div>
+        </div>
+        <div class="demo-out" id="out-leak"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-leak" height="250"></canvas></div>
+      </div>
+      <div class="pc-grid">
+        <div class="pc bad">
+          <h4>❌ Wrong</h4>
+          <ol>
+            <li><code>fit_transform</code> on the test set gives it <strong>its own</strong> min and max.</li>
+            <li>The drift disappears — the test set always looks like a well-behaved [0, 1].</li>
+            <li>Test statistics have leaked into the preprocessing, so your score is optimistic.</li>
+            <li>In production there is no "test set" to fit on. The pipeline cannot even run.</li>
+          </ol>
+        </div>
+        <div class="pc good">
+          <h4>✅ Right</h4>
+          <ol>
+            <li><code>fit_transform</code> on train, <code>transform</code> on test.</li>
+            <li>Test values may land outside [0, 1] — that is <strong>information</strong>, not a bug.</li>
+            <li>The score you measure is the score you will get on new data.</li>
+            <li>One saved scaler works forever on whatever arrives next.</li>
+          </ol>
+        </div>
+      </div>
+      <div class="code-wrap bad-code">
+        <div class="code-header"><span class="code-lang">✗ wrong — leaks the test set</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>scaler = <span class="cls">MinMaxScaler</span>()
+X_train = scaler.<span class="fn">fit_transform</span>(X_train)
+X_test  = scaler.<span class="fn">fit_transform</span>(X_test)    <span class="cm"># ← refits! the train stats are gone</span>
+
+<span class="cm"># also wrong — scaling before the split lets test rows</span>
+<span class="cm"># influence the min/max the training data will use</span>
+X_all = scaler.<span class="fn">fit_transform</span>(X)
+X_train, X_test = <span class="fn">train_test_split</span>(X_all, ...)</pre>
+      </div>
+      <div class="code-wrap good-code">
+        <div class="code-header"><span class="code-lang">✓ right — split first, fit on train only</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>X_train, X_test, y_train, y_test = <span class="fn">train_test_split</span>(
+    X, y, test_size=<span class="num">0.3</span>, random_state=<span class="num">42</span>)
+
+scaler = <span class="cls">MinMaxScaler</span>()
+X_train = scaler.<span class="fn">fit_transform</span>(X_train)   <span class="cm"># learn AND apply</span>
+X_test  = scaler.<span class="fn">transform</span>(X_test)        <span class="cm"># apply only</span>
+
+<span class="fn">print</span>(scaler.data_min_, scaler.data_max_)   <span class="cm"># what it learned</span></pre>
+      </div>
+      <div class="callout orange">
+        🕳️ <strong>Why this one is so easy to miss.</strong> It never raises an error and it never looks wrong — it just makes your reported accuracy a little too high, every single time. The bug only surfaces in production, when the model does worse than the number you promised. Appendix A2 shows the fix that makes it impossible to get wrong: put the scaler in a <code>Pipeline</code>.
+      </div>
+      <div class="callout blue">
+        🔁 <strong>And it matters even more inside cross-validation.</strong> If you scale the whole dataset once and then cross-validate, every fold's "test" rows already helped decide the min and max. The leak happens K times over. Panel 06 explains the folds; A2 shows how to scale inside them.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(4)">← Which scaler when</button>
+        <div class="pnav-dots" id="dots-5"></div>
+        <button class="pnav-btn next" onclick="goTo(6)">Cross-validation →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 6: Cross-validation ══ -->
+    <div class="panel" id="panel-6">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1518186285589-2f7649de83e0?w=900&q=75&fit=crop&h=200" alt="Rows of data" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">TOPICS 06 / 09 · The Method</div>
+          <div class="m-name">Cross-validation</div>
+          <div class="m-tagline">K folds, K models, every row tested exactly once</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">cross_val_score(model, X, y, cv=5)</span>
+        <span class="pill pill-ret">→ an array of K scores</span>
+      </div>
+      <p class="m-desc">A single <code>train_test_split</code> gives you one number from one arbitrary slice of your data. With 9 rows and a 30% test set, that number is decided by <strong>three fruits</strong> — change the random seed and it changes. <strong>Cross-validation</strong> fixes this by rotating the test set through the whole dataset.</p>
+      <p class="m-desc">Split the data into <strong>K equal folds</strong>. Then run K times: hold out fold 1 and train on the rest, hold out fold 2 and train on the rest, and so on. Each run gives a score, and the answer is their mean.</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — 12 rows, cut K ways. Green is the test fold.</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>cv — number of folds</label><input type="range" min="2" max="6" value="5" step="1" id="cv-k" oninput="drawFolds()"><span class="cval" id="cv-kv">5</span></div>
+        </div>
+        <div class="demo-out" id="out-folds"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-folds" height="240"></canvas></div>
+      </div>
+      <p class="m-desc">The number of folds decides the train/test split of every round — and this is the table the lesson slide shows:</p>
+      <table class="dt">
+        <thead><tr><th class="blue">cv</th><th class="blue">train</th><th class="blue">test</th><th class="blue">valid?</th></tr></thead>
+        <tbody>
+          <tr class="show"><td><code>cv=1</code></td><td>—</td><td>—</td><td style="color:#f43f5e"><strong>✗</strong> nothing left to train on</td></tr>
+          <tr class="show"><td><code>cv=2</code></td><td>50%</td><td>50%</td><td style="color:#10b981"><strong>✓</strong></td></tr>
+          <tr class="show"><td><code>cv=3</code></td><td>66.7%</td><td>33.3%</td><td style="color:#10b981"><strong>✓</strong></td></tr>
+          <tr class="show"><td><code>cv=4</code></td><td>75%</td><td>25%</td><td style="color:#10b981"><strong>✓</strong></td></tr>
+          <tr class="show"><td><code>cv=5</code></td><td>80%</td><td>20%</td><td style="color:#10b981"><strong>✓</strong> the usual default</td></tr>
+        </tbody>
+      </table>
+      <p class="m-desc">In general each round trains on \(1 - 1/K\) of the data and tests on \(1/K\) of it. So bigger K means more training data per model, more models to fit, and a smaller test fold each time.</p>
+      <div class="callout orange">
+        🚫 <strong>Why <code>cv=1</code> is not a thing.</strong> One fold means the single fold is the test set and there is nothing left to train on. sklearn refuses it outright: <code>ValueError: k-fold cross-validation requires at least one train/test split by setting n_splits=2 or more</code>. If you want a single split, that is <code>train_test_split</code> — a different function for a different job.
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue"></th><th class="blue">train_test_split</th><th class="blue">cross_val_score</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>models fitted</td><td>1</td><td>K</td></tr>
+          <tr class="show"><td>rows ever tested</td><td>the test slice only</td><td><strong>all of them</strong></td></tr>
+          <tr class="show"><td>result</td><td>one number</td><td>K numbers — a mean <strong>and a spread</strong></td></tr>
+          <tr class="show"><td>depends on the seed</td><td>heavily</td><td>barely</td></tr>
+          <tr class="show"><td>cost</td><td>1×</td><td>K×</td></tr>
+          <tr class="show"><td>use it for</td><td>a final held-out score</td><td>comparing models and tuning hyper-parameters</td></tr>
+        </tbody>
+      </table>
+      <div class="callout green">
+        📏 <strong>Read the spread, not just the mean.</strong> <code>cross_val_score</code> hands back an array. <code>scores.mean()</code> is the headline, but <code>scores.std()</code> tells you how much to trust it — folds of <code>[1.0, 1.0, 1.0]</code> and folds of <code>[0.4, 1.0, 1.0]</code> both average well above chance, and only one of them is a model you would ship.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(5)">← fit vs transform</button>
+        <div class="pnav-dots" id="dots-6"></div>
+        <button class="pnav-btn next" onclick="goTo(7)">CV with KNN →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 7: CV with KNN ══ -->
+    <div class="panel" id="panel-7">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=900&q=75&fit=crop&h=200" alt="Fruit" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">TOPICS 07 / 09 · The Code</div>
+          <div class="m-name">CV with KNN</div>
+          <div class="m-tagline">Nine fruits, six values of k, and one honest way to choose</div>
+        </div>
+      </div>
+      <p class="m-desc">Now both halves of the deck come together. Scale the fruit data with <code>MinMaxScaler</code>, then use <code>cross_val_score</code> to pick <code>k</code> — the number of neighbours — without ever touching a test set.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — choosing k with cross-validation</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> numpy <span class="kw">as</span> <span class="lib">np</span>
+<span class="kw">import</span> matplotlib.pyplot <span class="kw">as</span> <span class="lib">plt</span>
+
+<span class="kw">from</span> sklearn.neighbors <span class="kw">import</span> <span class="cls">KNeighborsClassifier</span>
+<span class="kw">from</span> sklearn.preprocessing <span class="kw">import</span> <span class="cls">MinMaxScaler</span>
+<span class="kw">from</span> sklearn.model_selection <span class="kw">import</span> cross_val_score, <span class="cls">LeaveOneOut</span>
+
+<span class="cm"># Fruit data</span>
+colors  = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">200</span>, <span class="num">50</span>, <span class="num">220</span>, <span class="num">240</span>, <span class="num">250</span>, <span class="num">230</span>, <span class="num">30</span>, <span class="num">40</span>, <span class="num">20</span>])
+sizes   = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">7</span>, <span class="num">7</span>, <span class="num">6</span>, <span class="num">9</span>, <span class="num">8</span>, <span class="num">9</span>, <span class="num">12</span>, <span class="num">13</span>, <span class="num">11</span>])
+weights = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">150</span>, <span class="num">160</span>, <span class="num">140</span>, <span class="num">170</span>, <span class="num">165</span>, <span class="num">180</span>, <span class="num">120</span>, <span class="num">130</span>, <span class="num">115</span>])
+
+fruit_types = <span class="lib">np</span>.<span class="fn">array</span>([
+    <span class="str">'apple'</span>, <span class="str">'apple'</span>, <span class="str">'apple'</span>,
+    <span class="str">'orange'</span>, <span class="str">'orange'</span>, <span class="str">'orange'</span>,
+    <span class="str">'banana'</span>, <span class="str">'banana'</span>, <span class="str">'banana'</span>
+])
+
+X = <span class="lib">np</span>.<span class="fn">column_stack</span>((colors, sizes, weights))
+y = fruit_types
+
+<span class="cm"># Normalize data</span>
+scaler = <span class="cls">MinMaxScaler</span>()
+X_scaled = scaler.<span class="fn">fit_transform</span>(X)
+
+<span class="cm"># Test different K values</span>
+k_range = [<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>, <span class="num">4</span>, <span class="num">5</span>, <span class="num">6</span>]
+cv_scores = []
+
+<span class="fn">print</span>(<span class="str">"--- Cross-Validation Results ---"</span>)
+
+<span class="kw">for</span> k <span class="kw">in</span> k_range:
+    model = <span class="cls">KNeighborsClassifier</span>(n_neighbors=k)
+    scores = cross_val_score(model, X_scaled, y, cv=<span class="num">3</span>, scoring=<span class="str">'accuracy'</span>)
+    mean_score = scores.<span class="fn">mean</span>()
+    cv_scores.<span class="fn">append</span>(mean_score)
+    <span class="fn">print</span>(<span class="str">f"k = {k} | Average Accuracy: {mean_score:.2f}"</span>)
+
+<span class="cm"># Train final model using best K</span>
+best_k = k_range[<span class="lib">np</span>.<span class="fn">argmax</span>(cv_scores)]
+<span class="fn">print</span>(<span class="str">f"\nBest K: {best_k}"</span>)
+
+model = <span class="cls">KNeighborsClassifier</span>(n_neighbors=best_k)
+model.<span class="fn">fit</span>(X_scaled, y)
+
+<span class="cm"># Plot K vs Cross-Validation Accuracy</span>
+<span class="lib">plt</span>.<span class="fn">figure</span>(figsize=(<span class="num">8</span>, <span class="num">5</span>))
+<span class="lib">plt</span>.<span class="fn">plot</span>(k_range, cv_scores, marker=<span class="str">'o'</span>)
+<span class="lib">plt</span>.<span class="fn">xlabel</span>(<span class="str">"K - Number of Neighbors"</span>)
+<span class="lib">plt</span>.<span class="fn">ylabel</span>(<span class="str">"Cross-Validation Accuracy"</span>)
+<span class="lib">plt</span>.<span class="fn">title</span>(<span class="str">"Choosing the Best K"</span>)
+<span class="lib">plt</span>.<span class="fn">xticks</span>(k_range)
+<span class="lib">plt</span>.<span class="fn">grid</span>(<span class="kw">True</span>)
+<span class="lib">plt</span>.<span class="fn">show</span>()</pre>
+      </div>
+      <div class="callout blue">
+        🖨️ <strong>Output:</strong>
+        <pre class="out-pre">--- Cross-Validation Results ---
+k = 1 | Average Accuracy: 1.00
+k = 2 | Average Accuracy: 1.00
+k = 3 | Average Accuracy: 0.78
+k = 4 | Average Accuracy: 0.44
+k = 5 | Average Accuracy: 0.44
+k = 6 | Average Accuracy: 0.33
+
+Best K: 1</pre>
+      </div>
+      <p class="m-desc">And here is that same curve, recomputed live — with switches for the two things the code fixes, so you can see what each one is worth:</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — the "Choosing the Best K" plot, and what happens without scaling</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>scaling</label><input type="range" min="0" max="1" value="1" step="1" id="kc-scale" oninput="drawKCurve()"><span class="cval" id="kc-scalev">MinMax</span></div>
+          <div class="ctrl"><label>cv folds</label><input type="range" min="2" max="3" value="3" step="1" id="kc-cv" oninput="drawKCurve()"><span class="cval" id="kc-cvv">3</span></div>
+        </div>
+        <div class="demo-out" id="out-kcurve"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-kcurve" height="290"></canvas></div>
+      </div>
+      <div class="callout green">
+        📉 <strong>Why the accuracy collapses as k grows.</strong> There are only 9 fruits, 3 of each kind, and <code>cv=3</code> holds out 3 of them — so each model trains on <strong>6 rows, 2 per class</strong>. At <code>k=3</code> the three nearest neighbours cannot all be the right class, because only 2 of that class exist in the training set. By <code>k=6</code> every prediction looks at the entire training set and returns the same class every time, so accuracy pins at <strong>0.33</strong> — pure chance with three classes. The curve is not telling you "small k is better"; it is telling you <strong>the dataset is tiny</strong>.
+      </div>
+      <div class="callout orange">
+        🔍 <strong>A discrepancy in the notebook worth spotting.</strong> The code creates <code>loo = LeaveOneOut()</code> with a comment about 8 training rows and 1 test row — and then passes <code>cv=3</code> to <code>cross_val_score</code> and never uses <code>loo</code> at all. The printed numbers are the <code>cv=3</code> numbers. Swap in <code>cv=loo</code> and they change: k=1 and k=2 still score 1.00, k=3 gives 0.78, but k=4 drops to <strong>0.11</strong> and k=5 and k=6 fall to <strong>0.00</strong>. Appendix A1 has both tables side by side.
+      </div>
+      <div class="callout purple">
+        🎯 <strong>Flip the scaling switch above.</strong> Without <code>MinMaxScaler</code>, k=1 falls from 1.00 to <strong>0.89</strong> and k=3 from 0.78 to <strong>0.67</strong>. On this data <code>weight</code> spans 65 units and <code>size</code> spans 7, so unscaled KNN is very nearly a weight-only classifier. Panel 01 measured exactly this.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(6)">← Cross-validation</button>
+        <div class="pnav-dots" id="dots-7"></div>
+        <button class="pnav-btn next" onclick="goTo(8)">The elbow method →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 8: The elbow method ══ -->
+    <div class="panel" id="panel-8">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1509228468518-180dd4864904?w=900&q=75&fit=crop&h=200" alt="A bend" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">TOPICS 08 / 09 · The Bend</div>
+          <div class="m-name">The elbow method</div>
+          <div class="m-tagline">Find where the curve stops paying for itself</div>
+        </div>
+      </div>
+      <p class="m-desc">The plot at the end of panel 07 is an <strong>elbow plot</strong>, and the technique has a name. You have a parameter you must choose — the number of neighbours <code>k</code>, the number of clusters <code>k</code>, the number of components — and a score that keeps improving as you turn it up. So "pick the best score" gives you a useless answer: <em>turn it up forever</em>.</p>
+      <p class="m-desc">The <strong>elbow method</strong> says: plot the metric against the parameter, and pick the point where the curve <strong>stops dropping steeply and flattens out</strong>. Before the bend, each extra unit buys you a lot. After it, you are paying complexity for almost nothing. The graph looks like a bent arm, and you want the elbow.</p>
+      <div class="callout blue">
+        📌 <strong>Where you meet it.</strong> The classic case is <strong>K-Means</strong>, where nobody tells you how many clusters exist. The metric is <strong>inertia</strong> — also called WCSS, the within-cluster sum of squares:
+        <div style="margin-top:6px">
+          $$\text{inertia} = \sum_{i=1}^{n} \big\| x_i - \mu_{c(i)} \big\|^2$$
+        </div>
+        the total squared distance from every point to the centre of its own cluster. It <strong>always</strong> falls as you add clusters — at <code>k = n</code> every point is its own centre and inertia is exactly 0 — so the minimum is worthless and the bend is everything.
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — 60 points, K-Means run for every k, elbow on the left and the clustering on the right</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>k — number of clusters</label><input type="range" min="1" max="8" value="3" step="1" id="el-k" oninput="drawElbow()"><span class="cval" id="el-kv">3</span></div>
+        </div>
+        <div class="demo-out" id="out-elbow"></div>
+        <div class="visual-pair">
+          <div class="visual-pane"><div class="visual-pane-title"><b>1</b> inertia vs k</div><canvas id="cv-elbow" height="270"></canvas></div>
+          <div class="visual-pane"><div class="visual-pane-title"><b>2</b> the clusters at this k</div><canvas id="cv-elbow-pts" height="270"></canvas></div>
+        </div>
+      </div>
+      <p class="m-desc">Read the drops rather than the values. Going from 1 cluster to 2 removes <strong>2774</strong> of inertia; 2 to 3 removes another <strong>968</strong>. Then 3 to 4 removes just <strong>13</strong>. The bend is unmistakable, and moving the slider confirms it: at k=3 the three blobs each get their own centre, and every k after that just cuts a blob in half for no real gain.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — the elbow plot for K-Means</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> matplotlib.pyplot <span class="kw">as</span> <span class="lib">plt</span>
+<span class="kw">from</span> sklearn.cluster <span class="kw">import</span> <span class="cls">KMeans</span>
+<span class="kw">from</span> sklearn.datasets <span class="kw">import</span> make_blobs
+
+X, _ = <span class="fn">make_blobs</span>(n_samples=<span class="num">60</span>, centers=<span class="num">3</span>,
+                  cluster_std=<span class="num">0.9</span>, random_state=<span class="num">42</span>)
+
+inertias = []
+k_range = <span class="fn">range</span>(<span class="num">1</span>, <span class="num">9</span>)
+
+<span class="kw">for</span> k <span class="kw">in</span> k_range:
+    km = <span class="cls">KMeans</span>(n_clusters=k, n_init=<span class="num">10</span>, random_state=<span class="num">42</span>).<span class="fn">fit</span>(X)
+    inertias.<span class="fn">append</span>(km.inertia_)
+    <span class="fn">print</span>(<span class="str">f"k={k}  inertia={km.inertia_:.2f}"</span>)
+
+<span class="lib">plt</span>.<span class="fn">plot</span>(k_range, inertias, marker=<span class="str">'o'</span>)
+<span class="lib">plt</span>.<span class="fn">xlabel</span>(<span class="str">"k - number of clusters"</span>)
+<span class="lib">plt</span>.<span class="fn">ylabel</span>(<span class="str">"Inertia (WCSS)"</span>)
+<span class="lib">plt</span>.<span class="fn">title</span>(<span class="str">"The Elbow Method"</span>)
+<span class="lib">plt</span>.<span class="fn">grid</span>(<span class="kw">True</span>)
+<span class="lib">plt</span>.<span class="fn">show</span>()</pre>
+      </div>
+      <div class="callout blue">
+        🖨️ <strong>Output:</strong>
+        <pre class="out-pre">k=1  inertia=3827.71
+k=2  inertia=1053.68
+k=3  inertia=85.27      &lt;-- the elbow
+k=4  inertia=72.13
+k=5  inertia=60.64
+k=6  inertia=49.74
+k=7  inertia=42.53
+k=8  inertia=36.87</pre>
+      </div>
+      <div class="callout green">
+        📐 <strong>How to find the bend without squinting.</strong> Draw a straight line from the first point of the curve to the last (the dashed line in the demo), then take the point that sits <strong>furthest below</strong> that line. That is the whole of the <em>kneedle</em> algorithm, and the <code>kneed</code> package implements it: <code>KneeLocator(k_range, inertias, curve='convex', direction='decreasing').elbow</code>. It turns a judgement call into a number, which matters when you are choosing k inside a script rather than by eye.
+      </div>
+      <div class="callout orange">
+        ⚠️ <strong>Be honest about its limits.</strong> ① <strong>Sometimes there is no elbow.</strong> On data without well-separated clusters the curve is a smooth slide with no bend, and the method simply has no answer — that is a real result, not a failure to look hard enough. ② <strong>It is subjective</strong> when the bend is gentle; two people read two different k. ③ For clustering, the <strong>silhouette score</strong> is a better-behaved alternative: it has an actual maximum you can take an <code>argmax</code> of, because it measures how well-separated the clusters are rather than just how tight they got. Use both and be suspicious when they disagree.
+      </div>
+      <div class="callout purple">
+        🔬 <strong>Why the demo and the printed output drift apart at large k.</strong> K-Means only ever finds a <strong>local</strong> optimum — the answer depends on where the centres start. <code>n_init</code> is the number of random restarts it tries before keeping the best one, and it defaults to 10. Both this demo and sklearn are just reporting the best of their own restarts, so past k=5 they land on slightly different answers in <em>either</em> direction: at k=6 the demo finds 49.32 against sklearn's 49.74, and at k=7 it finds 43.75 against sklearn's 42.53. Around the elbow the two agree to the decimal, because with three obvious blobs every restart converges to the same answer. <strong>If your inertia curve moves between runs, that is the algorithm telling you it is not confident — raise <code>n_init</code>.</strong>
+      </div>
+      <div class="callout blue">
+        🎯 <strong>Back to KNN for a moment.</strong> The same reading applies to the "Choosing the Best K" plot, with one difference: KNN accuracy is a score you <em>maximise</em>, not a cost you minimise, so there is a genuine best point and you can just take the <code>argmax</code> — which is what <code>np.argmax(cv_scores)</code> in panel 07 does. You reach for an elbow when the metric has <strong>no</strong> best point because it improves forever. Inertia is that kind of metric; accuracy is not.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(7)">← CV with KNN</button>
+        <div class="pnav-dots" id="dots-8"></div>
+        <button class="pnav-btn next" onclick="goTo(9)">Exercises →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 9: Exercises ══ -->
+    <div class="panel" id="panel-9">
+      <div class="exercise-header">
+        <div class="exercise-badge">✍</div>
+        <div>
+          <h2 style="font-size:1.4rem;margin-bottom:6px;">Exercises</h2>
+          <p style="font-size:.88rem;color:var(--muted);margin:0;">Paper first, then code. Every answer can be checked against a demo in this deck.</p>
+        </div>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q1</span><strong>Scale a column by hand</strong></div>
+        <div class="ex-task">The <code>size</code> column is <code>[7, 7, 6, 9, 8, 9, 12, 13, 11]</code>. Compute the MinMax-scaled value of the first fruit, then its z-score. Check both against <code>MinMaxScaler</code> and <code>StandardScaler</code>.</div>
+        <details class="hint"><summary>▸ hint</summary><div class="ex-task" style="margin-top:8px">min = 6, max = 13, so MinMax gives (7 − 6) / 7 = <strong>0.1429</strong>. The mean is 82/9 = 9.111 and σ (population, ÷N) is 2.2825, so the z-score is (7 − 9.111) / 2.2825 = <strong>−0.9249</strong>. If you get <strong>−0.8720</strong> you used <code>ddof=1</code> (σ = 2.4210) — sklearn does not.</div></details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q2</span><strong>Break MinMax with one row</strong></div>
+        <div class="ex-task">Take the notebook's 100 normal values and append a single value of <code>1000</code>. Scale with both scalers and print <code>np.mean</code> and <code>np.std</code> of each result, plus how many values land below 0.1 under MinMax. Which scaler survived?</div>
+        <details class="hint"><summary>▸ hint</summary><div class="ex-task" style="margin-top:8px">Under MinMax nearly every original value gets squashed under 0.1, because the range is now ~1002 wide instead of ~89. Under Z-score the outlier gets a large z and the rest keep their relative shape. This is the panel-04 demo, done in code.</div></details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q3</span><strong>Measure the leak</strong></div>
+        <div class="ex-task">Split the fruit data, then score KNN twice: once fitting the scaler on <code>X_train</code> only, once calling <code>fit_transform</code> separately on train and test. Do the scores differ? Now make the test set drift — add 50 to every weight in <code>X_test</code> — and compare again.</div>
+        <details class="hint"><summary>▸ hint</summary><div class="ex-task" style="margin-top:8px">On clean data the two may agree, which is exactly why the bug survives code review. Once the test set drifts, the wrong version <em>erases</em> the drift — it rescales the test set onto [0,1] as if nothing happened — and reports a score the real world will not honour.</div></details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q4</span><strong>Read the folds, not the mean</strong></div>
+        <div class="ex-task">Print the raw array from <code>cross_val_score</code> for k=3 and k=4 instead of the mean, along with <code>scores.std()</code>. The means are 0.78 and 0.44 — what do the individual folds tell you that the means do not?</div>
+        <details class="hint"><summary>▸ hint</summary><div class="ex-task" style="margin-top:8px">k=3 gives <code>[0.667, 1.0, 0.667]</code> and k=4 gives <code>[0.333, 0.667, 0.333]</code>. One fold in each case is much better than the others — with 3 rows per fold, a single prediction moves the score by 0.333. Any conclusion from folds this small is fragile.</div></details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q5</span><strong>Use the loo the notebook forgot</strong></div>
+        <div class="ex-task">Change <code>cv=3</code> to <code>cv=loo</code> and rerun the k loop. Which values of k change, and why does k=5 fall all the way to 0.00?</div>
+        <details class="hint"><summary>▸ hint</summary><div class="ex-task" style="margin-top:8px">With LOO the training set is 8 rows: 3 + 3 + 2, where the class of the held-out fruit has only <strong>2</strong> members left. At k=5 the five nearest neighbours can contain at most 2 of the correct class but 3 of another, so the right answer can never win — <strong>0 out of 9</strong>. It is a perfect illustration that k must be small relative to the class size.</div></details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q6</span><strong>Find an elbow yourself</strong></div>
+        <div class="ex-task">Generate <code>make_blobs(n_samples=300, centers=5, cluster_std=1.2, random_state=0)</code> and plot inertia for k = 1…10. Where is the elbow? Now regenerate with <code>cluster_std=4.0</code> and plot again — what happened to the bend?</div>
+        <details class="hint"><summary>▸ hint</summary><div class="ex-task" style="margin-top:8px">With tight clusters the elbow sits at 5 and is obvious. With <code>cluster_std=4.0</code> the blobs overlap into one cloud, the curve becomes a smooth slide, and there is no defensible elbow at all. That is the honest answer — "this data has no natural k" — and it is the limitation from panel 08.</div></details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q7</span><strong>Silhouette as a second opinion</strong></div>
+        <div class="ex-task">For the same blobs, compute <code>silhouette_score(X, km.labels_)</code> for k = 2…8 and plot it. Unlike inertia it has a real maximum — does its <code>argmax</code> agree with the elbow you picked?</div>
+        <details class="hint"><summary>▸ hint</summary><div class="ex-task" style="margin-top:8px">On well-separated blobs it peaks at the true number of clusters and agrees with the elbow. Note that silhouette is undefined for k=1 — with one cluster there is no "nearest other cluster" to compare against.</div></details>
+      </div>
+
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(8)">← The elbow method</button>
+        <div class="pnav-dots" id="dots-9"></div>
+        <button class="pnav-btn next" onclick="goTo(10)">Appendix A1 →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 10: A1 — CV splitters ══ -->
+    <div class="panel" id="panel-10">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1532012197267-da84d127e765?w=900&q=75&fit=crop&h=200" alt="Slices" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">APPENDIX A1 · The Splitters</div>
+          <div class="m-name">More CV splitters</div>
+          <div class="m-tagline">How the folds get cut matters as much as how many there are</div>
+        </div>
+      </div>
+      <p class="m-desc">Passing <code>cv=3</code> is a shorthand. What sklearn actually does depends on your estimator: for a <strong>classifier</strong> it quietly uses <code>StratifiedKFold</code>, and for anything else plain <code>KFold</code>. On sorted data that difference is the whole ballgame — the fruit table lists three apples, then three oranges, then three bananas.</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — the same 9 fruits, cut three different ways. Colour = the class being tested.</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>splitter</label><input type="range" min="0" max="2" value="1" step="1" id="sp-w" oninput="drawSplitters()"><span class="cval" id="sp-wv">StratifiedKFold(3)</span></div>
+        </div>
+        <div class="demo-out" id="out-splitters"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-splitters" height="128"></canvas></div>
+      </div>
+      <div class="callout orange">
+        💣 <strong>Slide it to <code>KFold(3)</code> and look at what happens.</strong> Because the data is sorted by class, the three folds come out as <em>all apples</em>, <em>all oranges</em>, <em>all bananas</em>. Every model is then trained on two classes and tested exclusively on the third one it has never seen — accuracy <strong>0.00</strong>, three times over. This is the single most common cause of "my cross-validation score is inexplicably terrible", and the fix is either stratification or <code>shuffle=True</code>.
+      </div>
+      <div class="term-grid" style="grid-template-columns:1fr">
+        <div class="term" style="padding:4px 18px">
+          <div class="prm"><div><code>KFold(n_splits=5)</code></div><p>Cuts the rows into K contiguous blocks, in the order they arrive. Add <code>shuffle=True, random_state=0</code> unless the row order is meaningful. The default for regression.</p></div>
+          <div class="prm"><div><code>StratifiedKFold(n_splits=5)</code></div><p>Keeps each class's proportion the same in every fold. <strong>The default for classifiers</strong>, and what you want essentially always — especially with imbalanced classes.</p></div>
+          <div class="prm"><div><code>LeaveOneOut()</code></div><p>K = n. Each row takes a turn as a one-row test set. Maximum training data, zero waste — and n model fits, so it is only practical on small data. The 9 fruits are exactly the right size for it.</p></div>
+          <div class="prm"><div><code>ShuffleSplit(n_splits=10, test_size=.2)</code></div><p>Ten independent random splits. Folds may overlap and some rows may never be tested — useful when you want many repeats but do not need every row covered exactly once.</p></div>
+          <div class="prm"><div><code>GroupKFold(n_splits=5)</code></div><p>Guarantees that rows sharing a group id never land on both sides of a split. Essential when you have several rows per patient, per user, or per session — otherwise the model recognises the individual, not the pattern.</p></div>
+          <div class="prm"><div><code>TimeSeriesSplit(n_splits=5)</code></div><p>Always trains on the past and tests on the future. For anything with a time axis, the ordinary splitters let the model train on tomorrow to predict yesterday.</p></div>
+        </div>
+      </div>
+      <p class="m-desc">And here is the comparison the notebook set up but never ran — the same KNN, scored with <code>cv=3</code> and with <code>LeaveOneOut</code>:</p>
+      <table class="dt">
+        <thead><tr><th class="blue">k</th><th class="blue">cv=3 (StratifiedKFold)</th><th class="blue">LeaveOneOut</th><th class="blue">what changed</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>1</td><td>1.00</td><td>1.00</td><td>—</td></tr>
+          <tr class="show"><td>2</td><td>1.00</td><td>1.00</td><td>—</td></tr>
+          <tr class="show"><td>3</td><td>0.78</td><td>0.78</td><td>—</td></tr>
+          <tr class="show"><td>4</td><td>0.44</td><td><strong>0.11</strong></td><td>LOO leaves only 2 of the true class in training</td></tr>
+          <tr class="show"><td>5</td><td>0.44</td><td><strong>0.00</strong></td><td>5 neighbours, at most 2 correct — it can never win</td></tr>
+          <tr class="show"><td>6</td><td>0.33</td><td><strong>0.00</strong></td><td>same, worse</td></tr>
+        </tbody>
+      </table>
+      <div class="callout blue">
+        🧮 <strong>Both tables are right — they answer different questions.</strong> <code>cv=3</code> trains on 6 rows, LOO trains on 8. LOO uses more training data and is nearly unbiased, but its folds overlap almost completely, so the K scores are highly correlated and the estimate has high variance. <code>cv=3</code> wastes more data but gives you more independent folds. The standard compromise is <strong>5 or 10 folds</strong> — and the reason both tables agree at k=1, 2 and 3 is that those are the values where the model actually works.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(9)">← Exercises</button>
+        <div class="pnav-dots" id="dots-10"></div>
+        <button class="pnav-btn next" onclick="goTo(11)">Appendix A2 →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 11: A2 — Pipeline ══ -->
+    <div class="panel" id="panel-11">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1518770660439-4636190af475?w=900&q=75&fit=crop&h=200" alt="A pipeline" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">APPENDIX A2 · The Fix</div>
+          <div class="m-name">Pipeline</div>
+          <div class="m-tagline">Scaling inside cross-validation, made impossible to get wrong</div>
+        </div>
+      </div>
+      <p class="m-desc">Panels 05 and 07 leave one loose end. Look again at the notebook's code:</p>
+      <div class="code-wrap bad-code">
+        <div class="code-header"><span class="code-lang">✗ subtly wrong — the scaler saw every fold</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>scaler = <span class="cls">MinMaxScaler</span>()
+X_scaled = scaler.<span class="fn">fit_transform</span>(X)          <span class="cm"># ← fitted on ALL 9 rows</span>
+
+scores = cross_val_score(model, X_scaled, y, cv=<span class="num">3</span>)</pre>
+      </div>
+      <p class="m-desc">The scaler was fitted on the whole dataset <em>before</em> the folds were cut. So in every one of the three rounds, the three "unseen" test fruits had already contributed to the <code>min</code> and <code>max</code> used to scale the training data. It is the panel-05 leak, happening once per fold.</p>
+      <p class="m-desc">The fix is a <strong>Pipeline</strong>: chain the scaler and the model into one object. <code>cross_val_score</code> then refits the <em>entire chain</em> inside each fold, so the scaler only ever sees that fold's training rows.</p>
+      <div class="code-wrap good-code">
+        <div class="code-header"><span class="code-lang">✓ right — the scaler is refitted inside every fold</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">from</span> sklearn.pipeline <span class="kw">import</span> make_pipeline
+<span class="kw">from</span> sklearn.preprocessing <span class="kw">import</span> <span class="cls">MinMaxScaler</span>
+<span class="kw">from</span> sklearn.neighbors <span class="kw">import</span> <span class="cls">KNeighborsClassifier</span>
+<span class="kw">from</span> sklearn.model_selection <span class="kw">import</span> cross_val_score
+
+<span class="kw">for</span> k <span class="kw">in</span> [<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>, <span class="num">4</span>, <span class="num">5</span>, <span class="num">6</span>]:
+    pipe = <span class="fn">make_pipeline</span>(
+        <span class="cls">MinMaxScaler</span>(),
+        <span class="cls">KNeighborsClassifier</span>(n_neighbors=k)
+    )
+    <span class="cm"># cross_val_score refits the whole pipeline per fold:</span>
+    <span class="cm"># scaler.fit(train fold) -> transform(train) -> transform(test)</span>
+    scores = cross_val_score(pipe, X, y, cv=<span class="num">3</span>)      <span class="cm"># ← raw X, not X_scaled</span>
+    <span class="fn">print</span>(<span class="str">f"k = {k} | Average Accuracy: {scores.mean():.2f}"</span>)</pre>
+      </div>
+      <div class="callout green">
+        ✅ <strong>Note what disappeared: <code>X_scaled</code>.</strong> You hand <code>cross_val_score</code> the <em>raw</em> <code>X</code> and let the pipeline do the scaling at the right moment. Once preprocessing lives inside the estimator, there is no longer a variable lying around that was fitted on the wrong rows — the mistake becomes unexpressible rather than merely discouraged.
+      </div>
+      <div class="callout blue">
+        🔎 <strong>Will the numbers change?</strong> On these 9 fruits, barely — MinMax only depends on the min and max of each column, and dropping 3 of 9 rows usually leaves those intact. That is precisely why this bug is so persistent: it rarely changes the answer enough to notice, until the day it does. The habit is what protects you, not the size of the difference on any one dataset.
+      </div>
+      <p class="m-desc">The same object then works for hyper-parameter search, with the scaler still safely inside every fold:</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — pipeline + grid search, the standard shape</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">from</span> sklearn.model_selection <span class="kw">import</span> <span class="cls">GridSearchCV</span>
+
+pipe = <span class="fn">make_pipeline</span>(<span class="cls">MinMaxScaler</span>(), <span class="cls">KNeighborsClassifier</span>())
+
+<span class="cm"># step name + '__' + parameter name</span>
+grid = {<span class="str">'kneighborsclassifier__n_neighbors'</span>: [<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>, <span class="num">4</span>, <span class="num">5</span>, <span class="num">6</span>]}
+
+search = <span class="cls">GridSearchCV</span>(pipe, grid, cv=<span class="num">3</span>, scoring=<span class="str">'accuracy'</span>)
+search.<span class="fn">fit</span>(X, y)
+
+<span class="fn">print</span>(<span class="str">"best params:"</span>, search.best_params_)
+<span class="fn">print</span>(<span class="str">"best score :"</span>, search.best_score_)
+
+<span class="cm"># search.best_estimator_ is a fitted pipeline — hand it a raw</span>
+<span class="cm"># row and it scales, then predicts, with the training statistics</span>
+<span class="fn">print</span>(search.best_estimator_.<span class="fn">predict</span>([[<span class="num">210</span>, <span class="num">7</span>, <span class="num">155</span>]]))</pre>
+      </div>
+      <div class="callout orange">
+        🎁 <strong>The quiet payoff.</strong> <code>best_estimator_</code> is a single object that carries the scaler <em>and</em> the model together. Pickle it, ship it, and at prediction time it applies the exact training statistics to whatever raw row arrives. No separate scaler file to keep in sync, and no chance of loading yesterday's model with today's scaler — which is a genuine production incident, not a hypothetical one.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(10)">← Appendix A1</button>
+        <div class="pnav-dots" id="dots-11"></div>
+        <button class="pnav-btn next" onclick="goTo(0)">Back to Overview →</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="topics.js"></script>
+</body>
+</html>
