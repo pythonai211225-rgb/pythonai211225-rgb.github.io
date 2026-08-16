@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 19 - Regression Trees, Random Forest, Scaling &amp; CV</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      renderMathInElement(document.body, {
+        delimiters: [
+          { left: '$$', right: '$$', display: true },
+          { left: '\\(', right: '\\)', display: false }
+        ],
+        throwOnError: false
+      });
+    });
+  </script>
+  <style>
+    :root {
+      --bg: #f8fbff;
+      --surface: #ffffff;
+      --ink: #142033;
+      --muted: #52657d;
+      --blue: #2563eb;
+      --blue-dark: #143b73;
+      --cyan: #e7fbff;
+      --green: #0f9f6e;
+      --orange: #f97316;
+      --red: #dc2626;
+      --purple: #7c3aed;
+      --border: #bfd0ea;
+      --code-bg: #101a2c;
+      --code-text: #dceaff;
+      --soft-blue: #eef6ff;
+      --soft-green: #effbf5;
+      --soft-orange: #fff7ed;
+      --soft-red: #fef2f2;
+      --soft-purple: #f5f1ff;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Trebuchet MS", "Lucida Sans", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 10%, #e9f7ff 0%, transparent 34%),
+        radial-gradient(circle at 88% 18%, #effbf5 0%, transparent 32%),
+        linear-gradient(180deg, var(--bg) 0%, #ffffff 56%, #f1f8ff 100%);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    .wrap { max-width: 1140px; margin: 0 auto; padding: 28px 20px 60px; }
+    .layout { display: grid; grid-template-columns: 268px 1fr; gap: 22px; align-items: start; }
+
+    .side-nav {
+      position: sticky; top: 20px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 18px 14px;
+      box-shadow: 0 4px 16px rgba(37,99,235,.08);
+      max-height: calc(100vh - 40px); overflow-y: auto;
+    }
+    .side-title { font-size: .8rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--blue); margin: 0 0 10px; }
+    .part-label { display: block; padding: 8px 4px 4px; font-size: .7rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--green); }
+    .topic-link {
+      display: block; width: 100%; border: 1px solid transparent; border-radius: 9px;
+      padding: 7px 10px; background: transparent; color: var(--muted); cursor: pointer;
+      text-align: left; font: inherit; margin: 2px 0; transition: .16s ease;
+    }
+    .topic-link:hover { background: #f0f7ff; color: var(--blue-dark); border-color: var(--border); }
+    .topic-link.active { background: #e9f1ff; color: var(--blue-dark); border-color: var(--blue); font-weight: 700; }
+    .side-divider { border: none; border-top: 1px solid var(--border); margin: 12px 4px; }
+    .nav-back { display: block; padding: 7px 10px; color: var(--blue); font-weight: 700; text-decoration: none; font-size: .9rem; }
+    .nav-back:hover { text-decoration: underline; }
+
+    .hero {
+      background: linear-gradient(135deg, var(--surface) 0%, var(--soft-blue) 54%, var(--soft-green) 100%);
+      border: 1px solid var(--border); border-radius: 16px; padding: 28px;
+      box-shadow: 0 12px 30px rgba(37,99,235,.12); margin-bottom: 22px;
+    }
+    .tag { display: inline-block; padding: 5px 12px; border-radius: 999px; background: #e7fbff; color: #0f766e; font-weight: 800; font-size: .82rem; border: 1px solid #99e6ef; }
+    h1 { margin: 14px 0 10px; color: var(--blue-dark); font-size: clamp(2rem, 5vw, 3.2rem); line-height: 1.05; }
+    .hero p { max-width: 830px; color: var(--muted); font-size: 1.06rem; }
+    .hero-chips { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .hero-chip { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: .78rem; font-weight: 700; background: rgba(20,184,166,.1); color: #0f766e; border: 1px solid rgba(20,184,166,.3); }
+
+    .card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      padding: 22px; margin-bottom: 16px; box-shadow: 0 7px 22px rgba(37,99,235,.08);
+    }
+    .topic-panel { display: none; }
+    .topic-panel.active { display: block; }
+    .step-title { margin: 0 0 12px; color: var(--blue-dark); font-size: 1.25rem; }
+
+    code { font-family: Consolas, "Courier New", monospace; }
+
+    .math-card {
+      border: 1px solid #b7c8e4; border-radius: 12px;
+      background: linear-gradient(135deg, #ffffff 0%, #f1f7ff 100%);
+      padding: 18px; margin: 18px 0; text-align: center;
+    }
+    .math-caption { color: var(--muted); margin: 8px 0 0; font-size: .95rem; }
+    .katex { color: var(--blue-dark); }
+    .katex-display { margin: 6px 0; overflow-x: auto; overflow-y: hidden; padding: 3px 0; }
+    .data-table .katex, .math-caption .katex, p .katex { font-size: 1em; }
+
+    .resource-link { display: inline-block; color: var(--blue-dark); font-weight: 800; text-decoration: none; border-bottom: 2px solid rgba(37,99,235,.35); }
+    .resource-link:hover { color: var(--blue); border-bottom-color: var(--blue); }
+    .resource-links { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 4px; }
+
+    .code {
+      background: var(--code-bg); color: var(--code-text); border-radius: 10px;
+      border: 1px solid #304563; padding: 16px 18px; overflow-x: auto; margin: 12px 0;
+      font-size: .95rem; line-height: 1.5; white-space: pre;
+    }
+    .output {
+      background: #f7fbff; color: #1a2d49; border: 1px solid var(--border);
+      border-left: 5px solid var(--blue); border-radius: 10px; padding: 12px 14px;
+      overflow-x: auto; margin: 8px 0 16px; font-family: Consolas, "Courier New", monospace; white-space: pre-wrap;
+    }
+    .output.warn { border-left-color: var(--red); background: var(--soft-red); }
+    .out-label { display: block; font-family: "Trebuchet MS", sans-serif; font-size: .72rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+
+    .note { background: var(--soft-orange); border: 1px solid #fed7aa; border-left: 5px solid var(--orange); border-radius: 10px; padding: 12px 14px; margin: 12px 0; }
+    .note.blue { background: var(--soft-blue); border-color: #bcd4f6; border-left-color: var(--blue); }
+    .note.red { background: var(--soft-red); border-color: #fecaca; border-left-color: var(--red); }
+    .note.green { background: var(--soft-green); border-color: #b6ebd4; border-left-color: var(--green); }
+    .note.purple { background: var(--soft-purple); border-color: #ddd0fb; border-left-color: var(--purple); }
+
+    .task-box { border: 1px solid var(--border); border-left: 5px solid var(--blue); border-radius: 10px; padding: 14px 16px; margin: 12px 0; background: #fbfdff; }
+    .task-num { font-weight: 900; color: var(--blue); text-transform: uppercase; letter-spacing: .08em; font-size: .78rem; }
+
+    .data-table { width: 100%; border-collapse: collapse; margin: 16px 0; background: #fbfdff; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .data-table th { background: var(--soft-blue); color: var(--blue-dark); text-align: left; padding: 10px 14px; font-size: .9rem; border-bottom: 2px solid var(--border); }
+    .data-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); font-family: Consolas, "Courier New", monospace; }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table td.term { font-family: inherit; font-weight: 700; color: var(--blue-dark); }
+    .data-table tr.pick td { background: #fffbe8; }
+    .data-table tr.zero td { background: #f3f7ff; }
+
+    .ca { color: var(--green);  font-weight: 700; }
+    .cb { color: var(--orange); font-weight: 700; }
+
+    .steps-strip { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; margin: 16px 0; }
+    .stepbox { border: 1px solid var(--border); border-radius: 10px; padding: 14px; background: #fbfdff; }
+    .stepbox .n { display: block; font-size: .72rem; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; color: var(--blue); margin-bottom: 4px; }
+    .stepbox strong { color: var(--blue-dark); }
+
+    .term-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin: 16px 0; }
+    .term { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; background: #fbfdff; }
+    .term h5 { margin: 0 0 4px; font-size: .92rem; color: var(--blue-dark); }
+    .term p { margin: 0; font-size: .88rem; color: var(--muted); }
+
+    .footer { text-align: center; color: var(--muted); font-size: .9rem; margin-top: 18px; }
+    .task-list { margin: 6px 0 0; padding-left: 20px; }
+    .task-list li { margin: 4px 0; }
+
+    @media (max-width: 880px) {
+      .layout { grid-template-columns: 1fr; }
+      .side-nav { position: static; max-height: none; }
+      .wrap { padding: 18px 12px 44px; }
+      .steps-strip { grid-template-columns: 1fr; }
+    }
+    /* ── GitHub-dark Python syntax colours ── */
+    pre.code.py { color: #c9d1d9; }
+    pre.code.py .hl-com     { color: #8b949e; font-style: italic; }
+    pre.code.py .hl-kw      { color: #ff7b72; }
+    pre.code.py .hl-str     { color: #a5d6ff; }
+    pre.code.py .hl-num     { color: #79c0ff; }
+    pre.code.py .hl-fn      { color: #d2a8ff; }
+    pre.code.py .hl-builtin { color: #ffa657; }
+  </style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="layout">
+    <aside class="side-nav">
+      <p class="side-title">Lesson 19</p>
+      <span class="part-label">Class Code</span>
+      <button class="topic-link active" data-target="topic-github">1. GitHub Repo</button>
+      <span class="part-label">Regression Trees</span>
+      <button class="topic-link" data-target="topic-1">2. From Gini to MSE</button>
+      <button class="topic-link" data-target="topic-2">3. The MSE of a node</button>
+      <button class="topic-link" data-target="topic-3">4. Scoring the first split</button>
+      <button class="topic-link" data-target="topic-4">5. One level deeper</button>
+      <button class="topic-link" data-target="topic-5">6. DecisionTreeRegressor</button>
+      <button class="topic-link" data-target="topic-6">7. R² - scoring the tree</button>
+      <span class="part-label">Random Forest</span>
+      <button class="topic-link" data-target="topic-7">8. Why one tree is not enough</button>
+      <button class="topic-link" data-target="topic-8">9. Bootstrapping</button>
+      <button class="topic-link" data-target="topic-9">10. Random features &amp; voting</button>
+      <button class="topic-link" data-target="topic-10">11. RandomForestClassifier</button>
+      <button class="topic-link" data-target="topic-11">12. Out-of-Bag score</button>
+      <span class="part-label">Scaling</span>
+      <button class="topic-link" data-target="topic-12">13. MinMaxScaler</button>
+      <button class="topic-link" data-target="topic-13">14. StandardScaler</button>
+      <span class="part-label">Cross-Validation</span>
+      <button class="topic-link" data-target="topic-14">15. K-fold cross-validation</button>
+      <button class="topic-link" data-target="topic-15">16. Choosing k for KNN</button>
+      <hr class="side-divider">
+      <a class="nav-back" href="../18_lesson/index.html">Previous: Lesson 18</a>
+      <a class="nav-back" href="../../14_dec_tree/index.html">Deck: Decision Trees</a>
+      <a class="nav-back" href="../../15_random_forest/index.html">Deck: Random Forest</a>
+      <a class="nav-back" href="../../15_topics/index.html">Deck: Scaling &amp; CV</a>
+      <a class="nav-back" href="../../index.html">Back to Python libs</a>
+    </aside>
+
+    <main>
+      <section class="hero">
+        <span class="tag">Lesson - August 16, 2026</span>
+        <h1>Regression trees, forests, scaling and cross-validation</h1>
+        <p>Four things today. We swapped Gini for <strong>MSE</strong> and scored a regression split by hand, then let <code>DecisionTreeRegressor</code> do it and measured the result with <strong>R²</strong>. We grew a <strong>Random Forest</strong> and read its out-of-bag score. We put two scalers side by side. And we used <strong>cross-validation</strong> to choose <code>k</code> for KNN. This page is the <strong>code</strong> from class, cell by cell, with the outputs we actually saw.</p>
+        <div class="hero-chips">
+          <span class="hero-chip">MSE</span>
+          <span class="hero-chip">weighted MSE</span>
+          <span class="hero-chip">MSE gain</span>
+          <span class="hero-chip">DecisionTreeRegressor</span>
+          <span class="hero-chip">r2_score</span>
+          <span class="hero-chip">RandomForestClassifier</span>
+          <span class="hero-chip">bootstrap</span>
+          <span class="hero-chip">oob_score_</span>
+          <span class="hero-chip">MinMaxScaler</span>
+          <span class="hero-chip">StandardScaler</span>
+          <span class="hero-chip">cross_val_score</span>
+          <span class="hero-chip">LeaveOneOut</span>
+        </div>
+      </section>
+
+      <!-- ═══ 1. GITHUB ═══ -->
+      <section class="card topic-panel active" id="topic-github">
+        <h2 class="step-title">Open Class Code</h2>
+        <p>Today's class had <strong>three</strong> notebooks. Open them from the repository for August 16, 2026:</p>
+        <div class="resource-links">
+          <a class="resource-link" href="https://github.com/pythonai211225-rgb/16.08.2026" target="_blank" rel="noopener">pythonai211225-rgb/16.08.2026</a>
+        </div>
+        <table class="data-table">
+          <thead><tr><th>notebook</th><th>what it covers</th></tr></thead>
+          <tbody>
+            <tr><td>dec_tree_reg1_16_aug_26.ipynb</td><td class="term">Regression tree - MSE, split quality and R²</td></tr>
+            <tr><td>random_forest1_16_aug_26.ipynb</td><td class="term">Random Forest - bagging, voting, out-of-bag</td></tr>
+            <tr><td>topics_16_aug_26.ipynb</td><td class="term">MinMax &amp; Standard scaling, cross-validation with KNN</td></tr>
+          </tbody>
+        </table>
+        <div class="note blue">This repository contains the class code for <strong>August 16, 2026</strong>. Lesson 18 built one classification tree; today we extend it to numbers, then to hundreds of trees, and then learn how to score any of them honestly.</div>
+        <p>The imports we started with:</p>
+        <pre class="code py"><code>import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from IPython.display import display
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import accuracy_score, confusion_matrix
+from sklearn.tree import export_text</code></pre>
+        <p>And everything new that arrived during the lesson:</p>
+        <pre class="code py"><code>from sklearn.tree import DecisionTreeRegressor
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.model_selection import train_test_split, cross_val_score, LeaveOneOut
+from sklearn.metrics import r2_score, classification_report</code></pre>
+      </section>
+
+      <!-- ═══ 2. FROM GINI TO MSE ═══ -->
+      <section class="card topic-panel" id="topic-1">
+        <h2 class="step-title">From Gini to MSE</h2>
+        <p>In lesson 18 the label was a <strong>class</strong> - A or B - and we measured how mixed a node was with <strong>Gini impurity</strong>. Today the label is a <strong>number</strong>. "Mixed" no longer means "several classes in one box"; it means <strong>spread out</strong>. So we need a different impurity, and it is one you already know: <strong>MSE</strong>.</p>
+        <p>Everything else about the algorithm is unchanged. Look at today's dataset - it is the <strong>same six rows of X</strong> we used in lesson 18, with the classes replaced by numbers:</p>
+        <table class="data-table">
+          <thead><tr><th>X1</th><th>X2</th><th>Y</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>3</td><td>10</td></tr>
+            <tr><td>2</td><td>1</td><td>12</td></tr>
+            <tr><td>3</td><td>2</td><td>25</td></tr>
+            <tr><td>4</td><td>3</td><td>24</td></tr>
+            <tr><td>5</td><td>1</td><td>40</td></tr>
+            <tr><td>6</td><td>2</td><td>42</td></tr>
+          </tbody>
+        </table>
+        <pre class="code py"><code>y = np.array([     10,     12,     25,     24,     40,     42])
+X = np.array([ [1, 3], [2, 1], [3, 2], [4, 3], [5, 1], [6, 2]])</code></pre>
+        <table class="data-table">
+          <thead><tr><th></th><th>classification (lesson 18)</th><th>regression (today)</th></tr></thead>
+          <tbody>
+            <tr><td class="term">label</td><td>a class - A or B</td><td>a number - 10, 12, 25 …</td></tr>
+            <tr><td class="term">impurity</td><td>Gini <code>1 - Σ p²</code></td><td><strong>MSE</strong> - the variance of the node</td></tr>
+            <tr><td class="term">a leaf predicts</td><td>the majority class</td><td>the <strong>mean</strong> of the node</td></tr>
+            <tr><td class="term">criterion=</td><td><code>'gini'</code></td><td><code>'squared_error'</code></td></tr>
+            <tr><td class="term">sklearn class</td><td><code>DecisionTreeClassifier</code></td><td><code>DecisionTreeRegressor</code></td></tr>
+            <tr><td class="term">scoring</td><td><code>accuracy_score</code></td><td><code>r2_score</code></td></tr>
+          </tbody>
+        </table>
+        <div class="note green"><strong>The recipe is identical.</strong> Try every feature and every threshold, weight the two children by how many rows they hold, keep the split with the biggest drop in impurity, repeat. Only the word "impurity" changed meaning.</div>
+      </section>
+
+      <!-- ═══ 3. MSE OF A NODE ═══ -->
+      <section class="card topic-panel" id="topic-2">
+        <h2 class="step-title">The MSE of a node</h2>
+        <p>A leaf in a regression tree answers with <strong>one number</strong>, and the best single number to represent a group is its <strong>mean</strong>:</p>
+        <div class="math-card">
+          $$\mu = \frac{1}{n}\sum_{i=1}^{n} x_i$$
+          <p class="math-caption">the mean of the values in the node</p>
+        </div>
+        <p>So the impurity of a node is <strong>how badly that one number represents everybody in it</strong> - the average squared distance from the mean:</p>
+        <div class="math-card">
+          $$\text{MSE-to-mean} = \frac{1}{n}\sum_{i=1}^{n}(x_i - \mu)^2$$
+          <p class="math-caption">this is exactly the variance of the node</p>
+        </div>
+        <p>In class we wrote it as a one-line helper, and used it for every node:</p>
+        <pre class="code py"><code># MSE
+# Mean Squared Error
+# Mean + MSE
+def mse_avg(arr):
+    return np.mean((arr - arr.mean())**2)</code></pre>
+        <div class="note blue"><strong>Read the two formulas together.</strong> Gini asked "how many different classes are in this box?" MSE asks "how far apart are the numbers in this box?" A node holding <code>[40, 40, 40]</code> has MSE <strong>0</strong> - perfectly pure - exactly like a node holding <code>[B, B, B]</code> had Gini 0. Zero impurity always means <em>one answer fits everybody here</em>.</div>
+        <p>Start at the root, which holds all six rows:</p>
+        <pre class="code py"><code>print('root')
+mse_root = mse_avg(y)
+print(' MSE:', mse_root, 'AVG:', y.mean())</code></pre>
+        <div class="output"><span class="out-label">Output</span>root
+ MSE: 151.25 AVG: 25.5</div>
+        <p>The mean of all six is <strong>25.5</strong>, and the values scatter around it badly - from 10 up to 42 - so the impurity is a large <strong>151.25</strong>. That is the number every split now has to beat.</p>
+        <div class="note purple"><strong>Check it by hand.</strong> The deviations from 25.5 are −15.5, −13.5, −0.5, −1.5, +14.5, +16.5. Square them: 240.25, 182.25, 0.25, 2.25, 210.25, 272.25. They add to 907.5, and 907.5 / 6 = <strong>151.25</strong>.</div>
+      </section>
+
+      <!-- ═══ 4. FIRST SPLIT ═══ -->
+      <section class="card topic-panel" id="topic-3">
+        <h2 class="step-title">Scoring the first split</h2>
+        <p>Now the same three steps as lesson 18. Ask a question, measure each side, weight them by size:</p>
+        <div class="steps-strip">
+          <div class="stepbox"><span class="n">Step 1</span><strong>Split</strong><br><code>x1 &lt;= 3.5</code> sends rows 1-3 left and rows 4-6 right.</div>
+          <div class="stepbox"><span class="n">Step 2</span><strong>Measure</strong><br>compute the MSE of each side on its own.</div>
+          <div class="stepbox"><span class="n">Step 3</span><strong>Weight</strong><br>combine by group size, then subtract from the parent.</div>
+        </div>
+        <pre class="code py"><code>print(' x1 &lt;= 3.5')
+
+y_yes = np.array([10, 12, 25])
+y_yes_mse = mse_avg(y_yes)
+print('  Yes', y_yes, y_yes_mse)
+
+y_no = np.array([24, 40, 42])
+y_no_mse = mse_avg(y_no)
+print('  No ', y_no,  y_no_mse)
+
+weighted_mse = y_yes_mse * 3/6 + y_no_mse * 3/6
+print('  weighted mse?', weighted_mse)
+print('  mse gain?', mse_root - weighted_mse)</code></pre>
+        <div class="output"><span class="out-label">Output</span> x1 &lt;= 3.5
+  Yes [10 12 25] 44.22222222222223
+  No  [24 40 42] 64.88888888888887
+  weighted mse? 54.55555555555555
+  mse gain? 96.69444444444446</div>
+        <p>The weighted MSE is the same formula as weighted Gini, with MSE in place of G:</p>
+        <div class="math-card">
+          $$\text{MSE}_{\text{weighted}} = \frac{n_{L}}{n}\,\text{MSE}_{L} + \frac{n_{R}}{n}\,\text{MSE}_{R} = \frac{3}{6}(44.22) + \frac{3}{6}(64.89) = 54.56$$
+        </div>
+        <div class="math-card">
+          $$\text{gain} = \text{MSE}_{\text{parent}} - \text{MSE}_{\text{weighted}} = 151.25 - 54.56 = \mathbf{96.69}$$
+          <p class="math-caption">the split removed about two thirds of the spread</p>
+        </div>
+        <table class="data-table">
+          <thead><tr><th>node</th><th>values</th><th>mean</th><th>MSE</th><th>weight</th></tr></thead>
+          <tbody>
+            <tr><td class="term">root</td><td>10 12 25 24 40 42</td><td>25.5</td><td>151.25</td><td>6/6</td></tr>
+            <tr class="pick"><td class="term">yes - x1 ≤ 3.5</td><td>10 12 25</td><td>15.67</td><td>44.22</td><td>3/6</td></tr>
+            <tr class="pick"><td class="term">no - x1 &gt; 3.5</td><td>24 40 42</td><td>35.33</td><td>64.89</td><td>3/6</td></tr>
+          </tbody>
+        </table>
+        <div class="note green"><strong>Both children are purer than the parent</strong> - 44.22 and 64.89 against 151.25 - and that is what a good question does. Notice the right side is still quite spread: 24 sits a long way from 40 and 42. The tree will want to split it again.</div>
+      </section>
+
+      <!-- ═══ 5. LEVEL 2 ═══ -->
+      <section class="card topic-panel" id="topic-4">
+        <h2 class="step-title">One level deeper</h2>
+        <p>Take the left child - the three rows <code>[10, 12, 25]</code> - and split it again. It is now a dataset of its own, and the question is <code>x1 &lt;= 2</code>:</p>
+        <pre class="code py"><code>print('  ', y_yes)
+print('  YES: x1 &lt;= 2')
+y_yes2 = np.array([10, 12])
+y_yes_mse2 = mse_avg(y_yes2)
+print('  Yes', y_yes2, y_yes_mse2)
+
+y_no3 = np.array([25])
+y_no_mse2 = mse_avg(y_no3)
+print('  No ', y_no3,  y_no_mse2)
+
+weighted_mse2 = y_yes_mse2 * 2/3 + y_no_mse2 * 1/3
+print('  weighted mse?', weighted_mse2)
+print('  mse gain?', weighted_mse - weighted_mse2)</code></pre>
+        <div class="output"><span class="out-label">Output</span>   [10 12 25]
+  YES: x1 &lt;= 2
+  Yes [10 12] 1.0
+  No  [25] 0.0
+  weighted mse? 0.6666666666666666
+  mse gain? 53.888888888888886</div>
+        <p><code>[10, 12]</code> has mean 11 and MSE <strong>1.0</strong> - almost pure. <code>[25]</code> is a single row, so its mean <em>is</em> 25 and its MSE is exactly <strong>0</strong>. Weighted together:</p>
+        <div class="math-card">
+          $$\frac{2}{3}(1.0) + \frac{1}{3}(0.0) = \mathbf{0.667}$$
+        </div>
+        <div class="note red"><strong>Careful with that last printed line.</strong> The notebook prints <code>weighted_mse - weighted_mse2</code> = 54.556 − 0.667 = <strong>53.889</strong>, but those two numbers live on <strong>different levels</strong>: 54.556 is the weighted MSE of the <em>whole first split</em>, while 0.667 belongs to the <em>left child only</em>. The gain of a split is always measured against <strong>its own parent</strong>, and this split's parent is the left node with MSE 44.222:
+          <div class="math-card" style="margin:10px 0 0">
+            $$\text{gain} = 44.222 - 0.667 = \mathbf{43.556}$$
+          </div>
+        </div>
+        <p>It does not change which split wins - any positive gain is an improvement - but if you are comparing candidate questions at this node, they must all be scored against the same parent. Worth knowing for the exam.</p>
+        <div class="note blue"><strong>A single row is always pure.</strong> That is why an unpruned tree keeps going until every leaf holds one row: MSE 0 everywhere, a perfect score on the training data, and a model that has memorised it. This is the overfitting the forest in part 3 is built to cure.</div>
+      </section>
+
+      <!-- ═══ 6. DecisionTreeRegressor ═══ -->
+      <section class="card topic-panel" id="topic-5">
+        <h2 class="step-title">DecisionTreeRegressor</h2>
+        <p>Hand-computation done, we let sklearn do it. New data, deliberately simple - a low group and a high group:</p>
+        <pre class="code py"><code>from sklearn.tree import DecisionTreeRegressor, export_text
+from sklearn.metrics import r2_score
+
+X = np.array( [1, 2, 3, 4, 5, 6]).reshape(-1, 1)
+y = np.array( [1, 2, 3, 8, 9, 10])
+
+tree = DecisionTreeRegressor(criterion='squared_error', max_depth=1, random_state=42)
+tree.fit(X, y)
+
+y_pred = tree.predict(X)
+
+print(X.ravel())
+print("y true: ", y)
+print("y pred: ", y_pred)
+
+tree_rules = export_text(tree, feature_names=["x"])
+print(tree_rules)
+
+print('Performance R²', r2_score(y, y_pred), 'r2_score')</code></pre>
+        <div class="output"><span class="out-label">Output</span>[1 2 3 4 5 6]
+y true:  [ 1  2  3  8  9 10]
+y pred:  [2. 2. 2. 9. 9. 9.]
+|--- x &lt;= 3.50
+|   |--- value: [2.00]
+|--- x &gt;  3.50
+|   |--- value: [9.00]
+
+Performance R² 0.9483870967741935 r2_score</div>
+        <table class="data-table">
+          <thead><tr><th>piece</th><th>what it does</th></tr></thead>
+          <tbody>
+            <tr><td><code>criterion='squared_error'</code></td><td class="term">the regression default - impurity is MSE, not Gini</td></tr>
+            <tr><td><code>max_depth=1</code></td><td class="term">one question only, so exactly two leaves - a "stump"</td></tr>
+            <tr><td><code>reshape(-1, 1)</code></td><td class="term">sklearn wants X as a 2-D matrix; one feature means one column</td></tr>
+            <tr><td><code>export_text</code></td><td class="term">same function as lesson 18, but the leaves say <code>value:</code> instead of <code>class:</code></td></tr>
+          </tbody>
+        </table>
+        <div class="note green"><strong>Read the leaves.</strong> The tree found <code>x &lt;= 3.50</code> - the midpoint between 3 and 4 - and each leaf reports the <strong>mean</strong> of the rows that landed in it. Left holds 1, 2, 3, so it predicts (1+2+3)/3 = <strong>2.00</strong>. Right holds 8, 9, 10, so it predicts <strong>9.00</strong>. That is why <code>y_pred</code> is <code>[2, 2, 2, 9, 9, 9]</code>: six rows, but only <strong>two distinct answers</strong>.</div>
+        <div class="note"><strong>🪜 A regression tree draws a staircase, never a slope.</strong> Every leaf outputs one constant, so the prediction is flat inside a region and jumps at the boundary. Give this tree <code>x = 100</code> and it still answers 9.00 - a tree <strong>cannot extrapolate</strong>. Raise <code>max_depth</code> to 2 and you get four steps and R² 0.987; raise it far enough and every point gets its own step and R² hits 1.000, which is memorisation, not learning.</div>
+      </section>
+
+      <!-- ═══ 7. R² ═══ -->
+      <section class="card topic-panel" id="topic-6">
+        <h2 class="step-title">R² - scoring the tree</h2>
+        <p>Accuracy makes no sense here - the model will essentially never output exactly the right number. Instead we ask: <strong>how much better is this model than just predicting the mean every time?</strong> That is <strong>R²</strong>.</p>
+        <p>First, the error we are measuring. MSE compares the truth to the <em>prediction</em>:</p>
+        <div class="math-card">
+          $$\text{MSE} = \frac{1}{n}\sum_{i=1}^{n}(y_i - \hat{y}_i)^2$$
+          <p class="math-caption">note the \(\hat{y}\) - earlier we compared against \(\mu\), here against the model</p>
+        </div>
+        <p>And R² turns that into a score between 0 and 1 by dividing by the error of the dumbest possible model:</p>
+        <div class="math-card">
+          $$R^2 = 1 - \frac{\sum_{i=1}^{n}(y_i - \hat{y}_i)^2}{\sum_{i=1}^{n}(y_i - \bar{y})^2}$$
+          <p class="math-caption">top: the model's errors. bottom: the errors of always guessing the mean.</p>
+        </div>
+        <p>For the stump we just fitted, both sums are small enough to do by hand:</p>
+        <table class="data-table">
+          <thead><tr><th>x</th><th>y</th><th>ŷ</th><th>(y − ŷ)²</th><th>(y − ȳ)², ȳ = 5.5</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>1</td><td>2</td><td>1</td><td>20.25</td></tr>
+            <tr><td>2</td><td>2</td><td>2</td><td>0</td><td>12.25</td></tr>
+            <tr><td>3</td><td>3</td><td>2</td><td>1</td><td>6.25</td></tr>
+            <tr><td>4</td><td>8</td><td>9</td><td>1</td><td>6.25</td></tr>
+            <tr><td>5</td><td>9</td><td>9</td><td>0</td><td>12.25</td></tr>
+            <tr><td>6</td><td>10</td><td>9</td><td>1</td><td>20.25</td></tr>
+            <tr class="pick"><td class="term">sum</td><td></td><td></td><td><strong>4.0</strong></td><td><strong>77.5</strong></td></tr>
+          </tbody>
+        </table>
+        <div class="math-card">
+          $$R^2 = 1 - \frac{4.0}{77.5} = 1 - 0.0516 = \mathbf{0.9484}$$
+          <p class="math-caption">exactly the 0.9483870967741935 sklearn printed</p>
+        </div>
+        <table class="data-table">
+          <thead><tr><th>R²</th><th>meaning</th></tr></thead>
+          <tbody>
+            <tr><td class="term">1.0</td><td>perfect - every prediction is exactly right</td></tr>
+            <tr class="pick"><td class="term">0.948</td><td>our stump - it removed about 95% of the error</td></tr>
+            <tr><td class="term">0.0</td><td>no better than always predicting the mean</td></tr>
+            <tr class="zero"><td class="term">negative</td><td><strong>worse than the mean.</strong> Yes, this is possible, and it usually means the model is broken or evaluated on the wrong data</td></tr>
+          </tbody>
+        </table>
+        <div class="note purple"><strong>A neat coincidence worth noticing.</strong> The model's MSE here is 4.0 / 6 = <strong>0.667</strong> - the same number we computed by hand in topic 5 as a weighted MSE. That is not luck: the weighted MSE of a split <em>is</em> the training MSE of the tree that stops at that split. The by-hand arithmetic and sklearn's score are the same quantity, reached from two directions.</div>
+        <div class="note blue">R² is also what <code>tree.score(X, y)</code> returns for any regressor - so <code>r2_score(y, y_pred)</code> and <code>tree.score(X, y)</code> give the same number.</div>
+      </section>
+
+      <!-- ═══ 8. WHY ONE TREE IS NOT ENOUGH ═══ -->
+      <section class="card topic-panel" id="topic-7">
+        <h2 class="step-title">Why one tree is not enough</h2>
+        <p>Second notebook. We have now built trees twice, and both times the same weakness appeared: left alone, a tree splits until every leaf is pure and has memorised the training rows. Single trees suffer from:</p>
+        <div class="term-grid">
+          <div class="term"><h5>Overfitting</h5><p>The tree learns the data too well and does not generalise to new data.</p></div>
+          <div class="term"><h5>Feature tunnel vision</h5><p>At every split an ordinary tree takes the single best feature, so one strong column dominates the whole model.</p></div>
+          <div class="term"><h5>Instability</h5><p>Change a few rows and you get a completely different tree - the splits are greedy, so one change at the top cascades down.</p></div>
+        </div>
+        <div class="note"><strong>The example from the board.</strong> Predicting whether a customer gets credit, from age and salary: a single tree can build extremely precise rules for the customers you already have, and still be wrong about the next one who walks in.</div>
+        <p>The fix is not a better tree - it is <strong>many</strong> trees:</p>
+        <div class="steps-strip">
+          <div class="stepbox"><span class="n">Instead of</span><strong>one tree</strong><br>built on all the rows, using all the features at every split.</div>
+          <div class="stepbox"><span class="n">Build</span><strong>many trees</strong><br>each on a different random part of the data <em>and</em> a different random part of the features.</div>
+          <div class="stepbox"><span class="n">Then</span><strong>combine</strong><br>classification takes a <strong>majority vote</strong>; regression takes the <strong>mean</strong>.</div>
+        </div>
+        <div class="math-card">
+          $$\textbf{classification:}\quad \text{Prediction}(x) = \text{Majority Vote}\big(T_1(x), T_2(x), \dots, T_K(x)\big)$$
+          $$\textbf{regression:}\quad \text{Prediction}(x) = \frac{1}{K}\sum_{i=1}^{K} T_i(x)$$
+        </div>
+        <div class="note green"><strong>Why averaging works.</strong> Each tree is wrong in a <em>different</em> direction, so the individual mistakes cancel and only the shared signal survives. That single sentence is the whole idea of a random forest - everything else is machinery for making the trees different enough.</div>
+      </section>
+
+      <!-- ═══ 9. BOOTSTRAPPING ═══ -->
+      <section class="card topic-panel" id="topic-8">
+        <h2 class="step-title">Bootstrapping</h2>
+        <p><strong>Bootstrapping</strong> means building a new sample from the data you already have by drawing rows <strong>at random with replacement</strong>. Two consequences follow straight away:</p>
+        <div class="term-grid">
+          <div class="term"><h5>A row can be picked twice</h5><p>It then counts double in that tree, as if that customer had appeared twice.</p></div>
+          <div class="term"><h5>A row can be missed entirely</h5><p>That tree never sees it - which topic 12 turns into a free test set.</p></div>
+        </div>
+        <p>The example from class: with five rows <code>A, B, C, D, E</code>, one tree might be built on <code>A, B, B, D, E</code> - <code>B</code> twice, <code>C</code> nowhere.</p>
+        <p>How much of the data does one tree actually see? A given row survives a single draw with probability \(1 - 1/n\), and there are \(n\) draws, so:</p>
+        <div class="math-card">
+          $$P(\text{row is left out}) = \left(1 - \frac{1}{n}\right)^{n} \;\longrightarrow\; \frac{1}{e} \approx 0.368$$
+        </div>
+        <p>So roughly <strong>63%</strong> of the rows go into each tree and <strong>37%</strong> stay out - and that holds whether you have 20 rows or 20 million.</p>
+        <div class="note blue"><strong>Where the name comes from.</strong> Bagging = <strong>B</strong>ootstrap <strong>Agg</strong>regat<strong>ing</strong>: bootstrap the rows, aggregate the answers. Set <code>bootstrap=False</code> and every tree gets the identical dataset - the trees become near-copies, the vote stops helping, and out-of-bag scoring becomes impossible because nothing is ever left out.</div>
+      </section>
+
+      <!-- ═══ 10. RANDOM FEATURES ═══ -->
+      <section class="card topic-panel" id="topic-9">
+        <h2 class="step-title">Random features &amp; voting</h2>
+        <p>Bootstrapping alone is not enough. If one feature is much stronger than the rest, <strong>every</strong> tree will put it at the root whatever rows it got - and 100 trees that start with the same question make the same mistakes. A vote cannot cancel an error they all share.</p>
+        <p>So the forest adds a second dose of randomness: <strong>at every split, only a random subset of the features may be considered.</strong> Not once per tree - a fresh draw at every node.</p>
+        <div class="note purple"><strong>This is the "random" in random forest.</strong> Two independent sources of randomness stacked on top of each other: <strong>random rows</strong> (bootstrapping) and <strong>random columns</strong> (<code>max_features</code>). Take away the second and you have plain bagging; take away both and you have 100 identical trees and a very slow decision tree.</div>
+        <p>The full procedure, as we wrote it on the board:</p>
+        <table class="data-table">
+          <thead><tr><th>#</th><th>step</th></tr></thead>
+          <tbody>
+            <tr><td class="term">1</td><td>Draw a random sample <strong>with replacement</strong> from the data (bootstrapping)</td></tr>
+            <tr><td class="term">2</td><td>At every split, choose a <strong>random subset of features</strong></td></tr>
+            <tr><td class="term">3</td><td>About 63% of the rows enter each tree - roughly 37% never appear in it at all</td></tr>
+            <tr><td class="term">4</td><td>Grow the tree to the end (<strong>no pruning</strong>)</td></tr>
+            <tr><td class="term">5</td><td>Repeat to build many trees</td></tr>
+            <tr><td class="term">6</td><td>Final prediction by <strong>majority vote</strong> or <strong>mean</strong></td></tr>
+          </tbody>
+        </table>
+        <div class="note green"><strong>Step 4 is not a typo.</strong> Unlike a single tree, you normally leave <code>max_depth=None</code> in a forest. The forest <em>wants</em> deep overfitting trees, because averaging is what cures the overfitting - and a deep tree has low bias, which averaging cannot fix.</div>
+      </section>
+
+      <!-- ═══ 11. RandomForestClassifier ═══ -->
+      <section class="card topic-panel" id="topic-10">
+        <h2 class="step-title">RandomForestClassifier</h2>
+        <p>The dataset: 20 students, three features - hours studied, hours slept, whether they had breakfast - predicting whether they passed the exam.</p>
+        <pre class="code py"><code>import numpy as np
+import seaborn as sns
+from matplotlib import pyplot as plt
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+
+# Data represents students with study hours, sleep hours, and breakfast (yes/no)
+# Target is whether they passed an exam (1) or failed (0)
+
+study_hours   = [2, 8, 5, 1, 7, 3, 6, 4, 9, 2, 7, 4, 8, 3, 6, 9, 5, 3, 7, 2]
+sleep_hours   = [5, 8, 9, 3, 7, 8, 6, 7, 9, 6, 8, 5, 7, 6, 9, 8, 7, 5, 8, 4]
+had_breakfast = [1, 1, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0]
+
+X = np.column_stack((study_hours, sleep_hours, had_breakfast))
+y = np.array([0, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 0, 0, 1, 0])
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.3, random_state=42
+)
+
+rf_clf = RandomForestClassifier(n_estimators=100, bootstrap=True,
+                                oob_score=True, random_state=42)
+rf_clf.fit(X_train, y_train)
+
+y_pred = rf_clf.predict(X_test)
+
+accuracy = accuracy_score(y_test, y_pred)
+print(f"Model Accuracy: {accuracy:.2f}")
+print(f"Out-of-Bag Accuracy: {rf_clf.oob_score_:.2f}")
+
+print("\nClassification Report:")
+print(classification_report(y_test, y_pred))</code></pre>
+        <div class="output"><span class="out-label">Output</span>Model Accuracy: 1.00
+Out-of-Bag Accuracy: 0.93
+
+Classification Report:
+              precision    recall  f1-score   support
+
+           0       1.00      1.00      1.00         3
+           1       1.00      1.00      1.00         3
+
+    accuracy                           1.00         6
+   macro avg       1.00      1.00      1.00         6
+weighted avg       1.00      1.00      1.00         6</div>
+        <p>And the confusion matrix we drew with seaborn:</p>
+        <pre class="code py"><code>cm = confusion_matrix(y_test, y_pred)
+plt.figure(figsize=(6, 4))
+sns.heatmap(
+    cm,
+    annot=True,          # Show numbers inside the cells
+    fmt="d",             # Format numbers as integers
+    cmap="Blues",        # Color palette
+    xticklabels=["Failed (0)", "Passed (1)"],
+    yticklabels=["Failed (0)", "Passed (1)"]
+)
+plt.title("Confusion Matrix")
+plt.xlabel("Predicted Labels")
+plt.ylabel("True Labels")
+plt.show()</code></pre>
+        <table class="data-table">
+          <thead><tr><th></th><th>predicted Failed</th><th>predicted Passed</th></tr></thead>
+          <tbody>
+            <tr><td class="term">true Failed</td><td class="ca">3</td><td>0</td></tr>
+            <tr><td class="term">true Passed</td><td>0</td><td class="ca">3</td></tr>
+          </tbody>
+        </table>
+        <div class="note red"><strong>Do not celebrate that 1.00.</strong> The test set is <strong>six rows</strong>. One mistake would have dropped it to 0.83. A perfect score on six rows is not evidence of a good model - it is evidence of a small test set.</div>
+        <table class="data-table">
+          <thead><tr><th>parameter</th><th>what it does</th></tr></thead>
+          <tbody>
+            <tr><td><code>n_estimators=100</code></td><td class="term">how many trees to grow. More is better, then it stops mattering - it <strong>cannot overfit</strong></td></tr>
+            <tr><td><code>max_features</code></td><td class="term">how many features may be drawn at each split. Default <code>'sqrt'</code> for classification. The one most worth tuning</td></tr>
+            <tr><td><code>bootstrap=True</code></td><td class="term">sample the rows with replacement. The default</td></tr>
+            <tr><td><code>oob_score=True</code></td><td class="term">use the left-out rows to estimate accuracy without a separate test set</td></tr>
+            <tr><td><code>random_state=42</code></td><td class="term">fixes both dice - the row draws and the feature draws - so the run repeats</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ═══ 12. OOB ═══ -->
+      <section class="card topic-panel" id="topic-11">
+        <h2 class="step-title">Out-of-Bag score</h2>
+        <p>Topic 9 left something on the table. When you bootstrap, about <strong>37% of the rows never make it into a given tree</strong>. From that tree's point of view those rows are unseen data - a test set created for free, by accident, and different for every tree.</p>
+        <p>The <strong>out-of-bag</strong> idea is simply to use it:</p>
+        <div class="steps-strip">
+          <div class="stepbox"><span class="n">Step 1</span><strong>Grow</strong><br>each tree trains on its bootstrap sample and remembers nothing about the rest.</div>
+          <div class="stepbox"><span class="n">Step 2</span><strong>Grade</strong><br>row <em>i</em> is predicted only by the trees for which it was out of bag - about a third of them.</div>
+          <div class="stepbox"><span class="n">Step 3</span><strong>Score</strong><br><code>oob_score_</code> is the accuracy of those predictions across all the rows.</div>
+        </div>
+        <div class="note green"><strong>Read <code>oob_score_</code>, not the accuracy.</strong> Test accuracy was <strong>1.00</strong> on six rows; out-of-bag accuracy was <strong>0.93</strong>, computed across all 14 training rows using only the trees that had not seen each one. The second number rests on more than twice the evidence. When a 6-row test set and a 14-row OOB estimate disagree, believe the OOB.</div>
+        <table class="data-table">
+          <thead><tr><th></th><th>train_test_split</th><th>oob_score_</th></tr></thead>
+          <tbody>
+            <tr><td class="term">rows used for training</td><td>70-80% of them</td><td><strong>all of them</strong></td></tr>
+            <tr><td class="term">extra cost</td><td>you lose a chunk of your data</td><td>free - it falls out of bagging</td></tr>
+            <tr><td class="term">works when</td><td>always</td><td>only with <code>bootstrap=True</code> and enough trees</td></tr>
+          </tbody>
+        </table>
+        <div class="note"><strong>It needs enough trees.</strong> With only a handful, some rows have no grader at all and the score jumps around. In practice you want at least ~50 trees before you trust it; sklearn warns with <code>"Some inputs do not have OOB scores"</code> when the forest is too small.</div>
+      </section>
+
+      <!-- ═══ 13. MinMaxScaler ═══ -->
+      <section class="card topic-panel" id="topic-12">
+        <h2 class="step-title">MinMaxScaler - normalization</h2>
+        <p>Third notebook, and a change of subject. Trees never needed scaling - they only compare a value to a threshold. But KNN, which we are about to use, measures <strong>distances</strong>, and a distance is decided by whichever column has the biggest numbers.</p>
+        <p><strong>Normalization</strong> rescales a feature to a fixed range, typically <strong>[0, 1]</strong>:</p>
+        <div class="math-card">
+          $$X_{normalized} = \frac{X - X_{min}}{X_{max} - X_{min}}$$
+          <p class="math-caption">subtract the minimum, then divide by the span</p>
+        </div>
+        <pre class="code py"><code>import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import MinMaxScaler
+
+# Generate sample data
+np.random.seed(42)
+original_data = np.random.normal(loc=50, scale=20, size=100)
+
+# Apply normalization
+scaler = MinMaxScaler()
+normalized_data = scaler.fit_transform(original_data.reshape(-1, 1)).flatten()
+
+# Visualization
+plt.figure(figsize=(12, 6))
+plt.subplot(1, 2, 1)
+plt.hist(original_data, bins=20, alpha=0.7)
+plt.title('Original Data')
+
+plt.subplot(1, 2, 2)
+plt.hist(normalized_data, bins=20, alpha=0.7)
+plt.title('Normalized Data (Min-Max)')
+
+plt.tight_layout()
+plt.show()</code></pre>
+        <div class="note blue"><strong>The numbers for this sample.</strong> The 100 values run from <code>-2.395</code> to <code>87.046</code>, so every value becomes <code>(X + 2.395) / 89.441</code>. The smallest lands exactly on <strong>0.0</strong> and the largest exactly on <strong>1.0</strong>. The <strong>shape of the histogram does not change</strong> - only the numbers on the axis. That is the point: relative distances inside the column are preserved and only the units are thrown away.</div>
+        <div class="note red"><strong>Its weakness: one outlier.</strong> Because the formula uses only the minimum and the maximum, a single extreme value owns the whole scale. Push one value to 500 and the other 99 get crushed into the bottom fifth of [0, 1].</div>
+      </section>
+
+      <!-- ═══ 14. StandardScaler ═══ -->
+      <section class="card topic-panel" id="topic-13">
+        <h2 class="step-title">StandardScaler - standardization</h2>
+        <p><strong>Standardization</strong> transforms data to have <strong>zero mean and unit variance</strong>. Subtract the mean, divide by the standard deviation:</p>
+        <div class="math-card">
+          $$X_{standardized} = \frac{X - \mu}{\sigma}$$
+          <p class="math-caption">\(\mu\) is the mean of the feature, \(\sigma\) the standard deviation</p>
+        </div>
+        <p>and the standard deviation itself is:</p>
+        <div class="math-card">
+          $$\sigma = \sqrt{\frac{1}{N}\sum_{i=1}^{N}(x_i - \mu)^2}$$
+          <p class="math-caption">N is the number of samples, \(x_i\) each value, \(\mu\) their mean</p>
+        </div>
+        <pre class="code py"><code>from sklearn.preprocessing import StandardScaler
+
+np.random.seed(42)
+original_data = np.random.normal(loc=50, scale=20, size=100)
+
+# Apply standardization
+scaler = StandardScaler()
+standardized_data = scaler.fit_transform(original_data.reshape(-1, 1)).flatten()
+
+plt.subplot(1, 2, 2)
+plt.hist(standardized_data, bins=20, alpha=0.7)
+plt.title('Standardized Data (Z-score)')
+plt.show()</code></pre>
+        <p>The result is a <strong>z-score</strong>: "how many standard deviations from average is this value?" - a question you can ask of any column in any unit and get comparable answers.</p>
+        <div class="note purple"><strong>The empirical rule - 68-95-99.7.</strong> For anything roughly normal, about <strong>68%</strong> of values fall within ±1σ, about <strong>95%</strong> within ±2σ, and about <strong>99.7%</strong> within ±3σ. A z-score past ±3 is a genuine rarity, which is why <code>|z| &gt; 3</code> is the most common outlier rule there is. On this sample the split comes out <strong>65% / 95% / 100%</strong>.</div>
+        <table class="data-table">
+          <thead><tr><th></th><th>MinMaxScaler</th><th>StandardScaler</th></tr></thead>
+          <tbody>
+            <tr><td class="term">formula</td><td>(X − min) / (max − min)</td><td>(X − μ) / σ</td></tr>
+            <tr><td class="term">output range</td><td>exactly [0, 1]</td><td>unbounded, centred on 0</td></tr>
+            <tr><td class="term">depends on</td><td>the two most extreme rows</td><td>every row in the column</td></tr>
+            <tr><td class="term">outliers</td><td>very sensitive</td><td>tolerant</td></tr>
+            <tr class="pick"><td class="term">use it when</td><td>you need a bounded input</td><td><strong>the usual default</strong></td></tr>
+          </tbody>
+        </table>
+        <div class="note red"><strong>The mistake to avoid.</strong> A scaler is a model - it learns parameters from data. Fit it on the <strong>training set only</strong>, then <code>transform</code> the test set with those same numbers: <code>scaler.fit_transform(X_train)</code> then <code>scaler.transform(X_test)</code>. Calling <code>fit_transform</code> on the test set leaks test statistics into your model and quietly inflates every score you report.</div>
+      </section>
+
+      <!-- ═══ 15. CROSS-VALIDATION ═══ -->
+      <section class="card topic-panel" id="topic-14">
+        <h2 class="step-title">K-fold cross-validation</h2>
+        <p>A single <code>train_test_split</code> gives you one number from one arbitrary slice. With 9 rows and a 30% test set, that number is decided by <strong>three fruits</strong> - change the seed and it changes.</p>
+        <p><strong>Cross-validation</strong> rotates the test set through the whole dataset: cut the data into <strong>K folds</strong>, then run K times, holding out a different fold each round and training on the rest. Each round gives a score, and the answer is their mean.</p>
+        <div class="steps-strip">
+          <div class="stepbox"><span class="n">Split</span><strong>K folds</strong><br>the dataset is cut into K equal pieces.</div>
+          <div class="stepbox"><span class="n">Loop</span><strong>K models</strong><br>each round holds out one fold and trains on the other K−1.</div>
+          <div class="stepbox"><span class="n">Combine</span><strong>the mean</strong><br>every row is tested exactly once, by a model that never saw it.</div>
+        </div>
+        <p>The number of folds decides the split of every round:</p>
+        <table class="data-table">
+          <thead><tr><th>cv</th><th>train</th><th>test</th><th>valid?</th></tr></thead>
+          <tbody>
+            <tr class="zero"><td class="term">cv=1</td><td>—</td><td>—</td><td>✗ nothing left to train on</td></tr>
+            <tr><td class="term">cv=2</td><td>50%</td><td>50%</td><td>✓</td></tr>
+            <tr class="pick"><td class="term">cv=3</td><td>66.7%</td><td>33.3%</td><td>✓ what we used today</td></tr>
+            <tr><td class="term">cv=4</td><td>75%</td><td>25%</td><td>✓</td></tr>
+            <tr><td class="term">cv=5</td><td>80%</td><td>20%</td><td>✓ the usual default</td></tr>
+          </tbody>
+        </table>
+        <p>In general each round trains on \(1 - 1/K\) of the data and tests on \(1/K\) of it.</p>
+        <div class="note red"><strong>Why <code>cv=1</code> is illegal.</strong> One fold means that fold is the test set and there is nothing left to train on. sklearn refuses it: <code>ValueError: k-fold cross-validation requires at least one train/test split by setting n_splits=2 or more</code>. If you want a single split, that is <code>train_test_split</code> - a different function for a different job.</div>
+        <div class="note blue"><strong>For a classifier, <code>cv=3</code> is quietly <code>StratifiedKFold(3)</code></strong> - sklearn keeps each class's proportion the same in every fold. On data sorted by class, as the fruit table is, plain <code>KFold</code> would put all three apples in one fold and test a model on a class it never trained on. Stratification is what stops that.</div>
+      </section>
+
+      <!-- ═══ 16. CHOOSING K ═══ -->
+      <section class="card topic-panel" id="topic-15">
+        <h2 class="step-title">Choosing k for KNN</h2>
+        <p>Both halves come together: scale the features, then use cross-validation to choose <code>k</code> without ever touching a test set.</p>
+        <pre class="code py"><code>import numpy as np
+import matplotlib.pyplot as plt
+
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.model_selection import cross_val_score, LeaveOneOut
+
+# Fruit data
+colors  = np.array([200, 50, 220, 240, 250, 230, 30, 40, 20])
+sizes   = np.array([7, 7, 6, 9, 8, 9, 12, 13, 11])
+weights = np.array([150, 160, 140, 170, 165, 180, 120, 130, 115])
+
+fruit_types = np.array([
+    'apple', 'apple', 'apple',
+    'orange', 'orange', 'orange',
+    'banana', 'banana', 'banana'
+])
+
+# Create feature matrix
+X = np.column_stack((colors, sizes, weights))
+y = fruit_types
+
+# Normalize data
+scaler = MinMaxScaler()
+X_scaled = scaler.fit_transform(X)
+
+# Test different K values
+k_range = [1, 2, 3, 4, 5, 6]
+cv_scores = []
+
+# 9 samples:
+# Each iteration = 8 training + 1 testing
+# Approximately 90% / 10%
+loo = LeaveOneOut()
+
+print("--- Cross-Validation Results ---")
+
+for k in k_range:
+
+    model = KNeighborsClassifier(n_neighbors=k)
+
+    scores = cross_val_score(
+        model,
+        X_scaled,
+        y,
+        cv=3,
+        scoring='accuracy'
+    )
+
+    mean_score = scores.mean()
+    cv_scores.append(mean_score)
+
+    print(f"k = {k} | Average Accuracy: {mean_score:.2f}")
+
+
+# Train final model using best K
+best_k = k_range[np.argmax(cv_scores)]
+
+print(f"\nBest K: {best_k}")
+
+model = KNeighborsClassifier(n_neighbors=best_k)
+model.fit(X_scaled, y)
+
+# Plot K vs Cross-Validation Accuracy
+plt.figure(figsize=(8, 5))
+plt.plot(k_range, cv_scores, marker='o')
+plt.xlabel("K - Number of Neighbors")
+plt.ylabel("Cross-Validation Accuracy")
+plt.title("Choosing the Best K")
+plt.xticks(k_range)
+plt.grid(True)
+plt.show()</code></pre>
+        <div class="output"><span class="out-label">Output</span>--- Cross-Validation Results ---
+k = 1 | Average Accuracy: 1.00
+k = 2 | Average Accuracy: 1.00
+k = 3 | Average Accuracy: 0.78
+k = 4 | Average Accuracy: 0.44
+k = 5 | Average Accuracy: 0.44
+k = 6 | Average Accuracy: 0.33
+
+Best K: 1</div>
+        <div class="note green"><strong>Why the accuracy collapses as k grows.</strong> There are only 9 fruits, 3 of each, and <code>cv=3</code> holds out 3 - so each model trains on <strong>6 rows, 2 per class</strong>. At <code>k=3</code> the three nearest neighbours cannot all be the right class, because only 2 of that class exist in the training set. By <code>k=6</code> every prediction looks at the whole training set and returns the same class every time, so accuracy pins at <strong>0.33</strong> - pure chance with three classes. The curve is not saying "small k is better"; it is saying <strong>the dataset is tiny</strong>.</div>
+        <div class="note"><strong>Spot the loose end.</strong> The code creates <code>loo = LeaveOneOut()</code> with a comment about 8 training rows and 1 test row - and then passes <code>cv=3</code> and never uses <code>loo</code>. The printed numbers are the <code>cv=3</code> numbers. Swap in <code>cv=loo</code> and they change:</div>
+        <table class="data-table">
+          <thead><tr><th>k</th><th>cv=3</th><th>cv=loo</th><th>why</th></tr></thead>
+          <tbody>
+            <tr><td class="term">1</td><td>1.00</td><td>1.00</td><td>—</td></tr>
+            <tr><td class="term">2</td><td>1.00</td><td>1.00</td><td>—</td></tr>
+            <tr><td class="term">3</td><td>0.78</td><td>0.78</td><td>—</td></tr>
+            <tr class="zero"><td class="term">4</td><td>0.44</td><td><strong>0.11</strong></td><td>LOO leaves only 2 of the true class in training</td></tr>
+            <tr class="zero"><td class="term">5</td><td>0.44</td><td><strong>0.00</strong></td><td>5 neighbours, at most 2 correct - it can never win</td></tr>
+            <tr class="zero"><td class="term">6</td><td>0.33</td><td><strong>0.00</strong></td><td>same, worse</td></tr>
+          </tbody>
+        </table>
+        <div class="note blue"><strong>And the scaling actually mattered.</strong> Run the same loop on the <em>raw</em> <code>X</code> instead of <code>X_scaled</code> and k=1 falls from 1.00 to <strong>0.89</strong>, k=3 from 0.78 to <strong>0.67</strong>. <code>weight</code> spans 65 units while <code>size</code> spans 7, so unscaled KNN is very nearly a weight-only classifier.</div>
+        <div class="note purple"><strong>Reading the plot - the elbow.</strong> That "Choosing the Best K" chart is an <strong>elbow plot</strong>. Here accuracy has a real maximum so <code>np.argmax</code> is the right tool. But when a metric only ever improves - like K-Means <strong>inertia</strong>, which falls all the way to 0 when every point is its own cluster - there is no maximum to take, and you instead pick the <strong>bend</strong>: the point where the curve stops dropping steeply and flattens. Before the bend each step buys a lot; after it you pay complexity for nothing. The <a class="resource-link" href="../../15_topics/index.html">Scaling &amp; CV deck</a> has a live elbow demo.</div>
+        <div class="task-box">
+          <span class="task-num">Practice</span>
+          <ul class="task-list">
+            <li>Change <code>cv=3</code> to <code>cv=loo</code> and reproduce the table above.</li>
+            <li>Print the raw <code>scores</code> array instead of the mean for k=3. Why is one fold better than the other two?</li>
+            <li>Drop <code>X_scaled</code> and use <code>X</code>. Which values of k change, and which do not?</li>
+            <li>Wrap the scaler and the model in <code>make_pipeline(MinMaxScaler(), KNeighborsClassifier(k))</code> and pass the raw <code>X</code> to <code>cross_val_score</code>. Why is that more correct than scaling first?</li>
+          </ul>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <div class="footer">Lesson 19 - August 16, 2026 - Regression trees, Random Forest, scaling &amp; cross-validation</div>
+</div>
+
+<script>
+  const links = document.querySelectorAll('.topic-link');
+  const panels = document.querySelectorAll('.topic-panel');
+
+  function showTopic(id) {
+    panels.forEach(panel => panel.classList.toggle('active', panel.id === id));
+    links.forEach(link => link.classList.toggle('active', link.dataset.target === id));
+  }
+
+  links.forEach(link => {
+    if (link.dataset.target) {
+      link.addEventListener('click', () => {
+        showTopic(link.dataset.target);
+        location.hash = link.dataset.target;
+      });
+    }
+  });
+
+  const hash = location.hash.replace('#', '');
+  if (hash && document.getElementById(hash)) {
+    showTopic(hash);
+    // Drop the fragment once we have used it. The panel is display:none while the
+    // browser first resolves the anchor, and Chrome retries that scroll after KaTeX
+    // reflows the page - which lands it hundreds of pixels down. No fragment, no retry.
+    history.replaceState(null, '', location.pathname + location.search);
+    window.scrollTo(0, 0);
+  }
+
+  /* ── minimal Python highlighter, GitHub-dark palette ──
+     single pass so a quote inside a comment (and vice versa) can't confuse it */
+  (function () {
+    const KEYWORDS = new Set(['and','as','assert','async','await','break','class','continue',
+      'def','del','elif','else','except','finally','for','from','global','if','import','in',
+      'is','lambda','nonlocal','not','or','pass','raise','return','try','while','with','yield',
+      'None','True','False']);
+    const BUILTINS = new Set(['print','len','range','sorted','reversed','sum','min','max','abs',
+      'round','int','float','str','bool','list','dict','set','tuple','enumerate','zip','map',
+      'filter','type','isinstance','open','input','any','all']);
+    const PREFIX = /^(f|r|b|u|rb|br|fr|rf)$/i;
+
+    const esc = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const isIdStart = c => /[A-Za-z_]/.test(c);
+    const isId      = c => /[A-Za-z0-9_]/.test(c);
+    const wrap = (cls, t) => '<span class="' + cls + '">' + esc(t) + '</span>';
+
+    /* index just past the closing quote of the string starting at `start` */
+    function scanString(src, start) {
+      const q = src[start], n = src.length;
+      if (src.slice(start, start + 3) === q + q + q) {
+        let j = start + 3;
+        while (j < n && src.slice(j, j + 3) !== q + q + q) j++;
+        return Math.min(n, j + 3);
+      }
+      let j = start + 1;
+      while (j < n && src[j] !== q && src[j] !== '\n') {
+        if (src[j] === '\\') j++;
+        j++;
+      }
+      return (j < n && src[j] === q) ? j + 1 : j;
+    }
+
+    function highlight(src) {
+      let out = '', i = 0;
+      const n = src.length;
+      while (i < n) {
+        const c = src[i];
+
+        if (c === '#') {                                  // comment to end of line
+          let j = i;
+          while (j < n && src[j] !== '\n') j++;
+          out += wrap('hl-com', src.slice(i, j));
+          i = j;
+          continue;
+        }
+
+        if (isIdStart(c)) {                               // word, or a prefixed string
+          let j = i;
+          while (j < n && isId(src[j])) j++;
+          const word = src.slice(i, j), nxt = src[j];
+          if ((nxt === '"' || nxt === "'") && PREFIX.test(word)) {
+            const end = scanString(src, j);
+            out += wrap('hl-str', src.slice(i, end));
+            i = end;
+            continue;
+          }
+          let cls = null;
+          if (KEYWORDS.has(word)) cls = 'hl-kw';
+          else if (BUILTINS.has(word)) cls = 'hl-builtin';
+          else {
+            let k = j;
+            while (k < n && src[k] === ' ') k++;
+            if (src[k] === '(') cls = 'hl-fn';             // a call
+          }
+          out += cls ? wrap(cls, word) : esc(word);
+          i = j;
+          continue;
+        }
+
+        if (c === '"' || c === "'") {                     // plain string
+          const end = scanString(src, i);
+          out += wrap('hl-str', src.slice(i, end));
+          i = end;
+          continue;
+        }
+
+        if (/[0-9]/.test(c)) {                            // number
+          let j = i;
+          while (j < n && /[0-9._]/.test(src[j])) j++;
+          out += wrap('hl-num', src.slice(i, j));
+          i = j;
+          continue;
+        }
+
+        out += esc(c);
+        i++;
+      }
+      return out;
+    }
+
+    document.querySelectorAll('pre.code.py > code').forEach(el => {
+      if (el.dataset.hl) return;
+      el.innerHTML = highlight(el.textContent);
+      el.dataset.hl = '1';
+    });
+  })();
+</script>
+</body>
+</html>
