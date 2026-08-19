@@ -319,61 +319,39 @@ X</code></pre>
         <h2 class="step-title">OneHotEncoder &amp; ColumnTransformer</h2>
         <p>In class the question came up: <strong>is it a better idea to put the encoder inside a pipeline instead of calling <code>get_dummies</code> first?</strong> The short answer is <strong>yes - once the model leaves the notebook</strong>. Here is the reason, in code.</p>
         <p><code>pd.get_dummies</code> has <strong>no memory</strong>. It builds its columns from whatever data you hand it, right now. Fit a model on the 7 columns above, then let a new person arrive from a city the model has never seen:</p>
-        <pre class="code py"><code>from sklearn.linear_model import LinearRegression
-
-model = LinearRegression()
+        <pre class="code py"><code>model = LinearRegression()
 model.fit(X, y)                # X has the 7 dummy columns
 
-new = pd.DataFrame([{'age': 31, 'job': 'Teacher', 'city': 'Eilat'}])
+new   = pd.DataFrame([{'age': 31, 'job': 'Teacher', 'city': 'Eilat'}])
 X_new = pd.get_dummies(new, columns=['job', 'city'], dtype=int)
-
-print(list(X_new.columns))     # ['age', 'job_Teacher', 'city_Eilat']
+# X_new.columns -&gt; ['age', 'job_Teacher', 'city_Eilat']   : 3, not 7
 
 model.predict(X_new)</code></pre>
         <div class="output warn"><span class="out-label">Output</span>ValueError: The feature names should match those that were passed during fit.
-Feature names unseen at fit time:
-- city_Eilat
-Feature names seen at fit time, yet now missing:
-- city_Haifa
-- city_Jerusalem
-- city_Tel Aviv
-- job_Developer
-- job_Doctor</div>
-        <p>Three columns arrived where seven were expected. And an error is the <strong>good</strong> case - if you had fitted on a numpy array instead of a DataFrame, sklearn only counts columns and says <code>X has 3 features, but LinearRegression is expecting 7 features as input</code>; line the columns up by hand in the wrong order and it predicts confidently and wrongly instead.</p>
-        <p><code>OneHotEncoder</code> is the same idea built as a proper transformer: it <strong>learns</strong> the category list during <code>fit</code> and reproduces exactly those columns, in that order, every time. <code>ColumnTransformer</code> is what lets it live in a pipeline next to the numeric columns - it sends each group of columns down its own branch and glues the results back together:</p>
+Feature names unseen at fit time: city_Eilat
+Feature names seen at fit time, yet now missing: city_Haifa, city_Jerusalem,
+    city_Tel Aviv, job_Developer, job_Doctor</div>
+        <p>And an error is the <strong>good</strong> case - fitted on a numpy array instead, sklearn only counts and says <code>X has 3 features, but LinearRegression is expecting 7</code>; line the columns up by hand in the wrong order and it predicts confidently and wrongly instead.</p>
+        <p><code>OneHotEncoder</code> is the same idea built as a proper transformer: it <strong>learns</strong> the category list during <code>fit</code> and reproduces exactly those columns, in that order, every time. <code>ColumnTransformer</code> is what lets it live in a pipeline next to the numeric columns:</p>
         <pre class="code py"><code>from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
-from sklearn.pipeline import Pipeline
-from sklearn.linear_model import LinearRegression
 
 # X still has its text columns - no get_dummies anywhere
-X = df.drop(columns=['salary'])
-y = df['salary']
-
 prep = ColumnTransformer([
     ('num', StandardScaler(), ['age']),
     ('cat', OneHotEncoder(handle_unknown='ignore'), ['job', 'city'])
 ])
 
-model = Pipeline([
-    ('prep', prep),
-    ('reg', LinearRegression())
-])
-
+model = Pipeline([('prep', prep), ('reg', LinearRegression())])
 model.fit(X, y)
 
 # raw text goes straight in - the pipeline encodes it
 new = pd.DataFrame([{'age': 31, 'job': 'Teacher', 'city': 'Eilat'}])
-print(model.predict(new))</code></pre>
-        <div class="output"><span class="out-label">Output</span>[13093.61454974]</div>
-        <p>No error. The encoder emitted the <strong>same 6 category columns</strong> it learned at fit time, and because Eilat is not one of them the whole city block came out as zeros:</p>
-        <pre class="code py"><code>print(model.named_steps['prep'].get_feature_names_out())
+print(model.predict(new))
 print(model.named_steps['prep'].transform(new))</code></pre>
-        <div class="output"><span class="out-label">Output</span>['num__age' 'cat__job_Developer' 'cat__job_Doctor' 'cat__job_Teacher'
- 'cat__city_Haifa' 'cat__city_Jerusalem' 'cat__city_Tel Aviv']
-
+        <div class="output"><span class="out-label">Output</span>[13093.61454974]
 [[-0.3985  0.  0.  1.  0.  0.  0.]]</div>
-        <p>Read that row: age standardised to −0.3985, <code>job_Teacher</code> = 1, and <strong>all three city columns at 0</strong> - "none of the cities I know". The prediction leans on the other features, which is the honest answer for a city the model has never seen.</p>
+        <p>No error. Read that second row: age standardised to −0.3985, <code>job_Teacher</code> = 1, and <strong>all three city columns at 0</strong> - "none of the cities I know". The encoder emitted the same 6 category columns it learned at fit time, so the width never changed, and the prediction leans on the other features.</p>
         <table class="data-table">
           <thead><tr><th></th><th>pd.get_dummies</th><th>OneHotEncoder</th></tr></thead>
           <tbody>
@@ -381,11 +359,9 @@ print(model.named_steps['prep'].transform(new))</code></pre>
             <tr><td class="term">unseen category</td><td>silently changes the columns</td><td><code>handle_unknown='ignore'</code> - a row of zeros</td></tr>
             <tr><td class="term">fits in a Pipeline</td><td>no</td><td><strong>yes</strong>, via <code>ColumnTransformer</code></td></tr>
             <tr><td class="term">output</td><td>a DataFrame with names</td><td>a numpy array - names via <code>get_feature_names_out()</code></td></tr>
-            <tr><td class="term">lines to type</td><td>one</td><td>about six</td></tr>
           </tbody>
         </table>
-        <div class="note green"><strong>The rule of thumb.</strong> Use <code>get_dummies</code> while you are <em>looking</em> at the data - it is one line and it keeps a readable frame. Switch to <code>ColumnTransformer</code> + <code>OneHotEncoder</code> the moment you write <code>cross_val_score</code>, <code>GridSearchCV</code> or <code>joblib.dump</code>, because from that point on there is a second batch of data and the columns have to line up.</div>
-        <div class="note"><strong>Two honest caveats.</strong> The output is a numpy array, so <code>.head()</code> no longer tells you anything without <code>get_feature_names_out()</code>. And the columns are selected <strong>by name</strong>, so the input must stay a DataFrame - hand the fitted pipeline a bare numpy array at predict time and it will not find <code>'job'</code>.</div>
+        <div class="note green"><strong>The rule of thumb.</strong> Use <code>get_dummies</code> while you are <em>looking</em> at the data - one line, readable frame. Switch to <code>ColumnTransformer</code> + <code>OneHotEncoder</code> the moment you write <code>cross_val_score</code>, <code>GridSearchCV</code> or <code>joblib.dump</code>, because from there on the columns have to line up across batches. The price: the output is a numpy array, and the columns are picked <strong>by name</strong>, so the input must stay a DataFrame.</div>
       </section>
 
       <!-- ═══ 4. PIPELINE ═══ -->
