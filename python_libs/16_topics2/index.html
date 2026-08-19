@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Encoding, Pipelines &amp; Grid Search</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded',function(){
+    renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'\\(',right:'\\)',display:false}],throwOnError:false});
+    if (window.fitMath) fitMath();
+  });</script>
+  <style>
+    .page-layout { display:flex; height:calc(100vh - 54px); overflow:hidden; }
+    .sidebar { width:238px; min-width:238px; height:100%; overflow-y:auto; background:#0a0e14; border-right:1px solid var(--border); display:flex; flex-direction:column; scrollbar-width:thin; scrollbar-color:var(--border) transparent; flex-shrink:0; }
+    .sidebar-head { padding:20px 18px 14px; font-size:.65rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--border); }
+    .sidebar-nav { padding:8px 0; flex:1; }
+    .s-item { display:flex; align-items:center; gap:11px; padding:10px 18px; cursor:pointer; background:none; border:none; border-left:3px solid transparent; width:100%; text-align:left; transition:background .18s,border-color .18s; }
+    .s-item:hover { background:rgba(255,255,255,.04); }
+    .s-item.active { background:rgba(250,204,21,.08); border-left-color:var(--accent); }
+    .s-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; transition:transform .2s; }
+    .s-item.active .s-dot { transform:scale(1.45); box-shadow:0 0 8px currentColor; }
+    .s-num { font-size:.62rem; color:var(--border); font-family:'Courier New',monospace; font-weight:700; min-width:18px; }
+    .s-item.active .s-num { color:var(--accent); }
+    .s-label { font-size:.79rem; color:var(--muted); font-family:'Courier New',monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .s-item.active .s-label { color:var(--text); }
+    .s-item.done .s-label::after { content:' ✓'; color:var(--green); font-size:.7rem; }
+    .side-sep { border:none; border-top:1px solid var(--border); margin:14px 16px 6px; }
+    .side-part { padding:2px 18px 6px; font-size:.6rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:var(--accent); font-family:'Courier New',monospace; }
+
+    .panel-viewport { flex:1; overflow-y:auto; overflow-x:hidden; position:relative; }
+    .panel { display:none; flex-direction:column; min-height:100%; padding:40px 52px 100px; max-width:830px; margin:0 auto; animation:fadeIn .35s ease; }
+    .panel.active { display:flex; }
+    @keyframes fadeIn { from{opacity:0;transform:translateX(28px)} to{opacity:1;transform:translateX(0)} }
+    .panel.exit { display:flex; animation:fadeOut .25s ease forwards; }
+    @keyframes fadeOut { from{opacity:1;transform:translateX(0)} to{opacity:0;transform:translateX(-28px)} }
+
+    .m-hero { position:relative; height:200px; border-radius:18px; overflow:hidden; margin-bottom:26px; flex-shrink:0; }
+    .m-hero img { width:100%; height:100%; object-fit:cover; filter:brightness(.5) saturate(.8); transition:filter .45s; }
+    .panel.active .m-hero img { filter:brightness(.6) saturate(1.1); }
+    .m-hero-ov { position:absolute; inset:0; padding:26px 30px; display:flex; flex-direction:column; justify-content:flex-end; background:linear-gradient(0deg,rgba(0,0,0,.78) 0%,rgba(0,0,0,.15) 55%,transparent 100%); }
+    .m-breadcrumb { font-size:.62rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:rgba(255,255,255,.4); margin-bottom:5px; }
+    .m-name { font-size:1.7rem; font-weight:900; color:#fff; font-family:'Courier New',monospace; }
+    .m-tagline { font-size:.86rem; color:rgba(255,255,255,.62); margin-top:4px; }
+
+    .pills { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 20px; align-items:center; }
+    .pill { padding:5px 14px; border-radius:999px; font-size:.7rem; font-weight:700; letter-spacing:.06em; }
+    .pill-sig { font-family:'Courier New',monospace; font-size:.74rem; letter-spacing:0; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.12); color:var(--text); }
+    .pill-ret { background:rgba(16,185,129,.1); border:1px solid rgba(16,185,129,.3); color:var(--green); font-family:'Courier New',monospace; letter-spacing:0; }
+    .pill-note { background:rgba(249,115,22,.1); border:1px solid rgba(249,115,22,.3); color:var(--orange); font-family:'Courier New',monospace; font-size:.7rem; }
+    .pill-param { position:relative; cursor:help; transition:filter .18s; }
+    .pill-param:hover { filter:brightness(1.3); }
+    .pill-param .balloon { position:absolute; bottom:calc(100% + 14px); left:50%; transform:translateX(-50%) translateY(6px); width:240px; background:linear-gradient(155deg,#0e2845 0%,#071a2e 100%); border:1.5px solid rgba(240,182,62,.65); border-radius:14px; padding:13px 16px 11px; box-shadow:0 0 0 1px rgba(240,182,62,.1),0 18px 48px rgba(0,0,0,.72),0 0 36px rgba(240,182,62,.07); opacity:0; pointer-events:none; transition:opacity .22s ease,transform .22s ease; z-index:300; }
+    .pill-param:hover .balloon { opacity:1; transform:translateX(-50%) translateY(0); animation:balloonFloat 3s ease-in-out infinite; }
+    @keyframes balloonFloat { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(-5px)} }
+    .balloon-title { font-family:'Courier New',monospace; font-size:.7rem; font-weight:800; color:#f0b63e; letter-spacing:.04em; margin-bottom:6px; display:flex; align-items:center; gap:6px; }
+    .balloon-title::before { content:''; display:inline-block; width:7px; height:7px; border-radius:50%; background:#f0b63e; box-shadow:0 0 6px rgba(240,182,62,.7); flex-shrink:0; }
+    .balloon-body { font-size:.76rem; color:rgba(230,237,243,.78); line-height:1.6; font-family:'Segoe UI',system-ui,sans-serif; font-weight:400; }
+    .pill-param .balloon::after { content:''; position:absolute; bottom:-10px; left:50%; transform:translateX(-50%); border-left:10px solid transparent; border-right:10px solid transparent; border-top:10px solid rgba(240,182,62,.65); }
+    .pill-param .balloon::before { content:''; position:absolute; bottom:-8px; left:50%; transform:translateX(-50%); border-left:9px solid transparent; border-right:9px solid transparent; border-top:9px solid #071a2e; z-index:1; }
+
+    .m-desc { font-size:.95rem; color:var(--muted); line-height:1.75; margin-bottom:14px; }
+    .m-desc code { font-family:'Courier New',monospace; font-size:.88em; padding:1px 6px; border-radius:4px; background:rgba(255,255,255,.06); }
+
+    .demo-box { background:#060a10; border:1px solid var(--border); border-radius:14px; padding:22px 22px 18px; margin-top:20px; flex-shrink:0; display:flex; flex-direction:column; }
+    .demo-lbl { font-size:.64rem; font-weight:800; letter-spacing:.13em; text-transform:uppercase; color:var(--muted); margin-bottom:18px; display:flex; align-items:center; gap:8px; }
+    .demo-lbl::before { content:''; width:3px; height:12px; border-radius:2px; background:var(--accent); flex-shrink:0; }
+    .demo-controls { display:flex; flex-wrap:wrap; gap:18px; align-items:flex-end; margin-bottom:18px; }
+    .ctrl { display:flex; flex-direction:column; gap:5px; }
+    .ctrl label { font-size:.69rem; color:var(--muted); font-weight:600; }
+    .ctrl input[type=range] { -webkit-appearance:none; width:180px; height:4px; background:var(--border); border-radius:2px; outline:none; cursor:pointer; }
+    .ctrl input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:15px; height:15px; background:var(--accent); border-radius:50%; cursor:pointer; box-shadow:0 0 6px rgba(250,204,21,.5); }
+    .ctrl input[type=range]::-moz-range-thumb { width:15px; height:15px; background:var(--accent); border:none; border-radius:50%; cursor:pointer; }
+    .ctrl .cval { font-size:.7rem; color:var(--accent); font-family:'Courier New',monospace; font-weight:700; text-align:center; }
+    .demo-canvas-wrap { background:#020509; border-radius:10px; padding:14px; overflow:hidden; min-height:72px; order:4; }
+    canvas { display:block; margin:0 auto; }
+    .demo-out { font-family:'Courier New',monospace; font-size:.8rem; color:#10b981; line-height:1.65; margin-top:0; margin-bottom:14px; padding:11px 15px; background:rgba(16,185,129,.05); border:1px solid rgba(16,185,129,.18); border-radius:8px; white-space:pre-wrap; order:3; }
+
+    .seg { display:inline-flex; border:1px solid var(--border); border-radius:9px; overflow:hidden; }
+    .seg button { background:transparent; border:none; color:var(--muted); font-size:.72rem; font-weight:700; font-family:'Courier New',monospace; padding:7px 13px; cursor:pointer; transition:background .18s,color .18s; }
+    .seg button:hover { color:var(--text); background:rgba(255,255,255,.05); }
+    .seg button.on { background:rgba(250,204,21,.14); color:var(--accent); }
+    .play-btn { background:rgba(16,185,129,.12); border:1px solid rgba(16,185,129,.4); color:var(--green); font-family:'Courier New',monospace; font-size:.74rem; font-weight:800; padding:8px 16px; border-radius:9px; cursor:pointer; transition:background .18s,transform .12s; }
+    .play-btn:hover { background:rgba(16,185,129,.22); }
+    .play-btn:active { transform:scale(.96); }
+
+    .panel-nav { display:flex; justify-content:space-between; align-items:center; margin-top:40px; padding-top:24px; border-top:1px solid var(--border); flex-shrink:0; gap:10px; }
+    .pnav-btn { display:flex; align-items:center; gap:9px; padding:10px 20px; border-radius:10px; border:1px solid var(--border); background:transparent; color:var(--muted); font-size:.82rem; font-weight:700; cursor:pointer; transition:color .2s,border-color .2s,background .2s; }
+    .pnav-btn:hover:not(:disabled) { color:var(--text); border-color:var(--accent); background:rgba(250,204,21,.06); }
+    .pnav-btn:disabled { opacity:.28; cursor:default; }
+    .pnav-btn.next { background:rgba(250,204,21,.08); border-color:rgba(250,204,21,.35); color:var(--accent); }
+    .pnav-btn.next:hover { background:rgba(250,204,21,.16); border-color:var(--accent); }
+    .pnav-dots { display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:center; }
+    .pnav-dot { width:7px; height:7px; border-radius:50%; background:var(--border); transition:background .2s,transform .2s; cursor:pointer; border:none; padding:0; }
+    .pnav-dot.active { background:var(--accent); transform:scale(1.4); }
+
+    .overview-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:14px; margin-top:24px; }
+    .ov-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px 16px 16px; cursor:pointer; transition:border-color .2s,box-shadow .2s,transform .18s; display:flex; flex-direction:column; gap:8px; }
+    .ov-card:hover { transform:translateY(-3px); border-color:rgba(250,204,21,.4); box-shadow:0 8px 28px rgba(250,204,21,.08); }
+    .ov-card-num { font-size:.62rem; color:var(--muted); font-weight:800; letter-spacing:.1em; }
+    .ov-card-name { font-size:.9rem; font-family:'Courier New',monospace; font-weight:700; }
+    .ov-card-desc { font-size:.77rem; color:var(--muted); line-height:1.5; }
+
+    @media(max-width:700px){.sidebar{display:none}.panel{padding:20px 16px 80px}}
+    .katex { color: var(--text); }
+    /* No horizontal scrollbars on formulas: fitMath() in tree.js shrinks anything
+       too wide to scale, so the overflow is clipped rather than scrolled. */
+    .katex-display { margin: 6px 0; overflow-x: hidden; overflow-y: hidden; padding: 3px 0; }
+    .katex-display > .katex { max-width: none; }
+    .eq-box { background:rgba(59,130,246,.05); border:1px solid rgba(59,130,246,.2); border-radius:12px; padding:16px 20px; margin:16px 0; font-size:1.05rem; }
+    .eq-box.big { font-size:1.32rem; padding:24px 20px; }
+    .eq-box.small { font-size:.95rem; padding:14px 18px; }
+    .eq-box.gold { background:rgba(250,204,21,.05); border-color:rgba(250,204,21,.22); }
+    .eq-box.green { background:rgba(16,185,129,.05); border-color:rgba(16,185,129,.22); }
+    .eq-box.rose { background:rgba(244,63,94,.05); border-color:rgba(244,63,94,.22); }
+
+    .exercise-header{display:flex;align-items:flex-start;gap:16px;margin-bottom:24px;padding:20px;background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.2);border-radius:14px;position:relative;overflow:hidden;}
+    .exercise-header::before{content:'';position:absolute;top:-40px;right:-40px;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,rgba(251,191,36,.1) 0%,transparent 70%);pointer-events:none;}
+    .exercise-badge{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;font-size:1.8rem;font-weight:800;color:#0d1a2e;background:linear-gradient(135deg,#fbbf24,#f59e0b);box-shadow:0 6px 18px rgba(251,191,36,.35);flex-shrink:0;}
+    .ex-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px 16px;margin-bottom:14px;transition:border-color .2s;}
+    .ex-card:hover{border-color:rgba(250,204,21,.3);}
+    .ex-q-head{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+    .ex-num{font-size:.68rem;font-weight:800;letter-spacing:.1em;padding:3px 10px;border-radius:6px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--muted);font-family:'Courier New',monospace;}
+    .ex-task{font-size:.88rem;color:var(--muted);margin-bottom:10px;line-height:1.6;}
+    .ex-task code{font-family:'Courier New',monospace;font-size:.85em;padding:1px 6px;border-radius:4px;background:rgba(255,255,255,.06);}
+    details.hint{margin-top:10px;}
+    details.hint summary{cursor:pointer;font-size:.78rem;color:var(--accent);font-weight:700;}
+
+    .legend { display:flex; flex-wrap:wrap; gap:16px; justify-content:center; margin-bottom:10px; }
+    .lg { display:flex; align-items:center; gap:7px; font-size:.72rem; font-family:'Courier New',monospace; color:var(--muted); font-weight:700; }
+    .lg i { width:11px; height:11px; border-radius:50%; display:inline-block; }
+    .lg.sq i { border-radius:3px; }
+    .lg.hollow i { background:none !important; border:2px solid #e6edf3; }
+    .lg.ln i { width:20px; height:0; border-top:2px solid var(--text); border-radius:0; }
+    .lg.dash i { width:20px; height:0; border-top:2px dashed var(--muted); border-radius:0; }
+
+    .steps { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; margin:20px 0 6px; }
+    .step { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px 16px 14px; position:relative; overflow:hidden; transition:transform .2s,border-color .2s; }
+    .step:hover { transform:translateY(-3px); }
+    .step::after { content:attr(data-n); position:absolute; right:10px; bottom:-14px; font-size:3.4rem; font-weight:900; font-family:'Courier New',monospace; color:rgba(255,255,255,.04); line-height:1; }
+    .step h4 { font-size:.86rem; margin-bottom:6px; font-family:'Courier New',monospace; }
+    .step p { font-size:.78rem; color:var(--muted); line-height:1.55; }
+    .step.a { border-color:rgba(59,130,246,.32); } .step.a h4 { color:var(--blue); }
+    .step.b { border-color:rgba(250,204,21,.32); } .step.b h4 { color:var(--accent); }
+    .step.c { border-color:rgba(16,185,129,.32); } .step.c h4 { color:var(--green); }
+    .step.d { border-color:rgba(236,72,153,.32); } .step.d h4 { color:var(--pink); }
+
+    .pc-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:18px 0; }
+    @media(max-width:640px){ .pc-grid{grid-template-columns:1fr} }
+    .pc { border-radius:14px; border:1px solid var(--border); padding:18px 20px 14px; }
+    .pc h4 { font-size:.9rem; margin-bottom:12px; font-family:'Courier New',monospace; display:flex; align-items:center; gap:8px; }
+    .pc ol { margin:0; padding-left:20px; }
+    .pc li { font-size:.82rem; color:var(--muted); line-height:1.6; margin-bottom:7px; }
+    .pc.good { border-color:rgba(16,185,129,.3); background:rgba(16,185,129,.04); } .pc.good h4 { color:var(--green); }
+    .pc.bad  { border-color:rgba(244,63,94,.3);  background:rgba(244,63,94,.04); }  .pc.bad h4  { color:#f43f5e; }
+
+    /* the little data table used all through the deck */
+    table.dt td.A { color:#10b981; font-weight:700; }
+    table.dt td.B { color:#f97316; font-weight:700; }
+    tr.win td { background:rgba(250,204,21,.09) !important; }
+
+    /* node-anatomy chips */
+    .term-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; margin:18px 0; }
+    .term { border:1px solid var(--border); border-radius:12px; padding:14px 16px 12px; background:var(--surface); }
+    .term h5 { font-family:'Courier New',monospace; font-size:.84rem; margin-bottom:5px; }
+    .term p { font-size:.78rem; color:var(--muted); line-height:1.55; }
+    .visual-pair { display:grid; grid-template-columns:1fr 1fr; gap:12px; width:100%; }
+    .visual-pane { min-width:0; background:#020509; border:1px solid rgba(255,255,255,.07); border-radius:12px; padding:12px; }
+    .visual-pane-title { display:flex; align-items:center; gap:8px; margin-bottom:9px; color:var(--muted); font:700 .66rem 'Courier New',monospace; letter-spacing:.08em; text-transform:uppercase; }
+    .visual-pane-title b { display:grid; place-items:center; width:20px; height:20px; border-radius:6px; background:rgba(250,204,21,.12); color:var(--accent); }
+    .tree-board { margin:18px 0; padding:18px; border:1px solid rgba(6,182,212,.24); border-radius:16px; background:radial-gradient(circle at 50% 0,rgba(6,182,212,.08),transparent 50%),#020509; }
+    .tree-board svg { display:block; width:100%; height:auto; min-height:390px; }
+    .tree-board .edge { stroke:rgba(230,237,243,.36); stroke-width:2; fill:none; }
+    .tree-board .subtree-halo { fill:rgba(250,204,21,.035); stroke:rgba(250,204,21,.55); stroke-width:1.5; stroke-dasharray:7 6; }
+    .tree-board .node-box { stroke-width:2; rx:10; }
+    .tree-board text { font-family:'Courier New',monospace; fill:#e6edf3; text-anchor:middle; }
+    .tree-board .node-main { font-size:13px; font-weight:800; }
+    .tree-board .node-sub { font-size:10px; fill:rgba(230,237,243,.62); }
+    .tree-board .edge-label { font-size:11px; font-weight:800; fill:#facc15; }
+    .tree-board .guide { stroke:rgba(6,182,212,.32); stroke-width:1; stroke-dasharray:4 5; }
+    .tree-board .guide-label { font-size:10px; font-weight:800; fill:#06b6d4; text-anchor:start; }
+    .diagram-caption { margin-top:10px; color:var(--muted); font-size:.78rem; line-height:1.55; text-align:center; }
+    .anatomy-key { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:14px 0 22px; }
+    .anatomy-key .term { padding:12px 13px 10px; }
+    .anatomy-key .term h5 { display:flex; align-items:center; gap:7px; }
+    .key-dot { width:9px; height:9px; border-radius:50%; flex:none; }
+    @media(max-width:720px){ .visual-pair{grid-template-columns:1fr}.anatomy-key{grid-template-columns:1fr 1fr}.tree-board{padding:8px}.tree-board svg{min-height:330px} }
+  </style>
+  <style>
+    /* ── deck-16 only ── */
+    .out-pre { background:#010409; border:1px solid var(--border); border-radius:8px; padding:12px 14px; margin-top:10px;
+               font-family:'Courier New',monospace; font-size:.78rem; color:#10b981; overflow-x:auto; line-height:1.6; }
+    .prm { display:grid; grid-template-columns:210px 1fr; gap:14px; padding:13px 0; border-bottom:1px solid var(--border); }
+    .prm:last-child { border-bottom:none; }
+    .prm code { font-size:.8rem; }
+    .prm p { font-size:.82rem; color:var(--muted); line-height:1.6; margin:0; }
+    @media(max-width:620px){ .prm{grid-template-columns:1fr;gap:6px} }
+    .fchip-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin:18px 0; }
+    .fchip { border:1px solid var(--border); border-radius:12px; padding:12px 13px 10px; background:var(--surface); text-align:center; }
+    .fchip b { display:block; font-family:'Courier New',monospace; font-size:.8rem; margin-bottom:4px; }
+    .fchip span { font-size:.72rem; color:var(--muted); line-height:1.5; }
+    /* the little fruit table */
+    table.dt td.fr-apple  { color:#10b981; font-weight:700; }
+    table.dt td.fr-orange { color:#f97316; font-weight:700; }
+    table.dt td.fr-banana { color:#facc15; font-weight:700; }
+    .bad-code { border-color:rgba(244,63,94,.4) !important; }
+    .bad-code .code-header { background:rgba(244,63,94,.08); border-color:rgba(244,63,94,.3); }
+    .good-code { border-color:rgba(16,185,129,.4) !important; }
+    .good-code .code-header { background:rgba(16,185,129,.08); border-color:rgba(16,185,129,.3); }
+  </style>
+  <style>
+    /* ── deck-16 additions ── */
+    .verdict { display:grid; grid-template-columns:auto 1fr; gap:14px; align-items:start; margin:18px 0;
+               padding:18px 20px; border-radius:16px; border:1px solid rgba(16,185,129,.32); background:rgba(16,185,129,.05); }
+    .verdict .vmark { width:44px; height:44px; border-radius:12px; display:grid; place-items:center; font-size:1.4rem;
+                      background:linear-gradient(135deg,#10b981,#059669); color:#04140d; font-weight:900; }
+    .verdict h4 { font-size:.95rem; font-family:'Courier New',monospace; color:var(--green); margin-bottom:6px; }
+    .verdict p { font-size:.85rem; color:var(--muted); line-height:1.65; margin:0 0 8px; }
+    .verdict p:last-child { margin-bottom:0; }
+    .verdict.mixed { border-color:rgba(250,204,21,.32); background:rgba(250,204,21,.05); }
+    .verdict.mixed .vmark { background:linear-gradient(135deg,#facc15,#f59e0b); color:#20180a; }
+    .verdict.mixed h4 { color:var(--accent); }
+  </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">← Python Libs</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item" href="../15_topics/index.html">Topics 1</a>
+    <a class="nav-item active" href="index.html">Topics 2</a>
+  </div>
+</nav>
+
+<div class="page-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-head">Pipelines &amp; Search</div>
+    <nav class="sidebar-nav">
+      <button class="s-item active" data-panel="0" onclick="goTo(0)"><span class="s-num">00</span><span class="s-dot" style="background:#8b5cf6"></span><span class="s-label">Overview</span></button>
+      <button class="s-item" data-panel="1" onclick="goTo(1)"><span class="s-num">01</span><span class="s-dot" style="background:#f43f5e"></span><span class="s-label">get_dummies / one-hot</span></button>
+      <button class="s-item" data-panel="2" onclick="goTo(2)"><span class="s-num">02</span><span class="s-dot" style="background:#10b981"></span><span class="s-label">Pipeline</span></button>
+      <button class="s-item" data-panel="3" onclick="goTo(3)"><span class="s-num">03</span><span class="s-dot" style="background:#a855f7"></span><span class="s-label">Encoder in the pipeline</span></button>
+      <button class="s-item" data-panel="4" onclick="goTo(4)"><span class="s-num">04</span><span class="s-dot" style="background:#06b6d4"></span><span class="s-label">cross_val_score + pipe</span></button>
+      <button class="s-item" data-panel="5" onclick="goTo(5)"><span class="s-num">05</span><span class="s-dot" style="background:#f97316"></span><span class="s-label">GridSearchCV</span></button>
+      <button class="s-item" data-panel="6" onclick="goTo(6)"><span class="s-num">06</span><span class="s-dot" style="background:#facc15"></span><span class="s-label">neg_mean_squared_error</span></button>
+      <button class="s-item" data-panel="7" onclick="goTo(7)"><span class="s-num">07</span><span class="s-dot" style="background:#3b82f6"></span><span class="s-label">Searching for degree</span></button>
+      <button class="s-item" data-panel="8" onclick="goTo(8)"><span class="s-num">08</span><span class="s-dot" style="background:#ec4899"></span><span class="s-label">The elbow for degree</span></button>
+      <button class="s-item" data-panel="9" onclick="goTo(9)"><span class="s-num">09</span><span class="s-dot" style="background:#22c55e"></span><span class="s-label">Saving the pipeline</span></button>
+      <button class="s-item" data-panel="10" onclick="goTo(10)"><span class="s-num">10</span><span class="s-dot" style="background:#fbbf24"></span><span class="s-label">Exercises</span></button>
+      <hr class="side-sep">
+      <div class="side-part">Appendix</div>
+      <button class="s-item" data-panel="11" onclick="goTo(11)"><span class="s-num">A1</span><span class="s-dot" style="background:#8b5cf6"></span><span class="s-label">Notebook gotchas</span></button>
+      <button class="s-item" data-panel="12" onclick="goTo(12)"><span class="s-num">A2</span><span class="s-dot" style="background:#06b6d4"></span><span class="s-label">Naming in a param grid</span></button>
+      <hr class="side-sep">
+      <a class="s-item" style="text-decoration:none" href="../15_topics/index.html"><span class="s-num">←</span><span class="s-dot" style="background:#22c55e"></span><span class="s-label">Topics 1 · Scaling &amp; CV</span></a>
+    </nav>
+  </aside>
+
+  <!-- PANEL VIEWPORT -->
+  <div class="panel-viewport" id="viewport">
+
+    <!-- ══ PANEL 0: Overview ══ -->
+    <div class="panel active" id="panel-0">
+      <div class="hero" style="margin-bottom:36px;">
+        <span class="topic-label"><span class="dot"></span>Encoding · Pipelines · Cross-Validation · Grid Search</span>
+        <h1>Pipelines &amp; Grid Search</h1>
+        <p>Everything in this deck exists to answer one question: <strong>how do you get from a raw table to a model you can trust and ship?</strong> Text columns have to become numbers, every preprocessing step has to happen <em>inside</em> the fold, hyper-parameters have to be searched rather than guessed, and the finished object has to remember its own scaler. Watch the two halves of that story:</p>
+        <div class="demo-canvas-wrap" style="background:#020509;border-radius:12px;padding:14px;position:relative;z-index:1;"><canvas id="cv-overview" height="380"></canvas></div>
+      </div>
+      <div class="overview-grid" style="margin-top:0;">
+        <div class="ov-card" onclick="goTo(1)"><div class="ov-card-num">01 / 10</div><div class="ov-card-name" style="color:#f43f5e">get_dummies / one-hot</div><div class="ov-card-desc">Turning the word Developer into a column of 0s and 1s.</div></div>
+        <div class="ov-card" onclick="goTo(2)"><div class="ov-card-num">02 / 10</div><div class="ov-card-name" style="color:#10b981">Pipeline</div><div class="ov-card-desc">Glue the steps together so they can never drift apart.</div></div>
+        <div class="ov-card" onclick="goTo(3)"><div class="ov-card-num">03 / 10</div><div class="ov-card-name" style="color:#a855f7">Encoder in the pipeline</div><div class="ov-card-desc">Is putting the encoder inside really better? Yes — here is why.</div></div>
+        <div class="ov-card" onclick="goTo(4)"><div class="ov-card-num">04 / 10</div><div class="ov-card-name" style="color:#06b6d4">cross_val_score + pipe</div><div class="ov-card-desc">A fresh scaler per fold, fitted on the training rows only.</div></div>
+        <div class="ov-card" onclick="goTo(5)"><div class="ov-card-num">05 / 10</div><div class="ov-card-name" style="color:#f97316">GridSearchCV</div><div class="ov-card-desc">Every combination, cross-validated, ranked.</div></div>
+        <div class="ov-card" onclick="goTo(6)"><div class="ov-card-num">06 / 10</div><div class="ov-card-name" style="color:#facc15">neg_mean_squared_error</div><div class="ov-card-desc">Why the best score sklearn reports is a negative number.</div></div>
+        <div class="ov-card" onclick="goTo(7)"><div class="ov-card-num">07 / 10</div><div class="ov-card-name" style="color:#3b82f6">Searching for degree</div><div class="ov-card-desc">The polynomial degree is just another hyper-parameter.</div></div>
+        <div class="ov-card" onclick="goTo(8)"><div class="ov-card-num">08 / 10</div><div class="ov-card-name" style="color:#ec4899">The elbow for degree</div><div class="ov-card-desc">When the curve has no maximum, look for the bend.</div></div>
+        <div class="ov-card" onclick="goTo(9)"><div class="ov-card-num">09 / 10</div><div class="ov-card-name" style="color:#22c55e">Saving the pipeline</div><div class="ov-card-desc">One pickle file that scales before it predicts.</div></div>
+        <div class="ov-card" onclick="goTo(10)"><div class="ov-card-num">10 / 10</div><div class="ov-card-name" style="color:#fbbf24">Exercises</div><div class="ov-card-desc">Build the pipeline, search it, then break it on purpose.</div></div>
+        <div class="ov-card" onclick="goTo(11)"><div class="ov-card-num">APPENDIX A1</div><div class="ov-card-name" style="color:#8b5cf6">Notebook gotchas</div><div class="ov-card-desc">Three cells in the notebook do not run. Here is why.</div></div>
+        <div class="ov-card" onclick="goTo(12)"><div class="ov-card-num">APPENDIX A2</div><div class="ov-card-name" style="color:#06b6d4">Naming in a param grid</div><div class="ov-card-desc">Where the double underscore comes from, and what to type.</div></div>
+      </div>
+      <div class="callout green">
+        🧮 <strong>Every number on this page is really computed.</strong> The encoders, the folds, the KNN votes, the grid scores and the polynomial fits all run in your browser on the notebook's own data. The grid in panel 05 reproduces sklearn's <code>cv_results_</code> cell by cell, and the degree curve in panel 07 reproduces its <code>neg_mean_squared_error</code> to four decimals.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" disabled>← Prev</button>
+        <div class="pnav-dots" id="dots-0"></div>
+        <button class="pnav-btn next" onclick="goTo(1)">get_dummies / one-hot →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 1: get_dummies / one-hot ══ -->
+    <div class="panel" id="panel-1">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1543286386-2e659306cd6c?w=900&q=75&fit=crop&h=200" alt="Switches" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">TOPICS 2 · 01 / 10 · Encoding</div>
+          <div class="m-name">get_dummies &amp; OneHotEncoder</div>
+          <div class="m-tagline">A model cannot subtract Teacher from Developer — so give it switches instead</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">pd.get_dummies(X, columns=[...], dtype=int)</span>
+        <span class="pill pill-ret">→ one 0/1 column per category</span>
+      </div>
+      <p class="m-desc">Here is the notebook's table. Two of its columns are text, and every model you have met so far only accepts numbers:</p>
+      <table class="dt">
+        <thead><tr><th class="blue">age</th><th class="blue">job</th><th class="blue">city</th><th class="blue">salary</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>25</td><td class="A">Developer</td><td class="B">Tel Aviv</td><td>15000</td></tr>
+          <tr class="show"><td>32</td><td class="A">Teacher</td><td class="B">Haifa</td><td>12000</td></tr>
+          <tr class="show"><td>45</td><td class="A">Developer</td><td class="B">Jerusalem</td><td>22000</td></tr>
+          <tr class="show"><td>29</td><td class="A">Doctor</td><td class="B">Haifa</td><td>18000</td></tr>
+          <tr class="show"><td>38</td><td class="A">Teacher</td><td class="B">Tel Aviv</td><td>16000</td></tr>
+        </tbody>
+      </table>
+      <p class="m-desc">The tempting shortcut is to number the categories — Developer&nbsp;=&nbsp;0, Teacher&nbsp;=&nbsp;1, Doctor&nbsp;=&nbsp;2. Do that and you have quietly told the model that a Doctor is <em>twice</em> a Teacher, and that a Teacher sits exactly halfway between a Doctor and a Developer. None of that is true, and a distance-based model will believe every word of it.</p>
+      <p class="m-desc"><strong>One-hot encoding</strong> refuses to make up an order. Each category becomes its own column holding a single switch: 1 if this row is that category, 0 otherwise. Every row has exactly one 1 per original column, which is where the name comes from.</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — watch the two text columns fan out into switches</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>encoding</label>
+            <div class="seg" id="seg-dum">
+              <button class="on" onclick="setDum(0)">get_dummies</button>
+              <button onclick="setDum(1)">drop_first=True</button>
+              <button onclick="setDum(2)">OneHotEncoder</button>
+            </div>
+          </div>
+        </div>
+        <div class="demo-out" id="out-dum"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-dum" height="300"></canvas></div>
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — the notebook cell</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> pandas <span class="kw">as</span> <span class="lib">pd</span>
+
+df = <span class="lib">pd</span>.<span class="cls">DataFrame</span>({
+    <span class="str">'age'</span>: [<span class="num">25</span>, <span class="num">32</span>, <span class="num">45</span>, <span class="num">29</span>, <span class="num">38</span>],
+    <span class="str">'job'</span>: [<span class="str">'Developer'</span>, <span class="str">'Teacher'</span>, <span class="str">'Developer'</span>, <span class="str">'Doctor'</span>, <span class="str">'Teacher'</span>],
+    <span class="str">'city'</span>: [<span class="str">'Tel Aviv'</span>, <span class="str">'Haifa'</span>, <span class="str">'Jerusalem'</span>, <span class="str">'Haifa'</span>, <span class="str">'Tel Aviv'</span>],
+    <span class="str">'salary'</span>: [<span class="num">15000</span>, <span class="num">12000</span>, <span class="num">22000</span>, <span class="num">18000</span>, <span class="num">16000</span>]
+})
+
+X = df.<span class="fn">drop</span>(columns=[<span class="str">'salary'</span>])
+y = df[<span class="str">'salary'</span>]
+
+X = <span class="lib">pd</span>.<span class="fn">get_dummies</span>(
+    X,
+    columns=[<span class="str">'job'</span>, <span class="str">'city'</span>],
+    dtype=<span class="cls">int</span>          <span class="cm"># without this you get True/False</span>
+)
+
+X</pre>
+      </div>
+      <div class="callout blue">
+        📐 <strong>What the shape tells you.</strong> The frame goes from 3 feature columns to <strong>7</strong>: <code>age</code> survives untouched, <code>job</code> becomes 3 columns and <code>city</code> becomes 3. The rule is simple — every categorical column is replaced by as many columns as it has distinct values. A postcode column with 400 values becomes 400 columns, which is exactly when one-hot stops being a good idea.
+      </div>
+      <div class="callout orange">
+        ⚠️ <strong><code>drop_first=True</code> and the dummy trap.</strong> The three job columns always sum to 1, so any one of them is perfectly predictable from the other two. For a linear model that is <em>collinearity</em> — the coefficients become unstable and cannot be read individually. Dropping one category fixes it and loses nothing: "not Doctor and not Teacher" already means Developer. For trees, forests and KNN it does not matter, and dropping a column only makes the encoding harder to read.
+      </div>
+      <div class="pc-grid">
+        <div class="pc good">
+          <h4>✓ pd.get_dummies</h4>
+          <ol>
+            <li>One line, keeps a DataFrame with readable column names.</li>
+            <li>Perfect for exploring a table in a notebook.</li>
+            <li>Handles several columns at once via <code>columns=[...]</code>.</li>
+          </ol>
+        </div>
+        <div class="pc bad">
+          <h4>✗ but it cannot be fitted</h4>
+          <ol>
+            <li>It has no memory. Call it on new data and you get whatever categories <em>that</em> data happens to contain.</li>
+            <li>A category missing at prediction time silently produces a narrower frame — and the model refuses to predict.</li>
+            <li>It cannot live inside a <code>Pipeline</code>, so it cannot be part of cross-validation.</li>
+          </ol>
+        </div>
+      </div>
+      <p class="m-desc"><code>OneHotEncoder</code> is the same idea built as a proper transformer: it <em>learns</em> the list of categories in <code>fit</code> and reproduces exactly those columns, in the same order, every time <code>transform</code> is called. That is the version panel 03 puts inside the pipeline.</p>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(0)">← Overview</button>
+        <div class="pnav-dots" id="dots-1"></div>
+        <button class="pnav-btn next" onclick="goTo(2)">Pipeline →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 2: Pipeline ══ -->
+    <div class="panel" id="panel-2">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1518770660439-4636190af475?w=900&q=75&fit=crop&h=200" alt="Pipes" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">TOPICS 2 · 02 / 10 · Composition</div>
+          <div class="m-name">Pipeline</div>
+          <div class="m-tagline">One object that is the whole recipe, not just the last step</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">Pipeline([('scaler', MinMaxScaler()), ('knn', KNeighborsClassifier())])</span>
+        <span class="pill pill-ret">→ an estimator</span>
+      </div>
+      <p class="m-desc">A <code>Pipeline</code> is a list of named steps. Every step except the last must be a <strong>transformer</strong> — an object with <code>fit</code> and <code>transform</code>. The last step is the <strong>estimator</strong>, the thing that actually predicts. The pipeline then behaves like a single model:</p>
+      <div class="grid-2">
+        <div class="card blue show">
+          <div class="card-icon">🏋</div>
+          <h3><code>pipe.fit(X, y)</code></h3>
+          <p>Walks the steps in order. Each transformer gets <code>fit_transform</code> — it <em>learns</em> its statistics from what arrives, then passes the transformed data on. The last step gets a plain <code>fit</code>.</p>
+        </div>
+        <div class="card green show">
+          <div class="card-icon">🔮</div>
+          <h3><code>pipe.predict(X)</code></h3>
+          <p>Walks the same steps, but every transformer now only gets <code>transform</code> — it reuses the statistics it learned during <code>fit</code>. Nothing is re-learned from the data you are predicting.</p>
+        </div>
+      </div>
+      <p class="m-desc">That single difference — <code>fit_transform</code> on the way in, <code>transform</code> on the way out — is the entire reason pipelines exist. It is the rule from the previous deck, enforced by the object instead of by your memory.</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — a row travelling through <code>Pipeline([('scaler', MinMaxScaler()), ('knn', KNeighborsClassifier(3))])</code></div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>which call</label>
+            <div class="seg" id="seg-pipe">
+              <button class="on" onclick="setPipeMode(0)">pipe.fit(X, y)</button>
+              <button onclick="setPipeMode(1)">pipe.predict(new)</button>
+            </div>
+          </div>
+        </div>
+        <div class="demo-out" id="out-pipe"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-pipe" height="300"></canvas></div>
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — the notebook cell</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">from</span> sklearn.neighbors <span class="kw">import</span> <span class="cls">KNeighborsClassifier</span>
+<span class="kw">from</span> sklearn.preprocessing <span class="kw">import</span> <span class="cls">MinMaxScaler</span>
+<span class="kw">from</span> sklearn.pipeline <span class="kw">import</span> <span class="cls">Pipeline</span>
+
+pipeline = <span class="cls">Pipeline</span>([
+    (<span class="str">'scaler'</span>, <span class="cls">MinMaxScaler</span>()),
+    (<span class="str">'knn'</span>, <span class="cls">KNeighborsClassifier</span>(n_neighbors=<span class="num">3</span>))
+])
+
+pipeline.<span class="fn">fit</span>(X, y)
+
+<span class="cm"># raw values in — the pipeline scales them itself</span>
+pipeline.<span class="fn">predict</span>([[<span class="num">225</span>, <span class="num">7</span>, <span class="num">150</span>]])</pre>
+      </div>
+      <div class="callout purple">
+        🏷 <strong>The names are not decoration.</strong> <code>'scaler'</code> and <code>'knn'</code> are how you reach into the pipeline later: <code>pipeline.named_steps['knn']</code> gives you the classifier, and <code>'knn__n_neighbors'</code> is how a grid search addresses its parameters. Appendix A2 covers the naming rules. If you do not care about the names, <code>make_pipeline(MinMaxScaler(), KNeighborsClassifier())</code> invents them for you — lowercased class names, so <code>'minmaxscaler'</code> and <code>'kneighborsclassifier'</code>.
+      </div>
+      <div class="callout green">
+        🧷 <strong>Why this matters beyond tidiness.</strong> Without a pipeline the scaler and the model are two variables that must be kept in sync by hand — in cross-validation, in the grid search, in the file you save, and in the service that loads it. Every one of those is a place where they can drift apart. A pipeline makes that impossible by construction, which is the subject of the next three panels.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(1)">← get_dummies / one-hot</button>
+        <div class="pnav-dots" id="dots-2"></div>
+        <button class="pnav-btn next" onclick="goTo(3)">Encoder in the pipeline →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 3: encoder inside the pipeline ══ -->
+    <div class="panel" id="panel-3">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1532012197267-da84d127e765?w=900&q=75&fit=crop&h=200" alt="Parallel tracks" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">TOPICS 2 · 03 / 10 · The Question</div>
+          <div class="m-name">Encoder in the pipeline</div>
+          <div class="m-tagline">Is it actually a better idea than get_dummies up front?</div>
+        </div>
+      </div>
+      <div class="verdict">
+        <div class="vmark">✓</div>
+        <div>
+          <h4>Short answer: yes, once the model leaves the notebook.</h4>
+          <p>For a quick look at a table, <code>pd.get_dummies</code> is faster to type and easier to read, and nothing bad happens. The moment there is a <em>second</em> batch of data — a test set, a fold, a row arriving from production — <code>get_dummies</code> has no memory of what the first batch looked like, and the columns stop lining up.</p>
+          <p>An encoder inside a pipeline remembers. That is the whole difference, and it is not a style preference.</p>
+        </div>
+      </div>
+      <p class="m-desc">A pipeline needs one input and one output per step, but a real table has two <em>kinds</em> of column: numbers that want scaling and text that wants encoding. <code>ColumnTransformer</code> is the fork in the pipe — it sends each group of columns down its own branch and glues the results back together side by side:</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — one table, two branches, one matrix</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>data arriving</label>
+            <div class="seg" id="seg-ct">
+              <button class="on" onclick="setCT(0)">training rows</button>
+              <button onclick="setCT(1)">a new row: city = Eilat</button>
+            </div>
+          </div>
+        </div>
+        <div class="demo-out" id="out-ct"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-ct" height="330"></canvas></div>
+      </div>
+      <p class="m-desc">Switch the demo to the second setting and the difference becomes concrete. A row arrives whose city is <code>Eilat</code>, a value the model has never seen:</p>
+      <div class="pc-grid">
+        <div class="pc bad">
+          <h4>✗ get_dummies on the new row</h4>
+          <ol>
+            <li>It builds columns from <em>this</em> row's categories, so it produces <code>city_Eilat</code> and no <code>city_Haifa</code>, <code>city_Jerusalem</code> or <code>city_Tel Aviv</code>.</li>
+            <li>The frame now has 3 columns where the model expects 7.</li>
+            <li><code>predict</code> raises <code>ValueError: The feature names should match those that were passed during fit</code>, then lists <code>city_Eilat</code> as unseen and five columns as missing. Fitted on a bare numpy array instead, sklearn can only count: <code>X has 3 features, but LinearRegression is expecting 7 features as input</code>.</li>
+            <li>And that is the <em>good</em> case. Line the columns up by hand in the wrong order and it predicts confidently and wrongly instead.</li>
+          </ol>
+        </div>
+        <div class="pc good">
+          <h4>✓ OneHotEncoder(handle_unknown='ignore')</h4>
+          <ol>
+            <li>It learned the category list during <code>fit</code> and always emits those same 7 columns, in that same order.</li>
+            <li>An unseen category becomes a row of zeros in the city block — "none of the cities I know".</li>
+            <li><code>predict</code> works. The prediction leans entirely on the other features, which is the honest answer for a city the model has never seen.</li>
+          </ol>
+        </div>
+      </div>
+      <div class="code-wrap good-code">
+        <div class="code-header"><span class="code-lang">python — the shape to remember</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">from</span> sklearn.compose <span class="kw">import</span> <span class="cls">ColumnTransformer</span>
+<span class="kw">from</span> sklearn.preprocessing <span class="kw">import</span> <span class="cls">OneHotEncoder</span>, <span class="cls">StandardScaler</span>
+<span class="kw">from</span> sklearn.pipeline <span class="kw">import</span> <span class="cls">Pipeline</span>
+<span class="kw">from</span> sklearn.linear_model <span class="kw">import</span> <span class="cls">LinearRegression</span>
+
+<span class="cm"># X still has its text columns — no get_dummies anywhere</span>
+X = df.<span class="fn">drop</span>(columns=[<span class="str">'salary'</span>])
+y = df[<span class="str">'salary'</span>]
+
+prep = <span class="cls">ColumnTransformer</span>([
+    (<span class="str">'num'</span>, <span class="cls">StandardScaler</span>(), [<span class="str">'age'</span>]),
+    (<span class="str">'cat'</span>, <span class="cls">OneHotEncoder</span>(handle_unknown=<span class="str">'ignore'</span>), [<span class="str">'job'</span>, <span class="str">'city'</span>])
+])
+
+model = <span class="cls">Pipeline</span>([
+    (<span class="str">'prep'</span>, prep),
+    (<span class="str">'reg'</span>, <span class="cls">LinearRegression</span>())
+])
+
+model.<span class="fn">fit</span>(X, y)
+
+<span class="cm"># raw text goes straight in — the pipeline encodes it</span>
+new = <span class="lib">pd</span>.<span class="cls">DataFrame</span>([{<span class="str">'age'</span>: <span class="num">31</span>, <span class="str">'job'</span>: <span class="str">'Teacher'</span>, <span class="str">'city'</span>: <span class="str">'Eilat'</span>}])
+model.<span class="fn">predict</span>(new)</pre>
+      </div>
+      <div class="callout blue">
+        🔎 <strong>Reading the encoded columns back.</strong> <code>model.named_steps['prep'].get_feature_names_out()</code> returns <code>['num__age', 'cat__job_Developer', ...]</code> — the same names <code>get_dummies</code> would have given you, prefixed by the branch. You need them the moment you want to look at <code>coef_</code>, because after a <code>ColumnTransformer</code> the coefficient order is no longer the order of your original columns.
+      </div>
+      <div class="verdict mixed">
+        <div class="vmark">!</div>
+        <div>
+          <h4>The honest caveats</h4>
+          <p><strong>It is more to type.</strong> Three imports and a nested object instead of one function call. On a five-row exploration that is not worth it.</p>
+          <p><strong>You lose the DataFrame.</strong> The output is a numpy array (or a sparse matrix — pass <code>sparse_output=False</code> if you want to look at it), so <code>.head()</code> no longer tells you anything without <code>get_feature_names_out()</code>.</p>
+          <p><strong>Column selection is by name, so the input must stay a DataFrame.</strong> Hand the fitted pipeline a bare numpy array at predict time and it will not find <code>'job'</code>.</p>
+          <p>The rule of thumb: <code>get_dummies</code> while you are looking at the data, <code>ColumnTransformer</code> the moment you write <code>cross_val_score</code>, <code>GridSearchCV</code> or <code>joblib.dump</code>.</p>
+        </div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(2)">← Pipeline</button>
+        <div class="pnav-dots" id="dots-3"></div>
+        <button class="pnav-btn next" onclick="goTo(4)">cross_val_score + pipe →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 4: cross_val_score with a pipeline ══ -->
+    <div class="panel" id="panel-4">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1509228468518-180dd4864904?w=900&q=75&fit=crop&h=200" alt="Folds" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">TOPICS 2 · 04 / 10 · Honest Scoring</div>
+          <div class="m-name">cross_val_score + pipeline</div>
+          <div class="m-tagline">A brand new scaler for every fold, fitted on that fold's training rows only</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">cross_val_score(pipeline, X, y, cv=3, scoring='accuracy')</span>
+        <span class="pill pill-ret">→ array of 3 scores</span>
+      </div>
+      <p class="m-desc">Hand <code>cross_val_score</code> a bare model and you have to scale the data yourself first — which means scaling it <em>once</em>, using the minimum and maximum of every row, including the rows that are about to become test data in each fold. The test set has then had a say in its own scaling. Hand it a <strong>pipeline</strong> instead and sklearn clones the whole pipeline for each fold, so the scaler is fitted on the training rows of that fold and nothing else.</p>
+      <div class="steps">
+        <div class="step a" data-n="1"><h4>split</h4><p>Fold k's test rows are set aside. They are not visible to anything that follows.</p></div>
+        <div class="step b" data-n="2"><h4>fit_transform</h4><p>A fresh <code>MinMaxScaler</code> learns min and max from the <em>training</em> rows of this fold.</p></div>
+        <div class="step c" data-n="3"><h4>transform</h4><p>The test rows are scaled with those same training statistics — they may land outside [0, 1], and that is correct.</p></div>
+        <div class="step d" data-n="4"><h4>score</h4><p>Predict the test rows, write down the accuracy, throw the whole pipeline away, repeat.</p></div>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — the notebook's 9 fruits, <code>cv=3</code>, MinMax + KNN(3). Green = test rows of that fold.</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>where the scaling happens</label>
+            <div class="seg" id="seg-cvp">
+              <button class="on" onclick="setCVP(0)">inside the pipeline</button>
+              <button onclick="setCVP(1)">once, before the split</button>
+            </div>
+          </div>
+        </div>
+        <div class="demo-out" id="out-cvp"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-cvp" height="300"></canvas></div>
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — the notebook cell</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">from</span> sklearn.model_selection <span class="kw">import</span> <span class="cls">cross_val_score</span>
+<span class="kw">from</span> sklearn.pipeline <span class="kw">import</span> <span class="cls">Pipeline</span>
+
+pipeline = <span class="cls">Pipeline</span>([
+    (<span class="str">'scaler'</span>, <span class="cls">MinMaxScaler</span>()),
+    (<span class="str">'knn'</span>, <span class="cls">KNeighborsClassifier</span>(n_neighbors=<span class="num">3</span>))
+])
+
+scores = <span class="fn">cross_val_score</span>(
+    pipeline,
+    X, y,
+    cv=<span class="num">3</span>,
+    scoring=<span class="str">'accuracy'</span>
+)
+
+<span class="fn">print</span>(<span class="str">"Scores:"</span>, scores)
+<span class="fn">print</span>(<span class="str">f"Average Accuracy: {scores.mean():.2f}"</span>)
+
+<span class="cm"># Scores: [0.66666667 1.         0.66666667]</span>
+<span class="cm"># Average Accuracy: 0.78</span></pre>
+      </div>
+      <div class="callout blue">
+        🔎 <strong>Be honest about this dataset.</strong> Flip the demo to "once, before the split" and the three fold scores do not move — on 9 rows the min and max of each column barely change when you remove 3 of them. The leak is real but too small to see here. That is exactly why the habit matters: the bug does not announce itself on toy data, it announces itself on the day a single extreme row lands in a test fold and takes the scaling with it. What <em>does</em> change is the fold statistics shown in the demo — fold 3 learns <code>weight: 120…170</code> where the global scaler saw <code>115…180</code>.
+      </div>
+      <div class="callout orange">
+        ⚠️ <strong><code>cv=3</code> is not plain <code>KFold</code>.</strong> When the estimator is a classifier, sklearn quietly uses <code>StratifiedKFold</code>, so every fold keeps one apple, one orange and one banana. On this deliberately sorted fruit table that is the difference between working folds and folds that test a class the model never trained on. For a regressor — panel 07 — it really is plain <code>KFold</code>, in row order, which has consequences of its own.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(3)">← Encoder in the pipeline</button>
+        <div class="pnav-dots" id="dots-4"></div>
+        <button class="pnav-btn next" onclick="goTo(5)">GridSearchCV →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 5: GridSearchCV ══ -->
+    <div class="panel" id="panel-5">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=900&q=75&fit=crop&h=200" alt="A grid" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">TOPICS 2 · 05 / 10 · Hyper-parameters</div>
+          <div class="m-name">GridSearchCV</div>
+          <div class="m-tagline">Stop guessing k. Try them all, cross-validate every one, keep the winner</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">GridSearchCV(estimator, param_grid, cv=3, scoring='accuracy')</span>
+        <span class="pill pill-ret">→ .best_params_ · .best_score_ · .best_estimator_</span>
+      </div>
+      <p class="m-desc">A <strong>parameter</strong> is something the model learns from the data — the coefficients of a regression, the split points of a tree. A <strong>hyper-parameter</strong> is something you choose before it ever sees the data: <code>n_neighbors</code>, <code>C</code>, <code>max_depth</code>, the polynomial degree. Nothing in <code>fit</code> touches them, so the only way to choose one is to try it and measure.</p>
+      <p class="m-desc"><code>GridSearchCV</code> is that loop written down. Give it a dictionary of lists, and it takes the <strong>Cartesian product</strong> — every combination of every value — and runs a full cross-validation on each one:</p>
+      <div class="eq-box gold" style="text-align:center;">
+        $$\text{fits} = \underbrace{|C| \times |\gamma| \times |\text{kernel}|}_{\text{combinations}} \times \underbrace{\text{cv}}_{\text{folds}} \;+\; \underbrace{1}_{\text{refit on all data}}$$
+      </div>
+      <p class="m-desc">For the notebook's SVM grid that is 4 × 4 × 4 = <strong>64 combinations</strong>, each cross-validated 3 times, so <strong>193 model fits</strong> from one call. This is why <code>n_jobs=-1</code> exists, and why a careless third list in the dictionary can turn a 10-second search into a coffee break.</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — a grid being searched, cell by cell. 18 fruits, <code>cv=3</code>, MinMax + KNN.</div>
+        <div class="demo-controls">
+          <button class="play-btn" onclick="replayGrid()">▶ run the search again</button>
+        </div>
+        <div class="demo-out" id="out-grid"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-grid" height="290"></canvas></div>
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — the notebook's SVM search (with the typo fixed)</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">from</span> sklearn.svm <span class="kw">import</span> <span class="cls">SVC</span>
+<span class="kw">from</span> sklearn.preprocessing <span class="kw">import</span> <span class="cls">StandardScaler</span>
+<span class="kw">from</span> sklearn.pipeline <span class="kw">import</span> <span class="cls">Pipeline</span>
+<span class="kw">from</span> sklearn.model_selection <span class="kw">import</span> <span class="cls">GridSearchCV</span>
+
+pipeline = <span class="cls">Pipeline</span>([
+    (<span class="str">'scaler'</span>, <span class="cls">StandardScaler</span>()),
+    (<span class="str">'svm'</span>, <span class="cls">SVC</span>())
+])
+
+param_grid = {
+    <span class="str">'svm__C'</span>:      [<span class="num">0.1</span>, <span class="num">1</span>, <span class="num">10</span>, <span class="num">100</span>],
+    <span class="str">'svm__gamma'</span>:  [<span class="num">0.01</span>, <span class="num">0.1</span>, <span class="num">1</span>, <span class="num">10</span>],
+    <span class="str">'svm__kernel'</span>: [<span class="str">'linear'</span>, <span class="str">'rbf'</span>, <span class="str">'poly'</span>, <span class="str">'sigmoid'</span>]
+}
+
+grid = <span class="cls">GridSearchCV</span>(
+    pipeline,
+    param_grid,
+    cv=<span class="num">3</span>,
+    scoring=<span class="str">'accuracy'</span>,
+    n_jobs=-<span class="num">1</span>          <span class="cm"># n_jobs, not njobs — see appendix A1</span>
+)
+
+grid.<span class="fn">fit</span>(X, y)
+
+<span class="fn">print</span>(grid.best_params_)   <span class="cm"># {'svm__C': 0.1, 'svm__gamma': 0.01, 'svm__kernel': 'linear'}</span>
+<span class="fn">print</span>(grid.best_score_)    <span class="cm"># 1.0</span></pre>
+      </div>
+      <div class="callout orange">
+        ⚠️ <strong>That result is a warning, not a triumph.</strong> On those 24 points, <strong>54 of the 64 combinations score a perfect 1.0</strong> and the worst still manages 0.875. The two classes are separated by a wide empty corridor, so almost any setting draws a line through it. <code>best_params_</code> reports <code>C=0.1, gamma=0.01, linear</code> only because sklearn walks the grid in sorted order and keeps the <em>first</em> maximum. Change the order of the lists and you get a different "best". When the top of the grid is a plateau, the honest reading is "this choice does not matter here" — look at <code>cv_results_</code> before you believe a winner.
+      </div>
+      <div class="callout purple">
+        📊 <strong>What comes back.</strong> <code>best_params_</code> is the winning dictionary, <code>best_score_</code> is its mean CV score, and <code>best_estimator_</code> is the whole pipeline <em>refitted on all the data</em> with those parameters — ready to predict, ready to save. <code>cv_results_</code> is the full table: one row per combination, with the score of every individual fold, the mean, the standard deviation and the rank. Load it with <code>pd.DataFrame(grid.cv_results_)</code> and sort by <code>rank_test_score</code>.
+      </div>
+      <div class="callout green">
+        🧩 <strong>Search the pipeline, not the model.</strong> Passing the pipeline rather than the bare <code>SVC</code> means the scaler is re-fitted inside every one of those 192 folds. Pass a pre-scaled <code>X</code> and a bare model, and the search is choosing hyper-parameters against scores that have already been inflated by the leak. Panel 04 is the reason; this is where it pays.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(4)">← cross_val_score + pipe</button>
+        <div class="pnav-dots" id="dots-5"></div>
+        <button class="pnav-btn next" onclick="goTo(6)">neg_mean_squared_error →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 6: neg_mean_squared_error ══ -->
+    <div class="panel" id="panel-6">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1518133910546-b6c2fb7d79e3?w=900&q=75&fit=crop&h=200" alt="A mirror" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">TOPICS 2 · 06 / 10 · Scoring</div>
+          <div class="m-name">neg_mean_squared_error</div>
+          <div class="m-tagline">Why sklearn hands you a negative number and expects you to be pleased</div>
+        </div>
+      </div>
+      <p class="m-desc">Grid search does one thing with the numbers it collects: it takes the <strong>maximum</strong>. That works for accuracy, where bigger is better. It is exactly wrong for an error, where bigger is worse. Rather than teach the search which metrics point which way, sklearn made every scorer point the same way by flipping the sign of the ones that do not:</p>
+      <div class="eq-box big" style="text-align:center;">
+        $$\texttt{neg\_mean\_squared\_error} = -\,\frac{1}{n}\sum_{i=1}^{n}\left(y_i - \hat{y}_i\right)^2$$
+      </div>
+      <p class="m-desc">An MSE of 0.72 is reported as <strong>−0.72</strong>, an MSE of 264 as <strong>−264</strong>. The best model is now the one with the biggest score, because −0.72 is far to the right of −264 on the number line. The rule across the whole library: <strong>greater is always better</strong>, and any metric whose name starts with <code>neg_</code> is an error wearing a minus sign.</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — the same eight degrees, before and after the sign flip</div>
+        <div class="demo-out" id="out-neg"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-neg" height="270"></canvas></div>
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — remember the minus when you print</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>grid = <span class="cls">GridSearchCV</span>(model, param_grid, cv=<span class="num">5</span>,
+                    scoring=<span class="str">'neg_mean_squared_error'</span>)
+grid.<span class="fn">fit</span>(X, y)
+
+<span class="fn">print</span>(grid.best_score_)        <span class="cm"># -0.7153780577554179</span>
+<span class="fn">print</span>(-grid.best_score_)       <span class="cm"># 0.7153780577554179  &lt;- the actual MSE</span>
+
+<span class="cm"># and for a number you can read in the units of y:</span>
+<span class="lib">np</span>.<span class="fn">sqrt</span>(-grid.best_score_)     <span class="cm"># 0.8458  -> RMSE, same units as y</span>
+
+<span class="cm"># the whole grid, error side up</span>
+<span class="lib">pd</span>.<span class="cls">DataFrame</span>({
+    <span class="str">'degree'</span>: grid.cv_results_[<span class="str">'param_poly__degree'</span>],
+    <span class="str">'mse'</span>: -grid.cv_results_[<span class="str">'mean_test_score'</span>]
+})</pre>
+      </div>
+      <div class="callout blue">
+        📐 <strong>The other regression scorers.</strong> <code>'neg_mean_absolute_error'</code> punishes a big miss proportionally rather than quadratically, so it is the one to reach for when outliers should not dominate. <code>'neg_root_mean_squared_error'</code> is the square root of MSE, in the units of <code>y</code>. <code>'r2'</code> is the odd one out — it is genuinely "bigger is better" already, so it carries no <code>neg_</code> prefix, and it is the default when you pass no <code>scoring</code> at all to a regressor. That default is worth knowing: leave <code>scoring</code> off and you are optimising R², not MSE.
+      </div>
+      <div class="callout orange">
+        ⚠️ <strong>The mistake this prevents.</strong> Print <code>best_score_</code> for a regression, see <code>-0.715</code>, and it is very easy to read it as "a terrible model" or to write <code>abs(...)</code> everywhere out of habit. It is one number, already correct, already the mean over the folds. Negate it once, when you report it.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(5)">← GridSearchCV</button>
+        <div class="pnav-dots" id="dots-6"></div>
+        <button class="pnav-btn next" onclick="goTo(7)">Searching for degree →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 7: grid search for the degree ══ -->
+    <div class="panel" id="panel-7">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1501139083538-0139583c060f?w=900&q=75&fit=crop&h=200" alt="A curve" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">TOPICS 2 · 07 / 10 · Model Selection</div>
+          <div class="m-name">Searching for the degree</div>
+          <div class="m-tagline">PolynomialFeatures has a hyper-parameter too — so let the grid pick it</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">param_grid = {'poly__degree': range(1, 9)}</span>
+        <span class="pill pill-ret">→ best degree = 3</span>
+      </div>
+      <p class="m-desc">Polynomial regression is a pipeline in disguise: <code>PolynomialFeatures</code> expands <code>x</code> into <code>[1, x, x², …, x^d]</code>, and a plain <code>LinearRegression</code> fits a straight line through those new columns. The degree <code>d</code> is not learned — it is chosen. Which makes it exactly the kind of thing a grid search is for.</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — the notebook's 30 points, fitted at every degree the grid tries</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>poly__degree</label><input type="range" min="1" max="8" value="3" step="1" id="dg-d" oninput="drawDegree()"><span class="cval" id="dg-dv">3</span></div>
+        </div>
+        <div class="demo-out" id="out-degree"></div>
+        <div class="visual-pair">
+          <div class="visual-pane"><div class="visual-pane-title"><b>1</b> the fit at this degree</div><canvas id="cv-dg-fit" height="250"></canvas></div>
+          <div class="visual-pane"><div class="visual-pane-title"><b>2</b> cross-validated MSE per degree</div><canvas id="cv-dg-cv" height="250"></canvas></div>
+        </div>
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — the notebook cell, completed</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">from</span> sklearn.preprocessing <span class="kw">import</span> <span class="cls">PolynomialFeatures</span>
+<span class="kw">from</span> sklearn.linear_model <span class="kw">import</span> <span class="cls">LinearRegression</span>
+<span class="kw">from</span> sklearn.pipeline <span class="kw">import</span> <span class="cls">Pipeline</span>
+<span class="kw">from</span> sklearn.model_selection <span class="kw">import</span> <span class="cls">GridSearchCV</span>
+
+model = <span class="cls">Pipeline</span>([
+    (<span class="str">'poly'</span>, <span class="cls">PolynomialFeatures</span>()),
+    (<span class="str">'regression'</span>, <span class="cls">LinearRegression</span>())
+])
+
+param_grid = {<span class="str">'poly__degree'</span>: <span class="fn">range</span>(<span class="num">1</span>, <span class="num">9</span>)}
+
+grid = <span class="cls">GridSearchCV</span>(model, param_grid, cv=<span class="num">5</span>,
+                    scoring=<span class="str">'neg_mean_squared_error'</span>)
+grid.<span class="fn">fit</span>(X, y)
+
+<span class="fn">print</span>(<span class="str">"Best degree:"</span>, grid.best_params_[<span class="str">'poly__degree'</span>])   <span class="cm"># 3</span>
+<span class="fn">print</span>(<span class="str">"Best MSE:"</span>, -grid.best_score_)                    <span class="cm"># 0.7154</span>
+
+<span class="cm"># the notebook's plot needs these two lists, which the cell</span>
+<span class="cm"># never built — pull them out of cv_results_ instead:</span>
+degrees = <span class="fn">list</span>(param_grid[<span class="str">'poly__degree'</span>])
+errors  = -grid.cv_results_[<span class="str">'mean_test_score'</span>]
+
+<span class="lib">plt</span>.<span class="fn">plot</span>(degrees, errors, marker=<span class="str">'o'</span>)
+<span class="lib">plt</span>.<span class="fn">yscale</span>(<span class="str">'log'</span>)          <span class="cm"># 11773 and 0.72 on one axis</span>
+<span class="lib">plt</span>.<span class="fn">xlabel</span>(<span class="str">"Polynomial Degree"</span>)
+<span class="lib">plt</span>.<span class="fn">ylabel</span>(<span class="str">"Cross-Validation MSE"</span>)
+<span class="lib">plt</span>.<span class="fn">show</span>()</pre>
+      </div>
+      <div class="callout green">
+        📐 <strong>Read the curve, not just the winner.</strong> Degree 1 is hopeless (MSE 11 773) — a straight line through data that clearly bends. Degree 2 gets within 263. Degree 3 lands on <strong>0.72</strong>, a factor of 360 better again. And then it gets <em>worse</em>: 14.6 at degree 4, 122 at degree 5, 464 at degree 7. That U shape is the whole story of model selection — the left arm is underfitting, the right arm is overfitting, and cross-validation is what makes the right arm visible at all.
+      </div>
+      <div class="callout orange">
+        ⚠️ <strong>Watch what happens at degree 8.</strong> The fit on the left still looks flawless — but <code>x⁸</code> at x = 30 is 6.5 × 10¹¹, so the design matrix columns differ by twelve orders of magnitude and the fit becomes numerically fragile. On this page the browser's QR solver and sklearn's SVD solver agree to four decimals for degrees 1–7 and then disagree loudly at 8 (127.7 vs 684.9) — both enormous, both correct in the only sense that matters. If you need high degrees, scale <code>x</code> first: <code>Pipeline([('scale', StandardScaler()), ('poly', PolynomialFeatures()), ('reg', LinearRegression())])</code>.
+      </div>
+      <div class="callout blue">
+        🔎 <strong>And note which folds you are getting.</strong> The estimator is a regressor, so <code>cv=5</code> is plain <code>KFold</code> with no shuffling: fold 1 is x = 1…6, fold 5 is x = 25…30. Every fold is therefore an <em>extrapolation</em> test — the model must predict a stretch of x it never saw. That is brutal, and it is why the high degrees blow up so spectacularly. It is also, for data that arrives in order, the realistic question.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(6)">← neg_mean_squared_error</button>
+        <div class="pnav-dots" id="dots-7"></div>
+        <button class="pnav-btn next" onclick="goTo(8)">The elbow for degree →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 8: the elbow for the degree ══ -->
+    <div class="panel" id="panel-8">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1477346611705-65d1883cee1e?w=900&q=75&fit=crop&h=200" alt="A bend in the road" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">TOPICS 2 · 08 / 10 · The Bend</div>
+          <div class="m-name">The elbow for the degree</div>
+          <div class="m-tagline">When the curve only ever improves, the answer is the bend, not the minimum</div>
+        </div>
+      </div>
+      <p class="m-desc">Cross-validated error has a genuine minimum — that is what made panel 07 easy. <strong>Training</strong> error does not. Add a degree and the polynomial can only fit the points it has already seen better or equally well, so the curve slides downwards forever. There is no <code>argmin</code> worth taking: it would always hand you the largest degree in the list.</p>
+      <p class="m-desc">This is the same shape as K-Means inertia, and it takes the same answer: find the <strong>elbow</strong> — the degree after which each extra parameter buys you almost nothing.</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — training MSE per degree, with the sweet spot found and circled</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>vertical axis</label>
+            <div class="seg" id="seg-el">
+              <button class="on" onclick="setElScale(1)">log MSE</button>
+              <button onclick="setElScale(0)">linear MSE</button>
+            </div>
+          </div>
+          <button class="play-btn" onclick="replayElbow()">▶ replay the search</button>
+        </div>
+        <div class="demo-out" id="out-elbow"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-elbow" height="320"></canvas></div>
+      </div>
+      <p class="m-desc">The method the animation is running is the standard one, and it is worth being able to do by hand:</p>
+      <div class="steps">
+        <div class="step a" data-n="1"><h4>draw the chord</h4><p>A straight line from the first point of the curve to the last. It is what "no bend at all" would look like.</p></div>
+        <div class="step b" data-n="2"><h4>measure the gap</h4><p>For every degree, how far does the real curve sit <em>below</em> that chord?</p></div>
+        <div class="step c" data-n="3"><h4>take the largest</h4><p>The point that hangs furthest below the chord is the elbow. That is all <code>kneed</code> does, formalised.</p></div>
+        <div class="step d" data-n="4"><h4>sanity-check it</h4><p>Compare against the cross-validated answer. If they disagree, trust cross-validation — it is measuring the thing you actually care about.</p></div>
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — training error per degree, and the elbow</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> numpy <span class="kw">as</span> <span class="lib">np</span>
+<span class="kw">import</span> matplotlib.pyplot <span class="kw">as</span> <span class="lib">plt</span>
+<span class="kw">from</span> sklearn.metrics <span class="kw">import</span> mean_squared_error
+
+degrees, errors = <span class="fn">list</span>(<span class="fn">range</span>(<span class="num">1</span>, <span class="num">9</span>)), []
+
+<span class="kw">for</span> d <span class="kw">in</span> degrees:
+    m = <span class="cls">Pipeline</span>([(<span class="str">'poly'</span>, <span class="cls">PolynomialFeatures</span>(degree=d)),
+                  (<span class="str">'regression'</span>, <span class="cls">LinearRegression</span>())])
+    m.<span class="fn">fit</span>(X, y)
+    errors.<span class="fn">append</span>(<span class="fn">mean_squared_error</span>(y, m.<span class="fn">predict</span>(X)))
+
+<span class="cm"># errors: 3139.08, 26.22, 0.4415, 0.4064, 0.3134, 0.1886, 0.1847, 0.1692</span>
+<span class="cm">#          |         |       ^-- from here on, nothing happens</span>
+
+<span class="cm"># the elbow: furthest point below the first-to-last chord.</span>
+<span class="cm"># on a log axis, because the values span 4 orders of magnitude</span>
+v = <span class="lib">np</span>.<span class="fn">log10</span>(errors)
+chord = <span class="lib">np</span>.<span class="fn">linspace</span>(v[<span class="num">0</span>], v[-<span class="num">1</span>], <span class="fn">len</span>(v))
+best  = degrees[<span class="lib">np</span>.<span class="fn">argmax</span>(chord - v)]
+
+<span class="fn">print</span>(<span class="str">"elbow at degree"</span>, best)     <span class="cm"># 3</span>
+
+<span class="lib">plt</span>.<span class="fn">plot</span>(degrees, errors, marker=<span class="str">'o'</span>)
+<span class="lib">plt</span>.<span class="fn">yscale</span>(<span class="str">'log'</span>)
+<span class="lib">plt</span>.<span class="fn">axvline</span>(best, ls=<span class="str">'--'</span>, color=<span class="str">'green'</span>)
+<span class="lib">plt</span>.<span class="fn">show</span>()</pre>
+      </div>
+      <div class="callout green">
+        ✅ <strong>The two methods agree here.</strong> The elbow on training error says degree <strong>3</strong>; the cross-validated grid search in panel 07 also says degree <strong>3</strong>. That agreement is the reassuring case, and it is not a coincidence — the point where the training error stops improving is usually the point just before the model starts memorising noise.
+      </div>
+      <div class="callout orange">
+        ⚠️ <strong>The elbow depends on the axis you draw it on.</strong> Flip the demo to a linear axis and the bend appears to be at degree <strong>2</strong>: the drop from 3139 to 26 is so enormous that everything after it looks like a flat line at zero. On a log axis — the right choice when the values span four orders of magnitude — the same data bends at 3. Nothing about the model changed; only the picture did. Whenever an elbow decides something for you, say which scale you read it on.
+      </div>
+      <div class="callout blue">
+        🔎 <strong>When to reach for each.</strong> Use cross-validation whenever the metric can get worse — held-out error, accuracy, R². Use the elbow only when the metric is monotone by construction and there is nothing to maximise: K-Means inertia, training error, explained variance against the number of PCA components. The elbow is a judgement call dressed up as a rule, and it should be the second opinion, never the only one.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(7)">← Searching for degree</button>
+        <div class="pnav-dots" id="dots-8"></div>
+        <button class="pnav-btn next" onclick="goTo(9)">Saving the pipeline →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 9: saving the pipeline ══ -->
+    <div class="panel" id="panel-9">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1518186285589-2f7649de83e0?w=900&q=75&fit=crop&h=200" alt="Storage" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">TOPICS 2 · 09 / 10 · Shipping</div>
+          <div class="m-name">Saving the pipeline</div>
+          <div class="m-tagline">Save the scaler with the model, and the loaded file scales for you</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">joblib.dump(grid.best_estimator_, 'model.pkl')</span>
+        <span class="pill pill-ret">→ one file, scaler included</span>
+      </div>
+      <p class="m-desc">A fitted <code>MinMaxScaler</code> is not code — it is <em>data</em>: the min and max of every column, learned from your training set. Lose that data and the model is useless, because the numbers it was trained on no longer mean anything. Save the model alone and you have saved half of a working system.</p>
+      <p class="m-desc">Because a pipeline <em>is</em> a single estimator, <code>joblib.dump</code> puts both halves in one file. What comes back out takes raw, unscaled values — exactly the values your application actually has:</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — the same raw fruit, sent to both files. Really computed, both branches.</div>
+        <div class="demo-controls">
+          <button class="play-btn" onclick="replaySave()">▶ load both files and predict</button>
+        </div>
+        <div class="demo-out" id="out-save"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-save" height="330"></canvas></div>
+      </div>
+      <div class="code-wrap good-code">
+        <div class="code-header"><span class="code-lang">python — the notebook cell</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> joblib
+
+<span class="cm"># best_estimator_ is the whole pipeline, refitted on all the data</span>
+best_model = grid.best_estimator_
+
+joblib.<span class="fn">dump</span>(best_model, <span class="str">'knn_fruit_model.pkl'</span>)
+
+<span class="cm"># ---- somewhere else entirely: a service, a script, next week ----</span>
+
+loaded_model = joblib.<span class="fn">load</span>(<span class="str">'knn_fruit_model.pkl'</span>)
+
+<span class="cm"># IMPORTANT: raw values, NOT scaled values.</span>
+<span class="cm"># The scaler travelled inside the file and runs first.</span>
+new_fruit = <span class="lib">np</span>.<span class="fn">array</span>([[<span class="num">225</span>, <span class="num">7</span>, <span class="num">150</span>]])
+
+<span class="fn">print</span>(loaded_model.<span class="fn">predict</span>(new_fruit))   <span class="cm"># ['apple']</span></pre>
+      </div>
+      <div class="callout orange">
+        ⚠️ <strong>The failure this prevents is not hypothetical.</strong> Save only the <code>KNeighborsClassifier</code>, feed it the same raw row <code>[225, 7, 150]</code>, and it answers <strong>'orange'</strong> — confidently, with no error and no warning. The 18 rows it memorised were already scaled into [0, 1]; a raw row sits hundreds of units outside that cube, so the "nearest" stored point is simply whichever one has the largest coordinates — <code>[255, 10, 182]</code>, an orange. The model is not broken. The missing scaler is. A wrong answer that never raises is the most expensive kind of bug there is.
+      </div>
+      <div class="callout blue">
+        📦 <strong>joblib or pickle?</strong> <code>joblib</code> is the one sklearn recommends: same idea as <code>pickle</code>, but far more efficient with the large numpy arrays inside a fitted model. Both write a Python-specific format, and both have the same three caveats — <strong>never load a <code>.pkl</code> you did not create</strong> (loading executes code), the file is tied to the library versions that wrote it, so pin them, and it is not an archive format. For long-term storage or another language, export to ONNX or PMML instead.
+      </div>
+      <div class="callout green">
+        🎁 <strong>The pattern, end to end.</strong> <code>ColumnTransformer</code> or scaler → model, wrapped in a <code>Pipeline</code>; the pipeline handed to <code>GridSearchCV</code>; <code>best_estimator_</code> written out with <code>joblib.dump</code>; the service calls <code>joblib.load(...).predict(raw_row)</code> and knows nothing about scaling, encoding or degrees. Every panel in this deck is one link in that chain.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(8)">← The elbow for degree</button>
+        <div class="pnav-dots" id="dots-9"></div>
+        <button class="pnav-btn next" onclick="goTo(10)">Exercises →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 10: Exercises ══ -->
+    <div class="panel" id="panel-10">
+      <div class="exercise-header">
+        <div class="exercise-badge">✍</div>
+        <div>
+          <h2 style="font-size:1.4rem;margin-bottom:6px;">Exercises</h2>
+          <p style="font-size:.88rem;color:var(--muted);margin:0;">Paper first, then code. Every answer can be checked against a demo in this deck.</p>
+        </div>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q1</span><strong>Count the columns before you run it</strong></div>
+        <div class="ex-task">The notebook's frame has <code>job</code> with 3 distinct values and <code>city</code> with 3. How many columns does <code>X</code> have after <code>get_dummies</code>? How many with <code>drop_first=True</code>? Now add a row with <code>job='Nurse'</code> and answer both again.</div>
+        <details class="hint"><summary>▸ hint</summary><div class="ex-task" style="margin-top:8px">1 numeric + 3 + 3 = <strong>7</strong>, and 1 + 2 + 2 = <strong>5</strong> with <code>drop_first</code>. Adding a Nurse makes it 8 and 6. The point of the last part: the width of your feature matrix is decided by your <em>data</em>, not by your code — which is exactly the property that breaks at prediction time.</div></details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q2</span><strong>Break get_dummies on purpose</strong></div>
+        <div class="ex-task">Fit a <code>LinearRegression</code> on the dummy-encoded frame. Now build a one-row frame for a 31-year-old Teacher in <strong>Eilat</strong>, run <code>pd.get_dummies</code> on it, and call <code>predict</code>. Read the error message carefully. Then fix it with <code>ColumnTransformer</code> + <code>OneHotEncoder(handle_unknown='ignore')</code> and predict again.</div>
+        <details class="hint"><summary>▸ hint</summary><div class="ex-task" style="margin-top:8px">Fitted on the DataFrame you get <code>ValueError: The feature names should match those that were passed during fit</code> — <code>city_Eilat</code> unseen, five columns missing. Fit on <code>Xd.values</code> instead and the message is the count version: <code>X has 3 features, but LinearRegression is expecting 7 features as input</code>. The encoder version returns <code>13093.61</code>, with all three city columns set to 0. Try also <code>X_new.reindex(columns=X.columns, fill_value=0)</code> — it works, and it is exactly the bookkeeping the encoder does for you, which is the argument for letting it.</div></details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q3</span><strong>Prove the pipeline is doing the scaling</strong></div>
+        <div class="ex-task">Fit the fruit pipeline, then call <code>pipeline.named_steps['scaler'].data_min_</code> and <code>data_max_</code>. Scale <code>[225, 7, 150]</code> by hand with those numbers. Confirm your three values against <code>pipeline.named_steps['scaler'].transform([[225, 7, 150]])</code>.</div>
+        <details class="hint"><summary>▸ hint</summary><div class="ex-task" style="margin-top:8px">On the 18-fruit table, min = <code>[20, 6, 115]</code> and max = <code>[255, 14, 182]</code>, so the row becomes <code>(225−20)/235 = 0.872</code>, <code>(7−6)/8 = 0.125</code>, <code>(150−115)/67 = 0.522</code>. Those are the numbers the KNN step actually sees.</div></details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q4</span><strong>Count the fits</strong></div>
+        <div class="ex-task">For the SVM grid — 4 values of <code>C</code>, 4 of <code>gamma</code>, 4 kernels, <code>cv=3</code> — how many times is <code>SVC().fit</code> called? Check with <code>len(grid.cv_results_['params'])</code> and by passing <code>verbose=2</code>. Now add <code>'svm__degree': [2, 3, 4]</code> and answer again.</div>
+        <details class="hint"><summary>▸ hint</summary><div class="ex-task" style="margin-top:8px">64 combinations × 3 folds = 192, plus one final refit on all the data = <strong>193</strong>. Adding a fourth list triples it to 576 + 1. Grid search is multiplication, and that is the entire argument for <code>RandomizedSearchCV</code> once the dictionary gets wide.</div></details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q5</span><strong>Look past best_params_</strong></div>
+        <div class="ex-task">Run the SVM search, then <code>pd.DataFrame(grid.cv_results_)[['params', 'mean_test_score', 'rank_test_score']].sort_values('rank_test_score')</code>. How many combinations tie for first? Reverse the order of the <code>kernel</code> list and rerun — does <code>best_params_</code> change?</div>
+        <details class="hint"><summary>▸ hint</summary><div class="ex-task" style="margin-top:8px">54 of the 64 score exactly 1.0, and they all share <code>rank_test_score == 1</code>. <code>best_params_</code> is whichever of them sklearn met first, so reordering the lists moves it. The right conclusion is not "linear with C=0.1 is best" but "on this data the choice does not matter" — which you can only see in <code>cv_results_</code>.</div></details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q6</span><strong>Negate it once</strong></div>
+        <div class="ex-task">Run the degree search and print <code>grid.best_score_</code>, <code>-grid.best_score_</code> and <code>np.sqrt(-grid.best_score_)</code>. Which of the three would you put in a report, and what are its units? Then rerun with <code>scoring='r2'</code> — does the winning degree change?</div>
+        <details class="hint"><summary>▸ hint</summary><div class="ex-task" style="margin-top:8px"><code>-0.7154</code>, <code>0.7154</code>, <code>0.8458</code>. The last one is the RMSE: it is in the units of <code>y</code>, so "typically off by about 0.85" is a sentence a reader can act on. R² picks the same degree here — for a fixed dataset R² is a monotone transformation of MSE, so it ranks the models identically.</div></details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q7</span><strong>Two curves, one plot</strong></div>
+        <div class="ex-task">Plot training MSE and cross-validated MSE against degree on the same log axis. Mark the elbow of the training curve and the minimum of the CV curve. Where do the curves separate, and what is that gap called?</div>
+        <details class="hint"><summary>▸ hint</summary><div class="ex-task" style="margin-top:8px">They track each other to degree 3 (0.44 against 0.72) and then split violently: at degree 7 training error is 0.18 while CV error is 464. The growing gap <em>is</em> overfitting, drawn. Both markers land on 3.</div></details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">Q8</span><strong>Ship it, then break it</strong></div>
+        <div class="ex-task">Save the fruit pipeline with <code>joblib.dump</code>. In a <em>fresh</em> kernel, load it and predict <code>[[225, 7, 150]]</code>. Then save only <code>best_model.named_steps['knn']</code> to a second file, load that, predict the same raw row, and compare. Finally, feed the second model a correctly scaled row and check that it agrees again.</div>
+        <details class="hint"><summary>▸ hint</summary><div class="ex-task" style="margin-top:8px">The pipeline says <code>apple</code>; the bare KNN on raw values says <code>orange</code>; the bare KNN on <code>[0.872, 0.125, 0.522]</code> says <code>apple</code> again. The model was never broken — the missing scaler was. That is panel 09's demo, done in code.</div></details>
+      </div>
+
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(9)">← Saving the pipeline</button>
+        <div class="pnav-dots" id="dots-10"></div>
+        <button class="pnav-btn next" onclick="goTo(11)">Appendix A1 →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 11: A1 — notebook gotchas ══ -->
+    <div class="panel" id="panel-11">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1464802686167-b939a6910659?w=900&q=75&fit=crop&h=200" alt="Debugging" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">APPENDIX A1 · Debugging</div>
+          <div class="m-name">Notebook gotchas</div>
+          <div class="m-tagline">Three cells in the lesson notebook do not run — and each one teaches something</div>
+        </div>
+      </div>
+      <p class="m-desc">Run the notebook top to bottom and two cells stop with an exception. They are worth walking through, because each failure is a common one and the error messages are more helpful than they look.</p>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">1</span><strong><code>njobs=-1</code> — the missing underscore</strong></div>
+        <div class="ex-task">The SVM grid search passes <code>njobs=-1</code>. Python has no idea what that is:</div>
+        <div class="out-pre">TypeError: GridSearchCV.__init__() got an unexpected keyword argument 'njobs'</div>
+        <div class="ex-task" style="margin-top:10px">The parameter is <strong><code>n_jobs</code></strong>. sklearn separates words with underscores everywhere — <code>n_jobs</code>, <code>n_neighbors</code>, <code>n_estimators</code>, <code>random_state</code>. The good news is that sklearn validates its keyword arguments strictly, so a typo raises immediately rather than being silently ignored. <code>n_jobs=-1</code> means "use every core"; on 192 fits of a 24-row dataset it will not actually help much, because starting the worker processes costs more than the fits do.</div>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">2</span><strong><code>GridSearchCV</code> used but never imported</strong></div>
+        <div class="ex-task">The polynomial-degree cell imports <code>cross_val_score</code> at the top and then calls <code>GridSearchCV</code>:</div>
+        <div class="out-pre">NameError: name 'GridSearchCV' is not defined</div>
+        <div class="ex-task" style="margin-top:10px">Add <code>from sklearn.model_selection import GridSearchCV</code>. This one only bites when you run the notebook fresh — in a kernel that already ran the SVM cell, the name is still in memory and everything works. That difference between "works in my kernel" and "works from the top" is worth taking seriously: <strong>Kernel → Restart &amp; Run All</strong> before you share a notebook.</div>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">3</span><strong><code>degrees</code> and <code>errors</code> were never built</strong></div>
+        <div class="ex-task">The same cell finishes by plotting two lists it never created:</div>
+        <div class="out-pre">NameError: name 'degrees' is not defined</div>
+        <div class="ex-task" style="margin-top:10px">Once you switch from a hand-written loop to <code>GridSearchCV</code>, the per-degree errors live in <code>cv_results_</code> rather than in a list you appended to. Pull them back out:</div>
+        <div class="code-wrap" style="margin-top:12px">
+          <div class="code-header"><span class="code-lang">python — the two missing lines</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+          <pre>degrees = <span class="fn">list</span>(param_grid[<span class="str">'poly__degree'</span>])
+errors  = -grid.cv_results_[<span class="str">'mean_test_score'</span>]   <span class="cm"># note the minus</span></pre>
+        </div>
+      </div>
+
+      <div class="callout blue">
+        🔎 <strong>One more, which is not an error.</strong> The fruit cell in the middle of the notebook has <code>pipeline.fit(X, y)</code> commented out at the end. That is fine for reading a cross-validation score — <code>cross_val_score</code> clones the pipeline internally and never touches your object — but it means the <code>pipeline</code> variable is still unfitted afterwards. Call <code>fit</code> on all the data before you try to predict with it, or use <code>grid.best_estimator_</code>, which is already refitted.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(10)">← Exercises</button>
+        <div class="pnav-dots" id="dots-11"></div>
+        <button class="pnav-btn next" onclick="goTo(12)">Appendix A2 →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 12: A2 — naming in a param grid ══ -->
+    <div class="panel" id="panel-12">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1504639725590-34d0984388bd?w=900&q=75&fit=crop&h=200" alt="Labels" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">APPENDIX A2 · Reference</div>
+          <div class="m-name">Naming in a param grid</div>
+          <div class="m-tagline">Where the double underscore comes from, and what to type when you are nested</div>
+        </div>
+      </div>
+      <p class="m-desc">A grid search addresses a parameter by <strong>path</strong>: the name of the step, then a double underscore, then the parameter. The double underscore is a separator, not a convention you can vary — <code>svm_C</code> and <code>svm.C</code> are both errors.</p>
+      <div class="eq-box gold small" style="text-align:center;font-family:'Courier New',monospace;">
+        step name <code>+</code> <strong>__</strong> <code>+</code> parameter name
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue">you wrote</th><th class="blue">the key to use</th><th class="blue">why</th></tr></thead>
+        <tbody>
+          <tr class="show"><td><code>KNeighborsClassifier()</code> alone</td><td><code>'n_neighbors'</code></td><td>No pipeline, no prefix.</td></tr>
+          <tr class="show"><td><code>Pipeline([('knn', KNN())])</code></td><td><code>'knn__n_neighbors'</code></td><td>The name you chose for the step.</td></tr>
+          <tr class="show"><td><code>make_pipeline(MinMaxScaler(), KNN())</code></td><td><code>'kneighborsclassifier__n_neighbors'</code></td><td>Auto-named: the class name, lowercased.</td></tr>
+          <tr class="show"><td><code>Pipeline([('prep', ColumnTransformer([('cat', OneHotEncoder(), …)]))])</code></td><td><code>'prep__cat__handle_unknown'</code></td><td>Nesting chains: one <code>__</code> per level.</td></tr>
+          <tr class="show"><td>swapping the step itself</td><td><code>'scaler': [MinMaxScaler(), StandardScaler()]</code></td><td>A step name with no <code>__</code> replaces the whole step.</td></tr>
+        </tbody>
+      </table>
+      <div class="callout green">
+        🧭 <strong>When in doubt, ask the object.</strong> <code>pipeline.get_params().keys()</code> prints every legal key for that exact pipeline, nesting and all. It is faster than guessing, and it is the first thing to run when a search dies with <code>ValueError: Invalid parameter 'knn' for estimator Pipeline(...)</code>.
+      </div>
+      <p class="m-desc">Two shapes worth keeping, because they cover most of what you will ever need:</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — searching a step, and searching for the step</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="cm"># 1. a list of dicts: search different kernels with different parameters</span>
+param_grid = [
+    {<span class="str">'svm__kernel'</span>: [<span class="str">'linear'</span>], <span class="str">'svm__C'</span>: [<span class="num">0.1</span>, <span class="num">1</span>, <span class="num">10</span>]},
+    {<span class="str">'svm__kernel'</span>: [<span class="str">'rbf'</span>],    <span class="str">'svm__C'</span>: [<span class="num">0.1</span>, <span class="num">1</span>, <span class="num">10</span>],
+     <span class="str">'svm__gamma'</span>: [<span class="num">0.01</span>, <span class="num">0.1</span>, <span class="num">1</span>]}
+]
+<span class="cm"># 3 + 9 = 12 combinations instead of 3 x 3 x 3 = 27,</span>
+<span class="cm"># because gamma is meaningless for a linear kernel</span>
+
+<span class="cm"># 2. let the search choose the preprocessing as well</span>
+param_grid = {
+    <span class="str">'scaler'</span>: [<span class="cls">MinMaxScaler</span>(), <span class="cls">StandardScaler</span>(), <span class="str">'passthrough'</span>],
+    <span class="str">'knn__n_neighbors'</span>: [<span class="num">1</span>, <span class="num">3</span>, <span class="num">5</span>]
+}
+<span class="cm"># 'passthrough' means "skip this step entirely" — so the search</span>
+<span class="cm"># also answers the question "does scaling help at all here?"</span></pre>
+      </div>
+      <div class="callout purple">
+        ⏱ <strong>And when the grid gets too big.</strong> <code>RandomizedSearchCV</code> takes the same estimator and the same kind of dictionary, but samples <code>n_iter</code> combinations at random instead of trying all of them — and accepts distributions such as <code>scipy.stats.loguniform(1e-3, 1e3)</code> in place of lists. With more than a few hundred combinations it reliably finds something nearly as good in a fraction of the time, because most hyper-parameters do not matter and a random search does not waste its budget proving that one by one.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(11)">← Appendix A1</button>
+        <div class="pnav-dots" id="dots-12"></div>
+        <button class="pnav-btn next" onclick="goTo(0)">Back to Overview →</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="topics2.js"></script>
+</body>
+</html>
