@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 22 - PCA (Principal Component Analysis)</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      renderMathInElement(document.body, {
+        delimiters: [
+          { left: '$$', right: '$$', display: true },
+          { left: '\\(', right: '\\)', display: false }
+        ],
+        throwOnError: false
+      });
+    });
+  </script>
+  <style>
+    :root {
+      --bg: #f8fbff;
+      --surface: #ffffff;
+      --ink: #142033;
+      --muted: #52657d;
+      --blue: #2563eb;
+      --blue-dark: #143b73;
+      --cyan: #e7fbff;
+      --green: #0f9f6e;
+      --orange: #f97316;
+      --red: #dc2626;
+      --purple: #7c3aed;
+      --border: #bfd0ea;
+      --code-bg: #101a2c;
+      --code-text: #dceaff;
+      --soft-blue: #eef6ff;
+      --soft-green: #effbf5;
+      --soft-orange: #fff7ed;
+      --soft-red: #fef2f2;
+      --soft-purple: #f5f1ff;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Trebuchet MS", "Lucida Sans", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 10%, #e9f7ff 0%, transparent 34%),
+        radial-gradient(circle at 88% 18%, #effbf5 0%, transparent 32%),
+        linear-gradient(180deg, var(--bg) 0%, #ffffff 56%, #f1f8ff 100%);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    .wrap { max-width: 1140px; margin: 0 auto; padding: 28px 20px 60px; }
+    .layout { display: grid; grid-template-columns: 268px 1fr; gap: 22px; align-items: start; }
+
+    .side-nav {
+      position: sticky; top: 20px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 18px 14px;
+      box-shadow: 0 4px 16px rgba(37,99,235,.08);
+      max-height: calc(100vh - 40px); overflow-y: auto;
+    }
+    .side-title { font-size: .8rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--blue); margin: 0 0 10px; }
+    .part-label { display: block; padding: 8px 4px 4px; font-size: .7rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--green); }
+    .topic-link {
+      display: block; width: 100%; border: 1px solid transparent; border-radius: 9px;
+      padding: 7px 10px; background: transparent; color: var(--muted); cursor: pointer;
+      text-align: left; font: inherit; margin: 2px 0; transition: .16s ease;
+    }
+    .topic-link:hover { background: #f0f7ff; color: var(--blue-dark); border-color: var(--border); }
+    .topic-link.active { background: #e9f1ff; color: var(--blue-dark); border-color: var(--blue); font-weight: 700; }
+    .side-divider { border: none; border-top: 1px solid var(--border); margin: 12px 4px; }
+    .nav-back { display: block; padding: 7px 10px; color: var(--blue); font-weight: 700; text-decoration: none; font-size: .9rem; }
+    .nav-back:hover { text-decoration: underline; }
+
+    .hero {
+      background: linear-gradient(135deg, var(--surface) 0%, var(--soft-blue) 54%, var(--soft-green) 100%);
+      border: 1px solid var(--border); border-radius: 16px; padding: 28px;
+      box-shadow: 0 12px 30px rgba(37,99,235,.12); margin-bottom: 22px;
+    }
+    .tag { display: inline-block; padding: 5px 12px; border-radius: 999px; background: #e7fbff; color: #0f766e; font-weight: 800; font-size: .82rem; border: 1px solid #99e6ef; }
+    h1 { margin: 14px 0 10px; color: var(--blue-dark); font-size: clamp(2rem, 5vw, 3.2rem); line-height: 1.05; }
+    .hero p { max-width: 830px; color: var(--muted); font-size: 1.06rem; }
+    .hero-chips { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .hero-chip { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: .78rem; font-weight: 700; background: rgba(20,184,166,.1); color: #0f766e; border: 1px solid rgba(20,184,166,.3); }
+
+    .card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      padding: 22px; margin-bottom: 16px; box-shadow: 0 7px 22px rgba(37,99,235,.08);
+    }
+    .topic-panel { display: none; }
+    .topic-panel.active { display: block; }
+    .step-title { margin: 0 0 12px; color: var(--blue-dark); font-size: 1.25rem; }
+
+    code { font-family: Consolas, "Courier New", monospace; }
+
+    .math-card {
+      border: 1px solid #b7c8e4; border-radius: 12px;
+      background: linear-gradient(135deg, #ffffff 0%, #f1f7ff 100%);
+      padding: 18px; margin: 18px 0; text-align: center;
+    }
+    .math-caption { color: var(--muted); margin: 8px 0 0; font-size: .95rem; }
+    .katex { color: var(--blue-dark); }
+    .katex-display { margin: 6px 0; overflow-x: auto; overflow-y: hidden; padding: 3px 0; }
+    .data-table .katex, .math-caption .katex, p .katex { font-size: 1em; }
+
+    .resource-link { display: inline-block; color: var(--blue-dark); font-weight: 800; text-decoration: none; border-bottom: 2px solid rgba(37,99,235,.35); }
+    .resource-link:hover { color: var(--blue); border-bottom-color: var(--blue); }
+    .resource-links { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 4px; }
+
+    .code {
+      background: var(--code-bg); color: var(--code-text); border-radius: 10px;
+      border: 1px solid #304563; padding: 16px 18px; overflow-x: auto; margin: 12px 0;
+      font-size: .95rem; line-height: 1.5; white-space: pre;
+    }
+    .output {
+      background: #f7fbff; color: #1a2d49; border: 1px solid var(--border);
+      border-left: 5px solid var(--blue); border-radius: 10px; padding: 12px 14px;
+      overflow-x: auto; margin: 8px 0 16px; font-family: Consolas, "Courier New", monospace; white-space: pre-wrap;
+      /* the widest output here is the 76-character components_ array; at this
+         size it fits the column, so pre-wrap never has to break a row in half */
+      font-size: .82rem; line-height: 1.5;
+    }
+    .output.warn { border-left-color: var(--red); background: var(--soft-red); }
+    .out-label { display: block; font-family: "Trebuchet MS", sans-serif; font-size: .72rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+
+    .note { background: var(--soft-orange); border: 1px solid #fed7aa; border-left: 5px solid var(--orange); border-radius: 10px; padding: 12px 14px; margin: 12px 0; }
+    .note.blue { background: var(--soft-blue); border-color: #bcd4f6; border-left-color: var(--blue); }
+    .note.red { background: var(--soft-red); border-color: #fecaca; border-left-color: var(--red); }
+    .note.green { background: var(--soft-green); border-color: #b6ebd4; border-left-color: var(--green); }
+    .note.purple { background: var(--soft-purple); border-color: #ddd0fb; border-left-color: var(--purple); }
+
+    .shots { display: grid; gap: 14px; margin: 16px 0; }
+    .shots.two  { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .shots.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .shot { margin: 0; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: #fbfdff; }
+    .shot img { display: block; width: 100%; height: auto; }
+    .shot figcaption { padding: 8px 10px; font-size: .8rem; color: var(--muted); background: var(--surface); border-top: 1px solid var(--border); }
+    .shot figcaption strong { color: var(--blue-dark); }
+    @media (max-width: 900px) { .shots.four { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+    .task-box { border: 1px solid var(--border); border-left: 5px solid var(--blue); border-radius: 10px; padding: 14px 16px; margin: 12px 0; background: #fbfdff; }
+    .task-num { font-weight: 900; color: var(--blue); text-transform: uppercase; letter-spacing: .08em; font-size: .78rem; }
+
+    .data-table { width: 100%; border-collapse: collapse; margin: 16px 0; background: #fbfdff; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .data-table th { background: var(--soft-blue); color: var(--blue-dark); text-align: left; padding: 10px 14px; font-size: .9rem; border-bottom: 2px solid var(--border); }
+    .data-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); font-family: Consolas, "Courier New", monospace; }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table td.term { font-family: inherit; font-weight: 700; color: var(--blue-dark); }
+    .data-table tr.pick td { background: #fffbe8; }
+    .data-table tr.zero td { background: #f3f7ff; }
+
+    .ca { color: var(--green);  font-weight: 700; }
+    .cb { color: var(--orange); font-weight: 700; }
+
+    .steps-strip { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; margin: 16px 0; }
+    .stepbox { border: 1px solid var(--border); border-radius: 10px; padding: 14px; background: #fbfdff; }
+    .stepbox .n { display: block; font-size: .72rem; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; color: var(--blue); margin-bottom: 4px; }
+    .stepbox strong { color: var(--blue-dark); }
+
+    .term-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin: 16px 0; }
+    .term { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; background: #fbfdff; }
+    .term h5 { margin: 0 0 4px; font-size: .92rem; color: var(--blue-dark); }
+    .term p { margin: 0; font-size: .88rem; color: var(--muted); }
+
+    .footer { text-align: center; color: var(--muted); font-size: .9rem; margin-top: 18px; }
+    .task-list { margin: 6px 0 0; padding-left: 20px; }
+    .task-list li { margin: 4px 0; }
+
+    @media (max-width: 880px) {
+      .layout { grid-template-columns: 1fr; }
+      .side-nav { position: static; max-height: none; }
+      .wrap { padding: 18px 12px 44px; }
+      .steps-strip { grid-template-columns: 1fr; }
+    }
+    /* ── GitHub-dark Python syntax colours ── */
+    pre.code.py { color: #c9d1d9; }
+    pre.code.py .hl-com     { color: #8b949e; font-style: italic; }
+    pre.code.py .hl-kw      { color: #ff7b72; }
+    pre.code.py .hl-str     { color: #a5d6ff; }
+    pre.code.py .hl-num     { color: #79c0ff; }
+    pre.code.py .hl-fn      { color: #d2a8ff; }
+    pre.code.py .hl-builtin { color: #ffa657; }
+  </style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <div class="layout">
+    <aside class="side-nav">
+      <p class="side-title">Lesson 22</p>
+      <span class="part-label">Class Code</span>
+      <button class="topic-link active" data-target="topic-github">1. GitHub Repo</button>
+      <span class="part-label">The idea</span>
+      <button class="topic-link" data-target="topic-1">2. What PCA is for</button>
+      <button class="topic-link" data-target="topic-2">3. Variance</button>
+      <button class="topic-link" data-target="topic-3">4. Std and the n &minus; 1 version</button>
+      <button class="topic-link" data-target="topic-4">5. Principal components</button>
+      <span class="part-label">Using it</span>
+      <button class="topic-link" data-target="topic-5">6. Multiply - one number</button>
+      <button class="topic-link" data-target="topic-6">7. Explained variance</button>
+      <span class="part-label">The notebook</span>
+      <button class="topic-link" data-target="topic-7">8. The tumour table</button>
+      <button class="topic-link" data-target="topic-8">9. PCA in five lines</button>
+      <button class="topic-link" data-target="topic-9">10. Reading the output</button>
+      <button class="topic-link" data-target="topic-10">11. How many components?</button>
+      <button class="topic-link" data-target="topic-11">12. Scale first, and the exercise</button>
+      <hr class="side-divider">
+      <a class="nav-back" href="../21_lesson/index.html">Previous: Lesson 21</a>
+      <a class="nav-back" href="../../18_pca/index.html">Deck: PCA</a>
+      <a class="nav-back" href="../../17_kmean/index.html">Deck: K-Means Clustering</a>
+      <a class="nav-back" href="../../16_topics2/index.html">Deck: Pipelines &amp; Grid Search</a>
+      <a class="nav-back" href="../../index.html">Back to Python libs</a>
+    </aside>
+
+    <main>
+      <section class="hero">
+        <span class="tag">Lesson - August 26, 2026</span>
+        <h1>PCA - Principal Component Analysis</h1>
+        <p>Lesson 21 grouped the <em>rows</em> of a table. Today we shrank its <em>columns</em>: thirty measurements of a cell nucleus down to two, without deleting twenty-eight of them. <strong>PCA</strong> builds new columns, each one a weighted blend of all the old ones, chosen so the rows stay as spread out as they can. We started with <strong>variance</strong> - the only thing PCA optimises - worked it out by hand on five numbers, then met the one operation you actually perform with a component: <strong>multiply a row by it and get a single number</strong>. Then <code>explained_variance_ratio_</code>, and the curve that tells you how many components to keep. This page is the notebook, cell by cell, with the real outputs.</p>
+        <div class="hero-chips">
+          <span class="hero-chip">PCA</span>
+          <span class="hero-chip">unsupervised</span>
+          <span class="hero-chip">variance</span>
+          <span class="hero-chip">standard deviation</span>
+          <span class="hero-chip">projection</span>
+          <span class="hero-chip">components_</span>
+          <span class="hero-chip">explained_variance_ratio_</span>
+          <span class="hero-chip">fit_transform</span>
+          <span class="hero-chip">n_components</span>
+          <span class="hero-chip">StandardScaler</span>
+          <span class="hero-chip">cumulative variance</span>
+        </div>
+      </section>
+
+      <!-- ═══ 1. GITHUB ═══ -->
+      <section class="card topic-panel active" id="topic-github">
+        <h2 class="step-title">Open Class Code</h2>
+        <p>One notebook today. Open it from the repository for August 26, 2026:</p>
+        <div class="resource-links">
+          <a class="resource-link" href="https://github.com/pythonai211225-rgb/26.08.2026" target="_blank" rel="noopener">pythonai211225-rgb/26.08.2026</a>
+        </div>
+        <table class="data-table">
+          <thead><tr><th>notebook</th><th>what it covers</th></tr></thead>
+          <tbody>
+            <tr><td>PCA.ipynb</td><td class="term">The theory in markdown slides, then PCA on a 569 &times; 30 tumour table</td></tr>
+            <tr><td>tumor_data_features.csv</td><td class="term">The data - 569 tumours, 30 numeric measurements, no label column</td></tr>
+          </tbody>
+        </table>
+        <div class="note purple">
+          <strong>Two unsupervised models in two lessons.</strong> K-Means and PCA both work without a <code>y</code>, both usually follow a <code>StandardScaler</code>, and both make you choose a number up front. They do opposite things to the table: K-Means cuts the <strong>rows</strong> into groups and leaves the columns alone; PCA rebuilds the <strong>columns</strong> and leaves every row in place.
+        </div>
+        <p>The imports at the top are the familiar block from previous lessons:</p>
+        <pre class="code py"><code>import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from IPython.display import display
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import accuracy_score, confusion_matrix
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report</code></pre>
+        <p>And the one line that is new today:</p>
+        <pre class="code py"><code>from sklearn.decomposition import PCA</code></pre>
+        <div class="note blue">
+          <code>PCA</code> lives in <code>sklearn.decomposition</code> - a module of models that take a table apart into simpler pieces. Note what it is <em>not</em> next to: it is not in <code>sklearn.cluster</code> with <code>KMeans</code>, and not in <code>sklearn.feature_selection</code> with <code>SelectKBest</code>. PCA neither groups rows nor picks columns; it builds new ones.
+        </div>
+      </section>
+
+      <!-- ═══ 2. WHAT PCA IS FOR ═══ -->
+      <section class="card topic-panel" id="topic-1">
+        <h2 class="step-title">What PCA is for</h2>
+        <p><strong>PCA</strong> is a method for <strong>dimensionality reduction</strong> - turning a table with many features into a table with fewer, while losing as little as possible. It does this by creating a <strong>new axis</strong> which is a blend of the original features. That axis is called a <strong>principal component</strong>, and it is chosen to preserve as much of the <strong>variance</strong> in the data as it can.</p>
+        <div class="steps-strip">
+          <div class="stepbox"><span class="n">Problem 1</span><strong>You cannot see it</strong><br>A scatter plot has two axes. Thirty columns give 435 possible pairs and no single picture of the whole shape.</div>
+          <div class="stepbox"><span class="n">Problem 2</span><strong>It is slow</strong><br>Distance-based models do work proportional to the number of columns, on every row, every time.</div>
+          <div class="stepbox"><span class="n">Problem 3</span><strong>It overfits</strong><br>More columns means more room for a model to memorise noise instead of learning the pattern.</div>
+        </div>
+        <p>And the reason PCA can help at all: <strong>the columns repeat each other</strong>. In today's table <code>mean radius</code>, <code>mean perimeter</code> and <code>mean area</code> are three ways of measuring how big the nucleus is. They rise and fall together. Three columns carrying roughly one fact - and PCA folds them into one.</p>
+        <div class="note orange">
+          🙈 <strong>PCA is unsupervised.</strong> There are no labels, so there is no way to know which feature is the important one - which is exactly why PCA can compress the features <em>without being told what matters</em>. The goal is to project the data into a space with fewer dimensions while keeping as much information (variance) as possible.
+        </div>
+        <div class="note blue">
+          ⚠️ <strong>PCA does not choose among your columns - it makes new ones.</strong> Deleting columns is <em>feature selection</em>, and whatever you delete is gone. PCA keeps a share of every original column in each new one. Nothing is thrown away; it is compressed. The price is that the new columns have no names and no units.
+        </div>
+      </section>
+
+      <!-- ═══ 3. VARIANCE ═══ -->
+      <section class="card topic-panel" id="topic-2">
+        <h2 class="step-title">Variance - how spread out the numbers are</h2>
+        <p>Everything PCA does rests on one measurement, so the notebook stops and builds it from scratch. Here are three columns of ten numbers. They have the <strong>same average</strong> and differ only in how far the values sit from it:</p>
+        <figure class="shot" style="max-width:640px;margin:16px auto">
+          <img src="spread.png" alt="Three horizontal rows of ten dots each, all centred on the same dashed mean line: the top row tightly bunched, the middle row moderately spread, the bottom row widely scattered." loading="lazy">
+          <figcaption><strong>Variance</strong> is the single number that tells these three rows apart.</figcaption>
+        </figure>
+        <p>Now the formula, which says exactly what you just looked at:</p>
+        <div class="math-card">
+          $$ s^2 = \frac{\sum (x - \bar{x})^2}{n} $$
+          <p class="math-caption">Distance from the mean, squared, added up, divided by how many there were.</p>
+        </div>
+        <p>The squaring is the part worth pausing on: it makes a value 4 <em>below</em> the mean count the same as one 4 <em>above</em>. Without it the deviations would always cancel to zero.</p>
+        <h3 style="font-size:1.02rem;color:var(--blue-dark);margin:22px 0 6px">The notebook's worked example</h3>
+        <p>Take <code>X = [2, 4, 6, 8, 10]</code>. The mean is \(\bar{X} = (2+4+6+8+10)/5 = 6\).</p>
+        <table class="data-table">
+          <thead><tr><th>x</th><th>x &minus; x&#772;</th><th>(x &minus; x&#772;)&sup2;</th></tr></thead>
+          <tbody>
+            <tr><td>2</td><td>2 &minus; 6 = &minus;4</td><td class="ca">16</td></tr>
+            <tr><td>4</td><td>4 &minus; 6 = &minus;2</td><td class="ca">4</td></tr>
+            <tr><td>6</td><td>6 &minus; 6 = 0</td><td class="ca">0</td></tr>
+            <tr><td>8</td><td>8 &minus; 6 = 2</td><td class="ca">4</td></tr>
+            <tr><td>10</td><td>10 &minus; 6 = 4</td><td class="ca">16</td></tr>
+            <tr class="pick"><td class="term">sum</td><td>0 - always</td><td class="ca"><strong>16 + 4 + 0 + 4 + 16 = 40</strong></td></tr>
+          </tbody>
+        </table>
+        <div class="math-card">
+          $$ \text{Variance} = \frac{40}{5} = 8 $$
+          <p class="math-caption">Five values, sum of squared deviations 40, so the variance is 8.</p>
+        </div>
+        <div class="note green">
+          🎯 <strong>Why PCA cares.</strong> Variance is PCA's stand-in for <em>information</em>. A column where every row has almost the same value tells you nothing about which row is which; a column where the rows are spread far apart separates them. So &quot;keep as much variance as possible&quot; is PCA's way of saying &quot;keep as much of what distinguishes the rows as possible&quot;.
+        </div>
+      </section>
+
+      <!-- ═══ 4. STD AND N-1 ═══ -->
+      <section class="card topic-panel" id="topic-3">
+        <h2 class="step-title">Standard deviation, and the n &minus; 1 version</h2>
+        <p>The <strong>standard deviation</strong> is simply the square root of the variance:</p>
+        <div class="math-card">
+          $$ Std = \sqrt{Variance} = \sqrt{8} \approx 2.83 $$
+          <p class="math-caption">Same information, readable units.</p>
+        </div>
+        <table class="data-table">
+          <thead><tr><th>measure</th><th>units</th><th>what it is good for</th></tr></thead>
+          <tbody>
+            <tr><td class="term">variance</td><td>the square of the data's units</td><td>It <strong>adds up</strong>. The variance of several columns together is the sum of theirs - which is why PCA is stated in variance.</td></tr>
+            <tr><td class="term">standard deviation</td><td>the same units as the data</td><td>Reporting. &quot;2.83 marks&quot; means something to a human; &quot;8 marks squared&quot; does not.</td></tr>
+          </tbody>
+        </table>
+        <h3 style="font-size:1.02rem;color:var(--blue-dark);margin:22px 0 6px">The second example - and where n &minus; 1 comes in</h3>
+        <p>The notebook then measures ten people's weight. The values add to 700, so the mean is \(\bar{x} = 700/10 = 70\) kg. Squaring each deviation:</p>
+        <table class="data-table">
+          <thead><tr><th>person</th><th>weight</th><th>(x &minus; 70)&sup2;</th><th>person</th><th>weight</th><th>(x &minus; 70)&sup2;</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>62.5</td><td class="ca">56.25</td><td>6</td><td>70.0</td><td class="ca">0.00</td></tr>
+            <tr><td>2</td><td>64.0</td><td class="ca">36.00</td><td>7</td><td>72.5</td><td class="ca">6.25</td></tr>
+            <tr><td>3</td><td>66.0</td><td class="ca">16.00</td><td>8</td><td>74.0</td><td class="ca">16.00</td></tr>
+            <tr><td>4</td><td>67.5</td><td class="ca">6.25</td><td>9</td><td>76.0</td><td class="ca">36.00</td></tr>
+            <tr><td>5</td><td>70.0</td><td class="ca">0.00</td><td>10</td><td>77.5</td><td class="ca">56.25</td></tr>
+            <tr class="pick"><td class="term" colspan="5">sum of all ten squares</td><td class="ca"><strong>229</strong></td></tr>
+          </tbody>
+        </table>
+        <div class="math-card">
+          $$ s^2 = \frac{229}{n-1} = \frac{229}{9} \approx 25.44 $$
+          <p class="math-caption">Divided by 9, not by 10.</p>
+        </div>
+        <div class="note blue">
+          ➗ <strong>n or n &minus; 1?</strong> Dividing by <code>n</code> gives the variance of the numbers <strong>you have</strong>. Dividing by <code>n − 1</code> estimates the variance of the wider <strong>population</strong> they were sampled from, and is the default in <code>pandas.var()</code>, <code>np.var(ddof=1)</code> and inside scikit-learn. Here it is the difference between 22.9 and 25.44 - about 11%, because ten rows is a small sample. On the 569 rows of today's table the difference is under a fifth of a percent, which is why nobody mentions it again.
+        </div>
+        <div class="note orange">
+          🧪 <strong>Watch out for this one in a notebook.</strong> <code>np.var(x)</code> divides by <code>n</code>; <code>pd.Series(x).var()</code> divides by <code>n − 1</code>. Same data, two different answers, and neither is wrong. If a hand calculation disagrees with pandas by a few percent on a small array, this is almost always why.
+        </div>
+      </section>
+
+      <!-- ═══ 5. PRINCIPAL COMPONENTS ═══ -->
+      <section class="card topic-panel" id="topic-4">
+        <h2 class="step-title">Principal components - new axes through the cloud</h2>
+        <p>A principal component is not a column of the table and not a row of it. It is a <strong>direction</strong> - an arrow through the data, written as one weight per original feature. The components are new axes, each a blend of the original features, and each holding as much variance as it can.</p>
+        <figure class="shot" style="max-width:640px;margin:16px auto">
+          <img src="pc_directions.png" alt="A scatter of correlated points with two arrows through the middle: a long red PC1 arrow along the diagonal the cloud is stretched along, and a shorter green PC2 arrow at right angles to it." loading="lazy">
+          <figcaption><strong>PC1</strong> runs along the cloud's longest direction; <strong>PC2</strong> is perpendicular and picks up what is left.</figcaption>
+        </figure>
+        <div class="term-grid">
+          <div class="term"><h5>PC1</h5><p>A vector pointing in the direction of the <strong>greatest variance</strong> in the data. No direction is more spread out than this one.</p></div>
+          <div class="term"><h5>PC2</h5><p>A vector <strong>orthogonal</strong> to PC1 that explains the remaining variance - the most spread out of everything left over.</p></div>
+          <div class="term"><h5>All of them</h5><p>Every principal component is orthogonal to every other. They form a complete new set of axes for the same space.</p></div>
+          <div class="term"><h5>Length 1</h5><p>All components are <strong>normalised</strong> - their weights squared add up to 1. A component is a direction, not a distance.</p></div>
+        </div>
+        <div class="note green">
+          📐 <strong>Yes, they are vectors.</strong> Every PC is a vector, and that is what makes the next topic possible: you can multiply a row by a vector. If PC1 is <code>[0.7, 0.7]</code>, that is a direction at 45&deg; - the diagonal - and it says the data is most spread out along that diagonal rather than along either axis on its own.
+        </div>
+        <div class="note purple">
+          🔧 <strong>How sklearn finds them - and why we skipped it.</strong> It builds the covariance matrix and takes its eigenvectors (equivalently, it runs an SVD). That is a linear-algebra topic in its own right, and <strong>you do not need it to use PCA</strong>: <code>fit</code> hands you the finished directions, and from there everything is one multiplication.
+        </div>
+      </section>
+
+      <!-- ═══ 6. PROJECTION ═══ -->
+      <section class="card topic-panel" id="topic-5">
+        <h2 class="step-title">Using a component - multiply, and get one number</h2>
+        <p>This is the whole of &quot;using PCA&quot;. You have a row of values and a component of weights. <strong>Multiply each value by its weight, add the products, and the row now has a single number.</strong> That number is the row's <strong>projected value</strong> on that component.</p>
+        <div class="math-card">
+          $$ \text{projection} = x_1 w_1 + x_2 w_2 + \dots + x_p w_p $$
+          <p class="math-caption">One row in, one number out.</p>
+        </div>
+        <h3 style="font-size:1.02rem;color:var(--blue-dark);margin:22px 0 6px">The notebook's example</h3>
+        <p>One student's marks in three subjects, and a component that weights maths hardest:</p>
+        <pre class="code py"><code># Obs1 = [math: 85, english: 90, sciene: 80]
+# PCA1 = [0.5, 0.3, 0.2]
+# what is the projected value?</code></pre>
+        <table class="data-table">
+          <thead><tr><th>feature</th><th>value</th><th>weight</th><th>product</th><th>running sum</th></tr></thead>
+          <tbody>
+            <tr><td class="term">math</td><td>85</td><td>&times; 0.5</td><td class="ca">42.5</td><td>42.5</td></tr>
+            <tr><td class="term">english</td><td>90</td><td>&times; 0.3</td><td class="ca">27.0</td><td>69.5</td></tr>
+            <tr><td class="term">science</td><td>80</td><td>&times; 0.2</td><td class="ca">16.0</td><td>85.5</td></tr>
+            <tr class="pick"><td class="term" colspan="4">projection onto PC1</td><td><strong>85.5</strong></td></tr>
+          </tbody>
+        </table>
+        <div class="math-card">
+          $$ 85 \times 0.5 + 90 \times 0.3 + 80 \times 0.2 = 85.5 $$
+          <p class="math-caption">Three numbers went in. One number came out - and that is the dimensionality reduction, for one row.</p>
+        </div>
+        <h3 style="font-size:1.02rem;color:var(--blue-dark);margin:22px 0 6px">The same thing in two dimensions</h3>
+        <p>The notebook then does it again with a point you can picture. If PC1 is the vector <code>[0.7, 0.7]</code>, the new direction runs at 45&deg; - the direction the data is most scattered along. Take the point <code>[90, 70]</code> and project it onto that direction:</p>
+        <div class="math-card">
+          $$ \text{projection} = [90, 70] \cdot [0.7, 0.7] = 90{\times}0.7 + 70{\times}0.7 = 63 + 49 = 112 $$
+          <p class="math-caption">The point keeps a single coordinate, 112, measured along the new PC1 axis.</p>
+        </div>
+        <div class="note green">
+          🔁 <strong>Want two columns instead of one? Do it twice.</strong> Multiply the same row by PC2 and you get a second number. <code>n_components=2</code> simply means sklearn hands you two weight vectors and runs both multiplications for every row. The row never changes - only how many directions you measure it along.
+        </div>
+        <div class="note blue">
+          🧾 <strong>What the number actually means.</strong> On scaled data, a projection is a signed distance along the component, measured from the middle of the cloud. Two rows with similar projections sit near each other along that direction. The <em>sign</em> is arbitrary and can flip between library versions - it is the gaps between rows that carry the information, not whether a value is positive.
+        </div>
+        <div class="note orange">
+          ⚠️ <strong>The one condition.</strong> The multiplication only means what it should if the row was scaled by the same <code>StandardScaler</code> fitted before the PCA, and if the weights line up with the columns <strong>in the same order</strong>. Get either wrong and the arithmetic still runs and still gives you a number - just a meaningless one.
+        </div>
+      </section>
+
+      <!-- ═══ 7. EXPLAINED VARIANCE ═══ -->
+      <section class="card topic-panel" id="topic-6">
+        <h2 class="step-title">Explained variance</h2>
+        <p>Reducing 30 columns to 2 clearly loses something. <strong>Explained variance</strong> is the number that says how much. The notebook builds it on an example small enough to check by hand: ten people, measured two ways.</p>
+        <table class="data-table">
+          <thead><tr><th>variable</th><th>variance</th><th>standard deviation</th></tr></thead>
+          <tbody>
+            <tr><td class="term">height (cm)</td><td>100</td><td>about 10 cm</td></tr>
+            <tr><td class="term">weight (kg)</td><td>25</td><td>about 5 kg</td></tr>
+            <tr class="pick"><td class="term">total variance</td><td><strong>100 + 25 = 125</strong></td><td>variances add; standard deviations do not</td></tr>
+          </tbody>
+        </table>
+        <p>That 125 is the whole pot. The <strong>explained variance ratio</strong> of a component is its slice of it:</p>
+        <div class="math-card">
+          $$ \text{explained variance ratio}_i = \frac{\text{variance along component } i}{\text{total variance}} $$
+          <p class="math-caption">A component carrying 100 of the 125 would score 100/125 = 0.80 - it keeps 80% of what both columns had, in one column instead of two.</p>
+        </div>
+        <div class="note blue">
+          📊 <strong>The ratios always fall.</strong> PC1 takes the most variance available, PC2 takes the most of what remains - which is necessarily less - and so on. <code>explained_variance_ratio_</code> comes back in descending order every time. You never have to sort it, and component 7 can never beat component 6.
+        </div>
+        <div class="note orange">
+          🎯 <strong>&quot;Explained&quot; means spread, not truth.</strong> A high ratio says the component kept the geometry of the cloud. It does not promise the component predicts anything - PCA never saw a label. On today's data the two happen to coincide, but that is a property of this dataset, not a guarantee.
+        </div>
+      </section>
+
+      <!-- ═══ 8. THE DATA ═══ -->
+      <section class="card topic-panel" id="topic-7">
+        <h2 class="step-title">The tumour table</h2>
+        <p>With the theory done, the notebook loads the data:</p>
+        <pre class="code py"><code>df = pd.read_csv('tumor_data_features.csv')
+df</code></pre>
+        <div class="output"><span class="out-label">Output</span>     mean radius  mean texture  mean perimeter  mean area  mean smoothness  \
+0          17.99         10.38          122.80     1001.0          0.11840
+1          20.57         17.77          132.90     1326.0          0.08474
+2          19.69         21.25          130.00     1203.0          0.10960
+3          11.42         20.38           77.58      386.1          0.14250
+4          20.29         14.34          135.10     1297.0          0.10030
+..           ...           ...             ...        ...              ...
+564        21.56         22.39          142.00     1479.0          0.11100
+565        20.13         28.25          131.20     1261.0          0.09780
+566        16.60         28.08          108.30      858.1          0.08455
+567        20.60         29.33          140.10     1265.0          0.11780
+568         7.76         24.54           47.92      181.0          0.05263
+
+[569 rows x 30 columns]</div>
+        <p><strong>569 rows, 30 columns</strong>, every one of them numeric. Three things about this table are worth noticing before anything else touches it:</p>
+        <table class="data-table">
+          <thead><tr><th>observation</th><th>why it matters today</th></tr></thead>
+          <tbody>
+            <tr><td class="term">no label column</td><td>There is no <code>y</code> here at all. Nothing to predict, nothing to split off - PCA is unsupervised, and the table is exactly what it wants.</td></tr>
+            <tr><td class="term">the columns repeat</td><td><code>mean radius</code>, <code>mean perimeter</code> and <code>mean area</code> are three measurements of one thing. That redundancy is what PCA will compress.</td></tr>
+            <tr><td class="term">wildly different units</td><td><code>mean area</code> runs to 1479 while <code>mean smoothness</code> sits around 0.1. Variance is unit-dependent, so this <strong>must</strong> be scaled first - topic 12 shows what happens if it is not.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ═══ 9. PCA IN FIVE LINES ═══ -->
+      <section class="card topic-panel" id="topic-8">
+        <h2 class="step-title">PCA in five lines</h2>
+        <p>Here is the whole thing:</p>
+        <pre class="code py"><code>import pandas as pd
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+import matplotlib.pyplot as plt
+
+scaler      = StandardScaler()
+scaled_data = scaler.fit_transform(df)
+
+pca        = PCA(n_components=2)
+pca_result = pca.fit_transform(scaled_data)
+
+print(pca.components_)
+
+# Step 6: View the explained variance ratio
+print("Explained Variance Ratio:")
+print(pca.explained_variance_ratio_)</code></pre>
+        <table class="data-table">
+          <thead><tr><th>line</th><th>what it does</th></tr></thead>
+          <tbody>
+            <tr><td class="term">StandardScaler()</td><td>Every column to mean 0 and variance 1. Not optional here - see topic 12.</td></tr>
+            <tr><td class="term">PCA(n_components=2)</td><td>Asks for two components. Two because two is what you can put on a scatter plot.</td></tr>
+            <tr><td class="term">fit_transform</td><td><strong>fit</strong> finds the directions; <strong>transform</strong> multiplies every row by every direction. The multiplication from topic 6, 569 rows at a time.</td></tr>
+            <tr><td class="term">components_</td><td>The weights - the recipe. This is what you multiply a row by.</td></tr>
+            <tr><td class="term">explained_variance_ratio_</td><td>How much of the spread each component kept.</td></tr>
+          </tbody>
+        </table>
+        <p>The shapes at every step are the clearest summary of what happened:</p>
+        <table class="data-table">
+          <thead><tr><th>object</th><th>shape</th><th>one entry is</th></tr></thead>
+          <tbody>
+            <tr><td class="term">df</td><td>(569, 30)</td><td>one measurement of one tumour</td></tr>
+            <tr><td class="term">scaled_data</td><td>(569, 30)</td><td>the same, as a z-score - still 30 columns</td></tr>
+            <tr class="pick"><td class="term">pca.components_</td><td>(2, 30)</td><td>one <strong>weight</strong>: how much column <em>j</em> counts towards component <em>i</em></td></tr>
+            <tr><td class="term">pca_result</td><td>(569, 2)</td><td>one <strong>projection</strong>: row <em>i</em> multiplied by component <em>j</em></td></tr>
+          </tbody>
+        </table>
+        <div class="note orange">
+          🔀 <strong><code>components_</code> is the piece everybody misreads.</strong> It is <em>not</em> the reduced data. It has 30 columns and 2 rows - the reduced data has 2 columns and 569 rows. <code>components_</code> is the recipe; <code>pca_result</code> is the dish.
+        </div>
+      </section>
+
+      <!-- ═══ 10. READING THE OUTPUT ═══ -->
+      <section class="card topic-panel" id="topic-9">
+        <h2 class="step-title">Reading the output</h2>
+        <p><code>print(pca.components_)</code> gives two rows of thirty weights - PC1 on top, PC2 below:</p>
+        <div class="output"><span class="out-label">Output - pca.components_</span>[[ 0.21890244  0.10372458  0.22753729  0.22099499  0.14258969  0.23928535
+   0.25840048  0.26085376  0.13816696  0.06436335  0.20597878  0.01742803
+   0.21132592  0.20286964  0.01453145  0.17039345  0.15358979  0.1834174
+   0.04249842  0.10256832  0.22799663  0.10446933  0.23663968  0.22487053
+   0.12795256  0.21009588  0.22876753  0.25088597  0.12290456  0.13178394]
+ [-0.23385713 -0.05970609 -0.21518136 -0.23107671  0.18611302  0.15189161
+   0.06016536 -0.0347675   0.19034877  0.36657547 -0.10555215  0.08997968
+  -0.08945723 -0.15229263  0.20443045  0.2327159   0.19720728  0.13032156
+   0.183848    0.28009203 -0.21986638 -0.0454673  -0.19987843 -0.21935186
+   0.17230435  0.14359317  0.09796411 -0.00825724  0.14188335  0.27533947]</div>
+        <p>Read the top row: <strong>every weight is positive</strong>, and most sit between 0.1 and 0.26. So PC1 is roughly &quot;add up all thirty measurements, with a bit more emphasis on some&quot; - a row scoring high on PC1 is a nucleus that is large and irregular on most measures at once. PC2's row mixes signs, so it contrasts one group of measurements against another.</p>
+        <div class="output"><span class="out-label">Output - explained_variance_ratio_</span>Explained Variance Ratio:
+[0.44272026 0.18971182]</div>
+        <p>PC1 keeps <strong>44.3%</strong> of the total spread and PC2 another <strong>19.0%</strong>. Together, <strong>63.2%</strong> of everything the thirty columns held, in two columns. Where those percentages come from:</p>
+        <table class="data-table">
+          <thead><tr><th></th><th>variance along it</th><th>&divide; total</th><th>ratio</th></tr></thead>
+          <tbody>
+            <tr><td class="term">PC1</td><td>13.305</td><td>13.305 / 30.05</td><td class="ca">0.4427</td></tr>
+            <tr><td class="term">PC2</td><td>5.701</td><td>5.701 / 30.05</td><td class="ca">0.1897</td></tr>
+            <tr class="pick"><td class="term">both</td><td>19.006</td><td></td><td class="ca"><strong>0.6324</strong></td></tr>
+          </tbody>
+        </table>
+        <div class="note blue">
+          🧮 <strong>Why the total is 30.</strong> <code>StandardScaler</code> gives every column a variance of 1, and variances add - so 30 scaled columns hold 30 units of variance between them (30.05 with the <code>n − 1</code> divisor). That is what makes the ratios so easy to read here: PC1's 13.3 out of 30 is worth more than 13 average columns.
+        </div>
+        <div class="note green">
+          ✅ <strong>Check <code>transform</code> yourself.</strong> Take the first scaled row and PC1's thirty weights and run <code>np.dot(scaled_data[0], pca.components_[0])</code>. You get <code>9.1928</code> - exactly what <code>pca_result[0, 0]</code> holds. The first five terms alone are 0.240, &minus;0.215, 0.289, 0.218 and 0.224. <code>transform</code> really is nothing but the multiplication from topic 6.
+        </div>
+      </section>
+
+      <!-- ═══ 11. HOW MANY ═══ -->
+      <section class="card topic-panel" id="topic-10">
+        <h2 class="step-title">How many components?</h2>
+        <p>Two was a choice, not a law. The notebook makes the choice visible by fitting PCA thirty times - once for each possible number of components - and summing the ratios each time:</p>
+        <pre class="code py"><code># Step 7: Calculate explained variance for different number of components
+explained = []
+for i in range(1, 31):  # assuming there are 30 original features
+    pca = PCA(n_components=i)
+    pca.fit(scaled_data)
+    explained.append(sum(pca.explained_variance_ratio_))
+
+# Step 8: Line plot of explained variance vs number of components
+plt.plot(range(1, 31), explained, marker='o')
+plt.title('Explained Variance vs Number of Components')
+plt.xlabel('Number of Principal Components')
+plt.ylabel('Cumulative Explained Variance')
+plt.grid(True)
+plt.show()</code></pre>
+        <figure class="shot" style="max-width:560px;margin:16px auto">
+          <img src="cumulative_variance.png" alt="A line plot rising steeply from 0.44 at one component to about 0.95 by ten components, then flattening towards 1.0 across the remaining twenty." loading="lazy">
+          <figcaption>The figure the notebook produced - cumulative explained variance against the number of components.</figcaption>
+        </figure>
+        <p>The shape is the whole message. The first components are enormously productive; after that each new one adds a percent or less and the curve flattens into a wall.</p>
+        <table class="data-table">
+          <thead><tr><th>n_components</th><th>cumulative variance kept</th><th>the case for cutting here</th></tr></thead>
+          <tbody>
+            <tr><td class="term">1</td><td>44.3%</td><td>One column out of thirty, and it already holds nearly half the spread.</td></tr>
+            <tr class="pick"><td class="term">2</td><td>63.2%</td><td>The notebook's choice - because two is what you can plot.</td></tr>
+            <tr><td class="term">7</td><td>91.0%</td><td>The usual 90% rule of thumb, at under a quarter of the columns.</td></tr>
+            <tr><td class="term">10</td><td>95.2%</td><td>Two thirds of the table gone for a twentieth of the spread.</td></tr>
+            <tr><td class="term">17</td><td>99.1%</td><td>Past here you are storing rounding error.</td></tr>
+          </tbody>
+        </table>
+        <div class="note green">
+          ✂️ <strong>Two honest ways to cut, and one shortcut.</strong> Cut at a <strong>target</strong> - &quot;whatever it takes to reach 95%&quot;. Or cut at the <strong>elbow</strong>, the same bend you looked for in the K-Means inertia curve. The shortcut: <code>PCA(n_components=0.95)</code> - hand it a float below 1 and sklearn picks the count for you. On this data that returns 10.
+        </div>
+        <div class="note blue">
+          📈 <strong>Compare it with lesson 21's elbow.</strong> The inertia curve fell and you looked for a bend; this one rises and you look for a plateau. Same judgement in opposite directions - find where one more unit of complexity stops paying. Unlike the bank-customer inertia curve, this one has a genuinely sharp bend, because these thirty columns really are that redundant.
+        </div>
+        <div class="note orange">
+          🐢 <strong>That loop fits PCA thirty times when one would do.</strong> The ratios already come back in descending order, so <code>np.cumsum(PCA().fit(scaled_data).explained_variance_ratio_)</code> produces the identical curve from a single fit. On 569 rows nobody notices. On half a million rows it is the difference between a coffee break and a meeting.
+        </div>
+      </section>
+
+      <!-- ═══ 12. SCALE FIRST + EXERCISE ═══ -->
+      <section class="card topic-panel" id="topic-11">
+        <h2 class="step-title">Scale first - and what to try</h2>
+        <p>K-Means needed scaling because it measures distance. PCA needs it for a sharper reason: <strong>variance is the thing it maximises</strong>, and variance is measured in the square of a column's units. Change a column from centimetres to millimetres and its variance rises a hundredfold without one atom of new information.</p>
+        <p>In this table <code>worst area</code> has a raw variance of about <strong>323,600</strong> and <code>mean smoothness</code> about <strong>0.0002</strong>. Run PCA on that unscaled and the result is not in doubt:</p>
+        <table class="data-table">
+          <thead><tr><th></th><th>PCA(df) - unscaled</th><th>PCA(scaled_data)</th></tr></thead>
+          <tbody>
+            <tr><td class="term">explained_variance_ratio_</td><td class="cb">[0.982, 0.016]</td><td class="ca">[0.443, 0.190]</td></tr>
+            <tr><td class="term">PC1's biggest weights</td><td class="cb">worst area 0.852, mean area 0.517</td><td class="ca">spread over all 30, largest 0.261</td></tr>
+            <tr><td class="term">what PC1 actually is</td><td class="cb">the area column, with extra steps</td><td class="ca">a real summary of the whole nucleus</td></tr>
+          </tbody>
+        </table>
+        <div class="note red">
+          🎭 <strong>The trap is that the broken one looks better.</strong> 98.2% from a single component is a lovely number to report, and it is completely empty - it says only that areas are measured in big units. Whenever a first component explains almost everything, check the scaler before celebrating.
+        </div>
+        <div class="note blue">
+          ⚖️ <strong>StandardScaler, not MinMaxScaler.</strong> <code>StandardScaler</code> sets every column's variance to exactly 1, which is precisely what PCA needs. <code>MinMaxScaler</code> squeezes columns into 0&ndash;1 but leaves their variances unequal - one outlier and a column ends up squashed with almost no variance left.
+        </div>
+
+        <h3 style="font-size:1.02rem;color:var(--blue-dark);margin:26px 0 6px">What to try next</h3>
+        <div class="task-box">
+          <span class="task-num">Exercise</span>
+          <ol class="task-list">
+            <li>Project <code>[70, 60, 95]</code> onto <code>[0.5, 0.3, 0.2]</code> by hand. <em>(72.0)</em> Then onto <code>[-0.4, 0.8, -0.4]</code>. <em>(&minus;18.0)</em> What does each component seem to be measuring?</li>
+            <li>Reproduce the fit and confirm <code>components_.shape</code> is <code>(2, 30)</code> and the ratios are <code>[0.4427, 0.1897]</code>.</li>
+            <li>Check <code>transform</code> with <code>np.dot(scaled_data[0], pca.components_[0])</code> against <code>pca_result[0, 0]</code>.</li>
+            <li>Scatter <code>pca_result[:, 0]</code> against <code>pca_result[:, 1]</code> - the whole 30-column table in one picture.</li>
+            <li>Get the cumulative curve from <strong>one</strong> fit with <code>np.cumsum</code> instead of the 30-fit loop, and time both.</li>
+            <li>Break it: fit PCA on the unscaled <code>df</code>, print the ratio and the three largest weights in <code>components_[0]</code> with their column names, and explain the 98%.</li>
+            <li>Wrap it up: <code>Pipeline([('scaler', StandardScaler()), ('pca', PCA(n_components=0.95)), ('clf', LogisticRegression(max_iter=1000))])</code> and compare <code>cross_val_score</code> with and without the PCA step.</li>
+          </ol>
+        </div>
+        <div class="note purple">
+          🔒 <strong>Why that last one has to be a Pipeline.</strong> PCA <em>learns</em> from the data - the components are fitted, exactly like the scaler's means. Fit them on the whole table and every cross-validation fold has already seen its own test rows through the components, which quietly inflates the score. Inside a <code>Pipeline</code>, <code>cross_val_score</code> re-fits the scaler <strong>and</strong> the PCA on each training fold. That is the honest version.
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <div class="footer">Lesson 22 - August 26, 2026 - PCA (Principal Component Analysis)</div>
+</div>
+
+<script>
+  const links = document.querySelectorAll('.topic-link');
+  const panels = document.querySelectorAll('.topic-panel');
+
+  function showTopic(id) {
+    panels.forEach(panel => panel.classList.toggle('active', panel.id === id));
+    links.forEach(link => link.classList.toggle('active', link.dataset.target === id));
+  }
+
+  links.forEach(link => {
+    if (link.dataset.target) {
+      link.addEventListener('click', () => {
+        showTopic(link.dataset.target);
+        location.hash = link.dataset.target;
+      });
+    }
+  });
+
+  const hash = location.hash.replace('#', '');
+  if (hash && document.getElementById(hash)) {
+    showTopic(hash);
+    // Drop the fragment once we have used it. The panel is display:none while the
+    // browser first resolves the anchor, and Chrome retries that scroll after KaTeX
+    // reflows the page - which lands it hundreds of pixels down. No fragment, no retry.
+    history.replaceState(null, '', location.pathname + location.search);
+    window.scrollTo(0, 0);
+  }
+
+  /* ── minimal Python highlighter, GitHub-dark palette ──
+     single pass so a quote inside a comment (and vice versa) can't confuse it */
+  (function () {
+    const KEYWORDS = new Set(['and','as','assert','async','await','break','class','continue',
+      'def','del','elif','else','except','finally','for','from','global','if','import','in',
+      'is','lambda','nonlocal','not','or','pass','raise','return','try','while','with','yield',
+      'None','True','False']);
+    const BUILTINS = new Set(['print','len','range','sorted','reversed','sum','min','max','abs',
+      'round','int','float','str','bool','list','dict','set','tuple','enumerate','zip','map',
+      'filter','type','isinstance','open','input','any','all']);
+    const PREFIX = /^(f|r|b|u|rb|br|fr|rf)$/i;
+
+    const esc = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const isIdStart = c => /[A-Za-z_]/.test(c);
+    const isId      = c => /[A-Za-z0-9_]/.test(c);
+    const wrap = (cls, t) => '<span class="' + cls + '">' + esc(t) + '</span>';
+
+    /* index just past the closing quote of the string starting at `start` */
+    function scanString(src, start) {
+      const q = src[start], n = src.length;
+      if (src.slice(start, start + 3) === q + q + q) {
+        let j = start + 3;
+        while (j < n && src.slice(j, j + 3) !== q + q + q) j++;
+        return Math.min(n, j + 3);
+      }
+      let j = start + 1;
+      while (j < n && src[j] !== q && src[j] !== '\n') {
+        if (src[j] === '\\') j++;
+        j++;
+      }
+      return (j < n && src[j] === q) ? j + 1 : j;
+    }
+
+    function highlight(src) {
+      let out = '', i = 0;
+      const n = src.length;
+      while (i < n) {
+        const c = src[i];
+
+        if (c === '#') {                                  // comment to end of line
+          let j = i;
+          while (j < n && src[j] !== '\n') j++;
+          out += wrap('hl-com', src.slice(i, j));
+          i = j;
+          continue;
+        }
+
+        if (isIdStart(c)) {                               // word, or a prefixed string
+          let j = i;
+          while (j < n && isId(src[j])) j++;
+          const word = src.slice(i, j), nxt = src[j];
+          if ((nxt === '"' || nxt === "'") && PREFIX.test(word)) {
+            const end = scanString(src, j);
+            out += wrap('hl-str', src.slice(i, end));
+            i = end;
+            continue;
+          }
+          let cls = null;
+          if (KEYWORDS.has(word)) cls = 'hl-kw';
+          else if (BUILTINS.has(word)) cls = 'hl-builtin';
+          else {
+            let k = j;
+            while (k < n && src[k] === ' ') k++;
+            if (src[k] === '(') cls = 'hl-fn';             // a call
+          }
+          out += cls ? wrap(cls, word) : esc(word);
+          i = j;
+          continue;
+        }
+
+        if (c === '"' || c === "'") {                     // plain string
+          const end = scanString(src, i);
+          out += wrap('hl-str', src.slice(i, end));
+          i = end;
+          continue;
+        }
+
+        if (/[0-9]/.test(c)) {                            // number
+          let j = i;
+          while (j < n && /[0-9._]/.test(src[j])) j++;
+          out += wrap('hl-num', src.slice(i, j));
+          i = j;
+          continue;
+        }
+
+        out += esc(c);
+        i++;
+      }
+      return out;
+    }
+
+    document.querySelectorAll('pre.code.py > code').forEach(el => {
+      if (el.dataset.hl) return;
+      el.innerHTML = highlight(el.textContent);
+      el.dataset.hl = '1';
+    });
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>K-Means Clustering</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded',function(){
+    renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'\\(',right:'\\)',display:false}],throwOnError:false});
+    if (window.fitMath) fitMath();
+  });</script>
+  <style>
+    .page-layout { display:flex; height:calc(100vh - 54px); overflow:hidden; }
+    .sidebar { width:238px; min-width:238px; height:100%; overflow-y:auto; background:#0a0e14; border-right:1px solid var(--border); display:flex; flex-direction:column; scrollbar-width:thin; scrollbar-color:var(--border) transparent; flex-shrink:0; }
+    .sidebar-head { padding:20px 18px 14px; font-size:.65rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--border); }
+    .sidebar-nav { padding:8px 0; flex:1; }
+    .s-item { display:flex; align-items:center; gap:11px; padding:10px 18px; cursor:pointer; background:none; border:none; border-left:3px solid transparent; width:100%; text-align:left; transition:background .18s,border-color .18s; }
+    .s-item:hover { background:rgba(255,255,255,.04); }
+    .s-item.active { background:rgba(250,204,21,.08); border-left-color:var(--accent); }
+    .s-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; transition:transform .2s; }
+    .s-item.active .s-dot { transform:scale(1.45); box-shadow:0 0 8px currentColor; }
+    .s-num { font-size:.62rem; color:var(--border); font-family:'Courier New',monospace; font-weight:700; min-width:18px; }
+    .s-item.active .s-num { color:var(--accent); }
+    .s-label { font-size:.79rem; color:var(--muted); font-family:'Courier New',monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .s-item.active .s-label { color:var(--text); }
+    .s-item.done .s-label::after { content:' ✓'; color:var(--green); font-size:.7rem; }
+    .side-sep { border:none; border-top:1px solid var(--border); margin:14px 16px 6px; }
+    .side-part { padding:2px 18px 6px; font-size:.6rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:var(--accent); font-family:'Courier New',monospace; }
+
+    .panel-viewport { flex:1; overflow-y:auto; overflow-x:hidden; position:relative; }
+    .panel { display:none; flex-direction:column; min-height:100%; padding:40px 52px 100px; max-width:830px; margin:0 auto; animation:fadeIn .35s ease; }
+    .panel.active { display:flex; }
+    @keyframes fadeIn { from{opacity:0;transform:translateX(28px)} to{opacity:1;transform:translateX(0)} }
+    .panel.exit { display:flex; animation:fadeOut .25s ease forwards; }
+    @keyframes fadeOut { from{opacity:1;transform:translateX(0)} to{opacity:0;transform:translateX(-28px)} }
+
+    .m-hero { position:relative; height:200px; border-radius:18px; overflow:hidden; margin-bottom:26px; flex-shrink:0; }
+    .m-hero img { width:100%; height:100%; object-fit:cover; filter:brightness(.5) saturate(.8); transition:filter .45s; }
+    .panel.active .m-hero img { filter:brightness(.6) saturate(1.1); }
+    .m-hero-ov { position:absolute; inset:0; padding:26px 30px; display:flex; flex-direction:column; justify-content:flex-end; background:linear-gradient(0deg,rgba(0,0,0,.78) 0%,rgba(0,0,0,.15) 55%,transparent 100%); }
+    .m-breadcrumb { font-size:.62rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:rgba(255,255,255,.4); margin-bottom:5px; }
+    .m-name { font-size:1.7rem; font-weight:900; color:#fff; font-family:'Courier New',monospace; }
+    .m-tagline { font-size:.86rem; color:rgba(255,255,255,.62); margin-top:4px; }
+
+    .pills { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 20px; align-items:center; }
+    .pill { padding:5px 14px; border-radius:999px; font-size:.7rem; font-weight:700; letter-spacing:.06em; }
+    .pill-sig { font-family:'Courier New',monospace; font-size:.74rem; letter-spacing:0; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.12); color:var(--text); }
+    .pill-ret { background:rgba(16,185,129,.1); border:1px solid rgba(16,185,129,.3); color:var(--green); font-family:'Courier New',monospace; letter-spacing:0; }
+    .pill-note { background:rgba(249,115,22,.1); border:1px solid rgba(249,115,22,.3); color:var(--orange); font-family:'Courier New',monospace; font-size:.7rem; }
+    .pill-param { position:relative; cursor:help; transition:filter .18s; }
+    .pill-param:hover { filter:brightness(1.3); }
+    .pill-param .balloon { position:absolute; bottom:calc(100% + 14px); left:50%; transform:translateX(-50%) translateY(6px); width:240px; background:linear-gradient(155deg,#0e2845 0%,#071a2e 100%); border:1.5px solid rgba(240,182,62,.65); border-radius:14px; padding:13px 16px 11px; box-shadow:0 0 0 1px rgba(240,182,62,.1),0 18px 48px rgba(0,0,0,.72),0 0 36px rgba(240,182,62,.07); opacity:0; pointer-events:none; transition:opacity .22s ease,transform .22s ease; z-index:300; }
+    .pill-param:hover .balloon { opacity:1; transform:translateX(-50%) translateY(0); animation:balloonFloat 3s ease-in-out infinite; }
+    @keyframes balloonFloat { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(-5px)} }
+    .balloon-title { font-family:'Courier New',monospace; font-size:.7rem; font-weight:800; color:#f0b63e; letter-spacing:.04em; margin-bottom:6px; display:flex; align-items:center; gap:6px; }
+    .balloon-title::before { content:''; display:inline-block; width:7px; height:7px; border-radius:50%; background:#f0b63e; box-shadow:0 0 6px rgba(240,182,62,.7); flex-shrink:0; }
+    .balloon-body { font-size:.76rem; color:rgba(230,237,243,.78); line-height:1.6; font-family:'Segoe UI',system-ui,sans-serif; font-weight:400; }
+    .pill-param .balloon::after { content:''; position:absolute; bottom:-10px; left:50%; transform:translateX(-50%); border-left:10px solid transparent; border-right:10px solid transparent; border-top:10px solid rgba(240,182,62,.65); }
+    .pill-param .balloon::before { content:''; position:absolute; bottom:-8px; left:50%; transform:translateX(-50%); border-left:9px solid transparent; border-right:9px solid transparent; border-top:9px solid #071a2e; z-index:1; }
+
+    .m-desc { font-size:.95rem; color:var(--muted); line-height:1.75; margin-bottom:14px; }
+    .m-desc code { font-family:'Courier New',monospace; font-size:.88em; padding:1px 6px; border-radius:4px; background:rgba(255,255,255,.06); }
+
+    .demo-box { background:#060a10; border:1px solid var(--border); border-radius:14px; padding:22px 22px 18px; margin-top:20px; flex-shrink:0; display:flex; flex-direction:column; }
+    .demo-lbl { font-size:.64rem; font-weight:800; letter-spacing:.13em; text-transform:uppercase; color:var(--muted); margin-bottom:18px; display:flex; align-items:center; gap:8px; }
+    .demo-lbl::before { content:''; width:3px; height:12px; border-radius:2px; background:var(--accent); flex-shrink:0; }
+    .demo-controls { display:flex; flex-wrap:wrap; gap:18px; align-items:flex-end; margin-bottom:18px; }
+    .ctrl { display:flex; flex-direction:column; gap:5px; }
+    .ctrl label { font-size:.69rem; color:var(--muted); font-weight:600; }
+    .ctrl input[type=range] { -webkit-appearance:none; width:180px; height:4px; background:var(--border); border-radius:2px; outline:none; cursor:pointer; }
+    .ctrl input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:15px; height:15px; background:var(--accent); border-radius:50%; cursor:pointer; box-shadow:0 0 6px rgba(250,204,21,.5); }
+    .ctrl input[type=range]::-moz-range-thumb { width:15px; height:15px; background:var(--accent); border:none; border-radius:50%; cursor:pointer; }
+    .ctrl .cval { font-size:.7rem; color:var(--accent); font-family:'Courier New',monospace; font-weight:700; text-align:center; }
+    .demo-canvas-wrap { background:#020509; border-radius:10px; padding:14px; overflow:hidden; min-height:72px; order:4; }
+    canvas { display:block; margin:0 auto; }
+    .demo-out { font-family:'Courier New',monospace; font-size:.8rem; color:#10b981; line-height:1.65; margin-top:0; margin-bottom:14px; padding:11px 15px; background:rgba(16,185,129,.05); border:1px solid rgba(16,185,129,.18); border-radius:8px; white-space:pre-wrap; order:3; }
+
+    .seg { display:inline-flex; border:1px solid var(--border); border-radius:9px; overflow:hidden; }
+    .seg button { background:transparent; border:none; color:var(--muted); font-size:.72rem; font-weight:700; font-family:'Courier New',monospace; padding:7px 13px; cursor:pointer; transition:background .18s,color .18s; }
+    .seg button:hover { color:var(--text); background:rgba(255,255,255,.05); }
+    .seg button.on { background:rgba(250,204,21,.14); color:var(--accent); }
+    .play-btn { background:rgba(16,185,129,.12); border:1px solid rgba(16,185,129,.4); color:var(--green); font-family:'Courier New',monospace; font-size:.74rem; font-weight:800; padding:8px 16px; border-radius:9px; cursor:pointer; transition:background .18s,transform .12s; }
+    .play-btn:hover { background:rgba(16,185,129,.22); }
+    .play-btn:active { transform:scale(.96); }
+
+    .panel-nav { display:flex; justify-content:space-between; align-items:center; margin-top:40px; padding-top:24px; border-top:1px solid var(--border); flex-shrink:0; gap:10px; }
+    .pnav-btn { display:flex; align-items:center; gap:9px; padding:10px 20px; border-radius:10px; border:1px solid var(--border); background:transparent; color:var(--muted); font-size:.82rem; font-weight:700; cursor:pointer; transition:color .2s,border-color .2s,background .2s; }
+    .pnav-btn:hover:not(:disabled) { color:var(--text); border-color:var(--accent); background:rgba(250,204,21,.06); }
+    .pnav-btn:disabled { opacity:.28; cursor:default; }
+    .pnav-btn.next { background:rgba(250,204,21,.08); border-color:rgba(250,204,21,.35); color:var(--accent); }
+    .pnav-btn.next:hover { background:rgba(250,204,21,.16); border-color:var(--accent); }
+    .pnav-dots { display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:center; }
+    .pnav-dot { width:7px; height:7px; border-radius:50%; background:var(--border); transition:background .2s,transform .2s; cursor:pointer; border:none; padding:0; }
+    .pnav-dot.active { background:var(--accent); transform:scale(1.4); }
+
+    .overview-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:14px; margin-top:24px; }
+    .ov-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px 16px 16px; cursor:pointer; transition:border-color .2s,box-shadow .2s,transform .18s; display:flex; flex-direction:column; gap:8px; }
+    .ov-card:hover { transform:translateY(-3px); border-color:rgba(250,204,21,.4); box-shadow:0 8px 28px rgba(250,204,21,.08); }
+    .ov-card-num { font-size:.62rem; color:var(--muted); font-weight:800; letter-spacing:.1em; }
+    .ov-card-name { font-size:.9rem; font-family:'Courier New',monospace; font-weight:700; }
+    .ov-card-desc { font-size:.77rem; color:var(--muted); line-height:1.5; }
+
+    @media(max-width:700px){.sidebar{display:none}.panel{padding:20px 16px 80px}}
+    .katex { color: var(--text); }
+    /* No horizontal scrollbars on formulas: fitMath() in tree.js shrinks anything
+       too wide to scale, so the overflow is clipped rather than scrolled. */
+    .katex-display { margin: 6px 0; overflow-x: hidden; overflow-y: hidden; padding: 3px 0; }
+    .katex-display > .katex { max-width: none; }
+    .eq-box { background:rgba(59,130,246,.05); border:1px solid rgba(59,130,246,.2); border-radius:12px; padding:16px 20px; margin:16px 0; font-size:1.05rem; }
+    .eq-box.big { font-size:1.32rem; padding:24px 20px; }
+    .eq-box.small { font-size:.95rem; padding:14px 18px; }
+    .eq-box.gold { background:rgba(250,204,21,.05); border-color:rgba(250,204,21,.22); }
+    .eq-box.green { background:rgba(16,185,129,.05); border-color:rgba(16,185,129,.22); }
+    .eq-box.rose { background:rgba(244,63,94,.05); border-color:rgba(244,63,94,.22); }
+
+    .exercise-header{display:flex;align-items:flex-start;gap:16px;margin-bottom:24px;padding:20px;background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.2);border-radius:14px;position:relative;overflow:hidden;}
+    .exercise-header::before{content:'';position:absolute;top:-40px;right:-40px;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,rgba(251,191,36,.1) 0%,transparent 70%);pointer-events:none;}
+    .exercise-badge{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;font-size:1.8rem;font-weight:800;color:#0d1a2e;background:linear-gradient(135deg,#fbbf24,#f59e0b);box-shadow:0 6px 18px rgba(251,191,36,.35);flex-shrink:0;}
+    .ex-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px 16px;margin-bottom:14px;transition:border-color .2s;}
+    .ex-card:hover{border-color:rgba(250,204,21,.3);}
+    .ex-q-head{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+    .ex-num{font-size:.68rem;font-weight:800;letter-spacing:.1em;padding:3px 10px;border-radius:6px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--muted);font-family:'Courier New',monospace;}
+    .ex-task{font-size:.88rem;color:var(--muted);margin-bottom:10px;line-height:1.6;}
+    .ex-task code{font-family:'Courier New',monospace;font-size:.85em;padding:1px 6px;border-radius:4px;background:rgba(255,255,255,.06);}
+    details.hint{margin-top:10px;}
+    details.hint summary{cursor:pointer;font-size:.78rem;color:var(--accent);font-weight:700;}
+
+    .legend { display:flex; flex-wrap:wrap; gap:16px; justify-content:center; margin-bottom:10px; }
+    .lg { display:flex; align-items:center; gap:7px; font-size:.72rem; font-family:'Courier New',monospace; color:var(--muted); font-weight:700; }
+    .lg i { width:11px; height:11px; border-radius:50%; display:inline-block; }
+    .lg.sq i { border-radius:3px; }
+    .lg.hollow i { background:none !important; border:2px solid #e6edf3; }
+    .lg.ln i { width:20px; height:0; border-top:2px solid var(--text); border-radius:0; }
+    .lg.dash i { width:20px; height:0; border-top:2px dashed var(--muted); border-radius:0; }
+
+    .steps { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; margin:20px 0 6px; }
+    .step { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px 16px 14px; position:relative; overflow:hidden; transition:transform .2s,border-color .2s; }
+    .step:hover { transform:translateY(-3px); }
+    .step::after { content:attr(data-n); position:absolute; right:10px; bottom:-14px; font-size:3.4rem; font-weight:900; font-family:'Courier New',monospace; color:rgba(255,255,255,.04); line-height:1; }
+    .step h4 { font-size:.86rem; margin-bottom:6px; font-family:'Courier New',monospace; }
+    .step p { font-size:.78rem; color:var(--muted); line-height:1.55; }
+    .step.a { border-color:rgba(59,130,246,.32); } .step.a h4 { color:var(--blue); }
+    .step.b { border-color:rgba(250,204,21,.32); } .step.b h4 { color:var(--accent); }
+    .step.c { border-color:rgba(16,185,129,.32); } .step.c h4 { color:var(--green); }
+    .step.d { border-color:rgba(236,72,153,.32); } .step.d h4 { color:var(--pink); }
+
+    .pc-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:18px 0; }
+    @media(max-width:640px){ .pc-grid{grid-template-columns:1fr} }
+    .pc { border-radius:14px; border:1px solid var(--border); padding:18px 20px 14px; }
+    .pc h4 { font-size:.9rem; margin-bottom:12px; font-family:'Courier New',monospace; display:flex; align-items:center; gap:8px; }
+    .pc ol { margin:0; padding-left:20px; }
+    .pc li { font-size:.82rem; color:var(--muted); line-height:1.6; margin-bottom:7px; }
+    .pc.good { border-color:rgba(16,185,129,.3); background:rgba(16,185,129,.04); } .pc.good h4 { color:var(--green); }
+    .pc.bad  { border-color:rgba(244,63,94,.3);  background:rgba(244,63,94,.04); }  .pc.bad h4  { color:#f43f5e; }
+
+    /* the little data table used all through the deck */
+    table.dt td.A { color:#10b981; font-weight:700; }
+    table.dt td.B { color:#f97316; font-weight:700; }
+    tr.win td { background:rgba(250,204,21,.09) !important; }
+
+    /* node-anatomy chips */
+    .term-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; margin:18px 0; }
+    .term { border:1px solid var(--border); border-radius:12px; padding:14px 16px 12px; background:var(--surface); }
+    .term h5 { font-family:'Courier New',monospace; font-size:.84rem; margin-bottom:5px; }
+    .term p { font-size:.78rem; color:var(--muted); line-height:1.55; }
+    .visual-pair { display:grid; grid-template-columns:1fr 1fr; gap:12px; width:100%; }
+    .visual-pane { min-width:0; background:#020509; border:1px solid rgba(255,255,255,.07); border-radius:12px; padding:12px; }
+    .visual-pane-title { display:flex; align-items:center; gap:8px; margin-bottom:9px; color:var(--muted); font:700 .66rem 'Courier New',monospace; letter-spacing:.08em; text-transform:uppercase; }
+    .visual-pane-title b { display:grid; place-items:center; width:20px; height:20px; border-radius:6px; background:rgba(250,204,21,.12); color:var(--accent); }
+    .tree-board { margin:18px 0; padding:18px; border:1px solid rgba(6,182,212,.24); border-radius:16px; background:radial-gradient(circle at 50% 0,rgba(6,182,212,.08),transparent 50%),#020509; }
+    .tree-board svg { display:block; width:100%; height:auto; min-height:390px; }
+    .tree-board .edge { stroke:rgba(230,237,243,.36); stroke-width:2; fill:none; }
+    .tree-board .subtree-halo { fill:rgba(250,204,21,.035); stroke:rgba(250,204,21,.55); stroke-width:1.5; stroke-dasharray:7 6; }
+    .tree-board .node-box { stroke-width:2; rx:10; }
+    .tree-board text { font-family:'Courier New',monospace; fill:#e6edf3; text-anchor:middle; }
+    .tree-board .node-main { font-size:13px; font-weight:800; }
+    .tree-board .node-sub { font-size:10px; fill:rgba(230,237,243,.62); }
+    .tree-board .edge-label { font-size:11px; font-weight:800; fill:#facc15; }
+    .tree-board .guide { stroke:rgba(6,182,212,.32); stroke-width:1; stroke-dasharray:4 5; }
+    .tree-board .guide-label { font-size:10px; font-weight:800; fill:#06b6d4; text-anchor:start; }
+    .diagram-caption { margin-top:10px; color:var(--muted); font-size:.78rem; line-height:1.55; text-align:center; }
+    .anatomy-key { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:14px 0 22px; }
+    .anatomy-key .term { padding:12px 13px 10px; }
+    .anatomy-key .term h5 { display:flex; align-items:center; gap:7px; }
+    .key-dot { width:9px; height:9px; border-radius:50%; flex:none; }
+    @media(max-width:720px){ .visual-pair{grid-template-columns:1fr}.anatomy-key{grid-template-columns:1fr 1fr}.tree-board{padding:8px}.tree-board svg{min-height:330px} }
+  </style>
+  <style>
+    .katex { color: var(--text); }
+    /* No horizontal scrollbars on formulas: fitMath() in kmean.js shrinks anything
+       too wide to scale, so the overflow is clipped rather than scrolled. */
+    .katex-display { margin: 6px 0; overflow-x: hidden; overflow-y: hidden; padding: 3px 0; }
+    .katex-display > .katex { max-width: none; }
+    .eq-box { background:rgba(59,130,246,.05); border:1px solid rgba(59,130,246,.2); border-radius:12px; padding:16px 20px; margin:16px 0; font-size:1.05rem; }
+    .eq-box.big { font-size:1.32rem; padding:24px 20px; }
+    .eq-box.small { font-size:.95rem; padding:14px 18px; }
+    .eq-box.gold { background:rgba(250,204,21,.05); border-color:rgba(250,204,21,.22); }
+    .eq-box.green { background:rgba(16,185,129,.05); border-color:rgba(16,185,129,.22); }
+    .eq-box.rose { background:rgba(244,63,94,.05); border-color:rgba(244,63,94,.22); }
+  </style>
+  <style>
+    /* ── deck-17 only ── */
+    .out-pre { background:#010409; border:1px solid var(--border); border-radius:8px; padding:12px 14px; margin-top:10px;
+               font-family:'Courier New',monospace; font-size:.78rem; color:#10b981; overflow-x:auto; line-height:1.6; }
+    .prm { display:grid; grid-template-columns:210px 1fr; gap:14px; padding:13px 0; border-bottom:1px solid var(--border); }
+    .prm:last-child { border-bottom:none; }
+    .prm code { font-size:.8rem; }
+    .prm p { font-size:.82rem; color:var(--muted); line-height:1.6; margin:0; }
+    @media(max-width:620px){ .prm{grid-template-columns:1fr;gap:6px} }
+    .bad-code { border-color:rgba(244,63,94,.4) !important; }
+    .bad-code .code-header { background:rgba(244,63,94,.08); border-color:rgba(244,63,94,.3); }
+    .good-code { border-color:rgba(16,185,129,.4) !important; }
+    .good-code .code-header { background:rgba(16,185,129,.08); border-color:rgba(16,185,129,.3); }
+
+    .verdict { display:grid; grid-template-columns:auto 1fr; gap:14px; align-items:start; margin:18px 0;
+               padding:18px 20px; border-radius:16px; border:1px solid rgba(16,185,129,.32); background:rgba(16,185,129,.05); }
+    .verdict .vmark { width:44px; height:44px; border-radius:12px; display:grid; place-items:center; font-size:1.4rem;
+                      background:linear-gradient(135deg,#10b981,#059669); color:#04140d; font-weight:900; }
+    .verdict h4 { font-size:.95rem; font-family:'Courier New',monospace; color:var(--green); margin-bottom:6px; }
+    .verdict p { font-size:.85rem; color:var(--muted); line-height:1.65; margin:0 0 8px; }
+    .verdict p:last-child { margin-bottom:0; }
+    .verdict.mixed { border-color:rgba(250,204,21,.32); background:rgba(250,204,21,.05); }
+    .verdict.mixed .vmark { background:linear-gradient(135deg,#facc15,#f59e0b); color:#20180a; }
+    .verdict.mixed h4 { color:var(--accent); }
+
+    /* the five algorithm steps, shown as a strip that lights up with the animation */
+    .algo-strip { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin:16px 0 4px; }
+    @media(max-width:720px){ .algo-strip{grid-template-columns:repeat(2,1fr)} }
+    .algo-step { border:1px solid var(--border); border-radius:11px; padding:11px 12px 9px; background:var(--surface);
+                 transition:border-color .25s, background .25s, transform .25s; }
+    .algo-step b { display:block; font-family:'Courier New',monospace; font-size:.74rem; color:var(--muted); margin-bottom:4px; transition:color .25s; }
+    .algo-step span { font-size:.7rem; color:var(--muted); line-height:1.45; }
+    .algo-step.on { border-color:rgba(250,204,21,.6); background:rgba(250,204,21,.07); transform:translateY(-2px); }
+    .algo-step.on b { color:var(--accent); }
+
+    /* cluster colour swatches used by the image-compression panel */
+    .pal { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+    .pal i { width:26px; height:26px; border-radius:6px; border:1px solid rgba(255,255,255,.18); display:inline-block; }
+    .imgpair { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    @media(max-width:620px){ .imgpair{grid-template-columns:1fr} }
+    .imgpair canvas { width:100%; height:auto; border-radius:8px; image-rendering:pixelated; }
+    .imgcap { text-align:center; font:700 .66rem 'Courier New',monospace; color:var(--muted); letter-spacing:.08em; text-transform:uppercase; margin-bottom:8px; }
+
+    table.dt tr.hl td { background:rgba(250,204,21,.09); }
+  </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">← Python Libs</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item" href="../16_topics2/index.html">← Topics 2 · Pipelines</a>
+    <a class="nav-item active" href="index.html">Deck 17 · K-Means</a>
+  </div>
+</nav>
+
+<div class="page-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-head">K-Means Clustering</div>
+    <nav class="sidebar-nav">
+      <button class="s-item active" data-panel="0" onclick="goTo(0)"><span class="s-num">00</span><span class="s-dot" style="background:#8b5cf6"></span><span class="s-label">Overview</span></button>
+      <div class="side-part">The idea</div>
+      <button class="s-item" data-panel="1" onclick="goTo(1)"><span class="s-num">01</span><span class="s-dot" style="background:#f43f5e"></span><span class="s-label">Unsupervised learning</span></button>
+      <button class="s-item" data-panel="2" onclick="goTo(2)"><span class="s-num">02</span><span class="s-dot" style="background:#facc15"></span><span class="s-label">The five steps</span></button>
+      <button class="s-item" data-panel="3" onclick="goTo(3)"><span class="s-num">03</span><span class="s-dot" style="background:#06b6d4"></span><span class="s-label">Assignment · distance</span></button>
+      <button class="s-item" data-panel="4" onclick="goTo(4)"><span class="s-num">04</span><span class="s-dot" style="background:#10b981"></span><span class="s-label">Update · the mean</span></button>
+      <div class="side-part">Choosing K</div>
+      <button class="s-item" data-panel="5" onclick="goTo(5)"><span class="s-num">05</span><span class="s-dot" style="background:#f97316"></span><span class="s-label">WCSS / inertia</span></button>
+      <button class="s-item" data-panel="6" onclick="goTo(6)"><span class="s-num">06</span><span class="s-dot" style="background:#ec4899"></span><span class="s-label">Increasing K</span></button>
+      <button class="s-item" data-panel="7" onclick="goTo(7)"><span class="s-num">07</span><span class="s-dot" style="background:#3b82f6"></span><span class="s-label">The elbow method</span></button>
+      <div class="side-part">Making it work</div>
+      <button class="s-item" data-panel="8" onclick="goTo(8)"><span class="s-num">08</span><span class="s-dot" style="background:#a855f7"></span><span class="s-label">Scale first</span></button>
+      <button class="s-item" data-panel="9" onclick="goTo(9)"><span class="s-num">09</span><span class="s-dot" style="background:#22c55e"></span><span class="s-label">random_state &amp; n_init</span></button>
+      <button class="s-item" data-panel="10" onclick="goTo(10)"><span class="s-num">10</span><span class="s-dot" style="background:#06b6d4"></span><span class="s-label">Reading the clusters</span></button>
+      <button class="s-item" data-panel="11" onclick="goTo(11)"><span class="s-num">11</span><span class="s-dot" style="background:#f43f5e"></span><span class="s-label">Image compression</span></button>
+      <button class="s-item" data-panel="12" onclick="goTo(12)"><span class="s-num">12</span><span class="s-dot" style="background:#fbbf24"></span><span class="s-label">Exercises</span></button>
+      <hr class="side-sep">
+      <div class="side-part">Appendix</div>
+      <button class="s-item" data-panel="13" onclick="goTo(13)"><span class="s-num">A1</span><span class="s-dot" style="background:#8b5cf6"></span><span class="s-label">The KMeans object</span></button>
+      <button class="s-item" data-panel="14" onclick="goTo(14)"><span class="s-num">A2</span><span class="s-dot" style="background:#10b981"></span><span class="s-label">K-Means vs KNN</span></button>
+      <hr class="side-sep">
+      <a class="s-item" style="text-decoration:none" href="../16_topics2/index.html"><span class="s-num">←</span><span class="s-dot" style="background:#a855f7"></span><span class="s-label">Topics 2 · Pipelines</span></a>
+    </nav>
+  </aside>
+
+  <!-- PANEL VIEWPORT -->
+  <div class="panel-viewport" id="viewport">
+
+    <!-- ══ PANEL 0: Overview ══ -->
+    <div class="panel active" id="panel-0">
+      <div class="hero" style="margin-bottom:36px;">
+        <span class="topic-label"><span class="dot"></span>Unsupervised Learning · Clustering</span>
+        <h1>K-Means Clustering</h1>
+        <p>Every model up to now was handed the answers: a <code>y</code> column of labels, and a score that said how often it got them right. K-Means is the first model on this course that <strong>has no answers at all</strong>. It gets a table of numbers and one instruction — <em>split these rows into K groups so that each group is as tight as it can be</em> — and it works the rest out by moving K points around until they stop moving. Watch it run:</p>
+        <div class="demo-canvas-wrap" style="background:#020509;border-radius:12px;padding:14px;position:relative;z-index:1;"><canvas id="cv-overview" height="360"></canvas></div>
+      </div>
+      <div class="overview-grid" style="margin-top:0;">
+        <div class="ov-card" onclick="goTo(1)"><div class="ov-card-num">01 / 12</div><div class="ov-card-name" style="color:#f43f5e">Unsupervised learning</div><div class="ov-card-desc">No y column, no accuracy — and no idea what the groups mean.</div></div>
+        <div class="ov-card" onclick="goTo(2)"><div class="ov-card-num">02 / 12</div><div class="ov-card-name" style="color:#facc15">The five steps</div><div class="ov-card-desc">Initialise, assign, update, reassign, repeat. Step through it.</div></div>
+        <div class="ov-card" onclick="goTo(3)"><div class="ov-card-num">03 / 12</div><div class="ov-card-name" style="color:#06b6d4">Assignment · distance</div><div class="ov-card-desc">Nearest centroid by Euclidean distance — and the regions it carves.</div></div>
+        <div class="ov-card" onclick="goTo(4)"><div class="ov-card-num">04 / 12</div><div class="ov-card-name" style="color:#10b981">Update · the mean</div><div class="ov-card-desc">Why the centre is an average, and why that is the "mean" in K-Means.</div></div>
+        <div class="ov-card" onclick="goTo(5)"><div class="ov-card-num">05 / 12</div><div class="ov-card-name" style="color:#f97316">WCSS / inertia</div><div class="ov-card-desc">The one number K-Means is actually minimising, drawn as real squares.</div></div>
+        <div class="ov-card" onclick="goTo(6)"><div class="ov-card-num">06 / 12</div><div class="ov-card-name" style="color:#ec4899">Increasing K</div><div class="ov-card-desc">WCSS always falls. At K = n it hits zero — and means nothing.</div></div>
+        <div class="ov-card" onclick="goTo(7)"><div class="ov-card-num">07 / 12</div><div class="ov-card-name" style="color:#3b82f6">The elbow method</div><div class="ov-card-desc">Find the bend where extra clusters stop buying anything.</div></div>
+        <div class="ov-card" onclick="goTo(8)"><div class="ov-card-num">08 / 12</div><div class="ov-card-name" style="color:#a855f7">Scale first</div><div class="ov-card-desc">K-Means is pure distance, so an unscaled column owns the result.</div></div>
+        <div class="ov-card" onclick="goTo(9)"><div class="ov-card-num">09 / 12</div><div class="ov-card-name" style="color:#22c55e">random_state &amp; n_init</div><div class="ov-card-desc">Bad starting points give bad clusters. n_init is the insurance.</div></div>
+        <div class="ov-card" onclick="goTo(10)"><div class="ov-card-num">10 / 12</div><div class="ov-card-name" style="color:#06b6d4">Reading the clusters</div><div class="ov-card-desc">groupby the cluster and give each group a human name.</div></div>
+        <div class="ov-card" onclick="goTo(11)"><div class="ov-card-num">11 / 12</div><div class="ov-card-name" style="color:#f43f5e">Image compression</div><div class="ov-card-desc">Every pixel is a row of 3 numbers. Cluster them and the file shrinks.</div></div>
+        <div class="ov-card" onclick="goTo(12)"><div class="ov-card-num">12 / 12</div><div class="ov-card-name" style="color:#fbbf24">Exercises</div><div class="ov-card-desc">Run it, elbow it, then break it on purpose.</div></div>
+        <div class="ov-card" onclick="goTo(13)"><div class="ov-card-num">APPENDIX A1</div><div class="ov-card-name" style="color:#8b5cf6">The KMeans object</div><div class="ov-card-desc">labels_, cluster_centers_, inertia_, n_init, predict.</div></div>
+        <div class="ov-card" onclick="goTo(14)"><div class="ov-card-num">APPENDIX A2</div><div class="ov-card-name" style="color:#10b981">K-Means vs KNN</div><div class="ov-card-desc">Same letter K, same distances, completely different job.</div></div>
+      </div>
+      <div class="callout green">
+        🧮 <strong>Every cluster on this page is really computed.</strong> The deck runs Lloyd's algorithm in your browser — the same loop scikit-learn runs — on the data you can see. The elbow curve in panel 07 is ten real fits, the inertia numbers are real sums of squared distances, and the image in panel 11 is quantised by a real K-Means over its own pixels.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" disabled>← Prev</button>
+        <div class="pnav-dots" id="dots-0"></div>
+        <button class="pnav-btn next" onclick="goTo(1)">Unsupervised learning →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 1: Unsupervised ══ -->
+    <div class="panel" id="panel-1">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=900&q=75&fit=crop&h=200" alt="Unlabelled data" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 17 · 01 / 12 · The idea</div>
+          <div class="m-name">Unsupervised learning</div>
+          <div class="m-tagline">Nobody tells the algorithm what the groups are — not even how many</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">KMeans(n_clusters=K).fit_predict(X)</span>
+        <span class="pill pill-ret">→ a cluster number per row</span>
+        <span class="pill pill-note">no y anywhere</span>
+      </div>
+      <p class="m-desc">Every model so far in this course was <strong>supervised</strong>: you handed it <code>X</code> <em>and</em> <code>y</code>, it learned the mapping between them, and <code>accuracy_score</code> told you how well. Clustering removes the second column entirely. There is no <code>y</code> to fit, nothing to be right about, and no <code>train_test_split</code> — the algorithm is not predicting anything, it is <strong>describing</strong> the shape of the data.</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — the same points, with and without the answer key</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>what the model is given</label>
+            <div class="seg" id="seg-sup">
+              <button class="on" onclick="setSup(0)">supervised · X + y</button>
+              <button onclick="setSup(1)">unsupervised · X only</button>
+              <button onclick="setSup(2)">what K-Means returns</button>
+            </div>
+          </div>
+        </div>
+        <div class="demo-out" id="out-sup"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-sup" height="330"></canvas></div>
+      </div>
+      <div class="callout orange">
+        🧠 <strong>The algorithm cannot tell you what a cluster means.</strong> It hands back <code>0</code>, <code>1</code>, <code>2</code> — nothing more. Whether cluster 2 is "young high-earners" or "customers who never answer the phone" is <strong>your</strong> job as the analyst, and you work it out by looking at the averages of each group afterwards (panel 10). The numbers themselves are arbitrary: re-run with a different seed and the same group may come back as cluster 0.
+      </div>
+      <div class="grid-2">
+        <div class="pc good">
+          <h4>✓ Supervised — what you have done so far</h4>
+          <ol>
+            <li>Input is <code>X</code> and <code>y</code>.</li>
+            <li>Success is measurable: accuracy, R², MSE.</li>
+            <li><code>train_test_split</code> keeps you honest.</li>
+            <li>Examples: KNN, decision tree, SVM, linear regression.</li>
+          </ol>
+        </div>
+        <div class="pc bad" style="border-color:rgba(139,92,246,.3);background:rgba(139,92,246,.04)">
+          <h4 style="color:#a855f7">◆ Unsupervised — from today</h4>
+          <ol>
+            <li>Input is <code>X</code> only.</li>
+            <li>No ground truth, so no accuracy — you judge it by <strong>inertia</strong> and by whether the groups make sense.</li>
+            <li>No split needed: nothing is being predicted.</li>
+            <li>Examples: K-Means, hierarchical clustering, DBSCAN, PCA.</li>
+          </ol>
+        </div>
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — the whole model, in four lines</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">from</span> sklearn.cluster <span class="kw">import</span> <span class="cls">KMeans</span>
+
+kmeans = <span class="cls">KMeans</span>(n_clusters=<span class="num">3</span>, random_state=<span class="num">42</span>, n_init=<span class="num">10</span>)
+labels = kmeans.<span class="fn">fit_predict</span>(X)      <span class="cm"># note: no y</span>
+
+df[<span class="str">'cluster'</span>] = labels           <span class="cm"># glue the answer back onto the frame</span></pre>
+      </div>
+      <div class="callout blue">
+        📌 <strong>Where the name comes from.</strong> <strong>K</strong> is how many groups you asked for — you choose it, the algorithm never does. <strong>Means</strong> is how each group's centre is computed: the plain arithmetic average of the rows currently in it. That is the entire algorithm in its own name.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(0)">← Overview</button>
+        <div class="pnav-dots" id="dots-1"></div>
+        <button class="pnav-btn next" onclick="goTo(2)">The five steps →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 2: The five steps ══ -->
+    <div class="panel" id="panel-2">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1509228468518-180dd4864904?w=900&q=75&fit=crop&h=200" alt="Iteration" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 17 · 02 / 12 · The idea</div>
+          <div class="m-name">The five steps</div>
+          <div class="m-tagline">Initialise, assign, update, reassign, repeat — until nothing moves</div>
+        </div>
+      </div>
+      <p class="m-desc">The whole algorithm is a loop of two moves that take turns. <strong>Assign</strong> holds the centres still and colours the points. <strong>Update</strong> holds the colours still and moves the centres. Neither move can ever make the clusters worse, so the loop always ends — usually in a handful of passes.</p>
+      <div class="algo-strip" id="algo-strip">
+        <div class="algo-step" data-step="0"><b>1 · Initialise</b><span>Pick K starting centres.</span></div>
+        <div class="algo-step" data-step="1"><b>2 · Assign</b><span>Each point joins its nearest centre.</span></div>
+        <div class="algo-step" data-step="2"><b>3 · Update</b><span>Each centre moves to the mean of its points.</span></div>
+        <div class="algo-step" data-step="3"><b>4 · Reassign</b><span>Points closer to another centre switch over.</span></div>
+        <div class="algo-step" data-step="4"><b>5 · Repeat</b><span>Until no point changes group.</span></div>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — press play and watch the centres crawl into place</div>
+        <div class="demo-controls">
+          <button class="play-btn" id="btn-lloyd" onclick="lloydPlay()">▶ run</button>
+          <button class="play-btn" style="background:rgba(59,130,246,.12);border-color:rgba(59,130,246,.4);color:#3b82f6" onclick="lloydStep()">step ▸</button>
+          <button class="play-btn" style="background:rgba(255,255,255,.05);border-color:var(--border);color:var(--muted)" onclick="lloydReseed()">↻ new start</button>
+          <div class="ctrl"><label>n_clusters (K)</label>
+            <input type="range" id="sl-k" min="2" max="5" step="1" value="3" oninput="lloydK(+this.value)"/>
+            <div class="cval" id="val-k">K = 3</div>
+          </div>
+        </div>
+        <div class="demo-out" id="out-lloyd"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-lloyd" height="360"></canvas></div>
+      </div>
+      <div class="callout blue">
+        🔁 <strong>Why it always stops.</strong> Both moves lower the same quantity — the total squared distance from every point to its own centre (panel 05). Assign lowers it because a point only ever switches to a <em>closer</em> centre; update lowers it because the mean is the point with the smallest total squared distance to a set (panel 04). A number that only ever goes down, over a finite number of possible groupings, has to stop going down.
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — the loop sklearn runs for you</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="cm"># 1. initialise: K starting centres</span>
+centers = X[np.random.<span class="fn">choice</span>(<span class="fn">len</span>(X), k, replace=<span class="kw">False</span>)]
+
+<span class="kw">for</span> _ <span class="kw">in</span> <span class="fn">range</span>(max_iter):
+    <span class="cm"># 2. assign: every point to its nearest centre</span>
+    d      = ((X[:, <span class="kw">None</span>, :] - centers[<span class="kw">None</span>, :, :]) ** <span class="num">2</span>).<span class="fn">sum</span>(axis=<span class="num">2</span>)
+    labels = d.<span class="fn">argmin</span>(axis=<span class="num">1</span>)
+
+    <span class="cm"># 3. update: every centre to the mean of its points</span>
+    new = np.<span class="fn">array</span>([X[labels == j].<span class="fn">mean</span>(axis=<span class="num">0</span>) <span class="kw">for</span> j <span class="kw">in</span> <span class="fn">range</span>(k)])
+
+    <span class="cm"># 4 + 5. repeat until nothing moves</span>
+    <span class="kw">if</span> np.<span class="fn">allclose</span>(new, centers):
+        <span class="kw">break</span>
+    centers = new</pre>
+      </div>
+      <div class="callout purple">
+        ⚙️ <strong>You never write that loop.</strong> It is here so the object stops being a black box — in practice <code>KMeans(n_clusters=k).fit(X)</code> runs exactly this, in C, with a smarter initialisation (<code>init='k-means++'</code>, the default) and a cap of <code>max_iter=300</code> passes. The <code>break</code> is what <code>n_iter_</code> reports afterwards: how many passes it actually needed.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(1)">← Unsupervised learning</button>
+        <div class="pnav-dots" id="dots-2"></div>
+        <button class="pnav-btn next" onclick="goTo(3)">Assignment · distance →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 3: Assignment / distance ══ -->
+    <div class="panel" id="panel-3">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1524661135-423995f22d0b?w=900&q=75&fit=crop&h=200" alt="Measuring" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 17 · 03 / 12 · The idea</div>
+          <div class="m-name">Assignment · Euclidean distance</div>
+          <div class="m-tagline">Nearest centre wins — and "nearest" carves the plane into regions</div>
+        </div>
+      </div>
+      <p class="m-desc">The assign step is the same measurement KNN used, applied to K centres instead of N neighbours. For a point \(x\) and a centre \(c\) with <em>m</em> features:</p>
+      <div class="eq-box big" style="text-align:center">
+        $$ d(x,\,c) \;=\; \sqrt{\sum_{i=1}^{m} (x_i - c_i)^2} $$
+      </div>
+      <p class="m-desc">Straight-line distance, Pythagoras in as many dimensions as you have columns. The point joins whichever centre gives the smallest \(d\). Note that the square root never changes <em>which</em> centre wins — so sklearn compares the squared distances and skips it.</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — move the mouse over the plot: the probe point measures all three centres</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>show</label>
+            <div class="seg" id="seg-vor">
+              <button class="on" onclick="setVor(0)">distances</button>
+              <button onclick="setVor(1)">the regions they carve</button>
+            </div>
+          </div>
+        </div>
+        <div class="demo-out" id="out-vor"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-vor" height="340"></canvas></div>
+      </div>
+      <div class="callout cyan">
+        🗺 <strong>Those regions have a name.</strong> The boundary between two centres is the set of points equally far from both — a straight line, exactly halfway, at right angles to the line joining them. K centres therefore cut the plane into K straight-edged convex tiles, called a <strong>Voronoi diagram</strong>. This is also K-Means' biggest limitation: it can only ever produce blobs separated by straight cuts, so a ring around another ring, or two long crescents, are shapes it simply cannot find.
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — the assignment, spelled out</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="cm"># one point, three centres</span>
+x       = np.<span class="fn">array</span>([<span class="num">4.0</span>, <span class="num">3.0</span>])
+centers = np.<span class="fn">array</span>([[<span class="num">2.0</span>, <span class="num">2.0</span>], [<span class="num">5.0</span>, <span class="num">4.0</span>], [<span class="num">1.0</span>, <span class="num">6.0</span>]])
+
+d = np.<span class="fn">sqrt</span>(((x - centers) ** <span class="num">2</span>).<span class="fn">sum</span>(axis=<span class="num">1</span>))
+d                       <span class="cm"># -&gt; [2.236, 1.414, 4.243]</span>
+d.<span class="fn">argmin</span>()             <span class="cm"># -&gt; 1   : it joins cluster 1</span>
+
+<span class="cm"># after fitting, sklearn will do this for you for any new row:</span>
+kmeans.<span class="fn">predict</span>([[<span class="num">4.0</span>, <span class="num">3.0</span>]])   <span class="cm"># -&gt; array([1])</span></pre>
+      </div>
+      <div class="callout red" style="border-color:var(--orange);background:rgba(249,115,22,.07)">
+        📏 <strong>Distance is measured in the units of your columns.</strong> A salary column in the tens of thousands and an age column in the tens are not comparable, and the sum above will be almost entirely salary. That is panel 08, and it is the single most common way a K-Means result comes out meaningless.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(2)">← The five steps</button>
+        <div class="pnav-dots" id="dots-3"></div>
+        <button class="pnav-btn next" onclick="goTo(4)">Update · the mean →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 4: Update / the mean ══ -->
+    <div class="panel" id="panel-4">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1518186285589-2f7649de83e0?w=900&q=75&fit=crop&h=200" alt="Balance" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 17 · 04 / 12 · The idea</div>
+          <div class="m-name">Update · the centroid is a mean</div>
+          <div class="m-tagline">The best possible centre for a set of points is their plain average</div>
+        </div>
+      </div>
+      <p class="m-desc">Once the points are coloured, each centre forgets where it was and jumps to the <strong>average</strong> of the points now wearing its colour — column by column:</p>
+      <div class="eq-box big green" style="text-align:center">
+        $$ c_j \;=\; \frac{1}{|C_j|}\sum_{x \in C_j} x $$
+      </div>
+      <p class="m-desc">In a table with three columns, the new centre is simply <em>(mean of column 1, mean of column 2, mean of column 3)</em> over the rows in that cluster. That is what <code>cluster_centers_</code> holds after fitting, and it is why a centroid is usually not one of your actual rows — it is a fictional average customer.</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — drag the centre anywhere; the squared-distance total is smallest exactly at the mean</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>centre x</label>
+            <input type="range" id="sl-cx" min="10" max="90" step="1" value="26" oninput="meanMove()"/>
+            <div class="cval" id="val-cx">x = 2.6</div>
+          </div>
+          <div class="ctrl"><label>centre y</label>
+            <input type="range" id="sl-cy" min="10" max="90" step="1" value="72" oninput="meanMove()"/>
+            <div class="cval" id="val-cy">y = 7.2</div>
+          </div>
+          <button class="play-btn" onclick="meanSnap()">↦ snap to the mean</button>
+        </div>
+        <div class="demo-out" id="out-mean"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-mean" height="330"></canvas></div>
+      </div>
+      <div class="callout green">
+        🎯 <strong>This is not a coincidence, it is the definition.</strong> The mean is the unique point that minimises the sum of squared distances to a set of points — it is what "average" means once you square your errors. So the update step is not a heuristic that happens to work: given the current colouring, it is provably the <strong>best possible</strong> position for that centre. That is why the loop can only ever improve.
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — one update step by hand</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>X      = np.<span class="fn">array</span>([[<span class="num">1</span>, <span class="num">2</span>], [<span class="num">2</span>, <span class="num">4</span>], [<span class="num">3</span>, <span class="num">3</span>], [<span class="num">8</span>, <span class="num">9</span>], [<span class="num">9</span>, <span class="num">8</span>]])
+labels = np.<span class="fn">array</span>([<span class="num">0</span>, <span class="num">0</span>, <span class="num">0</span>, <span class="num">1</span>, <span class="num">1</span>])
+
+X[labels == <span class="num">0</span>].<span class="fn">mean</span>(axis=<span class="num">0</span>)     <span class="cm"># -&gt; [2. , 3. ]</span>
+X[labels == <span class="num">1</span>].<span class="fn">mean</span>(axis=<span class="num">0</span>)     <span class="cm"># -&gt; [8.5, 8.5]</span>
+
+<span class="cm"># which is exactly what the fitted object stores:</span>
+kmeans.cluster_centers_
+<span class="cm"># array([[2. , 3. ],</span>
+<span class="cm">#        [8.5, 8.5]])</span></pre>
+      </div>
+      <div class="callout orange">
+        ⚠️ <strong>An average is not robust.</strong> One point far out in the corner drags its centroid towards itself and away from the crowd it is supposed to represent — the same weakness that makes <code>StandardScaler</code> fold under an outlier. If your clusters look sensible except for one that contains three rows and sits in empty space, you have found an outlier group, not a customer segment.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(3)">← Assignment · distance</button>
+        <div class="pnav-dots" id="dots-4"></div>
+        <button class="pnav-btn next" onclick="goTo(5)">WCSS / inertia →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 5: WCSS / inertia ══ -->
+    <div class="panel" id="panel-5">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1590959651373-a3db0f38a961?w=900&q=75&fit=crop&h=200" alt="Squares" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 17 · 05 / 12 · Choosing K</div>
+          <div class="m-name">WCSS · the number being minimised</div>
+          <div class="m-tagline">Sum of squared distances — sklearn calls it inertia_</div>
+        </div>
+      </div>
+      <p class="m-desc">There is no accuracy here, so we need our own measure of "did that go well". K-Means uses the only thing it has: how far the points ended up from their own centre. Take every point, measure the distance to its centre, <strong>square it</strong>, and add all of them up.</p>
+      <div class="eq-box big gold" style="text-align:center">
+        $$ \text{WCSS} \;=\; \sum_{j=1}^{K}\ \sum_{x \in C_j} \lVert x - c_j \rVert^{2} $$
+      </div>
+      <p class="m-desc">The name is spelled three ways and they all mean this one sum: <strong>WCSS</strong> (within-cluster sum of squares), <strong>SSD</strong> (sum of squared distances), and in code, <code>kmeans.inertia_</code>. Small is good — small means every point sits close to its own centre, so the clusters are tight.</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — each distance drawn as the square it actually is, then added up</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>n_clusters (K)</label>
+            <input type="range" id="sl-wk" min="1" max="4" step="1" value="3" oninput="wcssK(+this.value)"/>
+            <div class="cval" id="val-wk">K = 3</div>
+          </div>
+          <div class="ctrl"><label>draw</label>
+            <div class="seg" id="seg-wsq">
+              <button class="on" onclick="setWsq(0)">squares</button>
+              <button onclick="setWsq(1)">lines only</button>
+            </div>
+          </div>
+        </div>
+        <div class="demo-out" id="out-wcss"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-wcss" height="340"></canvas></div>
+      </div>
+      <div class="callout orange">
+        ² <strong>Why squared, and not just the distance?</strong> Squaring punishes stragglers. A point 4 units out contributes 16, while four points 1 unit out contribute 4 in total — so the sum cares far more about the one badly-placed point than about a little general looseness. That is deliberate: a cluster with one member stranded on the far side of the plot is a worse cluster than one that is merely a bit wide. Squaring is also what makes the mean the right centre (panel 04) — the two facts are the same fact.
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — inertia_ is not magic</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>kmeans = <span class="cls">KMeans</span>(n_clusters=<span class="num">3</span>, random_state=<span class="num">42</span>, n_init=<span class="num">10</span>).<span class="fn">fit</span>(X)
+
+kmeans.inertia_                       <span class="cm"># -&gt; 78.85144...</span>
+
+<span class="cm"># the same number, computed by hand</span>
+d2 = ((X - kmeans.cluster_centers_[kmeans.labels_]) ** <span class="num">2</span>).<span class="fn">sum</span>(axis=<span class="num">1</span>)
+d2.<span class="fn">sum</span>()                             <span class="cm"># -&gt; 78.85144...</span></pre>
+      </div>
+      <div class="callout red" style="border-color:rgba(244,63,94,.35);background:rgba(244,63,94,.06)">
+        🚫 <strong>Never compare inertia across different datasets.</strong> It is a sum, so it grows with the number of rows, and it is in squared units of your columns, so re-scaling the data changes it completely. An inertia of 2,000,000 is not "worse" than one of 40 — they are answers to different questions. The only comparison it supports is <strong>the same data, the same scaling, different K</strong>. Which is exactly the next two panels.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(4)">← Update · the mean</button>
+        <div class="pnav-dots" id="dots-5"></div>
+        <button class="pnav-btn next" onclick="goTo(6)">Increasing K →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 6: Increasing K ══ -->
+    <div class="panel" id="panel-6">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=900&q=75&fit=crop&h=200" alt="More and more" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 17 · 06 / 12 · Choosing K</div>
+          <div class="m-name">Increasing K always looks better</div>
+          <div class="m-tagline">Which is exactly why you cannot pick K by minimising WCSS</div>
+        </div>
+      </div>
+      <p class="m-desc">Here is the trap. Add one more cluster and every point can only get <strong>closer</strong> to a centre, never further — so WCSS drops. Every single time. Push it all the way to K = n, one cluster per row, and every point <em>is</em> its own centre: distance zero, WCSS zero, a "perfect" model that has learned nothing except a list of your rows. That is textbook <strong>overfitting</strong>.</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — drag K up to the number of points and watch the score reach a meaningless zero</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>n_clusters (K)</label>
+            <input type="range" id="sl-ok" min="1" max="24" step="1" value="3" oninput="overK(+this.value)"/>
+            <div class="cval" id="val-ok">K = 3</div>
+          </div>
+        </div>
+        <div class="demo-out" id="out-over"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-over" height="330"></canvas></div>
+      </div>
+      <div class="verdict mixed">
+        <div class="vmark">!</div>
+        <div>
+          <h4>WCSS is a measure of tightness, not of truth</h4>
+          <p>A lower WCSS genuinely means tighter clusters. It does <em>not</em> mean a better description of the data, because the tightest possible description is always the one that memorises every row. Any metric that improves monotonically with model complexity cannot, on its own, choose the complexity.</p>
+          <p>So we do not ask "which K minimises WCSS" — the answer is always <code>n</code>. We ask <strong>"where does the improvement stop being worth it"</strong>. That question has a real answer, and the elbow method is how you read it off.</p>
+        </div>
+      </div>
+      <div class="callout purple">
+        🔗 <strong>You have met this shape before.</strong> Adding polynomial degrees in lesson 20 lowered training error every time, right up to the curve that threaded every training point and predicted nonsense in between. Adding tree depth did the same. Same story, same fix: watch the <em>rate</em> of improvement rather than the improvement.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(5)">← WCSS / inertia</button>
+        <div class="pnav-dots" id="dots-6"></div>
+        <button class="pnav-btn next" onclick="goTo(7)">The elbow method →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 7: Elbow ══ -->
+    <div class="panel" id="panel-7">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1543286386-713bdd548da4?w=900&q=75&fit=crop&h=200" alt="Bend" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 17 · 07 / 12 · Choosing K</div>
+          <div class="m-name">The elbow method</div>
+          <div class="m-tagline">Plot WCSS against K and look for the bend</div>
+        </div>
+      </div>
+      <p class="m-desc">Fit the model once for every K you are willing to consider, keep <code>inertia_</code> each time, and plot it. The curve falls steeply while you are still splitting genuinely different groups apart, then flattens once you have started cutting real clusters in half. The corner between the two — the <strong>elbow</strong> — is the K to use.</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — ten real fits, drawn as the loop runs; the bend is measured, not guessed</div>
+        <div class="demo-controls">
+          <button class="play-btn" onclick="elbowRun()">▶ run the loop again</button>
+          <div class="ctrl"><label>how many blobs are really there</label>
+            <div class="seg" id="seg-eb">
+              <button onclick="setEB(2)">2</button>
+              <button class="on" onclick="setEB(3)">3</button>
+              <button onclick="setEB(4)">4</button>
+              <button onclick="setEB(5)">5</button>
+            </div>
+          </div>
+        </div>
+        <div class="demo-out" id="out-elbow"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-elbow" height="330"></canvas></div>
+      </div>
+      <div class="callout blue">
+        👀 <strong>Change the number of real blobs and the elbow moves with it.</strong> That is the whole claim of the method — the bend is not decoration, it sits at the K where you stop merging different things and start splitting one thing. When the data really does have separated groups, the corner is sharp. When it does not, the curve is a smooth slide with no corner at all, and the honest reading is <em>"this data has no natural number of clusters"</em>.
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — the elbow cell from the notebook</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="cm"># 1. an empty list for the WCSS values</span>
+wcss = []
+
+<span class="cm"># 2. fit KMeans once for k = 1 .. 10</span>
+<span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="num">1</span>, <span class="num">11</span>):
+    kmeans = <span class="cls">KMeans</span>(n_clusters=i, random_state=<span class="num">42</span>, n_init=<span class="num">10</span>)
+    kmeans.<span class="fn">fit</span>(df_scaled)
+    wcss.<span class="fn">append</span>(kmeans.inertia_)      <span class="cm"># inertia_ is the WCSS</span>
+
+<span class="cm"># 3. plot it</span>
+sns.<span class="fn">set_theme</span>(style=<span class="str">"whitegrid"</span>)
+<span class="lib">plt</span>.<span class="fn">figure</span>(figsize=(<span class="num">8</span>, <span class="num">5</span>))
+<span class="lib">plt</span>.<span class="fn">plot</span>(<span class="fn">range</span>(<span class="num">1</span>, <span class="num">11</span>), wcss, <span class="str">'bx-'</span>, linewidth=<span class="num">2</span>, markersize=<span class="num">8</span>)
+
+<span class="lib">plt</span>.<span class="fn">title</span>(<span class="str">'The Elbow Method for Optimal K'</span>, fontsize=<span class="num">14</span>, fontweight=<span class="str">'bold'</span>)
+<span class="lib">plt</span>.<span class="fn">xlabel</span>(<span class="str">'Number of Clusters (K)'</span>, fontsize=<span class="num">12</span>)
+<span class="lib">plt</span>.<span class="fn">ylabel</span>(<span class="str">'WCSS (Within-Cluster Sum of Squares)'</span>, fontsize=<span class="num">12</span>)
+<span class="lib">plt</span>.<span class="fn">xticks</span>(<span class="fn">range</span>(<span class="num">1</span>, <span class="num">11</span>))
+<span class="lib">plt</span>.<span class="fn">show</span>()</pre>
+      </div>
+      <div class="callout orange">
+        🫤 <strong>The bank data has no clean elbow — and that is a real result.</strong> The curve we plotted in class slid from 2.23 million down to 1.59 million with no obvious corner anywhere. With 40,000 rows and dozens of one-hot columns, customers do not fall into tidy separated balls; they fill the space. When that happens, K becomes a business decision — "how many segments can marketing actually run campaigns for?" — and the elbow plot is there to confirm that no K is being left obviously on the table.
+      </div>
+      <div class="callout green">
+        🥈 <strong>The second opinion: silhouette score.</strong> When the elbow is ambiguous, <code>silhouette_score(X, labels)</code> scores each point on how much closer it is to its own cluster than to the next nearest one, and averages. It runs from −1 to 1, <strong>higher is better</strong>, and unlike WCSS it does not automatically improve with K — so it can be maximised directly. It is much slower on large data (it needs distances between points, not just to centres), which is why the elbow stays the everyday tool.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(6)">← Increasing K</button>
+        <div class="pnav-dots" id="dots-7"></div>
+        <button class="pnav-btn next" onclick="goTo(8)">Scale first →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 8: Scale first ══ -->
+    <div class="panel" id="panel-8">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1554672408-730436b60dde?w=900&q=75&fit=crop&h=200" alt="Scales" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 17 · 08 / 12 · Making it work</div>
+          <div class="m-name">Scale before you cluster</div>
+          <div class="m-tagline">K-Means is nothing but distance, so the biggest column decides everything</div>
+        </div>
+      </div>
+      <p class="m-desc">Suppose you cluster customers on <code>age</code> (18–70) and <code>balance</code> (0–50,000). Two customers 20 years apart differ by 20 in the sum; two customers £2,000 apart differ by 2,000. The age column contributes essentially nothing, and you have not clustered customers — you have cut the balance column into K slices and given it a fancy name.</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — the same eighteen customers, clustered raw and clustered scaled</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>the data K-Means actually sees</label>
+            <div class="seg" id="seg-sc">
+              <button class="on" onclick="setSc(0)">raw columns</button>
+              <button onclick="setSc(1)">StandardScaler</button>
+            </div>
+          </div>
+        </div>
+        <div class="demo-out" id="out-scale"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-scale" height="340"></canvas></div>
+      </div>
+      <div class="callout red" style="border-color:rgba(244,63,94,.35);background:rgba(244,63,94,.06)">
+        🔪 <strong>Look at the raw result: the cluster boundaries are horizontal lines.</strong> Age is not being used at all — the split is purely by balance. Scale the two columns and the same algorithm suddenly finds groups that differ in <em>both</em> directions, which is what you were trying to discover in the first place.
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — the notebook's preparation, in order</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> pandas <span class="kw">as</span> <span class="lib">pd</span>
+<span class="kw">from</span> sklearn.cluster <span class="kw">import</span> <span class="cls">KMeans</span>
+<span class="kw">from</span> sklearn.preprocessing <span class="kw">import</span> <span class="cls">StandardScaler</span>
+
+df = <span class="lib">pd</span>.<span class="fn">read_csv</span>(<span class="str">"bank-full.csv"</span>)
+
+<span class="cm"># 1. text columns -&gt; 0/1 columns (K-Means only accepts numbers)</span>
+df_encoded = <span class="lib">pd</span>.<span class="fn">get_dummies</span>(df, drop_first=<span class="kw">True</span>)
+
+<span class="cm"># 2. put every column on the same footing</span>
+scaler    = <span class="cls">StandardScaler</span>()
+features  = df_encoded.columns
+df_scaled = <span class="lib">pd</span>.<span class="cls">DataFrame</span>(scaler.<span class="fn">fit_transform</span>(df_encoded), columns=features)
+
+<span class="cm"># 3. only now, cluster</span>
+k      = <span class="num">5</span>
+kmeans = <span class="cls">KMeans</span>(n_clusters=k, random_state=<span class="num">42</span>, n_init=<span class="num">10</span>)
+df[<span class="str">'cluster'</span>] = kmeans.<span class="fn">fit_predict</span>(df_scaled)</pre>
+      </div>
+      <div class="callout blue">
+        🧩 <strong>Two details in that cell worth pausing on.</strong> First, <code>get_dummies</code> comes <em>before</em> the scaler, because the scaler needs numbers too — and yes, the 0/1 dummy columns get standardised along with everything else, which is normal practice here. Second, <code>fit_predict</code> is <code>fit</code> and <code>predict</code> in one call, and it is written on the <strong>scaled</strong> frame while the answer is glued back onto the <strong>original</strong> frame — so that panel 10 can read the clusters in real units instead of z-scores.
+      </div>
+      <div class="callout purple">
+        ⚖️ <strong>Which scaler?</strong> <code>StandardScaler</code> is the usual choice for K-Means, because the algorithm is built on squared distances and z-scores put every column's spread at 1. <code>MinMaxScaler</code> is fine too and keeps the 0/1 dummies exactly as they were — but it lets a single outlier squash every other value into a narrow band. Either way the rule is the same one from lesson 19: fit the scaler once, on the data you are clustering, and never on a per-column whim.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(7)">← The elbow method</button>
+        <div class="pnav-dots" id="dots-8"></div>
+        <button class="pnav-btn next" onclick="goTo(9)">random_state &amp; n_init →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 9: random_state & n_init ══ -->
+    <div class="panel" id="panel-9">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1541644387-14b6b5b41d4a?w=900&q=75&fit=crop&h=200" alt="Dice" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 17 · 09 / 12 · Making it work</div>
+          <div class="m-name">random_state &amp; n_init</div>
+          <div class="m-tagline">The loop always stops — but not always in the right place</div>
+        </div>
+      </div>
+      <p class="m-desc">The algorithm is guaranteed to converge. It is <strong>not</strong> guaranteed to converge to the best answer. Two centres that start inside the same blob will politely split that blob between them and never venture out, leaving another blob to be shared by a single centre. Nothing about that arrangement is unstable — no point wants to move — so the loop stops, satisfied, on a bad answer. That is a <strong>local minimum</strong>.</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — ten different starting seeds, each run to convergence, sorted by the inertia they reached</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>starting seed (random_state)</label>
+            <input type="range" id="sl-seed" min="0" max="9" step="1" value="1" oninput="seedPick(+this.value)"/>
+            <div class="cval" id="val-seed">random_state = 1</div>
+          </div>
+          <button class="play-btn" onclick="seedBest()">↦ what n_init=10 keeps</button>
+        </div>
+        <div class="demo-out" id="out-seed"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-seed" height="340"></canvas></div>
+      </div>
+      <div class="callout green">
+        🎲 <strong>n_init is the fix, and it is embarrassingly simple.</strong> Run the whole algorithm <code>n_init</code> times from different random starts, compute the inertia of each finished run, and keep the one with the lowest. Nothing clever, just refusing to trust a single throw of the dice. <code>n_init=10</code> was the old default and is still what everyone types; since scikit-learn 1.4 the default is <code>n_init='auto'</code>, which uses 1 with <code>k-means++</code> initialisation and 10 otherwise.
+      </div>
+      <div class="prm-list">
+        <div class="prm"><code class="cls">n_clusters=8</code><p>K — how many groups. The only parameter that is genuinely your decision, and the reason panels 06 and 07 exist.</p></div>
+        <div class="prm"><code class="cls">init='k-means++'</code><p>How the starting centres are picked. The default spreads them out on purpose — each new centre is drawn with probability proportional to its squared distance from the nearest existing one — which makes the bad start above much rarer. <code>init='random'</code> is the naive version.</p></div>
+        <div class="prm"><code class="cls">n_init=10</code><p>How many independent runs to try before keeping the best by inertia. Costs linear time, buys a great deal of reliability.</p></div>
+        <div class="prm"><code class="cls">random_state=42</code><p>Fixes the dice so the same data gives the same clusters tomorrow. Without it your cluster numbers — and sometimes the clusters themselves — change on every run, and nothing in your notebook reproduces.</p></div>
+        <div class="prm"><code class="cls">max_iter=300</code><p>A safety cap on the assign/update loop. It almost never bites; convergence usually takes under twenty passes.</p></div>
+      </div>
+      <div class="callout orange">
+        🔢 <strong>Even with a fixed seed, the cluster <em>numbers</em> mean nothing.</strong> Cluster 0 is whichever group happened to be found first. Change the seed, change <code>n_init</code>, add a row, and the same customers may come back as cluster 3. Never hard-code "cluster 2 = premium" anywhere — re-derive the meaning from the group averages each time you fit.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(8)">← Scale first</button>
+        <div class="pnav-dots" id="dots-9"></div>
+        <button class="pnav-btn next" onclick="goTo(10)">Reading the clusters →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 10: Reading the clusters ══ -->
+    <div class="panel" id="panel-10">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=900&q=75&fit=crop&h=200" alt="Profiles" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 17 · 10 / 12 · Making it work</div>
+          <div class="m-name">Reading the clusters</div>
+          <div class="m-tagline">The model gives you numbers; you have to give them names</div>
+        </div>
+      </div>
+      <p class="m-desc">Fitting was the easy part. The output is a column of 0s to 4s, and it is worth exactly nothing until somebody works out what each number <em>is</em>. Two questions do most of the work: <strong>how big is each group?</strong> and <strong>how does each group differ from the others, column by column?</strong></p>
+      <p class="m-desc">The first is a <code>value_counts</code>. These are the five clusters from the bank data in class:</p>
+      <table class="dt">
+        <thead><tr><th class="blue">cluster</th><th class="blue">customers</th><th class="blue">% of total</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>0</td><td>12,204</td><td>29.63%</td></tr>
+          <tr class="show"><td>2</td><td>12,027</td><td>29.20%</td></tr>
+          <tr class="show"><td>1</td><td>8,755</td><td>21.26%</td></tr>
+          <tr class="show"><td>4</td><td>6,685</td><td>16.23%</td></tr>
+          <tr class="show hl"><td>3</td><td>1,517</td><td>3.68%</td></tr>
+        </tbody>
+      </table>
+      <p class="m-desc">Cluster 3 is 3.7% of the customers. A group that small is worth looking at first — it is either the interesting minority you were hunting for, or an artefact. The second question tells you which:</p>
+      <table class="dt">
+        <thead><tr><th class="blue">cluster</th><th class="blue">age</th><th class="blue">duration</th><th class="blue">campaign</th><th class="blue">pdays</th><th class="blue">previous</th><th class="blue">euribor3m</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>0</td><td>40.31</td><td>256.2</td><td>2.81</td><td>999.0</td><td>0.00</td><td>4.885</td></tr>
+          <tr class="show"><td>1</td><td>41.06</td><td>232.6</td><td>2.46</td><td>999.0</td><td>0.08</td><td>4.617</td></tr>
+          <tr class="show"><td>2</td><td>39.41</td><td>263.9</td><td>2.13</td><td>999.0</td><td>0.32</td><td>1.202</td></tr>
+          <tr class="show hl"><td>3</td><td>41.85</td><td>321.4</td><td>1.82</td><td><strong>7.3</strong></td><td><strong>1.67</strong></td><td>0.986</td></tr>
+          <tr class="show"><td>4</td><td>38.86</td><td>271.4</td><td>3.24</td><td>999.0</td><td>0.00</td><td>4.962</td></tr>
+        </tbody>
+      </table>
+      <div class="callout cyan">
+        🔍 <strong>Read the row that is different.</strong> <code>pdays</code> is "days since the customer was last contacted", and 999 is the dataset's code for <em>never</em>. Four clusters sit at exactly 999.0 — nobody in them has ever been contacted before. Cluster 3 sits at <strong>7.3</strong>, with <code>previous</code> = 1.67 earlier contacts and the longest calls of the five. That is not an artefact: cluster 3 is the <strong>warm list</strong> — customers the bank has already spoken to recently, who stay on the phone longest. K-Means found it without being told it existed, and now it has a name a marketing team can use.
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — the profiling cells</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>cluster_sizes = df[<span class="str">'cluster'</span>].<span class="fn">value_counts</span>()
+<span class="fn">print</span>(cluster_sizes)
+<span class="fn">print</span>(<span class="fn">round</span>(cluster_sizes / <span class="fn">len</span>(df) * <span class="num">100</span>, <span class="num">2</span>))
+
+numerical_cols = [<span class="str">'age'</span>, <span class="str">'duration'</span>, <span class="str">'campaign'</span>, <span class="str">'pdays'</span>, <span class="str">'previous'</span>,
+                  <span class="str">'emp.var.rate'</span>, <span class="str">'cons.price.idx'</span>, <span class="str">'cons.conf.idx'</span>,
+                  <span class="str">'euribor3m'</span>, <span class="str">'nr.employed'</span>]
+
+<span class="cm"># the single most useful line in the whole notebook</span>
+cluster_means = df.<span class="fn">groupby</span>(<span class="str">'cluster'</span>)[numerical_cols].<span class="fn">mean</span>()
+<span class="fn">print</span>(cluster_means)</pre>
+      </div>
+      <div class="callout blue">
+        📊 <strong>And the picture that goes with it.</strong> <code>sns.countplot(data=df, x='cluster')</code> plus <code>ax.bar_label(container)</code> puts the exact count on top of every bar — the fastest way to spot a cluster that has swallowed 80% of your rows (K is too small) or one holding four rows (an outlier group, or K too large).
+      </div>
+      <div class="callout green">
+        💡 <strong>The habit worth keeping.</strong> Fit, <code>groupby('cluster').mean()</code>, then write one sentence per cluster in plain language before you do anything else. If you cannot write the sentence, the clustering has not told you anything yet — and that is a signal to change K, change the columns you fed it, or accept that these customers do not come in groups.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(9)">← random_state &amp; n_init</button>
+        <div class="pnav-dots" id="dots-10"></div>
+        <button class="pnav-btn next" onclick="goTo(11)">Image compression →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 11: Image compression ══ -->
+    <div class="panel" id="panel-11">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1502472584811-0a2f2feb8968?w=900&q=75&fit=crop&h=200" alt="Colour" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 17 · 11 / 12 · Making it work</div>
+          <div class="m-name">Clustering the pixels of an image</div>
+          <div class="m-tagline">A photo is a table: one row per pixel, three columns — R, G, B</div>
+        </div>
+      </div>
+      <p class="m-desc">This is the second notebook, and it is the demo that makes clustering click. Load a 400 × 600 photo and NumPy hands you an array of shape <code>(400, 600, 3)</code>. Reshape it to <code>(240000, 3)</code> and you have an ordinary dataset: <strong>240,000 rows, three columns</strong>. Nothing about K-Means knows or cares that the rows are pixels.</p>
+      <div class="eq-box small" style="text-align:center;font-family:'Courier New',monospace;">
+        (400, 600, 3) &nbsp;<code>.reshape(-1, 3)</code>&nbsp; → &nbsp;(240000, 3)
+      </div>
+      <p class="m-desc">Cluster those rows with K = 8 and <code>cluster_centers_</code> comes back as eight RGB triples: the eight colours that best summarise the whole photo. Repaint every pixel with the centre of its cluster and the image survives with a palette of eight. That is colour quantisation, and it is how GIF files work.</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — real K-Means over this canvas's own pixels, in RGB space</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>K — colours in the palette</label>
+            <div class="seg" id="seg-imgk">
+              <button onclick="setImgK(2)">2</button>
+              <button class="on" onclick="setImgK(4)">4</button>
+              <button onclick="setImgK(8)">8</button>
+              <button onclick="setImgK(16)">16</button>
+            </div>
+          </div>
+        </div>
+        <div class="demo-out" id="out-img"></div>
+        <div class="demo-canvas-wrap">
+          <div class="imgpair">
+            <div><div class="imgcap">original · thousands of colours</div><canvas id="cv-img-a" width="220" height="165"></canvas></div>
+            <div><div class="imgcap" id="cap-img-b">K-Means · 4 colours</div><canvas id="cv-img-b" width="220" height="165"></canvas></div>
+          </div>
+          <div class="pal" id="pal-img"></div>
+        </div>
+      </div>
+      <div class="callout cyan">
+        🎨 <strong>Where the compression comes from.</strong> Every pixel used to need three bytes for its own colour. Now it needs only an index into a palette of K — 3 bits at K = 8 — plus the palette itself, stored once. At K = 8 that is roughly an <strong>eight-fold</strong> shrink, and the picture is still perfectly recognisable. Drop to K = 2 and you get a black-and-white poster; go to K = 16 and most people cannot spot the difference from the original.
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — the exercise from the notebook</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> numpy <span class="kw">as</span> <span class="lib">np</span>
+<span class="kw">import</span> matplotlib.pyplot <span class="kw">as</span> <span class="lib">plt</span>
+<span class="kw">from</span> sklearn.cluster <span class="kw">import</span> <span class="cls">KMeans</span>
+<span class="kw">from</span> PIL <span class="kw">import</span> <span class="cls">Image</span>
+
+image    = <span class="cls">Image</span>.<span class="fn">open</span>(<span class="str">"dog_image.jpeg"</span>)
+image_np = <span class="lib">np</span>.<span class="fn">array</span>(image)
+<span class="fn">print</span>(image_np.shape)                 <span class="cm"># -&gt; (400, 600, 3)</span>
+
+<span class="cm"># 1. every pixel becomes a row of three numbers</span>
+pixels = image_np.<span class="fn">reshape</span>(-<span class="num">1</span>, <span class="num">3</span>)          <span class="cm"># -&gt; (240000, 3)</span>
+
+<span class="cm"># 2. cluster the colours</span>
+k      = <span class="num">4</span>
+kmeans = <span class="cls">KMeans</span>(n_clusters=k, random_state=<span class="num">42</span>, n_init=<span class="num">10</span>)
+kmeans.<span class="fn">fit</span>(pixels)
+
+<span class="fn">print</span>(kmeans.cluster_centers_.shape)   <span class="cm"># -&gt; (4, 3)      the palette</span>
+<span class="fn">print</span>(kmeans.labels_.shape)           <span class="cm"># -&gt; (240000,)   one index per pixel</span>
+
+<span class="cm"># 3. repaint: every pixel takes the colour of its centre</span>
+new_pixels = kmeans.cluster_centers_[kmeans.labels_]
+new_image  = new_pixels.<span class="fn">reshape</span>(image_np.shape).<span class="fn">astype</span>(<span class="str">"uint8"</span>)
+
+<span class="lib">plt</span>.<span class="fn">figure</span>(figsize=(<span class="num">6</span>, <span class="num">4</span>))
+<span class="lib">plt</span>.<span class="fn">imshow</span>(new_image)
+<span class="lib">plt</span>.<span class="fn">title</span>(<span class="str">f"Image with K = {k} Colors"</span>)
+<span class="lib">plt</span>.<span class="fn">axis</span>(<span class="str">"off"</span>)
+<span class="lib">plt</span>.<span class="fn">show</span>()</pre>
+      </div>
+      <div class="callout orange">
+        🧾 <strong>Three details that trip people up.</strong> <code>reshape(-1, 3)</code> lets NumPy work out the row count for you. <code>cluster_centers_[labels_]</code> is fancy indexing — it builds the full 240,000 × 3 array of repainted pixels in one expression, no loop. And <code>.astype("uint8")</code> is not optional: the centres are floats (a mean of integers rarely lands on one), and <code>imshow</code> needs whole numbers 0–255 or it renders a mess.
+      </div>
+      <div class="callout purple">
+        🐢 <strong>240,000 rows is enough to feel it.</strong> A full K-Means over every pixel takes real seconds. <code>MiniBatchKMeans</code> is the drop-in replacement for exactly this case — it updates the centres from small random batches instead of the whole array, and gets a near-identical palette in a fraction of the time.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(10)">← Reading the clusters</button>
+        <div class="pnav-dots" id="dots-11"></div>
+        <button class="pnav-btn next" onclick="goTo(12)">Exercises →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 12: Exercises ══ -->
+    <div class="panel" id="panel-12">
+      <div class="exercise-header">
+        <div class="exercise-badge">✎</div>
+        <div>
+          <div class="m-breadcrumb" style="color:rgba(251,191,36,.7)">DECK 17 · 12 / 12</div>
+          <div class="m-name" style="font-size:1.4rem">Exercises</div>
+          <div class="m-tagline" style="color:var(--muted)">Run it, elbow it, then break it on purpose</div>
+        </div>
+      </div>
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">01</span><strong>Cluster the bank customers</strong></div>
+        <p class="ex-task">Load <code>bank-full.csv</code>. One-hot encode it with <code>drop_first=True</code>, standardise every column, and fit <code>KMeans</code> with K = 5, <code>random_state=42</code>, <code>n_init=10</code>. Attach the labels to the <em>original</em> frame as a <code>cluster</code> column, then print the size of each cluster and its share of the total.</p>
+        <details class="hint"><summary>hint</summary><p class="ex-task"><code>df['cluster'] = kmeans.fit_predict(df_scaled)</code> — fit on the scaled frame, store on the raw one. Then <code>df['cluster'].value_counts()</code> and the same thing divided by <code>len(df)</code> times 100.</p></details>
+      </div>
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">02</span><strong>Draw the elbow</strong></div>
+        <p class="ex-task">Loop K from 1 to 10, keep <code>kmeans.inertia_</code> in a list, and plot it against K. Does the curve have a corner? Write one sentence saying what K you would use and why — and if there is no corner, say that instead.</p>
+        <details class="hint"><summary>hint</summary><p class="ex-task">Ten fits over 40,000 rows takes a while. Test the loop on <code>df_scaled.sample(5000, random_state=42)</code> first; the shape of the curve barely changes.</p></details>
+      </div>
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">03</span><strong>Name your clusters</strong></div>
+        <p class="ex-task">Run <code>df.groupby('cluster')[numerical_cols].mean()</code>. For each cluster, find the column where it differs most from the others and write a one-line description a marketing team could act on. Which cluster is the smallest, and is it interesting or is it junk?</p>
+        <details class="hint"><summary>hint</summary><p class="ex-task">Look for a column where one cluster's mean is nothing like the rest — <code>pdays</code> at 7 against 999 everywhere else is the kind of gap you are hunting for.</p></details>
+      </div>
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">04</span><strong>Break it: skip the scaler</strong></div>
+        <p class="ex-task">Fit the same K = 5 model on <code>df_encoded</code> without scaling it. Compare <code>groupby('cluster').mean()</code> with the scaled version. Which single column explains almost the entire clustering, and why is it that one?</p>
+        <details class="hint"><summary>hint</summary><p class="ex-task">Find the column with the largest spread in raw units — <code>nr.employed</code> lives around 5,000 while every dummy column is 0 or 1. Squared distance does not care which column is meaningful, only which is numerically large.</p></details>
+      </div>
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">05</span><strong>Break it: drop n_init</strong></div>
+        <p class="ex-task">Fit with <code>n_init=1</code> and no <code>random_state</code>, five times in a row, printing <code>inertia_</code> each time. How much do the five numbers differ? Now do the same with <code>n_init=10</code>. Explain what <code>n_init</code> is buying you in one sentence.</p>
+        <details class="hint"><summary>hint</summary><p class="ex-task">Each run is one throw of the dice, and each stops at whatever local minimum it lands in. <code>n_init=10</code> throws ten times and keeps the lowest inertia — it does not make any single run better.</p></details>
+      </div>
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">06</span><strong>Compress an image</strong></div>
+        <p class="ex-task">Open any photo with PIL, reshape it to <code>(-1, 3)</code>, and fit K-Means for K in <code>[2, 4, 10, 25]</code>. Rebuild and show each result next to the original. Print <code>cluster_centers_</code> for K = 4 — those four rows are the palette. At what K do you stop being able to tell the difference?</p>
+        <details class="hint"><summary>hint</summary><p class="ex-task"><code>new = kmeans.cluster_centers_[kmeans.labels_].reshape(img.shape).astype("uint8")</code>. Use <code>plt.subplots(1, 4)</code> to show them side by side, and remember <code>MiniBatchKMeans</code> if the wait annoys you.</p></details>
+      </div>
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">07</span><strong>Where K-Means fails</strong></div>
+        <p class="ex-task">Generate two concentric rings with <code>sklearn.datasets.make_circles(n_samples=400, factor=0.4, noise=0.05)</code>, throw the labels away, and cluster with K = 2. Plot the result. Why does it cut the picture in half instead of finding the two rings?</p>
+        <details class="hint"><summary>hint</summary><p class="ex-task">Every cluster K-Means can produce is a Voronoi tile — a convex region with straight edges (panel 03). A ring wrapped around another ring is not convex, so no pair of centroids can describe it. <code>DBSCAN</code> handles this data in one line.</p></details>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(11)">← Image compression</button>
+        <div class="pnav-dots" id="dots-12"></div>
+        <button class="pnav-btn next" onclick="goTo(13)">Appendix A1 →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 13: A1 · the KMeans object ══ -->
+    <div class="panel" id="panel-13">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=900&q=75&fit=crop&h=200" alt="Reference" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">APPENDIX A1 · Reference</div>
+          <div class="m-name">The KMeans object</div>
+          <div class="m-tagline">What it takes, what it stores, and what you can call afterwards</div>
+        </div>
+      </div>
+      <p class="m-desc">Everything with a trailing underscore appears only <strong>after</strong> <code>fit</code> — that is sklearn's convention for "this was learned from data".</p>
+      <table class="dt">
+        <thead><tr><th class="blue">attribute</th><th class="blue">shape</th><th class="blue">what it holds</th></tr></thead>
+        <tbody>
+          <tr class="show"><td><code>labels_</code></td><td><code>(n,)</code></td><td>The cluster number of every training row. Same thing <code>fit_predict</code> returns.</td></tr>
+          <tr class="show"><td><code>cluster_centers_</code></td><td><code>(K, m)</code></td><td>The K centroids, one row each, in the units of the data you fitted on.</td></tr>
+          <tr class="show"><td><code>inertia_</code></td><td>scalar</td><td>The WCSS of the best run. The number the elbow plot is made of.</td></tr>
+          <tr class="show"><td><code>n_iter_</code></td><td>scalar</td><td>How many assign/update passes the winning run needed.</td></tr>
+        </tbody>
+      </table>
+      <table class="dt">
+        <thead><tr><th class="blue">method</th><th class="blue">returns</th><th class="blue">when to use it</th></tr></thead>
+        <tbody>
+          <tr class="show"><td><code>fit(X)</code></td><td>the model</td><td>Learn the centroids. No <code>y</code> — pass one and it is politely ignored.</td></tr>
+          <tr class="show"><td><code>fit_predict(X)</code></td><td><code>(n,)</code> labels</td><td>Fit, then hand back the labels. The one-liner you will use most.</td></tr>
+          <tr class="show"><td><code>predict(X_new)</code></td><td><code>(rows,)</code> labels</td><td>Assign <em>new</em> rows to the existing centroids, without moving them. This is the part that makes K-Means usable in production.</td></tr>
+          <tr class="show"><td><code>transform(X)</code></td><td><code>(n, K)</code></td><td>The distance from every row to every centroid. Occasionally useful as K new features.</td></tr>
+        </tbody>
+      </table>
+      <div class="callout green">
+        📦 <strong>It is a normal sklearn estimator, so everything from lesson 20 still applies.</strong> <code>Pipeline([('scaler', StandardScaler()), ('km', KMeans(n_clusters=5))])</code> is legal and is the right way to ship one, because it guarantees that tomorrow's rows are scaled with the same statistics before <code>predict</code> assigns them. <code>joblib.dump</code> saves the whole thing, centroids included.
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — fit once, then assign new customers forever</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">from</span> sklearn.pipeline <span class="kw">import</span> <span class="cls">Pipeline</span>
+<span class="kw">import</span> joblib
+
+model = <span class="cls">Pipeline</span>([
+    (<span class="str">'scaler'</span>, <span class="cls">StandardScaler</span>()),
+    (<span class="str">'km'</span>,     <span class="cls">KMeans</span>(n_clusters=<span class="num">5</span>, random_state=<span class="num">42</span>, n_init=<span class="num">10</span>))
+])
+model.<span class="fn">fit</span>(df_encoded)
+
+joblib.<span class="fn">dump</span>(model, <span class="str">'segments.pkl'</span>)
+
+<span class="cm"># tomorrow, in another file, on a raw row:</span>
+model = joblib.<span class="fn">load</span>(<span class="str">'segments.pkl'</span>)
+model.<span class="fn">predict</span>(new_customers)     <span class="cm"># scaled with the training stats, then assigned</span>
+
+<span class="cm"># and to inspect the centroids in real units again:</span>
+km     = model.<span class="fn">named_steps</span>[<span class="str">'km'</span>]
+scaler = model.<span class="fn">named_steps</span>[<span class="str">'scaler'</span>]
+scaler.<span class="fn">inverse_transform</span>(km.cluster_centers_)</pre>
+      </div>
+      <div class="callout blue">
+        🔄 <strong>That last line is the one people miss.</strong> After scaling, <code>cluster_centers_</code> is a table of z-scores — "0.8 standard deviations above average balance" is hard to present. <code>scaler.inverse_transform</code> puts them back into pounds and years, which is the form a cluster profile belongs in.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(12)">← Exercises</button>
+        <div class="pnav-dots" id="dots-13"></div>
+        <button class="pnav-btn next" onclick="goTo(14)">Appendix A2 →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 14: A2 · KMeans vs KNN ══ -->
+    <div class="panel" id="panel-14">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1587145820266-a5951ee6f620?w=900&q=75&fit=crop&h=200" alt="Two paths" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">APPENDIX A2 · Reference</div>
+          <div class="m-name">K-Means vs KNN</div>
+          <div class="m-tagline">Same letter, same distance formula, opposite jobs</div>
+        </div>
+      </div>
+      <p class="m-desc">These two get confused constantly, and it is entirely the fault of the letter K — which means something different in each. In <strong>KNN</strong>, K is how many <em>neighbours</em> get a vote. In <strong>K-Means</strong>, K is how many <em>groups</em> exist. Everything else follows from that.</p>
+      <table class="dt">
+        <thead><tr><th class="blue"></th><th class="blue">KNN</th><th class="blue">K-Means</th></tr></thead>
+        <tbody>
+          <tr class="show"><td class="term">learning</td><td>supervised</td><td>unsupervised</td></tr>
+          <tr class="show"><td class="term">needs y</td><td class="A">yes</td><td class="B">no</td></tr>
+          <tr class="show"><td class="term">K means</td><td>how many neighbours vote</td><td>how many clusters to find</td></tr>
+          <tr class="show"><td class="term">what fit does</td><td>stores the training rows — there is no training</td><td>runs assign/update until the centroids settle</td></tr>
+          <tr class="show"><td class="term">what predict does</td><td>finds the K nearest stored rows, takes the majority label</td><td>finds the 1 nearest centroid, returns its number</td></tr>
+          <tr class="show"><td class="term">output</td><td>a class you already knew about</td><td>a group number nobody has named yet</td></tr>
+          <tr class="show"><td class="term">scored by</td><td><code>accuracy_score</code> against the truth</td><td><code>inertia_</code>, silhouette, and your judgement</td></tr>
+          <tr class="show"><td class="term">choose K with</td><td>cross-validation on accuracy</td><td>the elbow on inertia</td></tr>
+          <tr class="show"><td class="term">needs scaling</td><td class="A">yes</td><td class="A">yes</td></tr>
+        </tbody>
+      </table>
+      <div class="callout cyan">
+        🤝 <strong>What they genuinely share.</strong> Both are pure Euclidean distance, so both are ruined by an unscaled column and both degrade in very high dimensions, where all distances start to look alike. If you understood why KNN needed <code>MinMaxScaler</code>, you already understand why K-Means needs <code>StandardScaler</code> — it is the same lesson arriving twice.
+      </div>
+      <div class="callout purple">
+        🧭 <strong>And the family K-Means belongs to.</strong> <code>KMeans</code> assumes round, similarly-sized, straight-edged blobs, and needs K up front. <code>DBSCAN</code> finds clusters of any shape by following density, works out the number itself, and labels the leftovers as noise — but needs a distance threshold instead. <code>AgglomerativeClustering</code> merges the two nearest groups over and over and gives you a dendrogram, so you can pick K after looking at it. K-Means stays the default because it is by far the fastest of the three on large data.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(13)">← Appendix A1</button>
+        <div class="pnav-dots" id="dots-14"></div>
+        <button class="pnav-btn next" onclick="goTo(0)">Back to Overview →</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="kmean.js"></script>
+</body>
+</html>

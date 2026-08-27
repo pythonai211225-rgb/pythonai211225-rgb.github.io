@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PCA - Principal Component Analysis</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded',function(){
+    renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'\\(',right:'\\)',display:false}],throwOnError:false});
+    if (window.fitMath) fitMath();
+  });</script>
+  <style>
+    .page-layout { display:flex; height:calc(100vh - 54px); overflow:hidden; }
+    .sidebar { width:238px; min-width:238px; height:100%; overflow-y:auto; background:#0a0e14; border-right:1px solid var(--border); display:flex; flex-direction:column; scrollbar-width:thin; scrollbar-color:var(--border) transparent; flex-shrink:0; }
+    .sidebar-head { padding:20px 18px 14px; font-size:.65rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--border); }
+    .sidebar-nav { padding:8px 0; flex:1; }
+    .s-item { display:flex; align-items:center; gap:11px; padding:10px 18px; cursor:pointer; background:none; border:none; border-left:3px solid transparent; width:100%; text-align:left; transition:background .18s,border-color .18s; }
+    .s-item:hover { background:rgba(255,255,255,.04); }
+    .s-item.active { background:rgba(250,204,21,.08); border-left-color:var(--accent); }
+    .s-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; transition:transform .2s; }
+    .s-item.active .s-dot { transform:scale(1.45); box-shadow:0 0 8px currentColor; }
+    .s-num { font-size:.62rem; color:var(--border); font-family:'Courier New',monospace; font-weight:700; min-width:18px; }
+    .s-item.active .s-num { color:var(--accent); }
+    .s-label { font-size:.79rem; color:var(--muted); font-family:'Courier New',monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .s-item.active .s-label { color:var(--text); }
+    .s-item.done .s-label::after { content:' \2713'; color:var(--green); font-size:.7rem; }
+    .side-sep { border:none; border-top:1px solid var(--border); margin:14px 16px 6px; }
+    .side-part { padding:2px 18px 6px; font-size:.6rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:var(--accent); font-family:'Courier New',monospace; }
+
+    .panel-viewport { flex:1; overflow-y:auto; overflow-x:hidden; position:relative; }
+    .panel { display:none; flex-direction:column; min-height:100%; padding:40px 52px 100px; max-width:830px; margin:0 auto; animation:fadeIn .35s ease; }
+    .panel.active { display:flex; }
+    @keyframes fadeIn { from{opacity:0;transform:translateX(28px)} to{opacity:1;transform:translateX(0)} }
+    .panel.exit { display:flex; animation:fadeOut .25s ease forwards; }
+    @keyframes fadeOut { from{opacity:1;transform:translateX(0)} to{opacity:0;transform:translateX(-28px)} }
+
+    .m-hero { position:relative; height:200px; border-radius:18px; overflow:hidden; margin-bottom:26px; flex-shrink:0; }
+    .m-hero img { width:100%; height:100%; object-fit:cover; filter:brightness(.5) saturate(.8); transition:filter .45s; }
+    .panel.active .m-hero img { filter:brightness(.6) saturate(1.1); }
+    .m-hero-ov { position:absolute; inset:0; padding:26px 30px; display:flex; flex-direction:column; justify-content:flex-end; background:linear-gradient(0deg,rgba(0,0,0,.78) 0%,rgba(0,0,0,.15) 55%,transparent 100%); }
+    .m-breadcrumb { font-size:.62rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:rgba(255,255,255,.4); margin-bottom:5px; }
+    .m-name { font-size:1.7rem; font-weight:900; color:#fff; font-family:'Courier New',monospace; }
+    .m-tagline { font-size:.86rem; color:rgba(255,255,255,.62); margin-top:4px; }
+
+    .m-desc { font-size:.95rem; color:var(--muted); line-height:1.75; margin-bottom:14px; }
+    .m-desc code { font-family:'Courier New',monospace; font-size:.88em; padding:1px 6px; border-radius:4px; background:rgba(255,255,255,.06); }
+
+    .demo-box { background:#060a10; border:1px solid var(--border); border-radius:14px; padding:22px 22px 18px; margin-top:20px; flex-shrink:0; display:flex; flex-direction:column; }
+    .demo-lbl { font-size:.64rem; font-weight:800; letter-spacing:.13em; text-transform:uppercase; color:var(--muted); margin-bottom:18px; display:flex; align-items:center; gap:8px; }
+    .demo-lbl::before { content:''; width:3px; height:12px; border-radius:2px; background:var(--accent); flex-shrink:0; }
+    .demo-controls { display:flex; flex-wrap:wrap; gap:18px; align-items:flex-end; margin-bottom:18px; }
+    .ctrl { display:flex; flex-direction:column; gap:5px; }
+    .ctrl label { font-size:.69rem; color:var(--muted); font-weight:600; }
+    .ctrl input[type=range] { -webkit-appearance:none; width:190px; height:4px; background:var(--border); border-radius:2px; outline:none; cursor:pointer; }
+    .ctrl input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:15px; height:15px; background:var(--accent); border-radius:50%; cursor:pointer; box-shadow:0 0 6px rgba(250,204,21,.5); }
+    .ctrl input[type=range]::-moz-range-thumb { width:15px; height:15px; background:var(--accent); border:none; border-radius:50%; cursor:pointer; }
+    .ctrl .cval { font-size:.7rem; color:var(--accent); font-family:'Courier New',monospace; font-weight:700; text-align:center; }
+    .demo-canvas-wrap { background:#020509; border-radius:10px; padding:14px; overflow:hidden; min-height:72px; order:4; }
+    canvas { display:block; margin:0 auto; }
+    .demo-out { font-family:'Courier New',monospace; font-size:.8rem; color:#10b981; line-height:1.65; margin-top:0; margin-bottom:14px; padding:11px 15px; background:rgba(16,185,129,.05); border:1px solid rgba(16,185,129,.18); border-radius:8px; white-space:pre-wrap; order:3; }
+
+    .seg { display:inline-flex; border:1px solid var(--border); border-radius:9px; overflow:hidden; }
+    .seg button { background:transparent; border:none; color:var(--muted); font-size:.72rem; font-weight:700; font-family:'Courier New',monospace; padding:7px 13px; cursor:pointer; transition:background .18s,color .18s; }
+    .seg button:hover { color:var(--text); background:rgba(255,255,255,.05); }
+    .seg button.on { background:rgba(250,204,21,.14); color:var(--accent); }
+    .play-btn { background:rgba(16,185,129,.12); border:1px solid rgba(16,185,129,.4); color:var(--green); font-family:'Courier New',monospace; font-size:.74rem; font-weight:800; padding:8px 16px; border-radius:9px; cursor:pointer; transition:background .18s,transform .12s; }
+    .play-btn:hover { background:rgba(16,185,129,.22); }
+    .play-btn:active { transform:scale(.96); }
+
+    .panel-nav { display:flex; justify-content:space-between; align-items:center; margin-top:40px; padding-top:24px; border-top:1px solid var(--border); flex-shrink:0; gap:10px; }
+    .pnav-btn { display:flex; align-items:center; gap:9px; padding:10px 20px; border-radius:10px; border:1px solid var(--border); background:transparent; color:var(--muted); font-size:.82rem; font-weight:700; cursor:pointer; transition:color .2s,border-color .2s,background .2s; }
+    .pnav-btn:hover:not(:disabled) { color:var(--text); border-color:var(--accent); background:rgba(250,204,21,.06); }
+    .pnav-btn:disabled { opacity:.28; cursor:default; }
+    .pnav-btn.next { background:rgba(250,204,21,.08); border-color:rgba(250,204,21,.35); color:var(--accent); }
+    .pnav-btn.next:hover { background:rgba(250,204,21,.16); border-color:var(--accent); }
+    .pnav-dots { display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:center; }
+    .pnav-dot { width:7px; height:7px; border-radius:50%; background:var(--border); transition:background .2s,transform .2s; cursor:pointer; border:none; padding:0; }
+    .pnav-dot.active { background:var(--accent); transform:scale(1.4); }
+
+    .overview-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:14px; margin-top:24px; }
+    .ov-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px 16px 16px; cursor:pointer; transition:border-color .2s,box-shadow .2s,transform .18s; display:flex; flex-direction:column; gap:8px; }
+    .ov-card:hover { transform:translateY(-3px); border-color:rgba(250,204,21,.4); box-shadow:0 8px 28px rgba(250,204,21,.08); }
+    .ov-card-num { font-size:.62rem; color:var(--muted); font-weight:800; letter-spacing:.1em; }
+    .ov-card-name { font-size:.9rem; font-family:'Courier New',monospace; font-weight:700; }
+    .ov-card-desc { font-size:.77rem; color:var(--muted); line-height:1.5; }
+
+    @media(max-width:700px){.sidebar{display:none}.panel{padding:20px 16px 80px}}
+
+    .katex { color: var(--text); }
+    /* No horizontal scrollbars on formulas: fitMath() in pca.js shrinks anything
+       too wide to scale, so the overflow is clipped rather than scrolled. */
+    .katex-display { margin: 6px 0; overflow-x: hidden; overflow-y: hidden; padding: 3px 0; }
+    .katex-display > .katex { max-width: none; }
+    .eq-box { background:rgba(59,130,246,.05); border:1px solid rgba(59,130,246,.2); border-radius:12px; padding:16px 20px; margin:16px 0; font-size:1.05rem; }
+    .eq-box.big { font-size:1.32rem; padding:24px 20px; }
+    .eq-box.small { font-size:.95rem; padding:14px 18px; }
+    .eq-box.gold { background:rgba(250,204,21,.05); border-color:rgba(250,204,21,.22); }
+    .eq-box.green { background:rgba(16,185,129,.05); border-color:rgba(16,185,129,.22); }
+    .eq-box.rose { background:rgba(244,63,94,.05); border-color:rgba(244,63,94,.22); }
+
+    .exercise-header{display:flex;align-items:flex-start;gap:16px;margin-bottom:24px;padding:20px;background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.2);border-radius:14px;position:relative;overflow:hidden;}
+    .exercise-header::before{content:'';position:absolute;top:-40px;right:-40px;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,rgba(251,191,36,.1) 0%,transparent 70%);pointer-events:none;}
+    .exercise-badge{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;font-size:1.8rem;font-weight:800;color:#0d1a2e;background:linear-gradient(135deg,#fbbf24,#f59e0b);box-shadow:0 6px 18px rgba(251,191,36,.35);flex-shrink:0;}
+    .ex-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px 16px;margin-bottom:14px;transition:border-color .2s;}
+    .ex-card:hover{border-color:rgba(250,204,21,.3);}
+    .ex-q-head{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+    .ex-num{font-size:.68rem;font-weight:800;letter-spacing:.1em;padding:3px 10px;border-radius:6px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--muted);font-family:'Courier New',monospace;}
+    .ex-task{font-size:.88rem;color:var(--muted);margin-bottom:10px;line-height:1.6;}
+    .ex-task code{font-family:'Courier New',monospace;font-size:.85em;padding:1px 6px;border-radius:4px;background:rgba(255,255,255,.06);}
+    details.hint{margin-top:10px;}
+    details.hint summary{cursor:pointer;font-size:.78rem;color:var(--accent);font-weight:700;}
+
+    .legend { display:flex; flex-wrap:wrap; gap:16px; justify-content:center; margin-bottom:10px; }
+    .lg { display:flex; align-items:center; gap:7px; font-size:.72rem; font-family:'Courier New',monospace; color:var(--muted); font-weight:700; }
+    .lg i { width:11px; height:11px; border-radius:50%; display:inline-block; }
+    .lg.sq i { border-radius:3px; }
+    .lg.hollow i { background:none !important; border:2px solid #e6edf3; }
+    .lg.ln i { width:20px; height:0; border-top:2px solid var(--text); border-radius:0; }
+    .lg.dash i { width:20px; height:0; border-top:2px dashed var(--muted); border-radius:0; }
+
+    .steps { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; margin:20px 0 6px; }
+    .step { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px 16px 14px; position:relative; overflow:hidden; transition:transform .2s,border-color .2s; }
+    .step:hover { transform:translateY(-3px); }
+    .step::after { content:attr(data-n); position:absolute; right:10px; bottom:-14px; font-size:3.4rem; font-weight:900; font-family:'Courier New',monospace; color:rgba(255,255,255,.04); line-height:1; }
+    .step h4 { font-size:.86rem; margin-bottom:6px; font-family:'Courier New',monospace; }
+    .step p { font-size:.78rem; color:var(--muted); line-height:1.55; }
+    .step.a { border-color:rgba(59,130,246,.32); } .step.a h4 { color:var(--blue); }
+    .step.b { border-color:rgba(250,204,21,.32); } .step.b h4 { color:var(--accent); }
+    .step.c { border-color:rgba(16,185,129,.32); } .step.c h4 { color:var(--green); }
+    .step.d { border-color:rgba(236,72,153,.32); } .step.d h4 { color:var(--pink); }
+
+    .pc-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:18px 0; }
+    @media(max-width:640px){ .pc-grid{grid-template-columns:1fr} }
+    .pc { border-radius:14px; border:1px solid var(--border); padding:18px 20px 14px; }
+    .pc h4 { font-size:.9rem; margin-bottom:12px; font-family:'Courier New',monospace; display:flex; align-items:center; gap:8px; }
+    .pc ol, .pc ul { margin:0; padding-left:20px; }
+    .pc li { font-size:.82rem; color:var(--muted); line-height:1.6; margin-bottom:7px; }
+    .pc.good { border-color:rgba(16,185,129,.3); background:rgba(16,185,129,.04); } .pc.good h4 { color:var(--green); }
+    .pc.bad  { border-color:rgba(244,63,94,.3);  background:rgba(244,63,94,.04); }  .pc.bad h4  { color:#f43f5e; }
+
+    table.dt td.A { color:#10b981; font-weight:700; }
+    table.dt td.B { color:#f97316; font-weight:700; }
+    table.dt tr.hl td { background:rgba(250,204,21,.09); }
+
+    .term-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; margin:18px 0; }
+    .term { border:1px solid var(--border); border-radius:12px; padding:14px 16px 12px; background:var(--surface); }
+    .term h5 { font-family:'Courier New',monospace; font-size:.84rem; margin-bottom:5px; }
+    .term p { font-size:.78rem; color:var(--muted); line-height:1.55; }
+
+    .out-pre { background:#010409; border:1px solid var(--border); border-radius:8px; padding:12px 14px; margin-top:10px;
+               font-family:'Courier New',monospace; font-size:.78rem; color:#10b981; overflow-x:auto; line-height:1.6; }
+    .prm { display:grid; grid-template-columns:230px 1fr; gap:14px; padding:13px 0; border-bottom:1px solid var(--border); }
+    .prm:last-child { border-bottom:none; }
+    .prm code { font-size:.8rem; }
+    .prm p { font-size:.82rem; color:var(--muted); line-height:1.6; margin:0; }
+    @media(max-width:620px){ .prm{grid-template-columns:1fr;gap:6px} }
+    .bad-code { border-color:rgba(244,63,94,.4) !important; }
+    .bad-code .code-header { background:rgba(244,63,94,.08); border-color:rgba(244,63,94,.3); }
+    .good-code { border-color:rgba(16,185,129,.4) !important; }
+    .good-code .code-header { background:rgba(16,185,129,.08); border-color:rgba(16,185,129,.3); }
+
+    /* ══ deck-18 only ══ */
+    /* the dot-product strip: one row x one component, term by term, into one number */
+    .dotstrip { display:grid; gap:9px; margin:18px 0 10px; }
+    .dotrow { display:grid; grid-template-columns:1.3fr 1fr 1fr 1.1fr; gap:9px; align-items:stretch; }
+    @media(max-width:620px){ .dotrow{grid-template-columns:1fr 1fr} }
+    .dcell { border:1px solid var(--border); border-radius:11px; padding:10px 11px 8px; background:var(--surface); text-align:center; }
+    .dcell b { display:block; font:800 .6rem 'Courier New',monospace; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .dcell span { font:800 .98rem 'Courier New',monospace; }
+    .dcell.f span { color:var(--blue); }
+    .dcell.w span { color:#a855f7; }
+    .dcell.p { border-color:rgba(250,204,21,.32); } .dcell.p span { color:var(--accent); }
+    .dcell.h { border-color:rgba(250,204,21,.55); background:rgba(250,204,21,.07); }
+    .dtotal { border:1px solid rgba(16,185,129,.42); background:rgba(16,185,129,.06); border-radius:12px; padding:13px 18px;
+              display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-top:4px; }
+    .dtotal .lbl { font:800 .67rem 'Courier New',monospace; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); }
+    .dtotal .val { font:900 1.45rem 'Courier New',monospace; color:var(--green); }
+
+    /* a wide row shrinking to one number */
+    .shrink { display:flex; align-items:center; gap:11px; flex-wrap:wrap; margin:16px 0 6px; }
+    .shrink .box { border:1px solid var(--border); border-radius:10px; padding:9px 13px; font:700 .77rem 'Courier New',monospace; background:var(--surface); }
+    .shrink .box.wide { color:var(--blue); border-color:rgba(59,130,246,.3); }
+    .shrink .box.one  { color:var(--green); border-color:rgba(16,185,129,.4); background:rgba(16,185,129,.06); }
+    .shrink .ar { color:var(--accent); font:900 1.05rem 'Courier New',monospace; }
+
+    .keynum { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin:18px 0; }
+    .kn { border:1px solid var(--border); border-radius:13px; padding:15px 16px 13px; background:var(--surface); }
+    .kn .knv { font:900 1.32rem 'Courier New',monospace; line-height:1.2; }
+    .kn .knl { font-size:.73rem; color:var(--muted); line-height:1.5; margin-top:5px; }
+  </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">&larr; Python Libs</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item" href="../17_kmean/index.html">&larr; Deck 17 &middot; K-Means</a>
+    <a class="nav-item active" href="index.html">Deck 18 &middot; PCA</a>
+  </div>
+</nav>
+
+<div class="page-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-head">Principal Component Analysis</div>
+    <nav class="sidebar-nav">
+      <button class="s-item active" data-panel="0" onclick="goTo(0)"><span class="s-num">00</span><span class="s-dot" style="background:#8b5cf6"></span><span class="s-label">Overview</span></button>
+      <div class="side-part">The idea</div>
+      <button class="s-item" data-panel="1" onclick="goTo(1)"><span class="s-num">01</span><span class="s-dot" style="background:#06b6d4"></span><span class="s-label">Too many columns</span></button>
+      <button class="s-item" data-panel="2" onclick="goTo(2)"><span class="s-num">02</span><span class="s-dot" style="background:#facc15"></span><span class="s-label">Variance</span></button>
+      <button class="s-item" data-panel="3" onclick="goTo(3)"><span class="s-num">03</span><span class="s-dot" style="background:#f43f5e"></span><span class="s-label">A component is a direction</span></button>
+      <div class="side-part">Using it</div>
+      <button class="s-item" data-panel="4" onclick="goTo(4)"><span class="s-num">04</span><span class="s-dot" style="background:#10b981"></span><span class="s-label">Multiply &middot; one number</span></button>
+      <button class="s-item" data-panel="5" onclick="goTo(5)"><span class="s-num">05</span><span class="s-dot" style="background:#3b82f6"></span><span class="s-label">30 columns &rarr; 2</span></button>
+      <button class="s-item" data-panel="6" onclick="goTo(6)"><span class="s-num">06</span><span class="s-dot" style="background:#f97316"></span><span class="s-label">Explained variance</span></button>
+      <button class="s-item" data-panel="7" onclick="goTo(7)"><span class="s-num">07</span><span class="s-dot" style="background:#ec4899"></span><span class="s-label">How many components?</span></button>
+      <div class="side-part">Making it work</div>
+      <button class="s-item" data-panel="8" onclick="goTo(8)"><span class="s-num">08</span><span class="s-dot" style="background:#a855f7"></span><span class="s-label">Scale first</span></button>
+      <button class="s-item" data-panel="9" onclick="goTo(9)"><span class="s-num">09</span><span class="s-dot" style="background:#22c55e"></span><span class="s-label">The whole recipe</span></button>
+      <button class="s-item" data-panel="10" onclick="goTo(10)"><span class="s-num">10</span><span class="s-dot" style="background:#fbbf24"></span><span class="s-label">Exercises</span></button>
+      <hr class="side-sep">
+      <div class="side-part">Appendix</div>
+      <button class="s-item" data-panel="11" onclick="goTo(11)"><span class="s-num">A1</span><span class="s-dot" style="background:#8b5cf6"></span><span class="s-label">The PCA object</span></button>
+      <button class="s-item" data-panel="12" onclick="goTo(12)"><span class="s-num">A2</span><span class="s-dot" style="background:#10b981"></span><span class="s-label">PCA vs the neighbours</span></button>
+      <hr class="side-sep">
+      <a class="s-item" style="text-decoration:none" href="../17_kmean/index.html"><span class="s-num">&larr;</span><span class="s-dot" style="background:#f43f5e"></span><span class="s-label">Deck 17 &middot; K-Means</span></a>
+      <a class="s-item" style="text-decoration:none" href="../lessons/22_lesson/index.html"><span class="s-num">&rarr;</span><span class="s-dot" style="background:#0ea5e9"></span><span class="s-label">Lesson 22 &middot; notebook</span></a>
+    </nav>
+  </aside>
+
+  <!-- PANEL VIEWPORT -->
+  <div class="panel-viewport" id="viewport">
+
+    <!-- ══ PANEL 0: Overview ══ -->
+    <div class="panel active" id="panel-0">
+      <div class="hero" style="margin-bottom:36px;">
+        <span class="topic-label"><span class="dot"></span>Unsupervised Learning &middot; Dimensionality Reduction</span>
+        <h1>Principal Component Analysis</h1>
+        <p>K-Means took a table and grouped its <em>rows</em>. PCA takes the same table and shrinks its <em>columns</em> &mdash; thirty of them down to two &mdash; without simply deleting twenty-eight. It builds a handful of <strong>new</strong> columns, each one a weighted blend of all the old ones, chosen so the rows stay as spread out as possible. And once you have those weights, using PCA is one multiplication: a row of thirty numbers times a component of thirty weights gives <strong>one number</strong>. Watch a cloud of two columns become a line of one:</p>
+        <div class="demo-canvas-wrap" style="order:0;background:#020509;border-radius:12px;padding:14px;position:relative;z-index:1;"><canvas id="cv-overview" height="330"></canvas></div>
+      </div>
+      <div class="overview-grid" style="margin-top:0;">
+        <div class="ov-card" onclick="goTo(1)"><div class="ov-card-num">01 / 10</div><div class="ov-card-name" style="color:#06b6d4">Too many columns</div><div class="ov-card-desc">Why 30 features is a problem worth paying to solve.</div></div>
+        <div class="ov-card" onclick="goTo(2)"><div class="ov-card-num">02 / 10</div><div class="ov-card-name" style="color:#facc15">Variance</div><div class="ov-card-desc">The one number PCA is chasing, worked out by hand.</div></div>
+        <div class="ov-card" onclick="goTo(3)"><div class="ov-card-num">03 / 10</div><div class="ov-card-name" style="color:#f43f5e">A component is a direction</div><div class="ov-card-desc">Spin the line yourself and watch the variance rise and fall.</div></div>
+        <div class="ov-card" onclick="goTo(4)"><div class="ov-card-num">04 / 10</div><div class="ov-card-name" style="color:#10b981">Multiply &middot; one number</div><div class="ov-card-desc">The whole of &quot;using PCA&quot;: multiply, add, done.</div></div>
+        <div class="ov-card" onclick="goTo(5)"><div class="ov-card-num">05 / 10</div><div class="ov-card-name" style="color:#3b82f6">30 columns &rarr; 2</div><div class="ov-card-desc">components_, transform, and the shape at every step.</div></div>
+        <div class="ov-card" onclick="goTo(6)"><div class="ov-card-num">06 / 10</div><div class="ov-card-name" style="color:#f97316">Explained variance</div><div class="ov-card-desc">44% + 19%. What that percentage actually is a percentage of.</div></div>
+        <div class="ov-card" onclick="goTo(7)"><div class="ov-card-num">07 / 10</div><div class="ov-card-name" style="color:#ec4899">How many components?</div><div class="ov-card-desc">The cumulative curve, and where to cut it.</div></div>
+        <div class="ov-card" onclick="goTo(8)"><div class="ov-card-num">08 / 10</div><div class="ov-card-name" style="color:#a855f7">Scale first</div><div class="ov-card-desc">Skip StandardScaler and PC1 becomes &quot;area&quot;. Really.</div></div>
+        <div class="ov-card" onclick="goTo(9)"><div class="ov-card-num">09 / 10</div><div class="ov-card-name" style="color:#22c55e">The whole recipe</div><div class="ov-card-desc">Six lines, start to finish, in a Pipeline.</div></div>
+        <div class="ov-card" onclick="goTo(10)"><div class="ov-card-num">10 / 10</div><div class="ov-card-name" style="color:#fbbf24">Exercises</div><div class="ov-card-desc">Project by hand, then check yourself against sklearn.</div></div>
+        <div class="ov-card" onclick="goTo(11)"><div class="ov-card-num">APPENDIX A1</div><div class="ov-card-name" style="color:#8b5cf6">The PCA object</div><div class="ov-card-desc">components_, explained_variance_ratio_, inverse_transform.</div></div>
+        <div class="ov-card" onclick="goTo(12)"><div class="ov-card-num">APPENDIX A2</div><div class="ov-card-name" style="color:#10b981">PCA vs the neighbours</div><div class="ov-card-desc">Not feature selection, not clustering, not a model.</div></div>
+      </div>
+      <div class="callout green">
+        🧮 <strong>The numbers on this page are real.</strong> The 2-D demos run a genuine PCA in your browser on the points you can see. Every figure quoted from the tumour dataset &mdash; the 0.4427, the components, the cumulative curve in panel 07 &mdash; comes from running scikit-learn on the 569&nbsp;&times;&nbsp;30 table in the lesson notebook, not from a plausible-looking guess.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" disabled>&larr; Prev</button>
+        <div class="pnav-dots" id="dots-0"></div>
+        <button class="pnav-btn next" onclick="goTo(1)">Too many columns &rarr;</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 1: Too many columns ══ -->
+    <div class="panel" id="panel-1">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1518186285589-2f7649de83e0?w=900&q=75&fit=crop&h=200" alt="A wall of filing drawers" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 18 &middot; 01 / 10 &middot; The idea</div>
+          <div class="m-name">Too many columns</div>
+          <div class="m-tagline">Thirty features is not thirty times as informative as one</div>
+        </div>
+      </div>
+      <p class="m-desc">The tumour table in the notebook has <strong>569 rows and 30 columns</strong>. Every column is a real measurement of a cell nucleus, and none of them is obviously junk. But thirty columns brings three problems at once, and PCA is aimed at all three.</p>
+      <div class="steps">
+        <div class="step a" data-n="1"><h4>You cannot see it</h4><p>A scatter plot has two axes. With 30 columns there are 435 possible pairs, and none of them shows you the whole shape. Two <em>components</em> can.</p></div>
+        <div class="step b" data-n="2"><h4>It is slow</h4><p>Distance-based models &mdash; KNN, K-Means, SVM &mdash; do work proportional to the number of columns, on every row, every time.</p></div>
+        <div class="step c" data-n="3"><h4>It overfits</h4><p>More columns means more ways for a model to memorise noise. Fewer, denser columns generalise better.</p></div>
+      </div>
+      <p class="m-desc" style="margin-top:22px">There is a fourth reason, and it is the one that makes PCA work at all: <strong>the columns repeat each other</strong>. In that tumour table, <code>mean radius</code>, <code>mean perimeter</code> and <code>mean area</code> are three measurements of the same underlying thing &mdash; how big the nucleus is. They rise and fall together. Three columns, roughly one fact. PCA finds those repetitions and folds them into a single new column.</p>
+      <div class="callout blue">
+        🎯 <strong>The obvious alternative, and why it loses.</strong> You could just delete columns &mdash; keep <code>mean radius</code>, drop <code>mean perimeter</code> and <code>mean area</code>. That is <em>feature selection</em>, and everything you drop is gone. PCA instead <strong>combines</strong>: the new column keeps a share of all three. Nothing is thrown away; it is compressed.
+      </div>
+      <div class="callout purple">
+        🙈 <strong>This is unsupervised.</strong> PCA never sees a <code>y</code>. It cannot know which columns predict a malignant tumour, because nobody told it which tumours are malignant. It optimises one thing only: keeping the rows as spread out as it can. That works remarkably often &mdash; but it is spread, not usefulness, and panel 08 shows what happens when the two come apart.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(0)">&larr; Overview</button>
+        <div class="pnav-dots" id="dots-1"></div>
+        <button class="pnav-btn next" onclick="goTo(2)">Variance &rarr;</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 2: Variance ══ -->
+    <div class="panel" id="panel-2">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1509228468518-180dd4864904?w=900&q=75&fit=crop&h=200" alt="Scattered marbles" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 18 &middot; 02 / 10 &middot; The idea</div>
+          <div class="m-name">Variance</div>
+          <div class="m-tagline">How spread out the numbers are &mdash; the only thing PCA optimises</div>
+        </div>
+      </div>
+      <p class="m-desc">Before any of the PCA machinery, one plain idea. Here are three columns of ten numbers each. Same average, different <strong>spread</strong>:</p>
+      <div class="demo-canvas-wrap" style="order:0;margin-bottom:8px"><canvas id="cv-spread" height="230"></canvas></div>
+      <p class="m-desc">Nothing is hidden in that picture: the top row is bunched, the bottom row is scattered, and every row has its average in the same place. <strong>Variance is the number that tells those three rows apart.</strong> Now the formula &mdash; and it says exactly what you just looked at:</p>
+      <div class="eq-box big">$$ s^2 \;=\; \frac{\sum (x - \bar{x})^2}{n} $$</div>
+      <p class="m-desc">Read it right to left: take each value's <strong>distance from the mean</strong>, <strong>square</strong> it so that being 4 below counts the same as 4 above, add them all up, and divide by how many there were. A big answer means scattered; zero means every value is identical.</p>
+      <h3 style="font-size:1rem;margin:26px 0 6px;font-family:'Courier New',monospace;color:var(--accent)">Worked out, on the notebook's own example</h3>
+      <p class="m-desc" style="margin-bottom:6px">The notebook uses <code>X = [2, 4, 6, 8, 10]</code>. The mean is \((2+4+6+8+10)/5 = 6\).</p>
+      <table class="dt">
+        <thead><tr><th>x</th><th>x &minus; x&#772;</th><th>(x &minus; x&#772;)&sup2;</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>2</td><td>&minus;4</td><td class="A">16</td></tr>
+          <tr class="show"><td>4</td><td>&minus;2</td><td class="A">4</td></tr>
+          <tr class="show"><td>6</td><td>0</td><td class="A">0</td></tr>
+          <tr class="show"><td>8</td><td>2</td><td class="A">4</td></tr>
+          <tr class="show"><td>10</td><td>4</td><td class="A">16</td></tr>
+          <tr class="show hl"><td><strong>sum</strong></td><td>0 &mdash; always</td><td class="A"><strong>40</strong></td></tr>
+        </tbody>
+      </table>
+      <div class="eq-box green">$$ s^2 = \frac{40}{5} = 8 \qquad\qquad s = \sqrt{8} \approx 2.83 $$</div>
+      <p class="m-desc">The middle column summing to zero is not a coincidence &mdash; it is what &quot;mean&quot; means, and it is exactly why the squares are needed. Without them every variance in the world would be 0.</p>
+      <div class="callout orange">
+        📏 <strong>Variance or standard deviation?</strong> The <strong>standard deviation</strong> \(s = \sqrt{s^2} \approx 2.83\) is the readable one &mdash; it is in the same units as the data, so &quot;2.83 marks&quot; means something. <strong>Variance</strong> is the one that adds up: the variance of several columns together is the sum of their variances, and that additivity is the whole reason PCA is stated in variance and not in standard deviation.
+      </div>
+      <div class="callout blue">
+        ➗ <strong>Divide by n or by n &minus; 1?</strong> Both appear, and the notebook uses both. Dividing by <code>n</code> is the variance of the numbers <em>you have</em>. Dividing by <code>n − 1</code> estimates the variance of the wider <em>population</em> those numbers came from, and is what pandas' <code>.var()</code> and sklearn use by default. In the notebook's second example &mdash; ten people's weights, mean 70&nbsp;kg, squared deviations adding to 229 &mdash; that gives \(229/9 \approx 25.44\), not \(229/10 = 22.9\). For 569 rows the difference is under a fifth of a percent; for 10 rows it is 11%.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(1)">&larr; Too many columns</button>
+        <div class="pnav-dots" id="dots-2"></div>
+        <button class="pnav-btn next" onclick="goTo(3)">A component is a direction &rarr;</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 3: A component is a direction ══ -->
+    <div class="panel" id="panel-3">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1508615039623-a25605d2b022?w=900&q=75&fit=crop&h=200" alt="A compass" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 18 &middot; 03 / 10 &middot; The idea</div>
+          <div class="m-name">A component is a direction</div>
+          <div class="m-tagline">PC1 is the arrow the data is longest along</div>
+        </div>
+      </div>
+      <p class="m-desc">A <strong>principal component</strong> is not a column of the table and not a row of it. It is a <em>direction</em> &mdash; an arrow through the cloud, written as one weight per original column. Below, every point is dropped straight down onto the candidate line, and the spread of those landing points is measured. <strong>Turn the line and watch the number move.</strong></p>
+      <div class="demo-box">
+        <div class="demo-lbl">Find PC1 by hand</div>
+        <div class="demo-controls">
+          <div class="ctrl">
+            <label>direction of the line</label>
+            <input type="range" id="sl-ang" min="0" max="179" step="1" value="12" oninput="drawDir()">
+            <div class="cval" id="v-ang">12&deg;</div>
+          </div>
+          <button class="play-btn" onclick="snapPC1()">snap to the best &rarr;</button>
+        </div>
+        <div class="legend">
+          <span class="lg"><i style="background:#3b82f6"></i>the data</span>
+          <span class="lg"><i style="background:#facc15"></i>projected onto the line</span>
+          <span class="lg dash"><i></i>each point's drop</span>
+        </div>
+        <div class="demo-out" id="out-dir"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-dir" height="360"></canvas></div>
+      </div>
+      <p class="m-desc" style="margin-top:20px">The variance of those yellow points is highest at one particular angle, and that angle <em>is</em> PC1. Every other direction throws some of the spread away. PC2 is then fixed: it is the direction at 90&deg; to PC1, mopping up what is left.</p>
+      <div class="term-grid">
+        <div class="term"><h5 style="color:var(--red)">PC1</h5><p>The direction of greatest variance in the data. Nothing is more spread out than this.</p></div>
+        <div class="term"><h5 style="color:var(--blue)">PC2</h5><p>Orthogonal to PC1 &mdash; at a right angle &mdash; and the most spread out of everything that is left.</p></div>
+        <div class="term"><h5 style="color:var(--green)">all of them</h5><p>Every component is orthogonal to every other. They are a fresh set of axes for the same space.</p></div>
+        <div class="term"><h5 style="color:var(--accent)">length 1</h5><p>Every component is normalised: its weights squared add up to 1. It is a direction, not a distance.</p></div>
+      </div>
+      <div class="callout cyan">
+        📐 <strong>Why orthogonal matters.</strong> If PC2 pointed anywhere near PC1 it would re-measure the same spread twice, and the percentages in panel 06 would double-count. Right angles make the components independent, which is what lets you add their explained variances up and get a meaningful total.
+      </div>
+      <div class="callout purple">
+        🔧 <strong>How sklearn actually finds it &mdash; and why you can skip it.</strong> It does not spin a line the way the demo does. It builds the covariance matrix and takes its eigenvectors, or equivalently runs an SVD; the top eigenvector is PC1 and its eigenvalue is the variance along it. That is a linear-algebra course. <strong>You do not need it to use PCA</strong>, because <code>fit</code> hands you the finished directions &mdash; and from there, as the next panel shows, it is one multiplication.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(2)">&larr; Variance</button>
+        <div class="pnav-dots" id="dots-3"></div>
+        <button class="pnav-btn next" onclick="goTo(4)">Multiply &middot; one number &rarr;</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 4: Multiply · one number ══ -->
+    <div class="panel" id="panel-4">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1509228627152-72ae9ae6848d?w=900&q=75&fit=crop&h=200" alt="An old adding machine" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 18 &middot; 04 / 10 &middot; Using it</div>
+          <div class="m-name">Multiply &middot; one number</div>
+          <div class="m-tagline">Row times component, add it up, and the row has one coordinate</div>
+        </div>
+      </div>
+      <p class="m-desc">This is the panel that matters. Once <code>fit</code> has handed you a component, <strong>using</strong> PCA is arithmetic you could do on paper: multiply each of the row's values by the matching weight, add the products, and that single total is the row's new coordinate. It is called the <strong>projection</strong> of the row onto that component.</p>
+      <div class="eq-box big gold">$$ \text{projection} \;=\; x_1 w_1 + x_2 w_2 + \dots + x_p w_p $$</div>
+      <p class="m-desc">One row in, one number out. Pick an example and step through it:</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Row &times; component</div>
+        <div class="demo-controls">
+          <div class="seg" id="seg-dot">
+            <button class="on" onclick="pickDot(0)">3 subjects</button>
+            <button onclick="pickDot(1)">2-D point</button>
+            <button onclick="pickDot(2)">tumour row</button>
+          </div>
+          <button class="play-btn" onclick="playDot()">&#9654; add them up</button>
+        </div>
+        <div class="dotstrip" id="dot-strip"></div>
+        <div class="dtotal">
+          <span class="lbl" id="dot-lbl">projection</span>
+          <span class="val" id="dot-val">&mdash;</span>
+        </div>
+        <div class="demo-out" id="out-dot" style="order:5;margin:14px 0 0"></div>
+      </div>
+      <h3 style="font-size:1rem;margin:28px 0 6px;font-family:'Courier New',monospace;color:var(--accent)">The notebook's example, in full</h3>
+      <p class="m-desc" style="margin-bottom:4px">One student's marks, and a component that weights maths hardest:</p>
+      <div class="eq-box small">$$ \begin{aligned} \text{Obs}_1 &= [\,85,\; 90,\; 80\,] \quad\text{(maths, english, science)} \\ \text{PC}_1 &= [\,0.5,\; 0.3,\; 0.2\,] \\[4pt] \text{projection} &= 85 \times 0.5 \;+\; 90 \times 0.3 \;+\; 80 \times 0.2 \\ &= 42.5 + 27 + 16 \;=\; \mathbf{85.5} \end{aligned} $$</div>
+      <p class="m-desc">Three numbers went in. <strong>One number came out.</strong> That is the entire dimensionality reduction, for one row and one component &mdash; and the row is now a single point on a single axis rather than a point in a 3-D space.</p>
+      <div class="shrink">
+        <span class="box wide">[85, 90, 80]</span>
+        <span class="ar">&times;</span>
+        <span class="box">[0.5, 0.3, 0.2]</span>
+        <span class="ar">&rarr;</span>
+        <span class="box one">85.5</span>
+      </div>
+      <div class="callout blue">
+        🔁 <strong>Want two columns instead of one? Do it twice.</strong> Multiply the same row by PC2 and you get a second number. <code>n_components=2</code> means sklearn hands you two weight vectors, does both multiplications for every row, and returns a table with two columns. <code>n_components=5</code> means five. The row never changes; only how many directions you measure it along.
+      </div>
+      <div class="callout green">
+        🧾 <strong>What the number means.</strong> On scaled data, a projection is a signed distance along the component, measured from the middle of the cloud. In the tumour data, row 0 lands at <code>9.19</code> on PC1 while row 1 lands at <code>2.39</code> &mdash; so row 0 sits much further out along the &quot;big, irregular nucleus&quot; direction. The sign is arbitrary and can flip between library versions; the <em>gaps</em> between rows are what carry the information.
+      </div>
+      <div class="callout orange">
+        ⚠️ <strong>The one condition.</strong> This multiplication only means what it should if the row was scaled by the same <code>StandardScaler</code> that was fitted before <code>fit</code>, and if the component's weights line up with the row's columns <em>in the same order</em>. Get either wrong and the arithmetic still runs and still returns a number &mdash; a meaningless one. This is why the whole thing belongs in a <code>Pipeline</code> (panel 09).
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(3)">&larr; A component is a direction</button>
+        <div class="pnav-dots" id="dots-4"></div>
+        <button class="pnav-btn next" onclick="goTo(5)">30 columns &rarr; 2 &rarr;</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 5: 30 → 2 ══ -->
+    <div class="panel" id="panel-5">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1543286386-713bdd548da4?w=900&q=75&fit=crop&h=200" alt="A spreadsheet" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 18 &middot; 05 / 10 &middot; Using it</div>
+          <div class="m-name">30 columns &rarr; 2</div>
+          <div class="m-tagline">The same multiplication, 569 rows at a time</div>
+        </div>
+      </div>
+      <p class="m-desc">Scale it up and nothing changes conceptually &mdash; it is the previous panel's multiplication, run for every row and every component. Here is the notebook's code, and the shape of every object it touches:</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+<pre><span class="kw">import</span> pandas <span class="kw">as</span> <span class="lib">pd</span>
+<span class="kw">from</span> sklearn.decomposition <span class="kw">import</span> <span class="cls">PCA</span>
+<span class="kw">from</span> sklearn.preprocessing <span class="kw">import</span> <span class="cls">StandardScaler</span>
+
+df = <span class="lib">pd</span>.<span class="fn">read_csv</span>(<span class="str">'tumor_data_features.csv'</span>)   <span class="cm"># (569, 30)</span>
+
+scaler      = <span class="cls">StandardScaler</span>()
+scaled_data = scaler.<span class="fn">fit_transform</span>(df)              <span class="cm"># (569, 30)  still 30 columns</span>
+
+pca        = <span class="cls">PCA</span>(n_components=<span class="num">2</span>)
+pca_result = pca.<span class="fn">fit_transform</span>(scaled_data)       <span class="cm"># (569, 2)   &lt;- two columns</span>
+
+<span class="fn">print</span>(pca.components_.shape)                      <span class="cm"># (2, 30)</span>
+<span class="fn">print</span>(pca.explained_variance_ratio_)</pre>
+      </div>
+      <table class="dt">
+        <thead><tr><th>object</th><th>shape</th><th>what one entry is</th></tr></thead>
+        <tbody>
+          <tr class="show"><td class="term"><code>scaled_data</code></td><td>(569, 30)</td><td>one measurement of one tumour, as a z-score</td></tr>
+          <tr class="show hl"><td class="term"><code>pca.components_</code></td><td>(2, 30)</td><td>one <strong>weight</strong> &mdash; how much column <em>j</em> counts towards component <em>i</em></td></tr>
+          <tr class="show"><td class="term"><code>pca_result</code></td><td>(569, 2)</td><td>one <strong>projection</strong> &mdash; row <em>i</em> multiplied by component <em>j</em></td></tr>
+          <tr class="show"><td class="term"><code>explained_variance_ratio_</code></td><td>(2,)</td><td>the share of total spread that component keeps</td></tr>
+        </tbody>
+      </table>
+      <p class="m-desc"><code>components_</code> is the piece people misread. It is <strong>not</strong> the reduced data &mdash; it has 30 columns, not 569 rows. It is the recipe: two rows of thirty weights, and each one is the ingredient list for a new column.</p>
+      <div class="callout blue">
+        🧮 <strong>Row 0, checked by hand.</strong> Take the first scaled tumour row and PC1's thirty weights, multiply them pairwise, add: the first five terms alone are 0.240, −0.215, 0.289, 0.218, 0.224, and all thirty add to <strong>9.1928</strong>. That is exactly what <code>pca_result[0, 0]</code> contains. <code>transform</code> is <code>np.dot</code> in a coat &mdash; nothing more.
+      </div>
+      <div class="callout purple">
+        🏷️ <strong>The new columns have no names.</strong> PC1 is not &quot;size&quot; and PC2 is not &quot;texture&quot;; they are blends of all thirty measurements. You can look at <code>components_[0]</code> and see which weights are large to <em>guess</em> a meaning &mdash; on this data PC1 loads positively on almost everything, so it reads roughly as &quot;how extreme is this nucleus overall&quot; &mdash; but that is your interpretation, not something PCA gives you. This is the price of the compression.
+      </div>
+      <div class="callout orange">
+        📉 <strong>What was actually paid.</strong> Going from 30 columns to 2 dropped 36.8% of the spread on the floor. That is not free, and the next two panels are about deciding whether it was a good trade.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(4)">&larr; Multiply &middot; one number</button>
+        <div class="pnav-dots" id="dots-5"></div>
+        <button class="pnav-btn next" onclick="goTo(6)">Explained variance &rarr;</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 6: Explained variance ══ -->
+    <div class="panel" id="panel-6">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=900&q=75&fit=crop&h=200" alt="Pie chart on paper" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 18 &middot; 06 / 10 &middot; Using it</div>
+          <div class="m-name">Explained variance</div>
+          <div class="m-tagline">What fraction of the spread each new column kept</div>
+        </div>
+      </div>
+      <p class="m-desc">Start with the notebook's two-variable example, because the arithmetic is small enough to see all of. Ten people, measured twice:</p>
+      <div class="keynum">
+        <div class="kn"><div class="knv" style="color:var(--blue)">100</div><div class="knl">variance of <strong>height</strong> in cm&sup2; &mdash; a standard deviation of about 10&nbsp;cm</div></div>
+        <div class="kn"><div class="knv" style="color:#a855f7">25</div><div class="knl">variance of <strong>weight</strong> in kg&sup2; &mdash; a standard deviation of about 5&nbsp;kg</div></div>
+        <div class="kn"><div class="knv" style="color:var(--accent)">125</div><div class="knl">total variance in the dataset &mdash; variances simply add</div></div>
+      </div>
+      <p class="m-desc">That 125 is the whole pot. <strong>Explained variance ratio</strong> is each component's slice of it:</p>
+      <div class="eq-box big gold">$$ \text{explained variance ratio}_i \;=\; \frac{\text{variance along component } i}{\text{total variance}} $$</div>
+      <p class="m-desc">If a first component came out carrying 100 of the 125, it would have an explained variance ratio of \(100/125 = 0.80\) &mdash; it keeps 80% of everything the two original columns had between them, in one column instead of two.</p>
+      <h3 style="font-size:1rem;margin:28px 0 6px;font-family:'Courier New',monospace;color:var(--accent)">The same sum on the real 30-column table</h3>
+      <p class="m-desc" style="margin-bottom:6px">After scaling, every one of the 30 columns has variance 1, so the total variance is exactly <strong>30</strong>. Running the notebook's fit:</p>
+      <div class="out-pre">Explained Variance Ratio:
+[0.44272026 0.18971182]</div>
+      <table class="dt">
+        <thead><tr><th></th><th>variance along it</th><th>&divide; total (30.05)</th><th>ratio</th></tr></thead>
+        <tbody>
+          <tr class="show"><td class="term">PC1</td><td>13.305</td><td>13.305 / 30.05</td><td class="A">0.4427</td></tr>
+          <tr class="show"><td class="term">PC2</td><td>5.701</td><td>5.701 / 30.05</td><td class="A">0.1897</td></tr>
+          <tr class="show hl"><td class="term">both</td><td>19.006</td><td></td><td class="A"><strong>0.6324</strong></td></tr>
+        </tbody>
+      </table>
+      <p class="m-desc">Two columns hold <strong>63.2%</strong> of what all thirty held. Here is every component's slice, from the real fit:</p>
+      <div class="demo-canvas-wrap" style="order:0;margin-top:6px"><canvas id="cv-evr" height="250"></canvas></div>
+      <div class="callout green">
+        📊 <strong>Why the bars only fall.</strong> PC1 takes the most spread available; PC2 takes the most of what is left, which is necessarily less; and so on down. <code>explained_variance_ratio_</code> is <em>always</em> in descending order &mdash; you never have to sort it, and component 7 can never beat component 6.
+      </div>
+      <div class="callout orange">
+        🎯 <strong>&quot;Explained&quot; means spread, not truth.</strong> A high ratio says the component kept the geometry of the cloud. It does not say the component predicts anything. On this dataset it happens to do both &mdash; a scatter of PC1 against PC2 separates benign from malignant rather well &mdash; but that is a property of the data, not a guarantee from PCA.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(5)">&larr; 30 columns &rarr; 2</button>
+        <div class="pnav-dots" id="dots-6"></div>
+        <button class="pnav-btn next" onclick="goTo(7)">How many components? &rarr;</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 7: How many ══ -->
+    <div class="panel" id="panel-7">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=900&q=75&fit=crop&h=200" alt="Steps rising" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 18 &middot; 07 / 10 &middot; Using it</div>
+          <div class="m-name">How many components?</div>
+          <div class="m-tagline">Add them up until the curve stops climbing</div>
+        </div>
+      </div>
+      <p class="m-desc">Two components was a choice, not a law. The notebook makes the choice visible by fitting PCA thirty times &mdash; once for each possible number of components &mdash; and adding up the ratios each time:</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+<pre>explained = []
+<span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="num">1</span>, <span class="num">31</span>):              <span class="cm"># 30 original features</span>
+    pca = <span class="cls">PCA</span>(n_components=i)
+    pca.<span class="fn">fit</span>(scaled_data)
+    explained.<span class="fn">append</span>(<span class="fn">sum</span>(pca.explained_variance_ratio_))
+
+<span class="lib">plt</span>.<span class="fn">plot</span>(<span class="fn">range</span>(<span class="num">1</span>, <span class="num">31</span>), explained, marker=<span class="str">'o'</span>)
+<span class="lib">plt</span>.<span class="fn">xlabel</span>(<span class="str">'Number of Principal Components'</span>)
+<span class="lib">plt</span>.<span class="fn">ylabel</span>(<span class="str">'Cumulative Explained Variance'</span>)
+<span class="lib">plt</span>.<span class="fn">grid</span>(<span class="cls">True</span>)
+<span class="lib">plt</span>.<span class="fn">show</span>()</pre>
+      </div>
+      <p class="m-desc">Drag the cut and read off what you keep and what you pay for it:</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Cumulative explained variance &middot; real fit, 569 &times; 30</div>
+        <div class="demo-controls">
+          <div class="ctrl">
+            <label>n_components</label>
+            <input type="range" id="sl-nc" min="1" max="30" step="1" value="2" oninput="drawCum()">
+            <div class="cval" id="v-nc">2</div>
+          </div>
+        </div>
+        <div class="demo-out" id="out-cum"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-cum" height="320"></canvas></div>
+      </div>
+      <p class="m-desc" style="margin-top:20px">The shape is the point. The first few components are enormously productive &mdash; component 1 alone buys 44%, and by component 6 you are at 89% with a fifth of the columns. After that each new component adds a percent or less, and the curve flattens into a wall.</p>
+      <div class="keynum">
+        <div class="kn"><div class="knv" style="color:var(--blue)">2</div><div class="knl">components &rarr; <strong>63.2%</strong>. The choice the notebook makes, because 2 is what you can plot.</div></div>
+        <div class="kn"><div class="knv" style="color:var(--green)">7</div><div class="knl">components &rarr; <strong>91.0%</strong>. The usual 90% rule of thumb, at a quarter of the columns.</div></div>
+        <div class="kn"><div class="knv" style="color:var(--accent)">10</div><div class="knl">components &rarr; <strong>95.2%</strong>. Two thirds of the table gone for a twentieth of the spread.</div></div>
+        <div class="kn"><div class="knv" style="color:#a855f7">17</div><div class="knl">components &rarr; <strong>99.1%</strong>. Past here you are storing rounding error.</div></div>
+      </div>
+      <div class="callout green">
+        ✂️ <strong>Two honest ways to cut, and one shortcut.</strong> Cut at a <strong>target</strong> &mdash; &quot;whatever it takes to reach 95%&quot;. Or cut at the <strong>elbow</strong>, the same bend you looked for in the K-Means inertia curve, where extra components stop buying anything. The shortcut: <code>PCA(n_components=0.95)</code> &mdash; hand it a float below 1 and sklearn picks the count for you. On this data that returns 10.
+      </div>
+      <div class="callout blue">
+        📈 <strong>Compare this with the K-Means elbow.</strong> The inertia curve in deck 17 fell and you looked for a bend; this curve rises and you look for a plateau. Both are the same judgement in opposite directions: find where the return on one more unit of complexity collapses. Unlike the K-Means curve on the marketing data, this one has a genuinely sharp bend &mdash; the tumour columns really are that redundant.
+      </div>
+      <div class="callout purple">
+        🐢 <strong>That loop is wasteful, and it is fine.</strong> It fits PCA thirty times when one fit would do: the ratios are already in descending order, so <code>np.cumsum(PCA().fit(scaled_data).explained_variance_ratio_)</code> gives the identical curve from a single fit. On 569 rows nobody notices. On 500,000 rows the loop is the difference between a coffee break and a meeting.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(6)">&larr; Explained variance</button>
+        <div class="pnav-dots" id="dots-7"></div>
+        <button class="pnav-btn next" onclick="goTo(8)">Scale first &rarr;</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 8: Scale first ══ -->
+    <div class="panel" id="panel-8">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1589187151053-5ec8818e661b?w=900&q=75&fit=crop&h=200" alt="Balance scales" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 18 &middot; 08 / 10 &middot; Making it work</div>
+          <div class="m-name">Scale first</div>
+          <div class="m-tagline">PCA maximises variance &mdash; so it will chase whichever column has the biggest units</div>
+        </div>
+      </div>
+      <p class="m-desc">K-Means needed scaling because it measures distance. PCA needs it for a sharper reason: <strong>variance is the thing it optimises</strong>, and variance is measured in the square of the column's units. Change a column from centimetres to millimetres and its variance goes up a hundredfold &mdash; without one atom of new information.</p>
+      <p class="m-desc">In the tumour table, <code>worst area</code> has a raw variance of about <strong>323,600</strong> and <code>mean smoothness</code> about <strong>0.0002</strong>. Run PCA on that unscaled and the outcome is not in doubt:</p>
+      <div class="pc-grid">
+        <div class="pc bad">
+          <h4>❌ PCA(df) &mdash; no scaling</h4>
+          <ul>
+            <li><code>explained_variance_ratio_</code> = <strong>[0.982, 0.016]</strong></li>
+            <li>PC1 &quot;explains&quot; 98.2% of everything</li>
+            <li>Its two big weights: <code>worst area</code> 0.852, <code>mean area</code> 0.517 &mdash; the other 28 columns are noise around zero</li>
+            <li>PC1 is not a discovery. It is the area column with extra steps.</li>
+          </ul>
+        </div>
+        <div class="pc good">
+          <h4>✅ PCA(scaled_data)</h4>
+          <ul>
+            <li><code>explained_variance_ratio_</code> = <strong>[0.443, 0.190]</strong></li>
+            <li>Every column arrives with variance 1 and gets an equal hearing</li>
+            <li>PC1's weights are spread across all 30 &mdash; the largest is 0.261</li>
+            <li>PC1 is a real summary: &quot;how extreme is this nucleus overall&quot;</li>
+          </ul>
+        </div>
+      </div>
+      <div class="callout red">
+        🎭 <strong>The trap is that the bad one looks better.</strong> 98.2% from a single component is a lovely number to put in a slide, and it is completely empty &mdash; it says nothing except that areas are measured in big units. Whenever a first component explains almost everything, check the scaler before you celebrate.
+      </div>
+      <div class="callout blue">
+        ⚖️ <strong>StandardScaler, not MinMaxScaler.</strong> <code>StandardScaler</code> makes every column's variance exactly 1, which is precisely the property PCA needs. <code>MinMaxScaler</code> squeezes every column into 0&ndash;1 but leaves their variances unequal &mdash; a column with one outlier ends up squashed into a tiny range with almost no variance left. For PCA, standardise.
+      </div>
+      <div class="callout purple">
+        🤔 <strong>The one time you skip it.</strong> If every column is already the same quantity in the same unit &mdash; pixel intensities in an image, monthly returns of several stocks &mdash; then the differences in variance are real information and scaling would erase them. Different quantities in different units: always scale.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(7)">&larr; How many components?</button>
+        <div class="pnav-dots" id="dots-8"></div>
+        <button class="pnav-btn next" onclick="goTo(9)">The whole recipe &rarr;</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 9: The whole recipe ══ -->
+    <div class="panel" id="panel-9">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1466637574441-749b8f19452f?w=900&q=75&fit=crop&h=200" alt="A recipe card" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 18 &middot; 09 / 10 &middot; Making it work</div>
+          <div class="m-name">The whole recipe</div>
+          <div class="m-tagline">Scale, fit, transform, check &mdash; and then wrap it up</div>
+        </div>
+      </div>
+      <p class="m-desc">Four steps, always in this order:</p>
+      <div class="steps">
+        <div class="step a" data-n="1"><h4>scale</h4><p><code>StandardScaler().fit_transform(df)</code> &mdash; every column to variance 1.</p></div>
+        <div class="step b" data-n="2"><h4>fit</h4><p><code>PCA(n_components=k).fit(...)</code> &mdash; find the directions. This is where the work happens.</p></div>
+        <div class="step c" data-n="3"><h4>transform</h4><p>Multiply every row by every component. One number per row per component.</p></div>
+        <div class="step d" data-n="4"><h4>check</h4><p>Read <code>explained_variance_ratio_</code>. If the total is low, k is too small.</p></div>
+      </div>
+      <div class="code-wrap" style="margin-top:26px">
+        <div class="code-header"><span class="code-lang">python &middot; the plain version</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+<pre><span class="kw">from</span> sklearn.preprocessing <span class="kw">import</span> <span class="cls">StandardScaler</span>
+<span class="kw">from</span> sklearn.decomposition <span class="kw">import</span> <span class="cls">PCA</span>
+<span class="kw">import</span> numpy <span class="kw">as</span> <span class="lib">np</span>
+
+scaler = <span class="cls">StandardScaler</span>()
+Xs     = scaler.<span class="fn">fit_transform</span>(df)
+
+pca = <span class="cls">PCA</span>(n_components=<span class="num">2</span>)
+Z   = pca.<span class="fn">fit_transform</span>(Xs)                 <span class="cm"># (569, 2)</span>
+
+<span class="fn">print</span>(pca.explained_variance_ratio_)        <span class="cm"># [0.4427 0.1897]</span>
+<span class="fn">print</span>(pca.explained_variance_ratio_.<span class="fn">sum</span>())  <span class="cm"># 0.6324</span>
+
+<span class="cm"># the two new columns, ready to plot or to feed a model</span>
+<span class="lib">plt</span>.<span class="fn">scatter</span>(Z[:, <span class="num">0</span>], Z[:, <span class="num">1</span>], s=<span class="num">12</span>)
+<span class="lib">plt</span>.<span class="fn">xlabel</span>(<span class="str">'PC1'</span>); <span class="lib">plt</span>.<span class="fn">ylabel</span>(<span class="str">'PC2'</span>)</pre>
+      </div>
+      <p class="m-desc">That is correct for exploring. The moment a model is involved, it is a bug waiting to happen &mdash; <code>fit_transform</code> on the whole table has already let the test rows influence the scaler and the components. The fix is the one from deck 16:</p>
+      <div class="code-wrap good-code">
+        <div class="code-header"><span class="code-lang">python &middot; the version that goes in a model</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+<pre><span class="kw">from</span> sklearn.pipeline <span class="kw">import</span> <span class="cls">Pipeline</span>
+<span class="kw">from</span> sklearn.linear_model <span class="kw">import</span> <span class="cls">LogisticRegression</span>
+<span class="kw">from</span> sklearn.model_selection <span class="kw">import</span> cross_val_score
+
+pipe = <span class="cls">Pipeline</span>([
+    (<span class="str">'scaler'</span>, <span class="cls">StandardScaler</span>()),
+    (<span class="str">'pca'</span>,    <span class="cls">PCA</span>(n_components=<span class="num">0.95</span>)),   <span class="cm"># keep 95% -&gt; picks 10 here</span>
+    (<span class="str">'clf'</span>,    <span class="cls">LogisticRegression</span>(max_iter=<span class="num">1000</span>)),
+])
+
+<span class="fn">print</span>(cross_val_score(pipe, X, y, cv=<span class="num">5</span>).<span class="fn">mean</span>())
+
+<span class="cm"># and to see what PCA chose inside the fitted pipeline:</span>
+pipe.<span class="fn">fit</span>(X, y)
+<span class="fn">print</span>(pipe.<span class="fn">named_steps</span>[<span class="str">'pca'</span>].n_components_)</pre>
+      </div>
+      <div class="callout green">
+        🔒 <strong>Why the Pipeline is not optional here.</strong> PCA <em>learns</em> from the data &mdash; the components are fitted, exactly like the scaler's means. Fit them on all the rows and every cross-validation fold has already seen its own test set through the components, which quietly inflates the score. Inside a <code>Pipeline</code>, <code>cross_val_score</code> re-fits the scaler <em>and</em> the PCA on each training fold, which is the honest version.
+      </div>
+      <div class="callout orange">
+        🧭 <strong>Where PCA sits in the order.</strong> Encode categoricals first (PCA needs numbers), then scale, then PCA, then the model. Never PCA before scaling &mdash; that is panel 08 &mdash; and never PCA on the target column.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(8)">&larr; Scale first</button>
+        <div class="pnav-dots" id="dots-9"></div>
+        <button class="pnav-btn next" onclick="goTo(10)">Exercises &rarr;</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 10: Exercises ══ -->
+    <div class="panel" id="panel-10">
+      <div class="exercise-header">
+        <div class="exercise-badge">✍️</div>
+        <div>
+          <h2 style="font-size:1.3rem;margin-bottom:6px">Exercises</h2>
+          <p style="font-size:.88rem;color:var(--muted);line-height:1.6">Do the first two on paper &mdash; that is the whole point of them. The rest are the notebook, plus two ways to break it.</p>
+        </div>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">01</span><strong style="font-size:.92rem">Project a row by hand</strong></div>
+        <div class="ex-task">A student scores <code>[70, 60, 95]</code> in maths, english and science. The first component is <code>[0.5, 0.3, 0.2]</code>. What is the projection? Then do the same student against a second component <code>[-0.4, 0.8, -0.4]</code>. Which of the two numbers is bigger, and what does each one seem to be measuring?</div>
+        <details class="hint"><summary>answer</summary>
+          <div class="ex-task" style="margin-top:8px">PC1: 70&times;0.5 + 60&times;0.3 + 95&times;0.2 = 35 + 18 + 19 = <strong>72.0</strong>. PC2: 70&times;(&minus;0.4) + 60&times;0.8 + 95&times;(&minus;0.4) = &minus;28 + 48 &minus; 38 = <strong>&minus;18.0</strong>. PC1 has all-positive weights, so it reads as overall level. PC2 is positive on english and negative on the other two, so it reads as &quot;arts versus sciences&quot; &mdash; and this student is well on the sciences side.</div>
+        </details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">02</span><strong style="font-size:.92rem">Variance and the ratio</strong></div>
+        <div class="ex-task">A dataset has three columns with variances 60, 30 and 10. A first component comes out carrying variance 72. What is its explained variance ratio? If PC2 carries 18, how much do the two of them keep together, and how much is lost by dropping to two columns?</div>
+        <details class="hint"><summary>answer</summary>
+          <div class="ex-task" style="margin-top:8px">Total = 60 + 30 + 10 = 100. PC1 ratio = 72/100 = <strong>0.72</strong>, PC2 = 18/100 = <strong>0.18</strong>, together <strong>0.90</strong>. Dropping the third component loses <strong>10%</strong> of the spread. Note that the ratios total 1 across all three components &mdash; they always do.</div>
+        </details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">03</span><strong style="font-size:.92rem">Reproduce the notebook</strong></div>
+        <div class="ex-task">Load <code>tumor_data_features.csv</code>, scale it, fit <code>PCA(n_components=2)</code>, and print <code>components_.shape</code> and <code>explained_variance_ratio_</code>. You should get <code>(2, 30)</code> and <code>[0.4427, 0.1897]</code>. Then scatter the two new columns against each other.</div>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">04</span><strong style="font-size:.92rem">Check transform with np.dot</strong></div>
+        <div class="ex-task">Take <code>scaled_data[0]</code> and <code>pca.components_[0]</code> and compute <code>np.dot(...)</code> of the two. Compare it with <code>pca_result[0, 0]</code>. They should match to the last decimal &mdash; you have just re-implemented <code>transform</code>.</div>
+        <details class="hint"><summary>hint</summary>
+          <div class="ex-task" style="margin-top:8px"><code>np.dot(scaled_data[0], pca.components_[0])</code> &rarr; <code>9.1928</code>. If yours is off by a constant, you forgot that PCA centres the data first &mdash; which <code>StandardScaler</code> already did for you here.</div>
+        </details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">05</span><strong style="font-size:.92rem">The cumulative curve, cheaply</strong></div>
+        <div class="ex-task">Reproduce the notebook's 30-fit loop, then get the identical curve from <strong>one</strong> fit using <code>np.cumsum</code>. Time both. How many components do you need for 90%? For 99%?</div>
+        <details class="hint"><summary>answer</summary>
+          <div class="ex-task" style="margin-top:8px"><code>np.cumsum(PCA().fit(scaled_data).explained_variance_ratio_)</code>. 90% needs <strong>7</strong> components (0.9101); 99% needs <strong>17</strong> (0.9911).</div>
+        </details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">06</span><strong style="font-size:.92rem">Break it on purpose</strong></div>
+        <div class="ex-task">Fit PCA on the <em>unscaled</em> <code>df</code> and print the ratio. Then print the three largest absolute weights in <code>components_[0]</code> along with their column names. Explain the 98% in one sentence.</div>
+        <details class="hint"><summary>answer</summary>
+          <div class="ex-task" style="margin-top:8px"><code>[0.982, 0.016]</code>, and the big weights are <code>worst area</code> (0.852) and <code>mean area</code> (0.517) &mdash; the two columns with by far the largest raw variance. PC1 has simply found the area columns, because variance is unit-dependent and areas are measured in the biggest units in the table.</div>
+        </details>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">07</span><strong style="font-size:.92rem">Does it help a model?</strong></div>
+        <div class="ex-task">Build two pipelines on the tumour data with the diagnosis as <code>y</code>: <code>StandardScaler → LogisticRegression</code>, and <code>StandardScaler → PCA(n_components=2) → LogisticRegression</code>. Compare <code>cross_val_score</code>. Then try <code>PCA(n_components=0.95)</code>. What did two components cost you, and did ten get it back?</div>
+      </div>
+
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(9)">&larr; The whole recipe</button>
+        <div class="pnav-dots" id="dots-10"></div>
+        <button class="pnav-btn next" onclick="goTo(11)">Appendix A1 &rarr;</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 11: A1 · The PCA object ══ -->
+    <div class="panel" id="panel-11">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1481487196290-c152efe083f5?w=900&q=75&fit=crop&h=200" alt="A reference manual" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">APPENDIX A1 &middot; Reference</div>
+          <div class="m-name">The PCA object</div>
+          <div class="m-tagline">What you pass in, and what comes back with an underscore</div>
+        </div>
+      </div>
+      <p class="m-desc">Everything ending in an underscore was learned during <code>fit</code> and does not exist before it.</p>
+      <h3 style="font-size:.95rem;margin:18px 0 4px;font-family:'Courier New',monospace;color:var(--accent)">Arguments</h3>
+      <div class="prm"><code>n_components=k</code><p>An <strong>int</strong> keeps exactly k components. A <strong>float</strong> between 0 and 1 keeps as many as it takes to reach that much explained variance &mdash; <code>0.95</code> gives 10 on the tumour data. Leave it out and you keep all of them, which is the right move when you only want to look at the curve.</p></div>
+      <div class="prm"><code>random_state=42</code><p>Only matters for <code>svd_solver='randomized'</code>, which sklearn picks by itself on large tables. Set it anyway; it costs nothing and makes your run repeatable.</p></div>
+      <div class="prm"><code>svd_solver='auto'</code><p>How the components get computed. <code>'auto'</code> is right almost always. Worth knowing only because the randomized solver is what makes PCA fast on very wide data.</p></div>
+      <h3 style="font-size:.95rem;margin:24px 0 4px;font-family:'Courier New',monospace;color:var(--accent)">What fit leaves behind</h3>
+      <div class="prm"><code>components_</code><p>Shape <strong>(k, p)</strong> &mdash; k components, each with one weight per original column. Row 0 is PC1. This is the object you multiply a row by.</p></div>
+      <div class="prm"><code>explained_variance_ratio_</code><p>Shape <strong>(k,)</strong>, descending, summing to 1 if you kept everything. Each entry is that component's share of the total spread.</p></div>
+      <div class="prm"><code>explained_variance_</code><p>The same thing before dividing &mdash; the actual variance along each component. On the scaled tumour data: 13.305 and 5.701. Divide by the total (30.05) and you are back to the ratios.</p></div>
+      <div class="prm"><code>mean_</code><p>The column means subtracted before projecting. PCA always centres, even if you did not scale &mdash; which is why <code>transform</code> is really <code>np.dot(X - mean_, components_.T)</code>.</p></div>
+      <div class="prm"><code>n_components_</code><p>How many were actually kept. Worth printing when you passed a float, since that is the only way to find out what 0.95 turned into.</p></div>
+      <h3 style="font-size:.95rem;margin:24px 0 4px;font-family:'Courier New',monospace;color:var(--accent)">Methods</h3>
+      <div class="prm"><code>fit(X)</code><p>Finds the components. Returns nothing you want &mdash; the results are the attributes above.</p></div>
+      <div class="prm"><code>transform(X)</code><p>The multiplication. <strong>(n, p)</strong> in, <strong>(n, k)</strong> out. Use it on new rows with a PCA already fitted on the training rows.</p></div>
+      <div class="prm"><code>fit_transform(X)</code><p>Both at once, and slightly faster than doing them separately. Correct for the training set only.</p></div>
+      <div class="prm"><code>inverse_transform(Z)</code><p>Multiplies back up: <strong>(n, k)</strong> in, <strong>(n, p)</strong> out. You do <em>not</em> get the original table back &mdash; you get its shadow, with everything the dropped components carried missing. Subtract the two and you are looking at exactly what PCA threw away.</p></div>
+      <div class="callout blue">
+        🔍 <strong>Reading components_ like a human.</strong> <code>pd.DataFrame(pca.components_, columns=df.columns)</code> turns the weight matrix into a table you can actually sort. Large positive and large negative weights are both important; weights near zero mean that column barely takes part in this component.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(10)">&larr; Exercises</button>
+        <div class="pnav-dots" id="dots-11"></div>
+        <button class="pnav-btn next" onclick="goTo(12)">Appendix A2 &rarr;</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 12: A2 · PCA vs the neighbours ══ -->
+    <div class="panel" id="panel-12">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1502920917128-1aa500764cbd?w=900&q=75&fit=crop&h=200" alt="Two roads" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">APPENDIX A2 &middot; Reference</div>
+          <div class="m-name">PCA vs the neighbours</div>
+          <div class="m-tagline">Three things it gets confused with, and the line between them</div>
+        </div>
+      </div>
+      <p class="m-desc">PCA and K-Means are both unsupervised and both often follow a <code>StandardScaler</code>, which is where the confusion starts. They do opposite things to the table.</p>
+      <table class="dt">
+        <thead><tr><th class="blue"></th><th class="blue">PCA</th><th class="blue">K-Means</th></tr></thead>
+        <tbody>
+          <tr class="show"><td class="term">works on</td><td>the <strong>columns</strong></td><td>the <strong>rows</strong></td></tr>
+          <tr class="show"><td class="term">gives you</td><td>a narrower table, same number of rows</td><td>one group number per row, same columns</td></tr>
+          <tr class="show"><td class="term">the number you choose</td><td><code>n_components</code></td><td><code>n_clusters</code></td></tr>
+          <tr class="show"><td class="term">how to choose it</td><td>cumulative explained variance</td><td>the elbow on inertia</td></tr>
+          <tr class="show"><td class="term">what it optimises</td><td>variance <em>kept</em> &mdash; maximise</td><td>distance to centroid &mdash; minimise</td></tr>
+          <tr class="show"><td class="term">is it random?</td><td class="A">no &mdash; same answer every run</td><td class="B">yes &mdash; hence n_init</td></tr>
+          <tr class="show"><td class="term">needs scaling</td><td class="A">yes</td><td class="A">yes</td></tr>
+        </tbody>
+      </table>
+      <p class="m-desc">They are also natural partners: PCA down to 2 components, K-Means on the result, and now you can plot the clusters and actually see them. Cluster on the components rather than the raw table and the distances stop being dominated by whichever measurements happened to repeat.</p>
+      <div class="term-grid">
+        <div class="term"><h5 style="color:var(--orange)">PCA vs feature selection</h5><p><code>SelectKBest</code> keeps 10 of your 30 columns and deletes the rest &mdash; the survivors keep their names and their meaning. PCA keeps a bit of all 30 in each new column, loses the names, and keeps more of the information. Need to explain the model to someone? Select. Need the geometry? PCA.</p></div>
+        <div class="term"><h5 style="color:var(--pink)">PCA vs LDA</h5><p>LDA does the same kind of projection but is <strong>supervised</strong> &mdash; it uses <code>y</code>, and looks for the direction that separates the classes rather than the direction with the most spread. If you have labels and reduction is for a classifier, LDA usually wins.</p></div>
+        <div class="term"><h5 style="color:var(--cyan)">PCA vs t-SNE / UMAP</h5><p>Those are for pictures only. They bend space to make clusters look tidy in 2-D, cannot transform new rows, and have no explained-variance number. PCA is linear, reversible and honest &mdash; and unlike them it can feed a model.</p></div>
+        <div class="term"><h5 style="color:var(--green)">PCA is not a model</h5><p>It has no <code>predict</code> and no score. It is a transformer, like <code>StandardScaler</code>: something you put <em>before</em> a model in a pipeline, never something you evaluate on its own.</p></div>
+      </div>
+      <div class="callout green">
+        🗜️ <strong>And it is a compressor.</strong> Deck 17 shrank an image by clustering its colours; PCA shrinks by dropping components &mdash; keep 50 of 500 columns, <code>inverse_transform</code> back, and you have a lossy reconstruction. The tumour table went from 569&times;30 to 569&times;2 plus a 2&times;30 recipe: 17,070 numbers down to 1,198, and 63% of the structure survives.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(11)">&larr; Appendix A1</button>
+        <div class="pnav-dots" id="dots-12"></div>
+        <button class="pnav-btn next" onclick="goTo(0)">Back to Overview &rarr;</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="pca.js"></script>
+</body>
+</html>

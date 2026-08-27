@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 21 - K-Means Clustering</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      renderMathInElement(document.body, {
+        delimiters: [
+          { left: '$$', right: '$$', display: true },
+          { left: '\\(', right: '\\)', display: false }
+        ],
+        throwOnError: false
+      });
+    });
+  </script>
+  <style>
+    :root {
+      --bg: #f8fbff;
+      --surface: #ffffff;
+      --ink: #142033;
+      --muted: #52657d;
+      --blue: #2563eb;
+      --blue-dark: #143b73;
+      --cyan: #e7fbff;
+      --green: #0f9f6e;
+      --orange: #f97316;
+      --red: #dc2626;
+      --purple: #7c3aed;
+      --border: #bfd0ea;
+      --code-bg: #101a2c;
+      --code-text: #dceaff;
+      --soft-blue: #eef6ff;
+      --soft-green: #effbf5;
+      --soft-orange: #fff7ed;
+      --soft-red: #fef2f2;
+      --soft-purple: #f5f1ff;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Trebuchet MS", "Lucida Sans", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 10%, #e9f7ff 0%, transparent 34%),
+        radial-gradient(circle at 88% 18%, #effbf5 0%, transparent 32%),
+        linear-gradient(180deg, var(--bg) 0%, #ffffff 56%, #f1f8ff 100%);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    .wrap { max-width: 1140px; margin: 0 auto; padding: 28px 20px 60px; }
+    .layout { display: grid; grid-template-columns: 268px 1fr; gap: 22px; align-items: start; }
+
+    .side-nav {
+      position: sticky; top: 20px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 18px 14px;
+      box-shadow: 0 4px 16px rgba(37,99,235,.08);
+      max-height: calc(100vh - 40px); overflow-y: auto;
+    }
+    .side-title { font-size: .8rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--blue); margin: 0 0 10px; }
+    .part-label { display: block; padding: 8px 4px 4px; font-size: .7rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--green); }
+    .topic-link {
+      display: block; width: 100%; border: 1px solid transparent; border-radius: 9px;
+      padding: 7px 10px; background: transparent; color: var(--muted); cursor: pointer;
+      text-align: left; font: inherit; margin: 2px 0; transition: .16s ease;
+    }
+    .topic-link:hover { background: #f0f7ff; color: var(--blue-dark); border-color: var(--border); }
+    .topic-link.active { background: #e9f1ff; color: var(--blue-dark); border-color: var(--blue); font-weight: 700; }
+    .side-divider { border: none; border-top: 1px solid var(--border); margin: 12px 4px; }
+    .nav-back { display: block; padding: 7px 10px; color: var(--blue); font-weight: 700; text-decoration: none; font-size: .9rem; }
+    .nav-back:hover { text-decoration: underline; }
+
+    .hero {
+      background: linear-gradient(135deg, var(--surface) 0%, var(--soft-blue) 54%, var(--soft-green) 100%);
+      border: 1px solid var(--border); border-radius: 16px; padding: 28px;
+      box-shadow: 0 12px 30px rgba(37,99,235,.12); margin-bottom: 22px;
+    }
+    .tag { display: inline-block; padding: 5px 12px; border-radius: 999px; background: #e7fbff; color: #0f766e; font-weight: 800; font-size: .82rem; border: 1px solid #99e6ef; }
+    h1 { margin: 14px 0 10px; color: var(--blue-dark); font-size: clamp(2rem, 5vw, 3.2rem); line-height: 1.05; }
+    .hero p { max-width: 830px; color: var(--muted); font-size: 1.06rem; }
+    .hero-chips { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .hero-chip { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: .78rem; font-weight: 700; background: rgba(20,184,166,.1); color: #0f766e; border: 1px solid rgba(20,184,166,.3); }
+
+    .card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      padding: 22px; margin-bottom: 16px; box-shadow: 0 7px 22px rgba(37,99,235,.08);
+    }
+    .topic-panel { display: none; }
+    .topic-panel.active { display: block; }
+    .step-title { margin: 0 0 12px; color: var(--blue-dark); font-size: 1.25rem; }
+
+    code { font-family: Consolas, "Courier New", monospace; }
+
+    .math-card {
+      border: 1px solid #b7c8e4; border-radius: 12px;
+      background: linear-gradient(135deg, #ffffff 0%, #f1f7ff 100%);
+      padding: 18px; margin: 18px 0; text-align: center;
+    }
+    .math-caption { color: var(--muted); margin: 8px 0 0; font-size: .95rem; }
+    .katex { color: var(--blue-dark); }
+    .katex-display { margin: 6px 0; overflow-x: auto; overflow-y: hidden; padding: 3px 0; }
+    .data-table .katex, .math-caption .katex, p .katex { font-size: 1em; }
+
+    .resource-link { display: inline-block; color: var(--blue-dark); font-weight: 800; text-decoration: none; border-bottom: 2px solid rgba(37,99,235,.35); }
+    .resource-link:hover { color: var(--blue); border-bottom-color: var(--blue); }
+    .resource-links { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 4px; }
+
+    .code {
+      background: var(--code-bg); color: var(--code-text); border-radius: 10px;
+      border: 1px solid #304563; padding: 16px 18px; overflow-x: auto; margin: 12px 0;
+      font-size: .95rem; line-height: 1.5; white-space: pre;
+    }
+    .output {
+      background: #f7fbff; color: #1a2d49; border: 1px solid var(--border);
+      border-left: 5px solid var(--blue); border-radius: 10px; padding: 12px 14px;
+      overflow-x: auto; margin: 8px 0 16px; font-family: Consolas, "Courier New", monospace; white-space: pre-wrap;
+      /* the widest output here is the 89-character get_dummies table; at this size
+         it fits the column, so pre-wrap never has to break a row in half */
+      font-size: .82rem; line-height: 1.5;
+    }
+    .output.warn { border-left-color: var(--red); background: var(--soft-red); }
+    .out-label { display: block; font-family: "Trebuchet MS", sans-serif; font-size: .72rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+
+    .note { background: var(--soft-orange); border: 1px solid #fed7aa; border-left: 5px solid var(--orange); border-radius: 10px; padding: 12px 14px; margin: 12px 0; }
+    .note.blue { background: var(--soft-blue); border-color: #bcd4f6; border-left-color: var(--blue); }
+    .note.red { background: var(--soft-red); border-color: #fecaca; border-left-color: var(--red); }
+    .note.green { background: var(--soft-green); border-color: #b6ebd4; border-left-color: var(--green); }
+    .note.purple { background: var(--soft-purple); border-color: #ddd0fb; border-left-color: var(--purple); }
+
+    .shots { display: grid; gap: 14px; margin: 16px 0; }
+    .shots.two  { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .shots.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .shot { margin: 0; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: #fbfdff; }
+    .shot img { display: block; width: 100%; height: auto; }
+    .shot figcaption { padding: 8px 10px; font-size: .8rem; color: var(--muted); background: var(--surface); border-top: 1px solid var(--border); }
+    .shot figcaption strong { color: var(--blue-dark); }
+    @media (max-width: 900px) { .shots.four { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+    .task-box { border: 1px solid var(--border); border-left: 5px solid var(--blue); border-radius: 10px; padding: 14px 16px; margin: 12px 0; background: #fbfdff; }
+    .task-num { font-weight: 900; color: var(--blue); text-transform: uppercase; letter-spacing: .08em; font-size: .78rem; }
+
+    .data-table { width: 100%; border-collapse: collapse; margin: 16px 0; background: #fbfdff; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .data-table th { background: var(--soft-blue); color: var(--blue-dark); text-align: left; padding: 10px 14px; font-size: .9rem; border-bottom: 2px solid var(--border); }
+    .data-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); font-family: Consolas, "Courier New", monospace; }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table td.term { font-family: inherit; font-weight: 700; color: var(--blue-dark); }
+    .data-table tr.pick td { background: #fffbe8; }
+    .data-table tr.zero td { background: #f3f7ff; }
+
+    .ca { color: var(--green);  font-weight: 700; }
+    .cb { color: var(--orange); font-weight: 700; }
+
+    .steps-strip { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; margin: 16px 0; }
+    .stepbox { border: 1px solid var(--border); border-radius: 10px; padding: 14px; background: #fbfdff; }
+    .stepbox .n { display: block; font-size: .72rem; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; color: var(--blue); margin-bottom: 4px; }
+    .stepbox strong { color: var(--blue-dark); }
+
+    .term-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin: 16px 0; }
+    .term { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; background: #fbfdff; }
+    .term h5 { margin: 0 0 4px; font-size: .92rem; color: var(--blue-dark); }
+    .term p { margin: 0; font-size: .88rem; color: var(--muted); }
+
+    .footer { text-align: center; color: var(--muted); font-size: .9rem; margin-top: 18px; }
+    .task-list { margin: 6px 0 0; padding-left: 20px; }
+    .task-list li { margin: 4px 0; }
+
+    @media (max-width: 880px) {
+      .layout { grid-template-columns: 1fr; }
+      .side-nav { position: static; max-height: none; }
+      .wrap { padding: 18px 12px 44px; }
+      .steps-strip { grid-template-columns: 1fr; }
+    }
+    /* ── GitHub-dark Python syntax colours ── */
+    pre.code.py { color: #c9d1d9; }
+    pre.code.py .hl-com     { color: #8b949e; font-style: italic; }
+    pre.code.py .hl-kw      { color: #ff7b72; }
+    pre.code.py .hl-str     { color: #a5d6ff; }
+    pre.code.py .hl-num     { color: #79c0ff; }
+    pre.code.py .hl-fn      { color: #d2a8ff; }
+    pre.code.py .hl-builtin { color: #ffa657; }
+  </style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <div class="layout">
+    <aside class="side-nav">
+      <p class="side-title">Lesson 21</p>
+      <span class="part-label">Class Code</span>
+      <button class="topic-link active" data-target="topic-github">1. GitHub Repo</button>
+      <span class="part-label">Clustering</span>
+      <button class="topic-link" data-target="topic-1">2. Unsupervised learning</button>
+      <button class="topic-link" data-target="topic-2">3. The algorithm, step by step</button>
+      <button class="topic-link" data-target="topic-3">4. Optimal K and the SSD</button>
+      <button class="topic-link" data-target="topic-4">5. Increasing K</button>
+      <button class="topic-link" data-target="topic-5">6. The elbow method</button>
+      <span class="part-label">Notebook 1 - bank customers</span>
+      <button class="topic-link" data-target="topic-6">7. Load and encode</button>
+      <button class="topic-link" data-target="topic-7">8. StandardScaler</button>
+      <button class="topic-link" data-target="topic-8">9. fit_predict and cluster sizes</button>
+      <button class="topic-link" data-target="topic-9">10. Profiling with groupby</button>
+      <button class="topic-link" data-target="topic-10">11. countplot</button>
+      <button class="topic-link" data-target="topic-11">12. The elbow loop</button>
+      <span class="part-label">Notebook 2 - image compression</span>
+      <button class="topic-link" data-target="topic-12">13. An image is a table</button>
+      <button class="topic-link" data-target="topic-13">14. The exercise</button>
+      <hr class="side-divider">
+      <a class="nav-back" href="../20_lesson/index.html">Previous: Lesson 20</a>
+      <a class="nav-back" href="../../17_kmean/index.html">Deck: K-Means Clustering</a>
+      <a class="nav-back" href="../../16_topics2/index.html">Deck: Pipelines &amp; Grid Search</a>
+      <a class="nav-back" href="../../15_topics/index.html">Deck: Scaling &amp; CV</a>
+      <a class="nav-back" href="../../index.html">Back to Python libs</a>
+    </aside>
+
+    <main>
+      <section class="hero">
+        <span class="tag">Lesson - August 23, 2026</span>
+        <h1>K-Means clustering</h1>
+        <p>Today the <code>y</code> column disappeared. Every model so far was handed the answers and scored on how often it reproduced them; <strong>K-Means</strong> is handed a table of numbers and nothing else, and its whole job is to split the rows into K groups that are as tight as possible. We walked the algorithm through its five steps, met <strong>WCSS</strong> - the one number it minimises - saw why a lower WCSS is never a reason to raise K, and used the <strong>elbow</strong> to choose K honestly. Then we ran it twice: on 41,188 bank customers, and on the 240,000 pixels of a photograph. This page is the <strong>code</strong> from class, cell by cell, with the outputs we actually saw.</p>
+        <div class="hero-chips">
+          <span class="hero-chip">KMeans</span>
+          <span class="hero-chip">unsupervised</span>
+          <span class="hero-chip">fit_predict</span>
+          <span class="hero-chip">n_clusters</span>
+          <span class="hero-chip">n_init</span>
+          <span class="hero-chip">random_state</span>
+          <span class="hero-chip">inertia_</span>
+          <span class="hero-chip">WCSS</span>
+          <span class="hero-chip">elbow method</span>
+          <span class="hero-chip">labels_</span>
+          <span class="hero-chip">cluster_centers_</span>
+          <span class="hero-chip">StandardScaler</span>
+          <span class="hero-chip">groupby</span>
+          <span class="hero-chip">countplot</span>
+          <span class="hero-chip">reshape(-1, 3)</span>
+        </div>
+      </section>
+
+      <!-- ═══ 1. GITHUB ═══ -->
+      <section class="card topic-panel active" id="topic-github">
+        <h2 class="step-title">Open Class Code</h2>
+        <p>Today's class had <strong>two</strong> notebooks. Open them from the repository for August 23, 2026:</p>
+        <div class="resource-links">
+          <a class="resource-link" href="https://github.com/pythonai211225-rgb/23.08.2026" target="_blank" rel="noopener">pythonai211225-rgb/23.08.2026</a>
+        </div>
+        <table class="data-table">
+          <thead><tr><th>notebook</th><th>what it covers</th></tr></thead>
+          <tbody>
+            <tr><td>kmean1_23_08_2026.ipynb</td><td class="term">The theory, then clustering 41,188 bank customers and reading the groups</td></tr>
+            <tr><td>kmean2_23_08_2026.ipynb</td><td class="term">Clustering the pixels of an image - colour compression</td></tr>
+          </tbody>
+        </table>
+        <div class="note purple">
+          <strong>A different kind of model.</strong> Lesson 20 ended with a pipeline you could save and ship - a <em>supervised</em> model that predicts a known answer. Today's model predicts nothing. It has no <code>y</code>, no accuracy, and no <code>train_test_split</code>. It describes the shape of your data, and the value it produces is entirely in what <em>you</em> notice once it has finished.
+        </div>
+        <p>The imports at the top of both notebooks are the familiar block:</p>
+        <pre class="code py"><code>import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from IPython.display import display
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import accuracy_score, confusion_matrix
+from sklearn.tree import export_text
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report</code></pre>
+        <p>And the two lines that are new today:</p>
+        <pre class="code py"><code>from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler</code></pre>
+        <div class="note blue"><code>KMeans</code> lives in <code>sklearn.cluster</code>, not in <code>sklearn.neighbors</code> where <code>KNeighborsClassifier</code> lives. The two get confused constantly, and the import path is the first hint that they are different animals - <code>cluster</code> is a whole module of unsupervised models.</div>
+        <p>The versions the notebook printed, which matter for one default we will meet in topic 9:</p>
+        <div class="output"><span class="out-label">Output</span>sklearn: 1.2.2
+pandas: 2.1.4
+numpy: 1.26.4</div>
+      </section>
+
+      <!-- ═══ 2. UNSUPERVISED ═══ -->
+      <section class="card topic-panel" id="topic-1">
+        <h2 class="step-title">Unsupervised learning - no answers at all</h2>
+        <p><strong>K-Means</strong> is an <strong>unsupervised</strong> algorithm. Its purpose is to split the data into groups - <strong>clusters</strong> - by similarity between the points. Nobody tells it in advance what groups exist, or what they mean. It only divides the points so that each group is internally homogeneous and different from the others.</p>
+        <div class="steps-strip">
+          <div class="stepbox"><span class="n">Supervised</span><strong>X and y</strong><br>You provide the answers. Success is measurable: <code>accuracy_score</code>, <code>r2_score</code>. KNN, trees, SVM, regression.</div>
+          <div class="stepbox"><span class="n">Unsupervised</span><strong>X only</strong><br>There are no answers, so there is nothing to be right about. K-Means, DBSCAN, hierarchical clustering, PCA.</div>
+          <div class="stepbox"><span class="n">The consequence</span><strong>No split</strong><br>Nothing is being predicted, so there is no test set to hold back and no score to report.</div>
+        </div>
+        <div class="note orange">
+          🧠 <strong>The algorithm does not know what each group is.</strong> That is the data analyst's job. It simply calls the groups <code>group_1</code>, <code>group_2</code> and so on - in scikit-learn, plain integers 0, 1, 2. Whether cluster 2 turns out to be "young high-earners" or "customers who never pick up the phone" is something you work out afterwards, by looking at the averages of each group.
+        </div>
+        <p>The name is a complete description of the algorithm:</p>
+        <table class="data-table">
+          <thead><tr><th>the name</th><th>what it means</th></tr></thead>
+          <tbody>
+            <tr><td class="term">K</td><td>How many groups you want. <strong>You</strong> choose it - the algorithm never does. Topics 4 to 6 are entirely about how to choose it well.</td></tr>
+            <tr><td class="term">Means</td><td>How each group's centre is computed: the plain arithmetic average of the rows currently in it. That average point is called the <strong>centroid</strong>.</td></tr>
+          </tbody>
+        </table>
+        <p>The whole model, in four lines:</p>
+        <pre class="code py"><code>from sklearn.cluster import KMeans
+
+kmeans = KMeans(n_clusters=3, random_state=42, n_init=10)
+labels = kmeans.fit_predict(X)      # note: no y anywhere
+
+df['cluster'] = labels              # glue the answer back onto the frame</code></pre>
+        <div class="note blue"><strong>Where you have seen the picture before.</strong> Imagine plotting people by <code>height</code> and <code>width</code>. Tall thin people gather in one corner, short wide people in another, heavy tall people in a third. K-Means draws the circles round those three groups - without ever being told that "tall and thin" is a category that exists.</div>
+      </section>
+
+      <!-- ═══ 3. THE ALGORITHM ═══ -->
+      <section class="card topic-panel" id="topic-2">
+        <h2 class="step-title">The algorithm, step by step</h2>
+        <p>The whole thing is a loop of two moves that take turns. <strong>Assign</strong> holds the centres still and colours the points; <strong>update</strong> holds the colours still and moves the centres. Repeat until nothing changes.</p>
+        <table class="data-table">
+          <thead><tr><th>step</th><th>what happens</th></tr></thead>
+          <tbody>
+            <tr><td class="term">1. Initialization</td><td>Choose the number of clusters <strong>K</strong>, and place K starting points (the centroids) at random positions in the space.</td></tr>
+            <tr><td class="term">2. Assignment</td><td>Every data point joins the <strong>nearest</strong> centroid, measured by <strong>Euclidean distance</strong>.</td></tr>
+            <tr><td class="term">3. Update</td><td>Each centroid is recomputed as the <strong>mean</strong> of all the points currently assigned to it - so it moves to the middle of its own group.</td></tr>
+            <tr><td class="term">4. Reassignment</td><td>Check again: any point that is now closer to a different centroid switches over to that group.</td></tr>
+            <tr><td class="term">5. Repeat</td><td>Go back to step 3 and keep going until no point changes group between one pass and the next - or until <code>max_iter</code> passes have been used.</td></tr>
+          </tbody>
+        </table>
+        <p>The distance in step 2 is the same one KNN used - Pythagoras, in as many dimensions as you have columns:</p>
+        <div class="math-card">
+          $$ d(x,\,c) \;=\; \sqrt{\sum_{i=1}^{m} (x_i - c_i)^2} $$
+          <p class="math-caption">Straight-line distance from a point \(x\) to a centroid \(c\). The point joins whichever centroid gives the smallest \(d\).</p>
+        </div>
+        <p>And the mean in step 3 is exactly what it sounds like - the average of each column, over the rows in that cluster:</p>
+        <div class="math-card">
+          $$ c_j \;=\; \frac{1}{|C_j|}\sum_{x \in C_j} x $$
+          <p class="math-caption">The new centroid of cluster \(j\) is the average of its points. This is the "means" in K-Means.</p>
+        </div>
+        <div class="note green">
+          <strong>Why the loop always stops.</strong> Both moves lower the same quantity - the total squared distance from every point to its own centre (topic 4). Assignment lowers it because a point only ever switches to a <em>closer</em> centre; the update lowers it because the mean is provably the position with the smallest total squared distance to a set of points. A number that only ever goes down, over a finite number of possible groupings, has to stop going down.
+        </div>
+        <div class="note purple">
+          🎬 <strong>Watch it run.</strong> The deck for this lesson steps through the loop frame by frame on real data - press <em>step</em> and see which points change colour on each pass, and how far each centroid moves. <a class="resource-link" href="../../17_kmean/index.html">Deck 17 - K-Means Clustering</a>
+        </div>
+      </section>
+
+      <!-- ═══ 4. OPTIMAL K / SSD ═══ -->
+      <section class="card topic-panel" id="topic-3">
+        <h2 class="step-title">Optimal K and the sum of squared distances</h2>
+        <p>Up to now we chose K by hand, arbitrarily. Now we want to choose it intelligently. The problem is that unlike supervised learning, <strong>we have no correct answers to compare against</strong> - so there is no accuracy to compute. Instead we use an <strong>internal</strong> measure: how close the points are to their own cluster's centre.</p>
+        <div class="math-card">
+          $$ \text{WCSS} \;=\; \sum_{j=1}^{K}\ \sum_{x \in C_j} \lVert x - c_j \rVert^{2} $$
+          <p class="math-caption">For every cluster, take every point's distance to its centroid, square it, and add all of them together.</p>
+        </div>
+        <p>The same quantity is spelled three ways, and they all mean this one sum:</p>
+        <table class="data-table">
+          <thead><tr><th>name</th><th>where you meet it</th></tr></thead>
+          <tbody>
+            <tr><td class="term">SSD</td><td>Sum of Squared Distances - the name used in the slides.</td></tr>
+            <tr><td class="term">WCSS</td><td>Within-Cluster Sum of Squares - the name used on the elbow plot's y-axis.</td></tr>
+            <tr><td class="term">inertia_</td><td>What scikit-learn calls it, as an attribute on the fitted model.</td></tr>
+          </tbody>
+        </table>
+        <p><strong>The smaller this sum, the tighter the clusters</strong> - a sign that the points really do sit close to their centres, and that the grouping is a good one.</p>
+        <div class="note orange">
+          📌 <strong>Why square the distances?</strong> To punish stragglers. A point 4 units out contributes 16, while four points 1 unit out contribute 4 in total - so the sum cares far more about the one badly-placed point than about a little general looseness. A cluster with one member stranded on the far side of the plot really is a worse cluster than one that is merely a bit wide, and squaring is what encodes that.
+        </div>
+        <div class="note blue">
+          📌 <strong>When do we use it?</strong> Exactly when we have no correct answers to compare against - which in unsupervised learning is always. It is the only way to check whether the model is doing its job.
+        </div>
+        <p>A simple example: if a cluster has 5 points that are all close to its centre, the sum will be low. Another cluster whose points are spread out gives a higher sum, and the computer takes that as a sign the cluster is less good.</p>
+        <div class="note red">
+          🚫 <strong>Never compare inertia across different datasets.</strong> It is a sum, so it grows with the number of rows, and it is in squared units of your columns, so re-scaling the data changes it completely. An inertia of 2,000,000 is not "worse" than one of 40 - they are answers to different questions. The only comparison it supports is <strong>the same data, the same scaling, different K</strong>.
+        </div>
+      </section>
+
+      <!-- ═══ 5. INCREASING K ═══ -->
+      <section class="card topic-panel" id="topic-4">
+        <h2 class="step-title">Increasing K - and why the score is a trap</h2>
+        <p>Here is the problem with choosing K by minimising WCSS. If we keep increasing the number of clusters, the value we are measuring keeps falling. <strong>Why?</strong> Because every point can get closer to a centre when there are more centres to choose from - never further.</p>
+        <p>Push it to the extreme: set K very large, so large that <strong>every single point becomes its own cluster</strong>. Then every distance is zero, and the SSD is zero - a "perfect" model.</p>
+        <div class="note red">
+          ⚠️ <strong>But that is not good - it is the worst possible outcome.</strong> The model has simply fitted itself exactly to the data it was given. It has learned nothing except a list of your rows. This is <strong>overfitting</strong>, and such a model will fail on new data.
+        </div>
+        <p>So the question is never "which K gives the lowest WCSS" - the answer to that is always "as many clusters as you have rows". The right question is <strong>"where does the improvement stop being worth it"</strong>, and that question does have a real answer.</p>
+        <div class="note purple">
+          🔗 <strong>You have met this shape before.</strong> Adding polynomial degrees in lesson 20 lowered the training error every time, right up to the curve that threaded every training point and predicted nonsense in between. Adding tree depth did the same thing in lesson 18. Same story, same fix: watch the <em>rate</em> of improvement rather than the improvement itself.
+        </div>
+      </section>
+
+      <!-- ═══ 6. ELBOW ═══ -->
+      <section class="card topic-panel" id="topic-5">
+        <h2 class="step-title">The elbow method</h2>
+        <p>To find the most suitable number of clusters we use a technique called the <strong>elbow method</strong>. Build a graph with the number of clusters on the X axis and the WCSS on the Y axis. Then look for the point where the improvement <strong>stops being meaningful</strong> - the place where the curve bends, which looks like an elbow. From there on, every extra cluster adds very little to the quality of the model, so that is where you stop.</p>
+        <div class="steps-strip">
+          <div class="stepbox"><span class="n">Before the bend</span><strong>Steep fall</strong><br>Each new cluster is separating genuinely different groups. The score improves a lot.</div>
+          <div class="stepbox"><span class="n">At the bend</span><strong>The elbow</strong><br>The last K that bought a real improvement. This is your answer.</div>
+          <div class="stepbox"><span class="n">After the bend</span><strong>Flat</strong><br>Each new cluster is cutting a real group in half. The score improves; the meaning does not.</div>
+        </div>
+        <div class="note green">
+          <strong>The value always falls as K rises</strong> - that part is guaranteed. But at some point the fall stops being meaningful, and that is where the elbow is. In a clean textbook curve the corner sits at K = 4 and there is no argument about it.
+        </div>
+        <div class="note orange">
+          🫤 <strong>Real data is not always so polite.</strong> When the data genuinely has separated groups, the corner is sharp. When it does not, the curve is a smooth slide with no corner at all - and the honest reading is <em>"this data has no natural number of clusters"</em>. That is what happened with our bank customers in topic 12, and it is a real result rather than a mistake.
+        </div>
+        <div class="note blue">
+          🥈 <strong>The second opinion.</strong> When the elbow is ambiguous, <code>silhouette_score(X, labels)</code> scores each point on how much closer it is to its own cluster than to the next nearest one, and averages. It runs from −1 to 1, <strong>higher is better</strong>, and unlike WCSS it does not automatically improve with K - so it can be maximised directly. It is much slower on large data, which is why the elbow stays the everyday tool.
+        </div>
+      </section>
+
+      <!-- ═══ 7. LOAD AND ENCODE ═══ -->
+      <section class="card topic-panel" id="topic-6">
+        <h2 class="step-title">Notebook 1 - loading and encoding the bank data</h2>
+        <p>The first notebook clusters <code>bank-full.csv</code> - 41,188 marketing calls made by a Portuguese bank, one row per customer contacted. The frame mixes numeric columns (<code>age</code>, <code>duration</code>, <code>euribor3m</code>) with text columns (<code>job</code>, <code>marital</code>, <code>education</code>, ...):</p>
+        <pre class="code py"><code>import pandas as pd
+import sklearn
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+
+# Load the data
+df = pd.read_csv("bank-full.csv")
+
+df_encoded = pd.get_dummies(df, drop_first=True)
+df_encoded.describe().T
+df['job'].unique()</code></pre>
+        <p><code>pd.get_dummies</code> is exactly the tool from lesson 20, and it is needed here for the same reason: <strong>K-Means only accepts numbers</strong>. Every text column is replaced by one 0/1 column per category, and <code>drop_first=True</code> throws away one category from each - the information is still there, since "not any of the others" identifies the missing one.</p>
+        <table class="data-table">
+          <thead><tr><th>call</th><th>what it does here</th></tr></thead>
+          <tbody>
+            <tr><td class="term">pd.get_dummies(df, drop_first=True)</td><td>Encodes <strong>every</strong> text column it finds - no <code>columns=</code> argument, so pandas decides. Dozens of columns come out.</td></tr>
+            <tr><td class="term">df_encoded.describe().T</td><td>A look at the result. <code>.T</code> transposes it so each column becomes a row - readable when there are fifty of them.</td></tr>
+            <tr><td class="term">df['job'].unique()</td><td>A sanity check on one text column before it is encoded: which job titles exist, and therefore how many columns <code>job</code> is about to become.</td></tr>
+          </tbody>
+        </table>
+        <div class="note blue">
+          <strong>Two frames from here on.</strong> <code>df</code> keeps the original, readable columns; <code>df_encoded</code> is the all-numeric version. That split matters in topic 9 - we fit on the numeric frame and store the answer on the readable one, so that the cluster profiles come out in real units instead of dummy columns.
+        </div>
+      </section>
+
+      <!-- ═══ 8. SCALER ═══ -->
+      <section class="card topic-panel" id="topic-7">
+        <h2 class="step-title">StandardScaler - and why it is not optional</h2>
+        <pre class="code py"><code>scaler = StandardScaler()
+features = df_encoded.columns
+df_scaled = pd.DataFrame(scaler.fit_transform(df_encoded), columns=features)
+df_scaled</code></pre>
+        <p>K-Means is <strong>nothing but distance</strong>. Look at what the raw columns of this frame actually contain:</p>
+        <table class="data-table">
+          <thead><tr><th>column</th><th>typical value</th><th>contribution to a squared distance</th></tr></thead>
+          <tbody>
+            <tr><td class="term">nr.employed</td><td>~5,200</td><td>enormous</td></tr>
+            <tr><td class="term">pdays</td><td>999 or ~7</td><td>very large</td></tr>
+            <tr><td class="term">duration</td><td>~260</td><td>large</td></tr>
+            <tr><td class="term">age</td><td>~40</td><td>small</td></tr>
+            <tr><td class="term">job_technician</td><td>0 or 1</td><td>invisible</td></tr>
+          </tbody>
+        </table>
+        <p>Without scaling, the distance between two customers is essentially the difference in <code>nr.employed</code> and nothing else. Every one-hot column - all the work <code>get_dummies</code> just did - would be worth less than a rounding error. <code>StandardScaler</code> converts every column to a <strong>z-score</strong>, so each one has mean 0 and standard deviation 1, and each one gets an equal say in the distance.</p>
+        <div class="note red">
+          ⚠️ <strong>This is the single most common way a K-Means result comes out meaningless.</strong> Skip the scaler and you have not clustered customers - you have cut the largest column into K slices and given the result a fancy name. If your clusters differ on exactly one column, this is why.
+        </div>
+        <table class="data-table">
+          <thead><tr><th>line</th><th>what it does</th></tr></thead>
+          <tbody>
+            <tr><td class="term">scaler.fit_transform(df_encoded)</td><td>Learns each column's mean and standard deviation, then returns the standardised values - as a plain numpy array, with no column names.</td></tr>
+            <tr><td class="term">features = df_encoded.columns</td><td>Keeps the names before they are lost.</td></tr>
+            <tr><td class="term">pd.DataFrame(..., columns=features)</td><td>Wraps the array back into a frame so the names come back. Not required by <code>KMeans</code>, but it makes everything after this readable.</td></tr>
+          </tbody>
+        </table>
+        <div class="note purple">
+          ⚖️ <strong>Which scaler?</strong> <code>StandardScaler</code> is the usual choice for K-Means, because the algorithm is built on squared distances and z-scores put every column's spread at 1. <code>MinMaxScaler</code> works too and leaves the 0/1 dummy columns exactly as they were - but it lets a single outlier squash every other value into a narrow band.
+        </div>
+      </section>
+
+      <!-- ═══ 9. FIT_PREDICT ═══ -->
+      <section class="card topic-panel" id="topic-8">
+        <h2 class="step-title">fit_predict and the cluster sizes</h2>
+        <pre class="code py"><code>k = 5
+kmeans = KMeans(n_clusters=k, random_state=42, n_init=10)
+df['cluster'] = kmeans.fit_predict(df_scaled)
+
+cluster_sizes = df['cluster'].value_counts()
+print("\nCluster sizes:")
+print(cluster_sizes)
+
+print("\nPercentage of total:")
+print(round(cluster_sizes / len(df) * 100, 2))</code></pre>
+        <div class="output"><span class="out-label">Output</span>
+Cluster sizes:
+cluster
+0    12204
+2    12027
+1     8755
+4     6685
+3     1517
+Name: count, dtype: int64
+
+Percentage of total:
+cluster
+0    29.63
+2    29.20
+1    21.26
+4    16.23
+3     3.68
+Name: count, dtype: float64</div>
+        <p>Read the line that does the work: <code>fit_predict</code> is <code>fit</code> and <code>predict</code> in a single call, it runs on <strong>df_scaled</strong>, and its answer is stored on <strong>df</strong> - the original, readable frame. That is deliberate, and it is what makes topic 10 possible.</p>
+        <table class="data-table">
+          <thead><tr><th>argument</th><th>what it does</th></tr></thead>
+          <tbody>
+            <tr><td class="term">n_clusters=5</td><td>K. The only genuinely free choice, and here it was picked by hand before we had looked at an elbow plot at all.</td></tr>
+            <tr><td class="term">random_state=42</td><td>Fixes the random starting positions, so re-running the notebook gives the same clusters. Without it, the cluster <em>numbers</em> - and sometimes the clusters themselves - change on every run.</td></tr>
+            <tr><td class="term">n_init=10</td><td>Run the whole algorithm 10 times from 10 different random starts and keep the one with the lowest inertia. This is the insurance against a bad start.</td></tr>
+          </tbody>
+        </table>
+        <div class="note orange">
+          🎲 <strong>Why <code>n_init</code> matters.</strong> The algorithm is guaranteed to converge; it is <em>not</em> guaranteed to converge to the best answer. Two centroids that start inside the same blob will politely split that blob between them and never venture out, while another blob is left sharing a single centroid. Nothing about that arrangement is unstable - no point wants to move - so the loop stops, satisfied, on a bad answer. That is a <strong>local minimum</strong>, and running ten times and keeping the best is the standard defence.
+        </div>
+        <div class="note blue">
+          <strong>A version note.</strong> This notebook runs scikit-learn 1.2.2, where leaving <code>n_init</code> out gives you 10 with a warning about the default changing. Since version 1.4 the default is <code>n_init='auto'</code>, which uses 1 run with the default <code>k-means++</code> initialisation and 10 otherwise. Writing <code>n_init=10</code> explicitly works on every version and is what you will see in most code.
+        </div>
+        <div class="note green">
+          <strong>The first thing to notice in that output.</strong> Four clusters hold between 16% and 30% of the customers each, and cluster 3 holds <strong>3.68%</strong> - 1,517 people. A group that much smaller than the rest is always worth looking at first: it is either the interesting minority you were hunting for, or an artefact. Topic 10 settles which.
+        </div>
+      </section>
+
+      <!-- ═══ 10. GROUPBY ═══ -->
+      <section class="card topic-panel" id="topic-9">
+        <h2 class="step-title">Profiling the clusters with groupby</h2>
+        <p>Fitting was the easy part. The output is a column of 0s to 4s, and it is worth nothing until somebody works out what each number <em>is</em>. This is the single most useful cell in the notebook:</p>
+        <pre class="code py"><code># research groups
+numerical_cols = ['age', 'duration', 'campaign', 'pdays', 'previous',
+                  'emp.var.rate', 'cons.price.idx', 'cons.conf.idx',
+                  'euribor3m', 'nr.employed']
+
+cluster_means = df.groupby('cluster')[numerical_cols].mean()
+print("\nNumerical feature means by cluster:")
+print(cluster_means)</code></pre>
+        <div class="output"><span class="out-label">Output</span>
+Numerical feature means by cluster:
+               age    duration  campaign       pdays  previous  emp.var.rate  \
+cluster
+0        40.305310  256.168387  2.808096  999.000000  0.000082      1.201180
+1        41.055511  232.639634  2.459166  999.000000  0.079497      0.786294
+2        39.406003  263.863640  2.125135  999.000000  0.324270     -2.024686
+3        41.848385  321.363217  1.822017    7.323665  1.665788     -2.095320
+4        38.857741  271.384892  3.235752  999.000000  0.000000      1.400000
+
+         cons.price.idx  cons.conf.idx  euribor3m  nr.employed
+cluster
+0             94.161676     -38.356654   4.884556  5204.328548
+1             93.344239     -38.513729   4.617137  5214.884854
+2             92.988493     -43.179205   1.201951  5077.810194
+3             93.343523     -38.340804   0.985823  5029.176599
+4             93.918000     -42.700000   4.961587  5228.100000</div>
+        <p>Now read the table, looking for the row that is <strong>different</strong>:</p>
+        <table class="data-table">
+          <thead><tr><th>column</th><th>what it tells you</th></tr></thead>
+          <tbody>
+            <tr><td class="term">age</td><td>38.9 to 41.8 across all five clusters. Age is doing <strong>nothing</strong> here - it did not separate anybody.</td></tr>
+            <tr><td class="term">pdays</td><td>Days since the customer was last contacted, where <strong>999 means "never"</strong>. Four clusters sit at exactly 999.0. Cluster 3 sits at <strong>7.3</strong>.</td></tr>
+            <tr><td class="term">previous</td><td>How many times contacted before. Zero-ish everywhere; <strong>1.67</strong> in cluster 3.</td></tr>
+            <tr><td class="term">duration</td><td>Call length in seconds. Cluster 3 has the longest calls of the five, at <strong>321</strong> against 233-271 elsewhere.</td></tr>
+            <tr><td class="term">euribor3m</td><td>The interest rate at the time of the call. This one splits cleanly: clusters 0, 1 and 4 around 4.6-5.0, clusters 2 and 3 around 1.0-1.2. It is separating <strong>when</strong> the call was made, not who was called.</td></tr>
+          </tbody>
+        </table>
+        <div class="note green">
+          🔍 <strong>Cluster 3 has a name.</strong> It is the <strong>warm list</strong>: customers the bank has already spoken to recently (7 days, not "never"), more than once, and who stay on the phone longest. K-Means found that group without being told it existed, and now it is something a marketing team can act on. The small cluster turned out to be the interesting one.
+        </div>
+        <div class="note orange">
+          🔢 <strong>And a warning about the numbers.</strong> Cluster 3 is only cluster 3 because of where the random starting points happened to land. Change the seed, change <code>n_init</code>, add a row, and the same customers may come back as cluster 0. Never hard-code "cluster 3 = warm list" anywhere - re-derive the meaning from the group averages every time you fit.
+        </div>
+        <div class="note blue">
+          💡 <strong>The habit worth keeping.</strong> Fit, <code>groupby('cluster').mean()</code>, then write one sentence per cluster in plain language before doing anything else. If you cannot write the sentence, the clustering has not told you anything yet - which is a signal to change K, change the columns you fed it, or accept that these customers do not come in groups.
+        </div>
+      </section>
+
+      <!-- ═══ 11. COUNTPLOT ═══ -->
+      <section class="card topic-panel" id="topic-10">
+        <h2 class="step-title">countplot - the picture of the sizes</h2>
+        <pre class="code py"><code># Set a nice style for the graph
+sns.set_theme(style="whitegrid")
+
+# Create the figure and define its size
+plt.figure(figsize=(8, 5))
+
+# Create a bar plot counting how many data points are in each cluster
+# We use x='cluster' so it counts the groups on the X-axis
+ax = sns.countplot(data=df, x='cluster', palette='viridis')
+
+# Add labels on top of each bar so you can see the exact count easily
+for container in ax.containers:
+    ax.bar_label(container)
+
+# Add titles and labels to make the graph easy to read
+plt.title('Number of Customers in Each Cluster Group', fontsize=14, fontweight='bold')
+plt.xlabel('Cluster Group', fontsize=12)
+plt.ylabel('Count (Number of Customers)', fontsize=12)
+
+# Display the graph on your screen
+plt.show()</code></pre>
+        <p>This is <code>value_counts</code> as a picture. Three details are worth keeping:</p>
+        <table class="data-table">
+          <thead><tr><th>line</th><th>why it is there</th></tr></thead>
+          <tbody>
+            <tr><td class="term">sns.countplot(data=df, x='cluster')</td><td>A countplot counts rows per category itself - you give it the column, not the counts. No <code>value_counts</code> needed first.</td></tr>
+            <tr><td class="term">for container in ax.containers: ax.bar_label(container)</td><td>Writes the exact number on top of each bar. A bar chart without its numbers makes you squint at the axis; this is two lines and removes the guesswork.</td></tr>
+            <tr><td class="term">palette='viridis'</td><td>A colour ramp that stays readable in greyscale and for colour-blind readers. On newer seaborn versions this needs <code>hue='cluster', legend=False</code> alongside it, or it warns.</td></tr>
+          </tbody>
+        </table>
+        <div class="note green">
+          <strong>What you are looking for in the picture.</strong> One bar holding 80% of the rows means K is too small - the algorithm has found one big blob and some crumbs. A bar holding four rows means an outlier group, or K too large. Five bars of roughly comparable height, with one small and interesting one, is what a healthy clustering looks like.
+        </div>
+        <div class="note red">
+          🐛 <strong>A real notebook gotcha, worth a minute.</strong> The figure saved in the notebook shows <strong>six</strong> bars, not five - because that cell was run while a <code>k = 6</code> model was still in <code>df['cluster']</code>, before the K = 5 fit above it was re-run. The totals give it away: both add up to 41,188, the same customers, cut a different number of ways. In a notebook, the picture on your screen is only as current as the last cell you executed. When a chart and a printout disagree, restart the kernel and run everything top to bottom.
+        </div>
+      </section>
+
+      <!-- ═══ 12. ELBOW LOOP ═══ -->
+      <section class="card topic-panel" id="topic-11">
+        <h2 class="step-title">The elbow loop, on the real data</h2>
+        <pre class="code py"><code># 1. Create an empty list to store the WCSS values
+wcss = []
+
+# 2. Run KMeans for 1 to 10 clusters
+# We use a loop to try different values of k
+for i in range(1, 11):
+    kmeans = KMeans(n_clusters=i, random_state=42, n_init=10)
+    kmeans.fit(df_scaled)
+    # .inertia_ gives the WCSS for that model
+    wcss.append(kmeans.inertia_)
+
+# Set a nice style for the graph
+sns.set_theme(style="whitegrid")
+plt.figure(figsize=(8, 5))
+
+# 3. Plot the Elbow Graph
+# We use a line plot with blue dots ('bx-') to show the trend
+plt.plot(range(1, 11), wcss, 'bx-', linewidth=2, markersize=8)
+
+# 4. Add titles and labels
+plt.title('The Elbow Method for Optimal K', fontsize=14, fontweight='bold')
+plt.xlabel('Number of Clusters (K)', fontsize=12)
+plt.ylabel('WCSS (Within-Cluster Sum of Squares)', fontsize=12)
+
+# Make sure all numbers from 1 to 10 show up on the X-axis
+plt.xticks(range(1, 11))
+
+# Display the graph
+plt.show()</code></pre>
+        <p>Ten complete fits, one per K, each one keeping a single number. Note that this loop calls <code>fit</code> rather than <code>fit_predict</code> - we do not want the labels here, only <code>inertia_</code>.</p>
+        <table class="data-table">
+          <thead><tr><th>detail</th><th>why</th></tr></thead>
+          <tbody>
+            <tr><td class="term">range(1, 11)</td><td>K from 1 to 10. K = 1 is the useful baseline: every point measured to the overall mean, which is the total spread of the data.</td></tr>
+            <tr><td class="term">kmeans.fit(df_scaled)</td><td>On the <strong>scaled</strong> frame, and on the same frame every time. Change the scaling between fits and the numbers are no longer comparable.</td></tr>
+            <tr><td class="term">'bx-'</td><td>Matplotlib shorthand: <strong>b</strong>lue, <strong>x</strong> markers, solid <strong>-</strong> line. Three characters instead of three keyword arguments.</td></tr>
+            <tr><td class="term">plt.xticks(range(1, 11))</td><td>Forces a tick on every integer. Without it matplotlib labels 2, 4, 6, 8, 10 and you cannot read off an odd K.</td></tr>
+          </tbody>
+        </table>
+        <p>And here is what the curve actually did on our data. The WCSS slid from about <strong>2.23 million</strong> at K = 1 down to about <strong>1.59 million</strong> at K = 10 - a long, almost straight descent, with a small kink around K = 6-7 and no real corner anywhere.</p>
+        <div class="note orange">
+          🫤 <strong>No elbow - and that is a genuine result, not a failure.</strong> With 41,188 rows and dozens of one-hot columns, customers do not fall into tidy separated balls; they fill the space. When that happens, K becomes a business decision - "how many segments can marketing actually run campaigns for?" - and the elbow plot has still done its job by confirming that no particular K is being left obviously on the table. Compare it with a textbook curve that drops from 310 to 20 between K = 1 and K = 4 and then goes flat: <em>that</em> is what a real elbow looks like.
+        </div>
+        <div class="note blue">
+          ⏱ <strong>Ten fits over 41,188 rows takes real time</strong>, and with <code>n_init=10</code> it is a hundred runs of the algorithm. When you are only exploring the shape of the curve, <code>df_scaled.sample(5000, random_state=42)</code> gets you the same shape in a fraction of the time.
+        </div>
+      </section>
+
+      <!-- ═══ 13. IMAGE AS TABLE ═══ -->
+      <section class="card topic-panel" id="topic-12">
+        <h2 class="step-title">Notebook 2 - an image is a table</h2>
+        <p>The second notebook is the demo that makes clustering click. Its imports:</p>
+        <pre class="code py"><code>import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+from sklearn.cluster import KMeans
+from PIL import Image</code></pre>
+        <pre class="code py"><code># Load the image
+image = Image.open("dog_image.jpeg")
+image_np = np.array(image)
+
+print(image_np.shape)</code></pre>
+        <div class="output"><span class="out-label">Output</span>(400, 600, 3)</div>
+        <figure class="shot" style="max-width:520px;margin:16px auto">
+          <img src="dog_image.jpeg" alt="The source photograph: a corgi running across grass, 600 pixels wide and 400 pixels tall." loading="lazy">
+          <figcaption>The file on disk - and, to K-Means, <strong>240,000 rows of three numbers</strong>.</figcaption>
+        </figure>
+        <p>Read that shape carefully: <strong>400 rows of pixels, 600 pixels across, 3 numbers per pixel</strong> - red, green and blue, each 0 to 255. Printing the array itself shows exactly that:</p>
+        <div class="output"><span class="out-label">Output - print(image_np)</span>[[[ 85  81  69]
+  [ 85  81  69]
+  [ 84  80  68]
+  ...
+  [ 46  46  46]
+  [ 46  46  46]
+  [ 46  46  46]]
+
+ ...
+
+ [[ 59  99  36]
+  [ 55  95  33]
+  [ 57  97  37]
+  ...
+  [118 126  14]
+  [117 126   9]
+  [117 127   5]]]</div>
+        <p>Now the trick. Flatten the first two dimensions and the picture becomes an ordinary dataset:</p>
+        <div class="math-card">
+          <p style="font-family:Consolas,monospace;font-size:1.1rem;margin:0;color:var(--blue-dark)">(400, 600, 3) &nbsp;→&nbsp; <strong>.reshape(-1, 3)</strong> &nbsp;→&nbsp; (240000, 3)</p>
+          <p class="math-caption">240,000 rows, three columns. Nothing about K-Means knows or cares that the rows are pixels.</p>
+        </div>
+        <div class="note green">
+          <strong>This is the point of the exercise.</strong> Clustering is not a technique for customer tables. It is a technique for <em>rows of numbers</em>, and a photograph is rows of numbers. Cluster the pixels with K = 4 and <code>cluster_centers_</code> comes back as four RGB triples - the four colours that best summarise the whole photo.
+        </div>
+        <div class="shots two">
+          <figure class="shot">
+            <img src="dog_image.jpeg" alt="The original photograph of the corgi, with tens of thousands of distinct colours." loading="lazy">
+            <figcaption><strong>Original</strong> - 86,635 distinct colours, three bytes per pixel.</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="dog_k4.png" alt="The same photograph repainted with only four colours: two greens for the grass and background, a tan for the dog's coat, and a near-white for its chest and face." loading="lazy">
+            <figcaption><strong>K = 4</strong> - every pixel replaced by its cluster centre.</figcaption>
+          </figure>
+        </div>
+        <p>Four numbers <em>per channel</em> for the whole picture, and the dog is still unmistakably a dog. Those four centres are exactly the rows K-Means found:</p>
+        <div class="output"><span class="out-label">Output - kmeans.cluster_centers_ rounded</span>[[165 142  85]   <-- the coat
+ [ 67  70  34]   <-- shadowed grass
+ [105 110  53]   <-- lit grass
+ [205 189 168]]  <-- chest and muzzle</div>
+        <table class="data-table">
+          <thead><tr><th>call</th><th>what it does</th></tr></thead>
+          <tbody>
+            <tr><td class="term">Image.open(...)</td><td>PIL opens the file. It is not a numpy array yet.</td></tr>
+            <tr><td class="term">np.array(image)</td><td>Converts it into an array of <code>uint8</code> values, shape (height, width, 3).</td></tr>
+            <tr><td class="term">.reshape(-1, 3)</td><td>Three columns, and <code>-1</code> means "work out the number of rows yourself" - 400 × 600 = 240,000.</td></tr>
+            <tr><td class="term">plt.imshow(image_np)</td><td>Draws the array back as a picture. Needs whole numbers 0-255, which matters in the next topic.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ═══ 14. THE EXERCISE ═══ -->
+      <section class="card topic-panel" id="topic-13">
+        <h2 class="step-title">Notebook 2 - the exercise</h2>
+        <p>The notebook sets the task in comments and leaves the code for you:</p>
+        <pre class="code py"><code># task
+# 1 Kmean - clusters: 4, random_state=42
+# 2 reshape -- column of pixels
+# 3 kmean.fit
+# print kmeans.cluster_centers_ == 4
+# print kmeans.labels_ == 240,000
+# #1 -- group 0 -- color cluster_centers_[0]  122,50,70
+# create new list with center sizes</code></pre>
+        <p>Here is the whole thing worked through:</p>
+        <div class="task-box">
+          <span class="task-num">Solution</span>
+          <pre class="code py"><code>from PIL import Image
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.cluster import KMeans
+
+image    = Image.open("dog_image.jpeg")
+image_np = np.array(image)
+print(image_np.shape)                 # -> (400, 600, 3)
+
+# 2. every pixel becomes a row of three numbers
+pixels = image_np.reshape(-1, 3)      # -> (240000, 3)
+
+# 1 + 3. cluster the colours
+k      = 4
+kmeans = KMeans(n_clusters=k, random_state=42, n_init=10)
+kmeans.fit(pixels)
+
+print(kmeans.cluster_centers_.shape)  # -> (4, 3)      the palette
+print(kmeans.labels_.shape)           # -> (240000,)   one index per pixel
+
+# every pixel takes the colour of its own centre
+new_pixels = kmeans.cluster_centers_[kmeans.labels_]
+new_image  = new_pixels.reshape(image_np.shape).astype("uint8")
+
+plt.figure(figsize=(6, 4))
+plt.imshow(new_image)
+plt.title(f"Image with K = {k} Colors")
+plt.axis("off")
+plt.tight_layout()
+plt.show()</code></pre>
+        </div>
+        <table class="data-table">
+          <thead><tr><th>line</th><th>the detail that trips people up</th></tr></thead>
+          <tbody>
+            <tr><td class="term">reshape(-1, 3)</td><td><code>-1</code> lets numpy compute the row count. Writing <code>reshape(240000, 3)</code> works for this one image and breaks on the next.</td></tr>
+            <tr><td class="term">cluster_centers_[labels_]</td><td>Fancy indexing. It builds the full 240,000 × 3 array of repainted pixels in one expression - no loop. Read it as "for every pixel, look up the colour of its cluster".</td></tr>
+            <tr><td class="term">.astype("uint8")</td><td><strong>Not optional.</strong> The centres are floats, because a mean of integers rarely lands on one. <code>imshow</code> needs whole numbers 0-255 or it renders a mess.</td></tr>
+            <tr><td class="term">.reshape(image_np.shape)</td><td>Folds the flat table back into (400, 600, 3) so it is a picture again.</td></tr>
+          </tbody>
+        </table>
+        <p>Then run it for several K values and put them side by side - the exercise's <code>k_values = [4, 10, 25, 50]</code>:</p>
+        <pre class="code py"><code>k_values = [4, 10, 25, 50]
+fig, axes = plt.subplots(1, len(k_values), figsize=(16, 5))
+
+for ax, k in zip(axes, k_values):
+    km  = KMeans(n_clusters=k, random_state=42, n_init=10).fit(pixels)
+    new = km.cluster_centers_[km.labels_].reshape(image_np.shape).astype("uint8")
+    ax.imshow(new)
+    ax.set_title(f"K = {k}")
+    ax.axis("off")
+
+plt.tight_layout()
+plt.show()</code></pre>
+        <div class="shots four">
+          <figure class="shot">
+            <img src="dog_k4.png" alt="The corgi photograph reduced to four colours - flat blocks, but the shape is still readable." loading="lazy">
+            <figcaption><strong>K = 4</strong></figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="dog_k10.png" alt="The corgi photograph at ten colours - the grass gains texture and the coat gains shading." loading="lazy">
+            <figcaption><strong>K = 10</strong></figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="dog_k25.png" alt="The corgi photograph at twenty-five colours - close to the original, with slight banding in the blurred background." loading="lazy">
+            <figcaption><strong>K = 25</strong></figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="dog_k50.png" alt="The corgi photograph at fifty colours - visually indistinguishable from the original at this size." loading="lazy">
+            <figcaption><strong>K = 50</strong></figcaption>
+          </figure>
+        </div>
+        <p>Read it left to right: the flat blocks at K = 4 break into shading by K = 10, the background stops banding around K = 25, and at K = 50 the only way to spot the difference is to flick back to the <a class="resource-link" href="dog_image.jpeg" target="_blank" rel="noopener">original</a>.</p>
+        <div class="note green">
+          🎨 <strong>Where the compression comes from.</strong> Every pixel used to need three bytes for its own colour. Now it needs only an index into a palette of K - 2 bits at K = 4, 6 bits at K = 50 - plus the palette itself, stored once. At K = 4 that is a twelve-fold shrink, and the picture is still recognisable. At K = 50 most people cannot tell it from the original. This is exactly how GIF files work.
+        </div>
+        <div class="note orange">
+          🐢 <strong>240,000 rows is enough to feel it.</strong> A full K-Means over every pixel takes real seconds, and the loop above runs it four times. <code>MiniBatchKMeans</code> is the drop-in replacement for exactly this case - it updates the centres from small random batches instead of the whole array, and gets a near-identical palette in a fraction of the time.
+        </div>
+        <div class="note purple">
+          🧪 <strong>Two more things to try.</strong> Print <code>kmeans.cluster_centers_</code> for K = 4 and look at the four RGB rows - that is the palette, and you can paste those values straight into a colour picker. Then run <code>np.bincount(kmeans.labels_)</code> to see how many pixels landed in each colour: on most photographs one or two colours cover most of the frame, which is the "create new list with center sizes" line in the task.
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <div class="footer">Lesson 21 - August 23, 2026 - K-Means clustering</div>
+</div>
+
+<script>
+  const links = document.querySelectorAll('.topic-link');
+  const panels = document.querySelectorAll('.topic-panel');
+
+  function showTopic(id) {
+    panels.forEach(panel => panel.classList.toggle('active', panel.id === id));
+    links.forEach(link => link.classList.toggle('active', link.dataset.target === id));
+  }
+
+  links.forEach(link => {
+    if (link.dataset.target) {
+      link.addEventListener('click', () => {
+        showTopic(link.dataset.target);
+        location.hash = link.dataset.target;
+      });
+    }
+  });
+
+  const hash = location.hash.replace('#', '');
+  if (hash && document.getElementById(hash)) {
+    showTopic(hash);
+    // Drop the fragment once we have used it. The panel is display:none while the
+    // browser first resolves the anchor, and Chrome retries that scroll after KaTeX
+    // reflows the page - which lands it hundreds of pixels down. No fragment, no retry.
+    history.replaceState(null, '', location.pathname + location.search);
+    window.scrollTo(0, 0);
+  }
+
+  /* ── minimal Python highlighter, GitHub-dark palette ──
+     single pass so a quote inside a comment (and vice versa) can't confuse it */
+  (function () {
+    const KEYWORDS = new Set(['and','as','assert','async','await','break','class','continue',
+      'def','del','elif','else','except','finally','for','from','global','if','import','in',
+      'is','lambda','nonlocal','not','or','pass','raise','return','try','while','with','yield',
+      'None','True','False']);
+    const BUILTINS = new Set(['print','len','range','sorted','reversed','sum','min','max','abs',
+      'round','int','float','str','bool','list','dict','set','tuple','enumerate','zip','map',
+      'filter','type','isinstance','open','input','any','all']);
+    const PREFIX = /^(f|r|b|u|rb|br|fr|rf)$/i;
+
+    const esc = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const isIdStart = c => /[A-Za-z_]/.test(c);
+    const isId      = c => /[A-Za-z0-9_]/.test(c);
+    const wrap = (cls, t) => '<span class="' + cls + '">' + esc(t) + '</span>';
+
+    /* index just past the closing quote of the string starting at `start` */
+    function scanString(src, start) {
+      const q = src[start], n = src.length;
+      if (src.slice(start, start + 3) === q + q + q) {
+        let j = start + 3;
+        while (j < n && src.slice(j, j + 3) !== q + q + q) j++;
+        return Math.min(n, j + 3);
+      }
+      let j = start + 1;
+      while (j < n && src[j] !== q && src[j] !== '\n') {
+        if (src[j] === '\\') j++;
+        j++;
+      }
+      return (j < n && src[j] === q) ? j + 1 : j;
+    }
+
+    function highlight(src) {
+      let out = '', i = 0;
+      const n = src.length;
+      while (i < n) {
+        const c = src[i];
+
+        if (c === '#') {                                  // comment to end of line
+          let j = i;
+          while (j < n && src[j] !== '\n') j++;
+          out += wrap('hl-com', src.slice(i, j));
+          i = j;
+          continue;
+        }
+
+        if (isIdStart(c)) {                               // word, or a prefixed string
+          let j = i;
+          while (j < n && isId(src[j])) j++;
+          const word = src.slice(i, j), nxt = src[j];
+          if ((nxt === '"' || nxt === "'") && PREFIX.test(word)) {
+            const end = scanString(src, j);
+            out += wrap('hl-str', src.slice(i, end));
+            i = end;
+            continue;
+          }
+          let cls = null;
+          if (KEYWORDS.has(word)) cls = 'hl-kw';
+          else if (BUILTINS.has(word)) cls = 'hl-builtin';
+          else {
+            let k = j;
+            while (k < n && src[k] === ' ') k++;
+            if (src[k] === '(') cls = 'hl-fn';             // a call
+          }
+          out += cls ? wrap(cls, word) : esc(word);
+          i = j;
+          continue;
+        }
+
+        if (c === '"' || c === "'") {                     // plain string
+          const end = scanString(src, i);
+          out += wrap('hl-str', src.slice(i, end));
+          i = end;
+          continue;
+        }
+
+        if (/[0-9]/.test(c)) {                            // number
+          let j = i;
+          while (j < n && /[0-9._]/.test(src[j])) j++;
+          out += wrap('hl-num', src.slice(i, j));
+          i = j;
+          continue;
+        }
+
+        out += esc(c);
+        i++;
+      }
+      return out;
+    }
+
+    document.querySelectorAll('pre.code.py > code').forEach(el => {
+      if (el.dataset.hl) return;
+      el.innerHTML = highlight(el.textContent);
+      el.dataset.hl = '1';
+    });
+  })();
+</script>
+</body>
+</html>
