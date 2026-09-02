@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Hierarchical Clustering</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded',function(){
+    renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'\(',right:'\)',display:false}],throwOnError:false});
+    if (window.fitMath) window.fitMath();
+  });</script>
+  <style>
+    .page-layout { display:flex; height:calc(100vh - 54px); overflow:hidden; }
+    .sidebar { width:238px; min-width:238px; height:100%; overflow-y:auto; background:#0a0e14; border-right:1px solid var(--border); display:flex; flex-direction:column; scrollbar-width:thin; scrollbar-color:var(--border) transparent; flex-shrink:0; }
+    .sidebar-head { padding:20px 18px 14px; font-size:.65rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--border); }
+    .sidebar-nav { padding:8px 0; flex:1; }
+    .s-item { display:flex; align-items:center; gap:11px; padding:10px 18px; cursor:pointer; background:none; border:none; border-left:3px solid transparent; width:100%; text-align:left; transition:background .18s,border-color .18s; }
+    .s-item:hover { background:rgba(255,255,255,.04); }
+    .s-item.active { background:rgba(250,204,21,.08); border-left-color:var(--accent); }
+    .s-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; transition:transform .2s; }
+    .s-item.active .s-dot { transform:scale(1.45); box-shadow:0 0 8px currentColor; }
+    .s-num { font-size:.62rem; color:var(--border); font-family:'Courier New',monospace; font-weight:700; min-width:18px; }
+    .s-item.active .s-num { color:var(--accent); }
+    .s-label { font-size:.79rem; color:var(--muted); font-family:'Courier New',monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .s-item.active .s-label { color:var(--text); }
+    .s-item.done .s-label::after { content:' \2713'; color:var(--green); font-size:.7rem; }
+    .side-sep { border:none; border-top:1px solid var(--border); margin:14px 16px 6px; }
+    .side-part { padding:2px 18px 6px; font-size:.6rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:var(--accent); font-family:'Courier New',monospace; }
+
+    .panel-viewport { flex:1; overflow-y:auto; overflow-x:hidden; position:relative; }
+    .panel { display:none; flex-direction:column; min-height:100%; padding:40px 52px 100px; max-width:830px; margin:0 auto; animation:fadeIn .35s ease; }
+    .panel.active { display:flex; }
+    @keyframes fadeIn { from{opacity:0;transform:translateX(28px)} to{opacity:1;transform:translateX(0)} }
+    .panel.exit { display:flex; animation:fadeOut .25s ease forwards; }
+    @keyframes fadeOut { from{opacity:1;transform:translateX(0)} to{opacity:0;transform:translateX(-28px)} }
+
+    .m-hero { position:relative; height:200px; border-radius:18px; overflow:hidden; margin-bottom:26px; flex-shrink:0; }
+    .m-hero img { width:100%; height:100%; object-fit:cover; filter:brightness(.5) saturate(.8); transition:filter .45s; }
+    .panel.active .m-hero img { filter:brightness(.6) saturate(1.1); }
+    .m-hero-ov { position:absolute; inset:0; padding:26px 30px; display:flex; flex-direction:column; justify-content:flex-end; background:linear-gradient(0deg,rgba(0,0,0,.78) 0%,rgba(0,0,0,.15) 55%,transparent 100%); }
+    .m-breadcrumb { font-size:.62rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:rgba(255,255,255,.4); margin-bottom:5px; }
+    .m-name { font-size:1.7rem; font-weight:900; color:#fff; font-family:'Courier New',monospace; }
+    .m-tagline { font-size:.86rem; color:rgba(255,255,255,.62); margin-top:4px; }
+
+    .m-desc { font-size:.95rem; color:var(--muted); line-height:1.75; margin-bottom:14px; }
+    .m-desc code { font-family:'Courier New',monospace; font-size:.88em; padding:1px 6px; border-radius:4px; background:rgba(255,255,255,.06); }
+
+    .demo-box { background:#060a10; border:1px solid var(--border); border-radius:14px; padding:22px 22px 18px; margin-top:20px; flex-shrink:0; display:flex; flex-direction:column; }
+    .demo-lbl { font-size:.64rem; font-weight:800; letter-spacing:.13em; text-transform:uppercase; color:var(--muted); margin-bottom:18px; display:flex; align-items:center; gap:8px; }
+    .demo-lbl::before { content:''; width:3px; height:12px; border-radius:2px; background:var(--accent); flex-shrink:0; }
+    .demo-controls { display:flex; flex-wrap:wrap; gap:18px; align-items:flex-end; margin-bottom:18px; }
+    .ctrl { display:flex; flex-direction:column; gap:5px; }
+    .ctrl label { font-size:.69rem; color:var(--muted); font-weight:600; }
+    .ctrl input[type=range] { -webkit-appearance:none; width:190px; height:4px; background:var(--border); border-radius:2px; outline:none; cursor:pointer; }
+    .ctrl input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:15px; height:15px; background:var(--accent); border-radius:50%; cursor:pointer; box-shadow:0 0 6px rgba(250,204,21,.5); }
+    .ctrl input[type=range]::-moz-range-thumb { width:15px; height:15px; background:var(--accent); border:none; border-radius:50%; cursor:pointer; }
+    .ctrl .cval { font-size:.7rem; color:var(--accent); font-family:'Courier New',monospace; font-weight:700; text-align:center; }
+    .demo-canvas-wrap { background:#020509; border-radius:10px; padding:14px; overflow:hidden; min-height:72px; order:4; }
+    canvas { display:block; margin:0 auto; }
+    .demo-out { font-family:'Courier New',monospace; font-size:.8rem; color:#10b981; line-height:1.65; margin-top:0; margin-bottom:14px; padding:11px 15px; background:rgba(16,185,129,.05); border:1px solid rgba(16,185,129,.18); border-radius:8px; white-space:pre-wrap; order:3; }
+
+    .seg { display:inline-flex; border:1px solid var(--border); border-radius:9px; overflow:hidden; }
+    .seg button { background:transparent; border:none; color:var(--muted); font-size:.72rem; font-weight:700; font-family:'Courier New',monospace; padding:7px 13px; cursor:pointer; transition:background .18s,color .18s; }
+    .seg button:hover { color:var(--text); background:rgba(255,255,255,.05); }
+    .seg button.on { background:rgba(250,204,21,.14); color:var(--accent); }
+    .play-btn { background:rgba(16,185,129,.12); border:1px solid rgba(16,185,129,.4); color:var(--green); font-family:'Courier New',monospace; font-size:.74rem; font-weight:800; padding:8px 16px; border-radius:9px; cursor:pointer; transition:background .18s,transform .12s; }
+    .play-btn:hover { background:rgba(16,185,129,.22); }
+    .play-btn:active { transform:scale(.96); }
+
+    .panel-nav { display:flex; justify-content:space-between; align-items:center; margin-top:40px; padding-top:24px; border-top:1px solid var(--border); flex-shrink:0; gap:10px; }
+    .pnav-btn { display:flex; align-items:center; gap:9px; padding:10px 20px; border-radius:10px; border:1px solid var(--border); background:transparent; color:var(--muted); font-size:.82rem; font-weight:700; cursor:pointer; transition:color .2s,border-color .2s,background .2s; }
+    .pnav-btn:hover:not(:disabled) { color:var(--text); border-color:var(--accent); background:rgba(250,204,21,.06); }
+    .pnav-btn:disabled { opacity:.28; cursor:default; }
+    .pnav-btn.next { background:rgba(250,204,21,.08); border-color:rgba(250,204,21,.35); color:var(--accent); }
+    .pnav-btn.next:hover { background:rgba(250,204,21,.16); border-color:var(--accent); }
+    .pnav-dots { display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:center; }
+    .pnav-dot { width:7px; height:7px; border-radius:50%; background:var(--border); transition:background .2s,transform .2s; cursor:pointer; border:none; padding:0; }
+    .pnav-dot.active { background:var(--accent); transform:scale(1.4); }
+
+    .overview-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:14px; margin-top:24px; }
+    .ov-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px 16px 16px; cursor:pointer; transition:border-color .2s,box-shadow .2s,transform .18s; display:flex; flex-direction:column; gap:8px; }
+    .ov-card:hover { transform:translateY(-3px); border-color:rgba(250,204,21,.4); box-shadow:0 8px 28px rgba(250,204,21,.08); }
+    .ov-card-num { font-size:.62rem; color:var(--muted); font-weight:800; letter-spacing:.1em; }
+    .ov-card-name { font-size:.9rem; font-family:'Courier New',monospace; font-weight:700; }
+    .ov-card-desc { font-size:.77rem; color:var(--muted); line-height:1.5; }
+
+    @media(max-width:700px){.sidebar{display:none}.panel{padding:20px 16px 80px}}
+
+    .katex { color: var(--text); }
+    /* No horizontal scrollbars on formulas: fitMath() in pca.js shrinks anything
+       too wide to scale, so the overflow is clipped rather than scrolled. */
+    .katex-display { margin: 6px 0; overflow-x: hidden; overflow-y: hidden; padding: 3px 0; }
+    .katex-display > .katex { max-width: none; }
+    .eq-box { background:rgba(59,130,246,.05); border:1px solid rgba(59,130,246,.2); border-radius:12px; padding:16px 20px; margin:16px 0; font-size:1.05rem; }
+    .eq-box.big { font-size:1.32rem; padding:24px 20px; }
+    .eq-box.small { font-size:.95rem; padding:14px 18px; }
+    .eq-box.gold { background:rgba(250,204,21,.05); border-color:rgba(250,204,21,.22); }
+    .eq-box.green { background:rgba(16,185,129,.05); border-color:rgba(16,185,129,.22); }
+    .eq-box.rose { background:rgba(244,63,94,.05); border-color:rgba(244,63,94,.22); }
+
+    .exercise-header{display:flex;align-items:flex-start;gap:16px;margin-bottom:24px;padding:20px;background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.2);border-radius:14px;position:relative;overflow:hidden;}
+    .exercise-header::before{content:'';position:absolute;top:-40px;right:-40px;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,rgba(251,191,36,.1) 0%,transparent 70%);pointer-events:none;}
+    .exercise-badge{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;font-size:1.8rem;font-weight:800;color:#0d1a2e;background:linear-gradient(135deg,#fbbf24,#f59e0b);box-shadow:0 6px 18px rgba(251,191,36,.35);flex-shrink:0;}
+    .ex-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px 16px;margin-bottom:14px;transition:border-color .2s;}
+    .ex-card:hover{border-color:rgba(250,204,21,.3);}
+    .ex-q-head{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+    .ex-num{font-size:.68rem;font-weight:800;letter-spacing:.1em;padding:3px 10px;border-radius:6px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--muted);font-family:'Courier New',monospace;}
+    .ex-task{font-size:.88rem;color:var(--muted);margin-bottom:10px;line-height:1.6;}
+    .ex-task code{font-family:'Courier New',monospace;font-size:.85em;padding:1px 6px;border-radius:4px;background:rgba(255,255,255,.06);}
+    details.hint{margin-top:10px;}
+    details.hint summary{cursor:pointer;font-size:.78rem;color:var(--accent);font-weight:700;}
+
+    .legend { display:flex; flex-wrap:wrap; gap:16px; justify-content:center; margin-bottom:10px; }
+    .lg { display:flex; align-items:center; gap:7px; font-size:.72rem; font-family:'Courier New',monospace; color:var(--muted); font-weight:700; }
+    .lg i { width:11px; height:11px; border-radius:50%; display:inline-block; }
+    .lg.sq i { border-radius:3px; }
+    .lg.hollow i { background:none !important; border:2px solid #e6edf3; }
+    .lg.ln i { width:20px; height:0; border-top:2px solid var(--text); border-radius:0; }
+    .lg.dash i { width:20px; height:0; border-top:2px dashed var(--muted); border-radius:0; }
+
+    .steps { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; margin:20px 0 6px; }
+    .step { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px 16px 14px; position:relative; overflow:hidden; transition:transform .2s,border-color .2s; }
+    .step:hover { transform:translateY(-3px); }
+    .step::after { content:attr(data-n); position:absolute; right:10px; bottom:-14px; font-size:3.4rem; font-weight:900; font-family:'Courier New',monospace; color:rgba(255,255,255,.04); line-height:1; }
+    .step h4 { font-size:.86rem; margin-bottom:6px; font-family:'Courier New',monospace; }
+    .step p { font-size:.78rem; color:var(--muted); line-height:1.55; }
+    .step.a { border-color:rgba(59,130,246,.32); } .step.a h4 { color:var(--blue); }
+    .step.b { border-color:rgba(250,204,21,.32); } .step.b h4 { color:var(--accent); }
+    .step.c { border-color:rgba(16,185,129,.32); } .step.c h4 { color:var(--green); }
+    .step.d { border-color:rgba(236,72,153,.32); } .step.d h4 { color:var(--pink); }
+
+    .pc-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:18px 0; }
+    @media(max-width:640px){ .pc-grid{grid-template-columns:1fr} }
+    .pc { border-radius:14px; border:1px solid var(--border); padding:18px 20px 14px; }
+    .pc h4 { font-size:.9rem; margin-bottom:12px; font-family:'Courier New',monospace; display:flex; align-items:center; gap:8px; }
+    .pc ol, .pc ul { margin:0; padding-left:20px; }
+    .pc li { font-size:.82rem; color:var(--muted); line-height:1.6; margin-bottom:7px; }
+    .pc.good { border-color:rgba(16,185,129,.3); background:rgba(16,185,129,.04); } .pc.good h4 { color:var(--green); }
+    .pc.bad  { border-color:rgba(244,63,94,.3);  background:rgba(244,63,94,.04); }  .pc.bad h4  { color:#f43f5e; }
+
+    table.dt td.A { color:#10b981; font-weight:700; }
+    table.dt td.B { color:#f97316; font-weight:700; }
+    table.dt tr.hl td { background:rgba(250,204,21,.09); }
+
+    .term-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; margin:18px 0; }
+    .term { border:1px solid var(--border); border-radius:12px; padding:14px 16px 12px; background:var(--surface); }
+    .term h5 { font-family:'Courier New',monospace; font-size:.84rem; margin-bottom:5px; }
+    .term p { font-size:.78rem; color:var(--muted); line-height:1.55; }
+
+    .out-pre { background:#010409; border:1px solid var(--border); border-radius:8px; padding:12px 14px; margin-top:10px;
+               font-family:'Courier New',monospace; font-size:.78rem; color:#10b981; overflow-x:auto; line-height:1.6; }
+    .prm { display:grid; grid-template-columns:230px 1fr; gap:14px; padding:13px 0; border-bottom:1px solid var(--border); }
+    .prm:last-child { border-bottom:none; }
+    .prm code { font-size:.8rem; }
+    .prm p { font-size:.82rem; color:var(--muted); line-height:1.6; margin:0; }
+    @media(max-width:620px){ .prm{grid-template-columns:1fr;gap:6px} }
+    .bad-code { border-color:rgba(244,63,94,.4) !important; }
+    .bad-code .code-header { background:rgba(244,63,94,.08); border-color:rgba(244,63,94,.3); }
+    .good-code { border-color:rgba(16,185,129,.4) !important; }
+    .good-code .code-header { background:rgba(16,185,129,.08); border-color:rgba(16,185,129,.3); }
+  </style>
+</head>
+
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">&larr; Python Libs</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item" href="../18_pca/index.html">&larr; Deck 18 &middot; PCA</a>
+    <a class="nav-item active" href="index.html">Deck 19 &middot; Hierarchical</a>
+    <a class="nav-item" href="../20_dbscan/index.html">Deck 20 &middot; DBSCAN &rarr;</a>
+  </div>
+</nav>
+
+<div class="page-layout">
+
+  <aside class="sidebar">
+    <div class="sidebar-head">Hierarchical Clustering</div>
+    <nav class="sidebar-nav">
+      <button class="s-item active" data-panel="0" onclick="goTo(0)"><span class="s-num">00</span><span class="s-dot" style="background:#14b8a6"></span><span class="s-label">Overview</span></button>
+      <div class="side-part">The idea</div>
+      <button class="s-item" data-panel="1" onclick="goTo(1)"><span class="s-num">01</span><span class="s-dot" style="background:#06b6d4"></span><span class="s-label">No K required</span></button>
+      <button class="s-item" data-panel="2" onclick="goTo(2)"><span class="s-num">02</span><span class="s-dot" style="background:#facc15"></span><span class="s-label">The dendrogram</span></button>
+      <button class="s-item" data-panel="3" onclick="goTo(3)"><span class="s-num">03</span><span class="s-dot" style="background:#f43f5e"></span><span class="s-label">Distance</span></button>
+      <div class="side-part">The five linkages</div>
+      <button class="s-item" data-panel="4" onclick="goTo(4)"><span class="s-num">04</span><span class="s-dot" style="background:#10b981"></span><span class="s-label">One example, five answers</span></button>
+      <button class="s-item" data-panel="5" onclick="goTo(5)"><span class="s-num">05</span><span class="s-dot" style="background:#3b82f6"></span><span class="s-label">Ward, step by step</span></button>
+      <button class="s-item" data-panel="6" onclick="goTo(6)"><span class="s-num">06</span><span class="s-dot" style="background:#f97316"></span><span class="s-label">Which one, and when</span></button>
+      <div class="side-part">In code</div>
+      <button class="s-item" data-panel="7" onclick="goTo(7)"><span class="s-num">07</span><span class="s-dot" style="background:#ec4899"></span><span class="s-label">150 irises</span></button>
+      <button class="s-item" data-panel="8" onclick="goTo(8)"><span class="s-num">08</span><span class="s-dot" style="background:#a855f7"></span><span class="s-label">Hierarchical vs K-Means</span></button>
+      <hr class="side-sep">
+      <a class="s-item" style="text-decoration:none" href="../20_dbscan/index.html"><span class="s-num">&rarr;</span><span class="s-dot" style="background:#8b5cf6"></span><span class="s-label">Deck 20 &middot; DBSCAN</span></a>
+      <a class="s-item" style="text-decoration:none" href="../lessons/23_lesson/index.html"><span class="s-num">&rarr;</span><span class="s-dot" style="background:#14b8a6"></span><span class="s-label">Lesson 23 &middot; notebook</span></a>
+    </nav>
+  </aside>
+
+  <div class="panel-viewport" id="viewport">
+
+    <!-- ══ PANEL 0 ══ -->
+    <div class="panel active" id="panel-0">
+      <div class="hero" style="margin-bottom:36px;">
+        <span class="topic-label"><span class="dot"></span>Unsupervised Learning &middot; Clustering</span>
+        <h1>Hierarchical Clustering</h1>
+        <div class="demo-canvas-wrap" style="background:#020509;border-radius:12px;padding:14px;position:relative;z-index:1;margin:22px 0 26px"><canvas id="cv-overview" height="330"></canvas></div>
+        <p><strong>Above:</strong> eleven points merging one pair at a time, with the dendrogram building alongside them. The two long bars near the top are the four real groups holding out against each other &mdash; that is where you would cut.</p>
+        <p>K-Means makes you name <em>K</em> before it will start, and if you guess wrong you run it again. Hierarchical clustering refuses to ask. Every point begins as a cluster of its own, the two nearest clusters merge, and that repeats until everything is one &mdash; leaving behind a <strong>tree</strong> that contains every possible number of clusters at once. You pick the number afterwards, by choosing a height and cutting. The interesting question turns out not to be "how far apart are two points" but <strong>"how far apart are two whole clusters"</strong> &mdash; and there are five different answers.</p>
+        <div class="hero-pills">
+          <span class="tag">agglomerative</span>
+          <span class="tag">dendrogram</span>
+          <span class="tag">linkage</span>
+          <span class="tag">fcluster</span>
+          <span class="tag">ward</span>
+        </div>
+      </div>
+      <div class="overview-grid" style="margin-top:0;">
+        <div class="ov-card" onclick="goTo(1)"><div class="ov-card-num">01 / 08</div><div class="ov-card-name" style="color:#06b6d4">No K required</div><div class="ov-card-desc">Build every grouping at once, choose later.</div></div>
+        <div class="ov-card" onclick="goTo(2)"><div class="ov-card-num">02 / 08</div><div class="ov-card-name" style="color:#facc15">The dendrogram</div><div class="ov-card-desc">Read the tree, and cut it wherever you like.</div></div>
+        <div class="ov-card" onclick="goTo(3)"><div class="ov-card-num">03 / 08</div><div class="ov-card-name" style="color:#f43f5e">Distance</div><div class="ov-card-desc">Pythagoras again — and the scaling trap again.</div></div>
+        <div class="ov-card" onclick="goTo(4)"><div class="ov-card-num">04 / 08</div><div class="ov-card-name" style="color:#10b981">One example, five answers</div><div class="ov-card-desc">The same two clusters through all five linkages.</div></div>
+        <div class="ov-card" onclick="goTo(5)"><div class="ov-card-num">05 / 08</div><div class="ov-card-name" style="color:#3b82f6">Ward, step by step</div><div class="ov-card-desc">The one that measures variance, not distance.</div></div>
+        <div class="ov-card" onclick="goTo(6)"><div class="ov-card-num">06 / 08</div><div class="ov-card-name" style="color:#f97316">Which one, and when</div><div class="ov-card-desc">Where each linkage earns its keep in the real world.</div></div>
+        <div class="ov-card" onclick="goTo(7)"><div class="ov-card-num">07 / 08</div><div class="ov-card-name" style="color:#ec4899">150 irises</div><div class="ov-card-desc">linkage, dendrogram, fcluster — and reading the counts.</div></div>
+        <div class="ov-card" onclick="goTo(8)"><div class="ov-card-num">08 / 08</div><div class="ov-card-name" style="color:#a855f7">Hierarchical vs K-Means</div><div class="ov-card-desc">When to reach for which.</div></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" disabled>&larr; Prev</button>
+        <div class="pnav-dots" id="dots-0"></div>
+        <button class="pnav-btn next" onclick="goTo(1)">No K required &rarr;</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 1 ══ -->
+    <div class="panel" id="panel-1">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1509228468518-180dd4864904?w=900&q=75&fit=crop&h=200" alt="A single tree" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 19 &middot; 01 / 08 &middot; The idea</div>
+          <div class="m-name">No K required</div>
+          <div class="m-tagline">Every point is a cluster, until it is not</div>
+        </div>
+      </div>
+      <p class="m-desc"><strong>Hierarchical clustering</strong> is unsupervised learning that splits the data into groups <em>by hierarchy</em>. Every data point starts as a cluster of its own. Then, step by step, the algorithm merges the nearest clusters together &mdash; two into one, again and again, until a single cluster holds everything.</p>
+      <div class="callout green">
+        🌳 <strong>The payoff.</strong> You do not have to decide the number of clusters in advance. The algorithm builds the <em>entire</em> tree of merges, and only afterwards do you choose where to cut it. One run gives you every possible number of clusters &mdash; 2, 3, 17, all of them, already computed.
+      </div>
+      <p class="m-desc">Because it merges upward from the bottom, this version is called <strong>agglomerative</strong> &mdash; from <em>agglomerate</em>, to clump together. (The reverse, starting from one big cluster and splitting downwards, is <em>divisive</em>, and is far less common because it is far more expensive.)</p>
+      <div class="steps">
+        <div class="step"><span class="num">1</span><div><strong>Start.</strong> N points means N clusters. 150 flowers = 150 clusters.</div></div>
+        <div class="step"><span class="num">2</span><div><strong>Find the closest pair</strong> of clusters, by whichever rule you chose.</div></div>
+        <div class="step"><span class="num">3</span><div><strong>Merge them</strong> into one, and record the height at which they merged.</div></div>
+        <div class="step"><span class="num">4</span><div><strong>Repeat</strong> until one cluster is left. The record of merges is the tree.</div></div>
+      </div>
+      <div class="callout">
+        📌 Step 2 hides the entire subject. Two <em>points</em> have one obvious distance between them. Two <em>clusters</em> of many points each do not &mdash; and the choice you make there is the choice that decides your answer. That is panel 04.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(0)">&larr; Overview</button>
+        <div class="pnav-dots" id="dots-1"></div>
+        <button class="pnav-btn next" onclick="goTo(2)">The dendrogram &rarr;</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 2 ══ -->
+    <div class="panel" id="panel-2">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1477346611705-65d1883cee1e?w=900&q=75&fit=crop&h=200" alt="A forest canopy" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 19 &middot; 02 / 08 &middot; The idea</div>
+          <div class="m-name">The dendrogram</div>
+          <div class="m-tagline">A tree that remembers every merge</div>
+        </div>
+      </div>
+      <p class="m-desc">The most accepted way to draw a hierarchical clustering is a <strong>dendrogram</strong> &mdash; a tree that shows <em>when</em> and <em>how</em> points joined into clusters. On the x-axis are all the points; on the y-axis are the distances at which they merged.</p>
+      <div class="callout">
+        📏 <strong>The one rule for reading it:</strong> the higher the bar that joins two points, the further apart they are.
+      </div>
+
+      <div class="demo-box">
+        <svg viewBox="0 0 500 260" style="display:block;width:100%;height:auto">
+          <line x1="60" y1="18" x2="60" y2="210" stroke="rgba(230,237,243,.45)" stroke-width="1.6"/>
+          <line x1="60" y1="210" x2="460" y2="210" stroke="rgba(230,237,243,.45)" stroke-width="1.6"/>
+          <g stroke="#14b8a6" stroke-width="2.6" fill="none">
+            <path d="M96 210 V172 H156 V210"/>
+            <path d="M216 210 V172 H276 V210"/>
+            <path d="M336 210 V152 H396 V210"/>
+            <path d="M126 172 V120 H246 V172"/>
+            <path d="M186 120 V64 H366 V152"/>
+          </g>
+          <line x1="60" y1="98" x2="460" y2="98" stroke="#f43f5e" stroke-width="2" stroke-dasharray="7 5"/>
+          <text x="456" y="90" font-size="11" fill="#f43f5e" text-anchor="end" font-family="Segoe UI,sans-serif">cut here = 3 clusters</text>
+          <g font-size="11" fill="rgba(230,237,243,.6)" text-anchor="middle" font-family="Segoe UI,sans-serif">
+            <text x="96" y="228">N1</text><text x="156" y="228">N2</text>
+            <text x="216" y="228">N3</text><text x="276" y="228">N4</text>
+            <text x="336" y="228">N5</text><text x="396" y="228">N6</text>
+            <text x="256" y="250" font-weight="700" fill="#e6edf3">Objects forming clusters</text>
+          </g>
+          <text x="22" y="118" font-size="11" font-weight="700" fill="#e6edf3" transform="rotate(-90 22 118)" font-family="Segoe UI,sans-serif">Dissimilarity</text>
+          <g stroke="rgba(244,63,94,.5)" stroke-width="1.6" fill="none" stroke-dasharray="3 3">
+            <rect x="84" y="160" width="84" height="58" rx="6"/>
+            <rect x="204" y="160" width="84" height="58" rx="6"/>
+            <rect x="324" y="140" width="84" height="78" rx="6"/>
+          </g>
+        </svg>
+        <div class="demo-lbl">An agglomerative dendrogram of 6 data points. N1 and N2 merged low down, so they are close. The final merge happens right at the top, so those two groups are far apart.</div>
+      </div>
+
+      <p class="m-desc">You can <strong>slice</strong> the dendrogram at any height in order to fix the number of clusters. The dashed line above crosses three vertical lines, so it produces <strong>3</strong> clusters instead of the 2 you would get by cutting higher up.</p>
+      <div class="callout green">
+        ✂️ <strong>Where to cut.</strong> If clusters connect with a <em>tall jump</em> &mdash; a long vertical bar with nothing merging along it &mdash; that is a sign it is worth stopping and cutting just below it. A tall bar means those two groups held out a long time before merging, which is exactly what "these are genuinely different groups" looks like on a tree.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(1)">&larr; No K required</button>
+        <div class="pnav-dots" id="dots-2"></div>
+        <button class="pnav-btn next" onclick="goTo(3)">Distance &rarr;</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 3 ══ -->
+    <div class="panel" id="panel-3">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1524661135-423995f22d0b?w=900&q=75&fit=crop&h=200" alt="A measuring tape" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 19 &middot; 03 / 08 &middot; The idea</div>
+          <div class="m-name">Distance calculation</div>
+          <div class="m-tagline">Pythagoras, one more time</div>
+        </div>
+      </div>
+      <p class="m-desc">In the first stage the algorithm computes the distances between every point and every other point. The most common distance is <strong>Euclidean distance</strong>, which is based on Pythagoras' theorem:</p>
+      <div class="eq-box">
+        $$D = \sqrt{(x_1 - y_1)^2 + (x_2 - y_2)^2 + \dots + (x_n - y_n)^2}$$
+      </div>
+      <p class="m-desc">For two points \(p\) and \(q\) with two features that is just the hypotenuse of a right triangle:</p>
+      <div class="eq-box">
+        $$d(p,q)^2 = (q_1 - p_1)^2 + (q_2 - p_2)^2$$
+      </div>
+      <div class="callout">
+        📌 The smaller the distance, the more similar the points are. One extra feature is simply one more <code>( )²</code> inside the square root &mdash; the formula does not change shape as the dimensions grow.
+      </div>
+      <div class="callout red">
+        ⚠️ <strong>The scaling trap, again.</strong> Because every gap is <em>squared</em>, a column running 20&ndash;250 contributes numbers in the thousands while a column running 6&ndash;13 contributes single digits. The big column silently decides every merge. <code>MinMaxScaler</code> or <code>StandardScaler</code> before <code>linkage</code> is not optional &mdash; and Ward is the most sensitive of all the linkages to skipping it.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(2)">&larr; The dendrogram</button>
+        <div class="pnav-dots" id="dots-3"></div>
+        <button class="pnav-btn next" onclick="goTo(4)">One example, five answers &rarr;</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 4 ══ -->
+    <div class="panel" id="panel-4">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1543286386-2e659306cd6c?w=900&q=75&fit=crop&h=200" alt="Five ways to measure the same thing" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 19 &middot; 04 / 08 &middot; The five linkages</div>
+          <div class="m-name">One example, five answers</div>
+          <div class="m-tagline">How far apart are two whole clusters?</div>
+        </div>
+      </div>
+      <p class="m-desc">When we merge <strong>clusters</strong> and not just individual points, it matters a great deal how we measure the distance between them. There are several approaches, and each one gives a different result &mdash; so the right choice depends on the structure of your data.</p>
+      <p class="m-desc">Every method below is applied to the <em>same</em> two clusters, so the five answers can be compared directly:</p>
+      <div class="eq-box">
+        $$A = \{(1,1),\ (2,1)\} \qquad B = \{(5,5),\ (6,6)\}$$
+      </div>
+
+      <div class="demo-box">
+        <svg viewBox="0 0 520 190" style="display:block;width:100%;height:auto">
+          <g font-family="Segoe UI,sans-serif" font-size="11" fill="rgba(230,237,243,.75)" text-anchor="middle">
+            <text x="86"  y="20" font-weight="700" fill="#10b981">Single</text>
+            <text x="260" y="20" font-weight="700" fill="#facc15">Average</text>
+            <text x="434" y="20" font-weight="700" fill="#f43f5e">Complete</text>
+          </g>
+          <g>
+            <ellipse cx="52" cy="62" rx="34" ry="24" stroke="rgba(230,237,243,.35)" fill="none"/>
+            <ellipse cx="128" cy="140" rx="34" ry="24" stroke="rgba(230,237,243,.35)" fill="none"/>
+            <g fill="#e6edf3"><circle cx="38" cy="54" r="3"/><circle cx="66" cy="70" r="3"/>
+              <circle cx="114" cy="132" r="3"/><circle cx="142" cy="148" r="3"/></g>
+            <line x1="66" y1="70" x2="114" y2="132" stroke="#10b981" stroke-width="2.4" stroke-dasharray="5 3"/>
+            <text x="86" y="180" font-size="11" fill="#10b981" text-anchor="middle" font-family="Segoe UI,sans-serif">closest pair = 5.0</text>
+          </g>
+          <g>
+            <ellipse cx="226" cy="62" rx="34" ry="24" stroke="rgba(230,237,243,.35)" fill="none"/>
+            <ellipse cx="302" cy="140" rx="34" ry="24" stroke="rgba(230,237,243,.35)" fill="none"/>
+            <g fill="#e6edf3"><circle cx="212" cy="54" r="3"/><circle cx="240" cy="70" r="3"/>
+              <circle cx="288" cy="132" r="3"/><circle cx="316" cy="148" r="3"/></g>
+            <g stroke="#facc15" stroke-width="1.4" opacity=".55">
+              <line x1="212" y1="54" x2="288" y2="132"/><line x1="212" y1="54" x2="316" y2="148"/>
+              <line x1="240" y1="70" x2="288" y2="132"/><line x1="240" y1="70" x2="316" y2="148"/>
+            </g>
+            <circle cx="226" cy="62" r="4" fill="#facc15"/><circle cx="302" cy="140" r="4" fill="#facc15"/>
+            <text x="260" y="180" font-size="11" fill="#facc15" text-anchor="middle" font-family="Segoe UI,sans-serif">mean of all four = 6.0</text>
+          </g>
+          <g>
+            <ellipse cx="400" cy="62" rx="34" ry="24" stroke="rgba(230,237,243,.35)" fill="none"/>
+            <ellipse cx="476" cy="140" rx="34" ry="24" stroke="rgba(230,237,243,.35)" fill="none"/>
+            <g fill="#e6edf3"><circle cx="386" cy="54" r="3"/><circle cx="414" cy="70" r="3"/>
+              <circle cx="462" cy="132" r="3"/><circle cx="490" cy="148" r="3"/></g>
+            <line x1="386" y1="54" x2="490" y2="148" stroke="#f43f5e" stroke-width="2.4" stroke-dasharray="5 3"/>
+            <text x="434" y="180" font-size="11" fill="#f43f5e" text-anchor="middle" font-family="Segoe UI,sans-serif">furthest pair = 7.07</text>
+          </g>
+        </svg>
+        <div class="demo-lbl">The same two clusters, three different questions — and three different distances.</div>
+      </div>
+
+      <div class="section-label" style="color:#10b981">Single Linkage &mdash; 5.0</div>
+      <p class="m-desc">Looks only at the <strong>shortest</strong> distance between two points, one from each cluster. It means most of the points can be far apart, but two points alone are close &mdash; and that is enough to unite the clusters.</p>
+      <div class="term-grid">
+        <div class="term"><h5 style="color:#10b981">Elongated or scattered clusters</h5><p>Sometimes clusters are not round but stretched along a direction. Single Linkage can absorb that, because it does not demand the whole cluster be dense.</p></div>
+        <div class="term"><h5 style="color:#10b981">Chain-like connections</h5><p>If two clusters have a single point between them acting like a bridge, Single Linkage catches it immediately.</p></div>
+        <div class="term"><h5 style="color:#10b981">Merging on a weak link</h5><p>You do not care whether most of it is close &mdash; one close point is enough. It says: "if somebody knows somebody, connect the clusters."</p></div>
+      </div>
+      <div class="callout red">⚠️ <strong>Weakness:</strong> it can create long straggly chains &mdash; clusters held together only by an indirect, single-point connection.</div>
+
+      <div class="section-label" style="color:#f43f5e">Complete Linkage &mdash; 7.07</div>
+      <p class="m-desc">The opposite of Single. It looks at the <strong>longest</strong> distance between every pair of points, one from each cluster. The clusters will only unite if <em>all</em> of their points are close to one another.</p>
+      <div class="term-grid">
+        <div class="term"><h5 style="color:#f43f5e">Tight, homogeneous clusters</h5><p>You want to guarantee that no point inside a cluster is too far from any other.</p></div>
+        <div class="term"><h5 style="color:#f43f5e">Keeping strangers out</h5><p>Even if one point is distant, Complete Linkage delays the merge until the clusters really are close as a whole.</p></div>
+        <div class="term"><h5 style="color:#f43f5e">Small, well-defined groups</h5><p>Customers with very similar behaviour, with no exceptions allowed.</p></div>
+      </div>
+      <div class="callout red">⚠️ <strong>Weakness:</strong> very sensitive to extreme points &mdash; a single outlier inflates the maximum distance between the clusters.</div>
+
+      <div class="section-label" style="color:#facc15">Average Linkage &mdash; 6.0</div>
+      <p class="m-desc">Computes <strong>all</strong> the possible distances between the points of the two clusters and takes the <strong>mean</strong>. A balanced method, sitting between Single and Complete.</p>
+      <div class="term-grid">
+        <div class="term"><h5 style="color:#facc15">A compromise</h5><p>It does not demand every point be close the way Complete does, but neither is it satisfied with just the nearest pair the way Single is.</p></div>
+        <div class="term"><h5 style="color:#facc15">Noisy or scattered data</h5><p>The average reduces the influence of one extreme point, so the result is more stable.</p></div>
+        <div class="term"><h5 style="color:#facc15">Natural clusters</h5><p>Suited to geometric data, or behaviour with a general similarity rather than an extreme link.</p></div>
+      </div>
+      <div class="callout red">⚠️ <strong>Weakness:</strong> less effective on data with clusters that differ greatly in size or structure.</div>
+
+      <div class="section-label" style="color:#3b82f6">Centroid Linkage &mdash; 5.7</div>
+      <p class="m-desc">Looks only at the <strong>centre of each cluster</strong>. It averages all the points in each cluster to get a centroid, then measures the single distance between the two centres.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">the two centroids</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>centroid of A = (1.5, 1)
+centroid of B = (5.5, 5.5)
+distance between them  ≈  5.7</pre>
+      </div>
+      <div class="term-grid">
+        <div class="term"><h5 style="color:#3b82f6">Similar to K-Means</h5><p>It ignores the details and looks only at the general position of each cluster.</p></div>
+        <div class="term"><h5 style="color:#3b82f6">Symmetric, noise-free clusters</h5><p>The centre represents the cluster well when the cluster is compact and not scattered.</p></div>
+        <div class="term"><h5 style="color:#3b82f6">Fast and simple</h5><p>The easiest method to implement mathematically &mdash; all you need is averages.</p></div>
+      </div>
+      <div class="callout red">⚠️ <strong>Weakness:</strong> it can unite clusters that are very far from each other, if their centroids happen to be close.</div>
+      <div class="callout">
+        🔍 <strong>Centroid vs Average.</strong> Both use the word "average", but they compute completely different things. Average averages the <em>distances between pairs of points</em>; Centroid measures <em>one distance between two averaged points</em>. The difference has a big effect on the result.
+      </div>
+
+      <div class="section-label" style="color:#8b5cf6">Ward Linkage &mdash; not a distance at all</div>
+      <p class="m-desc">Ward is the odd one out. Although it is a method for computing the distance between clusters, it is built on a different approach from all the rest. It does not ask "how far apart are these?" &mdash; it asks <strong>"which merge would increase the variance inside the clusters the least?"</strong> That gets its own panel.</p>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(3)">&larr; Distance</button>
+        <div class="pnav-dots" id="dots-4"></div>
+        <button class="pnav-btn next" onclick="goTo(5)">Ward, step by step &rarr;</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 5 ══ -->
+    <div class="panel" id="panel-5">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1518133910546-b6c2fb7d79e3?w=900&q=75&fit=crop&h=200" alt="Dials and settings" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 19 &middot; 05 / 08 &middot; The five linkages</div>
+          <div class="m-name">Ward, step by step</div>
+          <div class="m-tagline">Minimum rise in variance</div>
+        </div>
+      </div>
+      <p class="m-desc">At every merging stage Ward chooses the two clusters whose union would cause the <strong>smallest rise in variance</strong> &mdash; the internal variance. This creates clusters that are as uniform and tightly packed as possible.</p>
+      <div class="steps">
+        <div class="step"><span class="num">1</span><div><strong>Start &mdash; every point is a cluster of its own.</strong> If there are N observations you start with N clusters. For example: 150 flowers = 150 starting clusters.</div></div>
+        <div class="step"><span class="num">2</span><div><strong>Compute the internal variance of each cluster.</strong> At the beginning every cluster holds one point, so its variance is 0. As soon as clusters start merging, each one's variance has to be computed.</div></div>
+        <div class="step"><span class="num">3</span><div><strong>Check every possible pair.</strong> For each pair, ask: <em>"if we merge A and B, by how much would the variance of the new cluster grow?"</em></div></div>
+        <div class="step"><span class="num">4</span><div><strong>Choose the pair with the smallest rise.</strong> Out of all the possibilities, take the one that produces the <em>smallest</em> increase in variance. This is the essence of Ward &mdash; preserving maximum internal uniformity.</div></div>
+        <div class="step"><span class="num">5</span><div><strong>Merge them.</strong> The new cluster is built, A and B are replaced by their union, and the list of active clusters is updated.</div></div>
+        <div class="step"><span class="num">6</span><div><strong>Repeat.</strong> Steps 2&ndash;5 run again and again until all the clusters are united into one. In parallel the <strong>dendrogram</strong> is built, documenting the whole process.</div></div>
+      </div>
+      <div class="callout green">
+        ✂️ <strong>Determining the number of clusters.</strong> Nowhere in that process does Ward decide how many clusters there are &mdash; that depends on you. At the end you choose a cutting height. The lower you cut, the more clusters; the higher you cut, the fewer and bigger they are.
+      </div>
+      <div class="section-label" style="color:#3b82f6">When is it good?</div>
+      <div class="term-grid">
+        <div class="term"><h5 style="color:#3b82f6">Clear, round, tightly-packed clusters</h5><p>Ward looks for "statistical" divisions &mdash; ones that maintain the uniformity of the clusters.</p></div>
+        <div class="term"><h5 style="color:#3b82f6">A mathematical rather than geometric approach</h5><p>It is not only a question of distance, but of how much "noise" the merge adds.</p></div>
+        <div class="term"><h5 style="color:#3b82f6">Numeric data, K-Means-like results</h5><p>K-Means also minimises variance, so Ward is similar to it in behaviour.</p></div>
+      </div>
+      <div class="callout red">
+        ⚠️ <strong>Weakness:</strong> it is liable to be sensitive to normalisation, so it is important to scale the data before use. If two clusters have very different variances, joining them will raise the variance &mdash; so Ward will avoid merging groups that are similar in average but different in spread.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(4)">&larr; Five answers</button>
+        <div class="pnav-dots" id="dots-5"></div>
+        <button class="pnav-btn next" onclick="goTo(6)">Which one, and when &rarr;</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 6 ══ -->
+    <div class="panel" id="panel-6">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1502920917128-1aa500764cbd?w=900&q=75&fit=crop&h=200" alt="Two roads" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 19 &middot; 06 / 08 &middot; The five linkages</div>
+          <div class="m-name">Which one, and when</div>
+          <div class="m-tagline">A summary, and where each is used for real</div>
+        </div>
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue">Method</th><th class="blue">What it measures</th><th class="blue">When it is suitable</th></tr></thead>
+        <tbody>
+          <tr class="show"><td class="term">Single Linkage</td><td>The shortest distance between two points</td><td>Elongated clusters, or soft connections</td></tr>
+          <tr class="show"><td class="term">Complete Linkage</td><td>The longest distance between two points</td><td>Tight, homogeneous clusters</td></tr>
+          <tr class="show"><td class="term">Average Linkage</td><td>The mean of every pair distance</td><td>Noisy data, when you want balance</td></tr>
+          <tr class="show"><td class="term">Centroid Linkage</td><td>The distance between the two centroids</td><td>Clear, clean geometric structure</td></tr>
+          <tr class="show"><td class="term">Ward Linkage</td><td>The rise in variance caused by merging</td><td>Very uniform, densely packed clusters</td></tr>
+        </tbody>
+      </table>
+      <div class="callout">
+        📌 <strong>Note:</strong> every method builds a <strong>different dendrogram</strong>. The right choice depends on whether you want clusters that are tight, flexible, or balanced between the two. It is worth trying several and seeing which one represents the true structure of the data.
+      </div>
+      <div class="section-label" style="color:#f97316">Where each one earns its keep</div>
+      <table class="dt">
+        <thead><tr><th class="blue">Method</th><th class="blue">Real examples</th></tr></thead>
+        <tbody>
+          <tr class="show"><td class="term">Single</td><td><strong>Facebook / social networks:</strong> identifying giant communities (a friend brings a friend). <strong>Computer and internet networks:</strong> finding a minimal, optimal cable route between servers. <strong>Epidemiology:</strong> tracing a chain of viral infection between people.</td></tr>
+          <tr class="show"><td class="term">Complete</td><td><strong>Routers and Wi-Fi:</strong> assigning devices to routers so all of them are within close reception range. <strong>Assembling teams:</strong> building small working groups where everybody has to suit everybody.</td></tr>
+          <tr class="show"><td class="term">Average</td><td><strong>Linguistics and language families:</strong> classifying languages by overall word similarity. <strong>Medical diagnosis:</strong> grouping patients for treatment by a combination of measurements (pulse, blood pressure, sugar).</td></tr>
+          <tr class="show"><td class="term">Centroid</td><td><strong>Logistics and shipping:</strong> merging distribution centres by geographic centre of gravity. <strong>GPS and navigation:</strong> grouping points of interest by city centre or neighbourhood.</td></tr>
+          <tr class="show"><td class="term">Ward</td><td><strong>Netflix / Spotify:</strong> segmenting customers into clear, balanced taste groups (rock fans, pop fans). <strong>Real estate:</strong> classifying neighbourhoods by socio-economic level and building style.</td></tr>
+        </tbody>
+      </table>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(5)">&larr; Ward</button>
+        <div class="pnav-dots" id="dots-6"></div>
+        <button class="pnav-btn next" onclick="goTo(7)">150 irises &rarr;</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 7 ══ -->
+    <div class="panel" id="panel-7">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1518186285589-2f7649de83e0?w=900&q=75&fit=crop&h=200" alt="Rows of data" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 19 &middot; 07 / 08 &middot; In code</div>
+          <div class="m-name">150 irises</div>
+          <div class="m-tagline">linkage, dendrogram, fcluster</div>
+        </div>
+      </div>
+      <p class="m-desc">Note the imports: <code>AgglomerativeClustering</code> comes from scikit-learn, but the tree tools &mdash; <code>linkage</code>, <code>dendrogram</code> and <code>fcluster</code> &mdash; come from <strong>scipy</strong>. sklearn can cluster, but it cannot draw you the tree.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> pandas <span class="kw">as</span> pd
+<span class="kw">import</span> seaborn <span class="kw">as</span> sns
+<span class="kw">import</span> matplotlib.pyplot <span class="kw">as</span> plt
+<span class="kw">from</span> sklearn.preprocessing <span class="kw">import</span> MinMaxScaler
+<span class="kw">from</span> sklearn.cluster <span class="kw">import</span> AgglomerativeClustering
+<span class="kw">from</span> scipy.cluster.hierarchy <span class="kw">import</span> linkage, dendrogram, fcluster
+
+<span class="cm"># 1. read csv</span>
+df = pd.read_csv(<span class="str">"iris_unlabaled.csv"</span>)</pre>
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="cm"># 2. choose numeric columns</span>
+df_numeric = df.select_dtypes(include=[<span class="str">'float64'</span>, <span class="str">'int64'</span>])
+
+<span class="cm"># 3. MinMaxScaler</span>
+scaler = MinMaxScaler()
+df_scaled = pd.DataFrame(scaler.fit_transform(df_numeric), columns=df_numeric.columns)
+
+<span class="cm"># 4. build the tree</span>
+linkage_matrix = linkage(df_scaled, method=<span class="str">'average'</span>)
+
+<span class="cm"># 5. draw</span>
+plt.figure(figsize=(<span class="num">12</span>, <span class="num">6</span>))
+dendrogram(linkage_matrix)
+plt.title(<span class="str">"Dendrogram (average Linkage)"</span>)
+plt.xlabel(<span class="str">"Data Point Index"</span>)
+plt.ylabel(<span class="str">"Distance"</span>)
+plt.show()
+
+<span class="cm"># 6. cut the tree into clusters</span>
+cluster_labels = fcluster(linkage_matrix, t=<span class="num">6</span>, criterion=<span class="str">'maxclust'</span>)
+
+<span class="cm"># 7. attach labels back to the dataframe</span>
+df[<span class="str">'cluster'</span>] = cluster_labels
+
+print(df[<span class="str">'cluster'</span>].value_counts().sort_index())</pre>
+      </div>
+      <div class="code-wrap bad-code">
+        <div class="code-header"><span class="code-lang">output</span></div>
+        <pre>cluster
+1    49
+2     1
+3     4
+4    46
+5    49
+6     1
+Name: count, dtype: int64</pre>
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue">Line</th><th class="blue">What it does</th></tr></thead>
+        <tbody>
+          <tr class="show"><td class="term">select_dtypes</td><td>Keeps only the numeric columns &mdash; clustering cannot measure a distance to a piece of text.</td></tr>
+          <tr class="show"><td class="term">MinMaxScaler</td><td>Puts every column on the same 0&ndash;1 ruler, so no one measurement dominates the distance.</td></tr>
+          <tr class="show"><td class="term">linkage(df, method=)</td><td>Does all the merging and returns the <strong>linkage matrix</strong> &mdash; the recipe for the whole tree.</td></tr>
+          <tr class="show"><td class="term">dendrogram(...)</td><td>Draws that matrix as the tree.</td></tr>
+          <tr class="show"><td class="term">fcluster(t=6, 'maxclust')</td><td><strong>Cuts</strong> the tree so 6 clusters come out, returning a label 1..6 for every row.</td></tr>
+        </tbody>
+      </table>
+      <div class="callout red">
+        🔍 <strong>Read those counts.</strong> Clusters 1, 4 and 5 hold 49, 46 and 49 flowers &mdash; three healthy groups. But clusters 2 and 6 hold <strong>one flower each</strong>, and cluster 3 holds four. Those tiny clusters are the give-away of <code>average</code> linkage on data with a few odd points: rather than absorb them, the tree left them dangling on their own branch until the very end. Cut at <code>t=3</code>, or switch to <code>method='ward'</code>, and the three balanced groups the iris data actually has come straight out.
+      </div>
+      <div class="callout">
+        💡 <code>criterion='maxclust'</code> means "give me exactly this many clusters". The alternative, <code>criterion='distance'</code>, means "cut at this <em>height</em> and give me however many that produces" &mdash; which is the version that matches the dashed line in panel 02.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(6)">&larr; Which one</button>
+        <div class="pnav-dots" id="dots-7"></div>
+        <button class="pnav-btn next" onclick="goTo(8)">Hierarchical vs K-Means &rarr;</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 8 ══ -->
+    <div class="panel" id="panel-8">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1464802686167-b939a6910659?w=900&q=75&fit=crop&h=200" alt="A balance" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 19 &middot; 08 / 08 &middot; In code</div>
+          <div class="m-name">Hierarchical vs K-Means</div>
+          <div class="m-tagline">Two ways to group the same rows</div>
+        </div>
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue"></th><th class="blue">K-Means</th><th class="blue">Hierarchical</th></tr></thead>
+        <tbody>
+          <tr class="show"><td class="term">number of clusters</td><td>chosen <strong>before</strong> you start</td><td>chosen <strong>after</strong>, by cutting</td></tr>
+          <tr class="show"><td class="term">what you get</td><td>one grouping</td><td>a tree of every grouping</td></tr>
+          <tr class="show"><td class="term">starting point</td><td>K random centroids</td><td>every point is its own cluster</td></tr>
+          <tr class="show"><td class="term">is it random?</td><td class="B">yes &mdash; hence n_init</td><td class="A">no &mdash; same answer every run</td></tr>
+          <tr class="show"><td class="term">cost on big data</td><td class="A">scales well</td><td class="B">every pair distance &mdash; expensive</td></tr>
+          <tr class="show"><td class="term">needs scaling</td><td class="A">yes</td><td class="A">yes</td></tr>
+          <tr class="show"><td class="term">cluster shape</td><td>round only</td><td>depends on the linkage</td></tr>
+        </tbody>
+      </table>
+      <div class="callout green">
+        🌳 <strong>The honest summary.</strong> Hierarchical clustering buys you two things K-Means cannot give: you do not have to guess K, and you get the same answer every single run. It charges you for both &mdash; it has to compute the distance between every pair of points, so on tens of thousands of rows it becomes impractical while K-Means keeps going.
+      </div>
+      <div class="callout">
+        📊 A common working pattern: run hierarchical clustering on a <em>sample</em> of a large dataset, read the dendrogram to decide how many clusters the data really has, then run K-Means with that K on the full table.
+      </div>
+      <div class="callout">
+        🔎 <strong>Still to come.</strong> Both models on this page draw round-ish clusters and neither has any concept of "this point belongs to nothing". Deck 20 fixes both.
+      </div>
+      <div class="lesson-nav">
+        <a class="nav-item" href="../20_dbscan/index.html">Deck 20 &middot; DBSCAN &rarr;</a>
+        <a class="nav-item" href="../lessons/23_lesson/index.html">Lesson 23 &middot; the notebook &rarr;</a>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(7)">&larr; 150 irises</button>
+        <div class="pnav-dots" id="dots-8"></div>
+        <button class="pnav-btn next" onclick="goTo(0)">Back to Overview &rarr;</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="deck.js"></script>
+</body>
+</html>

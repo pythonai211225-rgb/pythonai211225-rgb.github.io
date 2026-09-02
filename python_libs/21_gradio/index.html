@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Gradio - A UI for your model</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded',function(){
+    renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'\(',right:'\)',display:false}],throwOnError:false});
+    if (window.fitMath) window.fitMath();
+  });</script>
+  <style>
+    .page-layout { display:flex; height:calc(100vh - 54px); overflow:hidden; }
+    .sidebar { width:238px; min-width:238px; height:100%; overflow-y:auto; background:#0a0e14; border-right:1px solid var(--border); display:flex; flex-direction:column; scrollbar-width:thin; scrollbar-color:var(--border) transparent; flex-shrink:0; }
+    .sidebar-head { padding:20px 18px 14px; font-size:.65rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--border); }
+    .sidebar-nav { padding:8px 0; flex:1; }
+    .s-item { display:flex; align-items:center; gap:11px; padding:10px 18px; cursor:pointer; background:none; border:none; border-left:3px solid transparent; width:100%; text-align:left; transition:background .18s,border-color .18s; }
+    .s-item:hover { background:rgba(255,255,255,.04); }
+    .s-item.active { background:rgba(250,204,21,.08); border-left-color:var(--accent); }
+    .s-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; transition:transform .2s; }
+    .s-item.active .s-dot { transform:scale(1.45); box-shadow:0 0 8px currentColor; }
+    .s-num { font-size:.62rem; color:var(--border); font-family:'Courier New',monospace; font-weight:700; min-width:18px; }
+    .s-item.active .s-num { color:var(--accent); }
+    .s-label { font-size:.79rem; color:var(--muted); font-family:'Courier New',monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .s-item.active .s-label { color:var(--text); }
+    .s-item.done .s-label::after { content:' \2713'; color:var(--green); font-size:.7rem; }
+    .side-sep { border:none; border-top:1px solid var(--border); margin:14px 16px 6px; }
+    .side-part { padding:2px 18px 6px; font-size:.6rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:var(--accent); font-family:'Courier New',monospace; }
+
+    .panel-viewport { flex:1; overflow-y:auto; overflow-x:hidden; position:relative; }
+    .panel { display:none; flex-direction:column; min-height:100%; padding:40px 52px 100px; max-width:830px; margin:0 auto; animation:fadeIn .35s ease; }
+    .panel.active { display:flex; }
+    @keyframes fadeIn { from{opacity:0;transform:translateX(28px)} to{opacity:1;transform:translateX(0)} }
+    .panel.exit { display:flex; animation:fadeOut .25s ease forwards; }
+    @keyframes fadeOut { from{opacity:1;transform:translateX(0)} to{opacity:0;transform:translateX(-28px)} }
+
+    .m-hero { position:relative; height:200px; border-radius:18px; overflow:hidden; margin-bottom:26px; flex-shrink:0; }
+    .m-hero img { width:100%; height:100%; object-fit:cover; filter:brightness(.5) saturate(.8); transition:filter .45s; }
+    .panel.active .m-hero img { filter:brightness(.6) saturate(1.1); }
+    .m-hero-ov { position:absolute; inset:0; padding:26px 30px; display:flex; flex-direction:column; justify-content:flex-end; background:linear-gradient(0deg,rgba(0,0,0,.78) 0%,rgba(0,0,0,.15) 55%,transparent 100%); }
+    .m-breadcrumb { font-size:.62rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:rgba(255,255,255,.4); margin-bottom:5px; }
+    .m-name { font-size:1.7rem; font-weight:900; color:#fff; font-family:'Courier New',monospace; }
+    .m-tagline { font-size:.86rem; color:rgba(255,255,255,.62); margin-top:4px; }
+
+    .m-desc { font-size:.95rem; color:var(--muted); line-height:1.75; margin-bottom:14px; }
+    .m-desc code { font-family:'Courier New',monospace; font-size:.88em; padding:1px 6px; border-radius:4px; background:rgba(255,255,255,.06); }
+
+    .demo-box { background:#060a10; border:1px solid var(--border); border-radius:14px; padding:22px 22px 18px; margin-top:20px; flex-shrink:0; display:flex; flex-direction:column; }
+    .demo-lbl { font-size:.64rem; font-weight:800; letter-spacing:.13em; text-transform:uppercase; color:var(--muted); margin-bottom:18px; display:flex; align-items:center; gap:8px; }
+    .demo-lbl::before { content:''; width:3px; height:12px; border-radius:2px; background:var(--accent); flex-shrink:0; }
+    .demo-controls { display:flex; flex-wrap:wrap; gap:18px; align-items:flex-end; margin-bottom:18px; }
+    .ctrl { display:flex; flex-direction:column; gap:5px; }
+    .ctrl label { font-size:.69rem; color:var(--muted); font-weight:600; }
+    .ctrl input[type=range] { -webkit-appearance:none; width:190px; height:4px; background:var(--border); border-radius:2px; outline:none; cursor:pointer; }
+    .ctrl input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:15px; height:15px; background:var(--accent); border-radius:50%; cursor:pointer; box-shadow:0 0 6px rgba(250,204,21,.5); }
+    .ctrl input[type=range]::-moz-range-thumb { width:15px; height:15px; background:var(--accent); border:none; border-radius:50%; cursor:pointer; }
+    .ctrl .cval { font-size:.7rem; color:var(--accent); font-family:'Courier New',monospace; font-weight:700; text-align:center; }
+    .demo-canvas-wrap { background:#020509; border-radius:10px; padding:14px; overflow:hidden; min-height:72px; order:4; }
+    canvas { display:block; margin:0 auto; }
+    .demo-out { font-family:'Courier New',monospace; font-size:.8rem; color:#10b981; line-height:1.65; margin-top:0; margin-bottom:14px; padding:11px 15px; background:rgba(16,185,129,.05); border:1px solid rgba(16,185,129,.18); border-radius:8px; white-space:pre-wrap; order:3; }
+
+    .seg { display:inline-flex; border:1px solid var(--border); border-radius:9px; overflow:hidden; }
+    .seg button { background:transparent; border:none; color:var(--muted); font-size:.72rem; font-weight:700; font-family:'Courier New',monospace; padding:7px 13px; cursor:pointer; transition:background .18s,color .18s; }
+    .seg button:hover { color:var(--text); background:rgba(255,255,255,.05); }
+    .seg button.on { background:rgba(250,204,21,.14); color:var(--accent); }
+    .play-btn { background:rgba(16,185,129,.12); border:1px solid rgba(16,185,129,.4); color:var(--green); font-family:'Courier New',monospace; font-size:.74rem; font-weight:800; padding:8px 16px; border-radius:9px; cursor:pointer; transition:background .18s,transform .12s; }
+    .play-btn:hover { background:rgba(16,185,129,.22); }
+    .play-btn:active { transform:scale(.96); }
+
+    .panel-nav { display:flex; justify-content:space-between; align-items:center; margin-top:40px; padding-top:24px; border-top:1px solid var(--border); flex-shrink:0; gap:10px; }
+    .pnav-btn { display:flex; align-items:center; gap:9px; padding:10px 20px; border-radius:10px; border:1px solid var(--border); background:transparent; color:var(--muted); font-size:.82rem; font-weight:700; cursor:pointer; transition:color .2s,border-color .2s,background .2s; }
+    .pnav-btn:hover:not(:disabled) { color:var(--text); border-color:var(--accent); background:rgba(250,204,21,.06); }
+    .pnav-btn:disabled { opacity:.28; cursor:default; }
+    .pnav-btn.next { background:rgba(250,204,21,.08); border-color:rgba(250,204,21,.35); color:var(--accent); }
+    .pnav-btn.next:hover { background:rgba(250,204,21,.16); border-color:var(--accent); }
+    .pnav-dots { display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:center; }
+    .pnav-dot { width:7px; height:7px; border-radius:50%; background:var(--border); transition:background .2s,transform .2s; cursor:pointer; border:none; padding:0; }
+    .pnav-dot.active { background:var(--accent); transform:scale(1.4); }
+
+    .overview-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:14px; margin-top:24px; }
+    .ov-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px 16px 16px; cursor:pointer; transition:border-color .2s,box-shadow .2s,transform .18s; display:flex; flex-direction:column; gap:8px; }
+    .ov-card:hover { transform:translateY(-3px); border-color:rgba(250,204,21,.4); box-shadow:0 8px 28px rgba(250,204,21,.08); }
+    .ov-card-num { font-size:.62rem; color:var(--muted); font-weight:800; letter-spacing:.1em; }
+    .ov-card-name { font-size:.9rem; font-family:'Courier New',monospace; font-weight:700; }
+    .ov-card-desc { font-size:.77rem; color:var(--muted); line-height:1.5; }
+
+    @media(max-width:700px){.sidebar{display:none}.panel{padding:20px 16px 80px}}
+
+    .katex { color: var(--text); }
+    /* No horizontal scrollbars on formulas: fitMath() in pca.js shrinks anything
+       too wide to scale, so the overflow is clipped rather than scrolled. */
+    .katex-display { margin: 6px 0; overflow-x: hidden; overflow-y: hidden; padding: 3px 0; }
+    .katex-display > .katex { max-width: none; }
+    .eq-box { background:rgba(59,130,246,.05); border:1px solid rgba(59,130,246,.2); border-radius:12px; padding:16px 20px; margin:16px 0; font-size:1.05rem; }
+    .eq-box.big { font-size:1.32rem; padding:24px 20px; }
+    .eq-box.small { font-size:.95rem; padding:14px 18px; }
+    .eq-box.gold { background:rgba(250,204,21,.05); border-color:rgba(250,204,21,.22); }
+    .eq-box.green { background:rgba(16,185,129,.05); border-color:rgba(16,185,129,.22); }
+    .eq-box.rose { background:rgba(244,63,94,.05); border-color:rgba(244,63,94,.22); }
+
+    .exercise-header{display:flex;align-items:flex-start;gap:16px;margin-bottom:24px;padding:20px;background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.2);border-radius:14px;position:relative;overflow:hidden;}
+    .exercise-header::before{content:'';position:absolute;top:-40px;right:-40px;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,rgba(251,191,36,.1) 0%,transparent 70%);pointer-events:none;}
+    .exercise-badge{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;font-size:1.8rem;font-weight:800;color:#0d1a2e;background:linear-gradient(135deg,#fbbf24,#f59e0b);box-shadow:0 6px 18px rgba(251,191,36,.35);flex-shrink:0;}
+    .ex-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px 16px;margin-bottom:14px;transition:border-color .2s;}
+    .ex-card:hover{border-color:rgba(250,204,21,.3);}
+    .ex-q-head{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+    .ex-num{font-size:.68rem;font-weight:800;letter-spacing:.1em;padding:3px 10px;border-radius:6px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--muted);font-family:'Courier New',monospace;}
+    .ex-task{font-size:.88rem;color:var(--muted);margin-bottom:10px;line-height:1.6;}
+    .ex-task code{font-family:'Courier New',monospace;font-size:.85em;padding:1px 6px;border-radius:4px;background:rgba(255,255,255,.06);}
+    details.hint{margin-top:10px;}
+    details.hint summary{cursor:pointer;font-size:.78rem;color:var(--accent);font-weight:700;}
+
+    .legend { display:flex; flex-wrap:wrap; gap:16px; justify-content:center; margin-bottom:10px; }
+    .lg { display:flex; align-items:center; gap:7px; font-size:.72rem; font-family:'Courier New',monospace; color:var(--muted); font-weight:700; }
+    .lg i { width:11px; height:11px; border-radius:50%; display:inline-block; }
+    .lg.sq i { border-radius:3px; }
+    .lg.hollow i { background:none !important; border:2px solid #e6edf3; }
+    .lg.ln i { width:20px; height:0; border-top:2px solid var(--text); border-radius:0; }
+    .lg.dash i { width:20px; height:0; border-top:2px dashed var(--muted); border-radius:0; }
+
+    .steps { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; margin:20px 0 6px; }
+    .step { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px 16px 14px; position:relative; overflow:hidden; transition:transform .2s,border-color .2s; }
+    .step:hover { transform:translateY(-3px); }
+    .step::after { content:attr(data-n); position:absolute; right:10px; bottom:-14px; font-size:3.4rem; font-weight:900; font-family:'Courier New',monospace; color:rgba(255,255,255,.04); line-height:1; }
+    .step h4 { font-size:.86rem; margin-bottom:6px; font-family:'Courier New',monospace; }
+    .step p { font-size:.78rem; color:var(--muted); line-height:1.55; }
+    .step.a { border-color:rgba(59,130,246,.32); } .step.a h4 { color:var(--blue); }
+    .step.b { border-color:rgba(250,204,21,.32); } .step.b h4 { color:var(--accent); }
+    .step.c { border-color:rgba(16,185,129,.32); } .step.c h4 { color:var(--green); }
+    .step.d { border-color:rgba(236,72,153,.32); } .step.d h4 { color:var(--pink); }
+
+    .pc-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:18px 0; }
+    @media(max-width:640px){ .pc-grid{grid-template-columns:1fr} }
+    .pc { border-radius:14px; border:1px solid var(--border); padding:18px 20px 14px; }
+    .pc h4 { font-size:.9rem; margin-bottom:12px; font-family:'Courier New',monospace; display:flex; align-items:center; gap:8px; }
+    .pc ol, .pc ul { margin:0; padding-left:20px; }
+    .pc li { font-size:.82rem; color:var(--muted); line-height:1.6; margin-bottom:7px; }
+    .pc.good { border-color:rgba(16,185,129,.3); background:rgba(16,185,129,.04); } .pc.good h4 { color:var(--green); }
+    .pc.bad  { border-color:rgba(244,63,94,.3);  background:rgba(244,63,94,.04); }  .pc.bad h4  { color:#f43f5e; }
+
+    table.dt td.A { color:#10b981; font-weight:700; }
+    table.dt td.B { color:#f97316; font-weight:700; }
+    table.dt tr.hl td { background:rgba(250,204,21,.09); }
+
+    .term-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; margin:18px 0; }
+    .term { border:1px solid var(--border); border-radius:12px; padding:14px 16px 12px; background:var(--surface); }
+    .term h5 { font-family:'Courier New',monospace; font-size:.84rem; margin-bottom:5px; }
+    .term p { font-size:.78rem; color:var(--muted); line-height:1.55; }
+
+    .out-pre { background:#010409; border:1px solid var(--border); border-radius:8px; padding:12px 14px; margin-top:10px;
+               font-family:'Courier New',monospace; font-size:.78rem; color:#10b981; overflow-x:auto; line-height:1.6; }
+    .prm { display:grid; grid-template-columns:230px 1fr; gap:14px; padding:13px 0; border-bottom:1px solid var(--border); }
+    .prm:last-child { border-bottom:none; }
+    .prm code { font-size:.8rem; }
+    .prm p { font-size:.82rem; color:var(--muted); line-height:1.6; margin:0; }
+    @media(max-width:620px){ .prm{grid-template-columns:1fr;gap:6px} }
+    .bad-code { border-color:rgba(244,63,94,.4) !important; }
+    .bad-code .code-header { background:rgba(244,63,94,.08); border-color:rgba(244,63,94,.3); }
+    .good-code { border-color:rgba(16,185,129,.4) !important; }
+    .good-code .code-header { background:rgba(16,185,129,.08); border-color:rgba(16,185,129,.3); }
+    /* ══ deck-21 only: a light Gradio app mock ══ */
+    .gr-app { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:20px 20px 22px;
+              font-family:'Source Sans Pro','Segoe UI',system-ui,sans-serif; color:#1f2937;
+              box-shadow:0 10px 34px rgba(0,0,0,.4); margin-top:8px; }
+    .gr-chrome { display:flex; align-items:center; gap:6px; margin:-6px 0 14px; }
+    .gr-chrome i { width:9px; height:9px; border-radius:50%; display:block; }
+    .gr-chrome span { margin-left:8px; font-size:.66rem; color:#9ca3af; font-family:'Courier New',monospace; }
+    .gr-title { font-size:1.22rem; font-weight:700; margin-bottom:4px; color:#111827; }
+    .gr-desc { font-size:.82rem; color:#6b7280; margin-bottom:16px; line-height:1.5; white-space:pre-line; }
+    .gr-cols { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    @media (max-width:820px){ .gr-cols { grid-template-columns:1fr; } }
+    .gr-block { background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; padding:11px 13px 13px; margin-bottom:12px; }
+    .gr-label { display:block; font-size:.72rem; font-weight:600; color:#374151; margin-bottom:8px; }
+    .gr-sliderrow { display:flex; align-items:center; gap:10px; }
+    .gr-sliderrow input[type=range] { flex:1; accent-color:#ff7c00; height:4px; cursor:pointer; }
+    .gr-numbox { width:64px; padding:4px 6px; border:1px solid #d1d5db; border-radius:5px;
+                 font-size:.8rem; color:#111827; background:#fff; font-family:inherit; }
+    .gr-btns { display:flex; gap:9px; }
+    .gr-btn { flex:1; padding:8px 0; border-radius:7px; font-size:.8rem; font-weight:600;
+              cursor:pointer; font-family:inherit; border:1px solid #d1d5db; transition:.15s; }
+    .gr-clear { background:#fff; color:#374151; }
+    .gr-clear:hover { background:#f3f4f6; }
+    .gr-submit { background:#ff7c00; border-color:#ff7c00; color:#fff; }
+    .gr-submit:hover { background:#ea6f00; }
+    .gr-out { font-size:1.6rem; font-weight:700; color:#111827; font-family:'Courier New',monospace; padding:4px 0 2px; }
+    .gr-block canvas { display:block; width:100%; height:auto; border-radius:6px; }
+    .gr-textarea { background:#fff; border:1px solid #d1d5db; border-radius:6px; padding:9px 11px;
+                   font-size:.82rem; color:#111827; line-height:1.6; min-height:64px; white-space:pre-wrap; }
+    .gr-resp { min-height:210px; max-height:210px; overflow-y:auto; font-size:.8rem; }
+    .gr-resp.typing::after { content:'▋'; color:#ff7c00; animation:grblink 1s steps(2) infinite; }
+    @keyframes grblink { 50% { opacity:0; } }
+    .gr-foot { margin-top:12px; font-size:.68rem; color:#9ca3af; text-align:center; }
+
+  </style>
+</head>
+
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">&larr; Python Libs</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item" href="../20_dbscan/index.html">&larr; Deck 20 &middot; DBSCAN</a>
+    <a class="nav-item active" href="index.html">Deck 21 &middot; Gradio</a>
+  </div>
+</nav>
+
+<div class="page-layout">
+
+  <aside class="sidebar">
+    <div class="sidebar-head">Gradio</div>
+    <nav class="sidebar-nav">
+      <button class="s-item active" data-panel="0" onclick="goTo(0)"><span class="s-num">00</span><span class="s-dot" style="background:#f59e0b"></span><span class="s-label">Overview</span></button>
+      <div class="side-part">The basics</div>
+      <button class="s-item" data-panel="1" onclick="goTo(1)"><span class="s-num">01</span><span class="s-dot" style="background:#10b981"></span><span class="s-label">Eight lines</span></button>
+      <button class="s-item" data-panel="2" onclick="goTo(2)"><span class="s-num">02</span><span class="s-dot" style="background:#06b6d4"></span><span class="s-label">Components</span></button>
+      <div class="side-part">A real model</div>
+      <button class="s-item" data-panel="3" onclick="goTo(3)"><span class="s-num">03</span><span class="s-dot" style="background:#3b82f6"></span><span class="s-label">A slider and a plot</span></button>
+      <button class="s-item" data-panel="4" onclick="goTo(4)"><span class="s-num">04</span><span class="s-dot" style="background:#f43f5e"></span><span class="s-label">Fit once, predict often</span></button>
+      <div class="side-part">Going further</div>
+      <button class="s-item" data-panel="5" onclick="goTo(5)"><span class="s-num">05</span><span class="s-dot" style="background:#8b5cf6"></span><span class="s-label">Streaming an LLM</span></button>
+      <button class="s-item" data-panel="6" onclick="goTo(6)"><span class="s-num">06</span><span class="s-dot" style="background:#facc15"></span><span class="s-label">Sharing it</span></button>
+      <hr class="side-sep">
+      <a class="s-item" style="text-decoration:none" href="../11_vibe/index.html"><span class="s-num">&rarr;</span><span class="s-dot" style="background:#8b5cf6"></span><span class="s-label">Deck 11 &middot; Vibe Coding</span></a>
+      <a class="s-item" style="text-decoration:none" href="../lessons/23_lesson/index.html"><span class="s-num">&rarr;</span><span class="s-dot" style="background:#14b8a6"></span><span class="s-label">Lesson 23 &middot; notebook</span></a>
+    </nav>
+  </aside>
+
+  <div class="panel-viewport" id="viewport">
+
+    <!-- ══ PANEL 0 ══ -->
+    <div class="panel active" id="panel-0">
+      <div class="hero" style="margin-bottom:36px;">
+        <span class="topic-label"><span class="dot"></span>AI Engineering &middot; Putting a model in front of people</span>
+        <h1>Gradio</h1>
+        <p>Every model on this course so far has lived inside a notebook, and a notebook is a thing only you can run. <strong>Gradio</strong> closes that gap in about eight lines: you write an ordinary Python function, and it builds the inputs, the outputs, the page and the web server for you. Nothing about the model changes &mdash; the same <code>LinearRegression</code> from deck 06 is suddenly something you can send someone a link to. Here is that app, running right here:</p>
+        <div class="gr-app gr-salary-app">
+          <div class="gr-chrome"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i><span>http://127.0.0.1:7860</span></div>
+          <div class="gr-title">&#128176; AI Salary Predictor</div>
+          <div class="gr-desc">Move the slider and the Linear Regression model will predict the expected salary.</div>
+          <div class="gr-cols">
+            <div>
+              <div class="gr-block">
+                <label class="gr-label">Years of Experience</label>
+                <div class="gr-sliderrow">
+                  <input type="range" class="gr-slider" min="0" max="12" step="0.5" value="5" aria-label="Years of Experience"/>
+                  <input type="number" class="gr-numbox gr-num" min="0" max="12" step="0.5" value="5" aria-label="Years of Experience, number"/>
+                </div>
+              </div>
+              <div class="gr-btns">
+                <button class="gr-btn gr-clear" class="gr-btn gr-clear" type="button">Clear</button>
+                <button class="gr-btn gr-submit" class="gr-btn gr-submit" type="button">Submit</button>
+              </div>
+            </div>
+            <div>
+              <div class="gr-block">
+                <label class="gr-label">Predicted Salary</label>
+                <div class="gr-out" class="gr-salary">$5,850</div>
+              </div>
+              <div class="gr-block">
+                <label class="gr-label">Linear Regression</label>
+                <canvas class="gr-canvas" height="200"></canvas>
+              </div>
+            </div>
+          </div>
+          <div class="gr-foot">This is the real app from 02_gradio_linear.py &mdash; the line is a genuine least-squares fit on the same ten rows. Drag the slider.</div>
+        </div>
+        <div class="hero-pills">
+          <span class="tag">gr.Interface</span>
+          <span class="tag">gr.Slider</span>
+          <span class="tag">gr.Plot</span>
+          <span class="tag">launch</span>
+          <span class="tag">share=True</span>
+        </div>
+      </div>
+      <div class="overview-grid" style="margin-top:0;">
+        <div class="ov-card" onclick="goTo(1)"><div class="ov-card-num">01 / 06</div><div class="ov-card-name" style="color:#10b981">Eight lines</div><div class="ov-card-desc">A function in, a web page out.</div></div>
+        <div class="ov-card" onclick="goTo(2)"><div class="ov-card-num">02 / 06</div><div class="ov-card-name" style="color:#06b6d4">Components</div><div class="ov-card-desc">"text" is a shortcut. The real objects do more.</div></div>
+        <div class="ov-card" onclick="goTo(3)"><div class="ov-card-num">03 / 06</div><div class="ov-card-name" style="color:#3b82f6">A slider and a plot</div><div class="ov-card-desc">LinearRegression behind a UI, returning two things.</div></div>
+        <div class="ov-card" onclick="goTo(4)"><div class="ov-card-num">04 / 06</div><div class="ov-card-name" style="color:#f43f5e">Fit once, predict often</div><div class="ov-card-desc">The mistake that makes an app crawl.</div></div>
+        <div class="ov-card" onclick="goTo(5)"><div class="ov-card-num">05 / 06</div><div class="ov-card-name" style="color:#8b5cf6">Streaming an LLM</div><div class="ov-card-desc">yield instead of return, and text that types itself.</div></div>
+        <div class="ov-card" onclick="goTo(6)"><div class="ov-card-num">06 / 06</div><div class="ov-card-name" style="color:#facc15">Sharing it</div><div class="ov-card-desc">share=True, ports, and the token you must not commit.</div></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" disabled>&larr; Prev</button>
+        <div class="pnav-dots" id="dots-0"></div>
+        <button class="pnav-btn next" onclick="goTo(1)">Eight lines &rarr;</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 1 ══ -->
+    <div class="panel" id="panel-1">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1542831371-29b0f74f9713?w=900&q=75&fit=crop&h=200" alt="Code on a screen" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 21 &middot; 01 / 06 &middot; The basics</div>
+          <div class="m-name">Eight lines</div>
+          <div class="m-tagline">A function in, a web page out</div>
+        </div>
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>pip install gradio</pre>
+      </div>
+      <p class="m-desc">The smallest possible Gradio app &mdash; <code>00_gradio_main.py</code>:</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> gradio <span class="kw">as</span> gr
+
+<span class="kw">def</span> <span class="fn">greet</span>(name):
+    <span class="kw">return</span> <span class="str">"Hello "</span> + name + <span class="str">"!"</span>
+
+app = gr.Interface(
+    fn=greet, inputs=<span class="str">"text"</span>, outputs=<span class="str">"text"</span>
+)
+
+app.launch()</pre>
+      </div>
+      <p class="m-desc">Run it and a browser tab opens with a textbox, a Submit button, and an output box. Nothing else was written &mdash; no HTML, no CSS, no route, no server.</p>
+      <table class="dt">
+        <thead><tr><th class="blue">Argument</th><th class="blue">What it does</th></tr></thead>
+        <tbody>
+          <tr class="show"><td class="term">fn</td><td>The Python function to call. Gradio runs it every time the user submits.</td></tr>
+          <tr class="show"><td class="term">inputs</td><td>What to draw above the button. <code>"text"</code> gives a textbox.</td></tr>
+          <tr class="show"><td class="term">outputs</td><td>What to draw for the return value.</td></tr>
+          <tr class="show"><td class="term">launch()</td><td>Starts a local web server and prints the URL.</td></tr>
+        </tbody>
+      </table>
+      <div class="callout green">
+        🔑 <strong>The whole mental model.</strong> Gradio does not want to know about your model, your data or your libraries. It wants a <em>function</em>. Whatever goes in the arguments becomes the inputs, whatever comes out of <code>return</code> becomes the outputs. If you can write the function, you have written the app.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(0)">&larr; Overview</button>
+        <div class="pnav-dots" id="dots-1"></div>
+        <button class="pnav-btn next" onclick="goTo(2)">Components &rarr;</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 2 ══ -->
+    <div class="panel" id="panel-2">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1518133910546-b6c2fb7d79e3?w=900&q=75&fit=crop&h=200" alt="Dials and settings" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 21 &middot; 02 / 06 &middot; The basics</div>
+          <div class="m-name">Components</div>
+          <div class="m-tagline">"text" is a shortcut</div>
+        </div>
+      </div>
+      <p class="m-desc">The string <code>"text"</code> is a convenience. Behind it is a real component object, and using it directly is what lets you label things, set ranges and constrain what a user can send:</p>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-icon" style="color:#06b6d4">🔤</div>
+          <h4>gr.Textbox</h4>
+          <p>A label, a placeholder, and a height in <code>lines</code>. The default for any string.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon" style="color:#10b981">🎚️</div>
+          <h4>gr.Slider</h4>
+          <p><code>minimum</code>, <code>maximum</code>, <code>step</code> and a starting <code>value</code> — the user cannot send anything out of range.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon" style="color:#3b82f6">📈</div>
+          <h4>gr.Plot</h4>
+          <p>Takes a matplotlib figure object straight from your function. No saving a PNG to disk first.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon" style="color:#f59e0b">🖼️</div>
+          <h4>gr.Image, gr.Audio, gr.File</h4>
+          <p>The same pattern for uploads and downloads, when the model works on something other than numbers.</p>
+        </div>
+      </div>
+      <div class="callout">
+        📌 <strong>The typed component is doing validation for you.</strong> A <code>gr.Slider(minimum=0, maximum=12)</code> makes it impossible for the user to ask your model to predict a salary for &minus;40 years of experience. With a plain <code>"text"</code> input, that is a crash waiting to happen.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(1)">&larr; Eight lines</button>
+        <div class="pnav-dots" id="dots-2"></div>
+        <button class="pnav-btn next" onclick="goTo(3)">A slider and a plot &rarr;</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 3 ══ -->
+    <div class="panel" id="panel-3">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=900&q=75&fit=crop&h=200" alt="A dashboard" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 21 &middot; 03 / 06 &middot; A real model</div>
+          <div class="m-name">A slider and a plot</div>
+          <div class="m-tagline">02_gradio_linear.py</div>
+        </div>
+      </div>
+      <p class="m-desc">Ten rows of experience-and-salary, a <code>LinearRegression</code>, and a page where moving a slider re-predicts and redraws the fit. First the data and the training, at import time:</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> gradio <span class="kw">as</span> gr
+<span class="kw">import</span> numpy <span class="kw">as</span> np
+<span class="kw">import</span> matplotlib.pyplot <span class="kw">as</span> plt
+<span class="kw">from</span> sklearn.linear_model <span class="kw">import</span> LinearRegression
+
+X = np.array([[<span class="num">1</span>], [<span class="num">2</span>], [<span class="num">3</span>], [<span class="num">4</span>], [<span class="num">5</span>],
+              [<span class="num">6</span>], [<span class="num">7</span>], [<span class="num">8</span>], [<span class="num">9</span>], [<span class="num">10</span>]])
+
+y = np.array([<span class="num">3200</span>, <span class="num">3800</span>, <span class="num">4500</span>, <span class="num">5100</span>, <span class="num">5900</span>,
+              <span class="num">6500</span>, <span class="num">7200</span>, <span class="num">7900</span>, <span class="num">8500</span>, <span class="num">9300</span>])
+
+model = LinearRegression()
+model.fit(X, y)</pre>
+      </div>
+      <p class="m-desc">Then the function Gradio calls. It returns <strong>two</strong> things &mdash; a formatted string and a matplotlib figure:</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">def</span> <span class="fn">predict_salary</span>(years):
+
+    prediction = model.predict([[years]])[<span class="num">0</span>]
+
+    fig, ax = plt.subplots()
+    ax.scatter(X, y, label=<span class="str">"Training data"</span>)
+
+    x_line = np.linspace(<span class="num">0</span>, <span class="num">12</span>, <span class="num">100</span>)
+    y_line = model.predict(x_line.reshape(-<span class="num">1</span>, <span class="num">1</span>))
+
+    ax.plot(x_line, y_line, label=<span class="str">"Linear Regression"</span>)
+    ax.scatter([years], [prediction], s=<span class="num">100</span>, label=<span class="str">"Prediction"</span>)
+
+    ax.set_xlabel(<span class="str">"Years of experience"</span>)
+    ax.set_ylabel(<span class="str">"Salary"</span>)
+    ax.set_title(<span class="str">"Salary Prediction"</span>)
+    ax.legend()
+
+    <span class="kw">return</span> <span class="str">f"${prediction:,.0f}"</span>, fig</pre>
+      </div>
+      <p class="m-desc">And the interface &mdash; one slider in, a list of two components out:</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>demo = gr.Interface(
+
+    fn=predict_salary,
+
+    inputs=gr.Slider(
+        minimum=<span class="num">0</span>,
+        maximum=<span class="num">12</span>,
+        value=<span class="num">5</span>,
+        step=<span class="num">0.5</span>,
+        label=<span class="str">"Years of Experience"</span>
+    ),
+
+    outputs=[
+        gr.Textbox(label=<span class="str">"Predicted Salary"</span>),
+        gr.Plot(label=<span class="str">"Linear Regression"</span>)
+    ],
+
+    title=<span class="str">"AI Salary Predictor"</span>,
+
+    description=<span class="str">"""
+Move the slider and the Linear Regression model
+will predict the expected salary.
+"""</span>
+)
+
+demo.launch()</pre>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">the result — live</div>
+        <div class="gr-app gr-salary-app">
+          <div class="gr-chrome"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i><span>http://127.0.0.1:7860</span></div>
+          <div class="gr-title">&#128176; AI Salary Predictor</div>
+          <div class="gr-desc">Move the slider and the Linear Regression model will predict the expected salary.</div>
+          <div class="gr-cols">
+            <div>
+              <div class="gr-block">
+                <label class="gr-label">Years of Experience</label>
+                <div class="gr-sliderrow">
+                  <input type="range" class="gr-slider" min="0" max="12" step="0.5" value="5" aria-label="Years of Experience"/>
+                  <input type="number" class="gr-numbox gr-num" min="0" max="12" step="0.5" value="5" aria-label="Years of Experience, number"/>
+                </div>
+              </div>
+              <div class="gr-btns">
+                <button class="gr-btn gr-clear" class="gr-btn gr-clear" type="button">Clear</button>
+                <button class="gr-btn gr-submit" class="gr-btn gr-submit" type="button">Submit</button>
+              </div>
+            </div>
+            <div>
+              <div class="gr-block">
+                <label class="gr-label">Predicted Salary</label>
+                <div class="gr-out" class="gr-salary">$5,850</div>
+              </div>
+              <div class="gr-block">
+                <label class="gr-label">Linear Regression</label>
+                <canvas class="gr-canvas" height="200"></canvas>
+              </div>
+            </div>
+          </div>
+          <div class="gr-foot">This is the real app from 02_gradio_linear.py &mdash; the line is a genuine least-squares fit on the same ten rows. Drag the slider.</div>
+        </div>
+      </div>
+      <div class="callout green">
+        🔗 <strong>The contract between the two.</strong> <code>outputs</code> is a <em>list</em> of two components, so the function must <code>return</code> a <em>tuple</em> of two values — <strong>in the same order</strong>. Text first, figure second. Swap them and Gradio will try to render a figure as a string.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(2)">&larr; Components</button>
+        <div class="pnav-dots" id="dots-3"></div>
+        <button class="pnav-btn next" onclick="goTo(4)">Fit once, predict often &rarr;</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 4 ══ -->
+    <div class="panel" id="panel-4">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1509228627152-72ae9ae6848d?w=900&q=75&fit=crop&h=200" alt="Steps" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 21 &middot; 04 / 06 &middot; A real model</div>
+          <div class="m-name">Fit once, predict often</div>
+          <div class="m-tagline">The mistake that makes an app crawl</div>
+        </div>
+      </div>
+      <p class="m-desc">Look at where <code>model.fit()</code> sits in the file above: <strong>outside</strong> the function, at the top level. That is deliberate, and it is the single most important structural point in this deck.</p>
+      <div class="grid-2">
+        <div class="code-wrap good-code">
+          <div class="code-header"><span class="code-lang">✓ trains once, at startup</span></div>
+          <pre>model = LinearRegression()
+model.fit(X, y)
+
+<span class="kw">def</span> <span class="fn">predict_salary</span>(years):
+    <span class="kw">return</span> model.predict([[years]])[<span class="num">0</span>]</pre>
+        </div>
+        <div class="code-wrap bad-code">
+          <div class="code-header"><span class="code-lang">✗ retrains on every click</span></div>
+          <pre><span class="kw">def</span> <span class="fn">predict_salary</span>(years):
+    model = LinearRegression()
+    model.fit(X, y)          <span class="cm"># every time!</span>
+    <span class="kw">return</span> model.predict([[years]])[<span class="num">0</span>]</pre>
+        </div>
+      </div>
+      <p class="m-desc">Both give the same answer. On ten rows of salary data you would never notice the difference. On a RandomForest over a hundred thousand rows, the second version turns a slider into a thirty-second wait, every single drag.</p>
+      <div class="callout">
+        📌 <strong>The rule:</strong> anything expensive that does not depend on the user's input belongs <em>above</em> the function &mdash; loading the data, fitting the model, reading a file from disk. The function itself should do the smallest possible amount of work.
+      </div>
+      <div class="callout red">
+        ⚠️ In a real deployment you would not even train at startup &mdash; you would train once offline, save the fitted model with <code>joblib.dump</code>, and have the app <code>joblib.load</code> it. Training code has no business running on a web server at all.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(3)">&larr; A slider and a plot</button>
+        <div class="pnav-dots" id="dots-4"></div>
+        <button class="pnav-btn next" onclick="goTo(5)">Streaming an LLM &rarr;</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 5 ══ -->
+    <div class="panel" id="panel-5">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=900&q=75&fit=crop&h=200" alt="Streaming data" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 21 &middot; 05 / 06 &middot; Going further</div>
+          <div class="m-name">Streaming an LLM</div>
+          <div class="m-tagline">03_gradio_chat.py</div>
+        </div>
+      </div>
+      <p class="m-desc">The same <code>gr.Interface</code> pattern, but the function now calls a hosted language model through Hugging Face &mdash; and instead of returning once at the end, it <strong>yields</strong> repeatedly as the answer arrives.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> gradio <span class="kw">as</span> gr
+<span class="kw">from</span> huggingface_hub <span class="kw">import</span> InferenceClient
+
+HF_TOKEN = <span class="str">"&lt;your-key&gt;"</span>   <span class="cm"># from huggingface.co/settings/tokens</span>
+
+client = InferenceClient(api_key=HF_TOKEN)
+
+
+<span class="kw">def</span> <span class="fn">ask_llm</span>(message):
+
+    stream = client.chat.completions.create(
+        model=<span class="str">"Qwen/Qwen3.8-27B"</span>,
+
+        messages=[
+            {<span class="str">"role"</span>: <span class="str">"system"</span>, <span class="str">"content"</span>: <span class="str">"You are a funny guy"</span>},
+            {<span class="str">"role"</span>: <span class="str">"user"</span>,   <span class="str">"content"</span>: message}
+        ],
+
+        max_tokens=<span class="num">300</span>,
+        stream=<span class="kw">True</span>
+    )
+
+    answer = <span class="str">""</span>
+
+    <span class="kw">for</span> chunk <span class="kw">in</span> stream:
+
+        <span class="cm"># Some chunks don't contain choices</span>
+        <span class="kw">if</span> <span class="kw">not</span> chunk.choices:
+            <span class="kw">continue</span>
+
+        text = chunk.choices[<span class="num">0</span>].delta.content
+
+        <span class="kw">if</span> text:
+            answer += text
+            <span class="kw">yield</span> answer</pre>
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>demo = gr.Interface(
+    fn=ask_llm,
+
+    inputs=gr.Textbox(
+        label=<span class="str">"Ask the LLM"</span>,
+        placeholder=<span class="str">"Explain recursion like I'm 10"</span>,
+        lines=<span class="num">3</span>
+    ),
+
+    outputs=gr.Textbox(label=<span class="str">"LLM Response"</span>, lines=<span class="num">12</span>),
+
+    title=<span class="str">"Qwen + Hugging Face + Gradio"</span>
+)
+
+demo.launch(share=<span class="kw">True</span>)</pre>
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue">Piece</th><th class="blue">What it does</th></tr></thead>
+        <tbody>
+          <tr class="show"><td class="term">yield instead of return</td><td>The function is a <strong>generator</strong>. Gradio redraws the output every time it yields, so the answer appears to type itself.</td></tr>
+          <tr class="show"><td class="term">answer += text</td><td>Each yield sends the <strong>whole</strong> answer so far, not just the new piece. Gradio replaces the box contents rather than appending.</td></tr>
+          <tr class="show"><td class="term">stream=True</td><td>Asks the API for pieces as they are generated, rather than one finished block at the end.</td></tr>
+          <tr class="show"><td class="term">if not chunk.choices</td><td>Some chunks arrive empty &mdash; skip them, or the next line crashes on a missing index.</td></tr>
+        </tbody>
+      </table>
+      <div class="demo-box">
+        <div class="demo-lbl">what streaming looks like — press Submit again to replay</div>
+        <div class="gr-app">
+          <div class="gr-chrome"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i><span>https://a1b2c3.gradio.live</span></div>
+          <div class="gr-title">&#129303; Qwen + Hugging Face + Gradio</div>
+          <div class="gr-cols">
+            <div>
+              <div class="gr-block">
+                <label class="gr-label">Ask the LLM</label>
+                <div class="gr-textarea">Explain recursion like I&rsquo;m 10</div>
+              </div>
+              <div class="gr-btns">
+                <button class="gr-btn gr-submit" id="gr-ask" type="button">Submit</button>
+              </div>
+            </div>
+            <div>
+              <div class="gr-block">
+                <label class="gr-label">LLM Response</label>
+                <div class="gr-textarea gr-resp" id="gr-stream"></div>
+              </div>
+            </div>
+          </div>
+          <div class="gr-foot">Every character you see arriving is one more <code>yield</code>.</div>
+        </div>
+      </div>
+      <div class="callout green">
+        ⚡ <strong>Why bother streaming?</strong> A 300-token answer takes several seconds to generate. Without streaming the user stares at an empty box for all of them and assumes it is broken. With it, the first words appear almost immediately. The total time is identical &mdash; the <em>perceived</em> time is not.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(4)">&larr; Fit once</button>
+        <div class="pnav-dots" id="dots-5"></div>
+        <button class="pnav-btn next" onclick="goTo(6)">Sharing it &rarr;</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 6 ══ -->
+    <div class="panel" id="panel-6">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1504639725590-34d0984388bd?w=900&q=75&fit=crop&h=200" alt="Sharing a link" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 21 &middot; 06 / 06 &middot; Going further</div>
+          <div class="m-name">Sharing it</div>
+          <div class="m-tagline">Ports, links, and the token you must not commit</div>
+        </div>
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — 01_gradio_hello.py</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>app.launch(server_port=<span class="num">7862</span>)</pre>
+      </div>
+      <p class="m-desc">The same app on a chosen port. Useful when the default is already taken, or when you want two apps running side by side.</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>demo.launch(share=<span class="kw">True</span>)</pre>
+      </div>
+      <p class="m-desc"><code>share=True</code> creates a <strong>public</strong> temporary URL, tunnelled from Gradio's servers to the process on your machine. Anyone with the link can use your app &mdash; no deployment, no hosting.</p>
+      <div class="callout">
+        ⏳ Two things worth knowing about that link: it expires after a few days, and while it is alive <strong>the request runs on your computer</strong>. Close the laptop and the app dies. It is for showing someone something, not for running a service.
+      </div>
+      <div class="callout red">
+        🔐 <strong>Never commit your token.</strong> The chat file has <code>"&lt;your-key&gt;"</code> as a placeholder for a reason. A Hugging Face token pushed to a public repository is a live key that anyone can spend, and bots scan GitHub for exactly this. Read it from an environment variable instead:
+        <div class="code-wrap" style="margin-top:10px">
+          <div class="code-header"><span class="code-lang">python</span></div>
+          <pre><span class="kw">import</span> os
+HF_TOKEN = os.environ[<span class="str">"HF_TOKEN"</span>]</pre>
+        </div>
+      </div>
+      <div class="callout green">
+        🚀 <strong>Where this goes next.</strong> Gradio is the fastest path from a notebook to something a person can click. Deck 11 built a site around a model by hand; this is the same destination reached in eight lines, with the trade being that you get Gradio's layout rather than your own.
+      </div>
+      <div class="lesson-nav">
+        <a class="nav-item" href="../20_dbscan/index.html">&larr; Deck 20 &middot; DBSCAN</a>
+        <a class="nav-item" href="../11_vibe/index.html">Deck 11 &middot; Vibe Coding</a>
+        <a class="nav-item" href="../lessons/23_lesson/index.html">Lesson 23 &middot; the notebook &rarr;</a>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(5)">&larr; Streaming an LLM</button>
+        <div class="pnav-dots" id="dots-6"></div>
+        <button class="pnav-btn next" onclick="goTo(0)">Back to Overview &rarr;</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="deck.js"></script>
+</body>
+</html>

@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DBSCAN - Density-Based Clustering</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded',function(){
+    renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'\(',right:'\)',display:false}],throwOnError:false});
+    if (window.fitMath) window.fitMath();
+  });</script>
+  <style>
+    .page-layout { display:flex; height:calc(100vh - 54px); overflow:hidden; }
+    .sidebar { width:238px; min-width:238px; height:100%; overflow-y:auto; background:#0a0e14; border-right:1px solid var(--border); display:flex; flex-direction:column; scrollbar-width:thin; scrollbar-color:var(--border) transparent; flex-shrink:0; }
+    .sidebar-head { padding:20px 18px 14px; font-size:.65rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--border); }
+    .sidebar-nav { padding:8px 0; flex:1; }
+    .s-item { display:flex; align-items:center; gap:11px; padding:10px 18px; cursor:pointer; background:none; border:none; border-left:3px solid transparent; width:100%; text-align:left; transition:background .18s,border-color .18s; }
+    .s-item:hover { background:rgba(255,255,255,.04); }
+    .s-item.active { background:rgba(250,204,21,.08); border-left-color:var(--accent); }
+    .s-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; transition:transform .2s; }
+    .s-item.active .s-dot { transform:scale(1.45); box-shadow:0 0 8px currentColor; }
+    .s-num { font-size:.62rem; color:var(--border); font-family:'Courier New',monospace; font-weight:700; min-width:18px; }
+    .s-item.active .s-num { color:var(--accent); }
+    .s-label { font-size:.79rem; color:var(--muted); font-family:'Courier New',monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .s-item.active .s-label { color:var(--text); }
+    .s-item.done .s-label::after { content:' \2713'; color:var(--green); font-size:.7rem; }
+    .side-sep { border:none; border-top:1px solid var(--border); margin:14px 16px 6px; }
+    .side-part { padding:2px 18px 6px; font-size:.6rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:var(--accent); font-family:'Courier New',monospace; }
+
+    .panel-viewport { flex:1; overflow-y:auto; overflow-x:hidden; position:relative; }
+    .panel { display:none; flex-direction:column; min-height:100%; padding:40px 52px 100px; max-width:830px; margin:0 auto; animation:fadeIn .35s ease; }
+    .panel.active { display:flex; }
+    @keyframes fadeIn { from{opacity:0;transform:translateX(28px)} to{opacity:1;transform:translateX(0)} }
+    .panel.exit { display:flex; animation:fadeOut .25s ease forwards; }
+    @keyframes fadeOut { from{opacity:1;transform:translateX(0)} to{opacity:0;transform:translateX(-28px)} }
+
+    .m-hero { position:relative; height:200px; border-radius:18px; overflow:hidden; margin-bottom:26px; flex-shrink:0; }
+    .m-hero img { width:100%; height:100%; object-fit:cover; filter:brightness(.5) saturate(.8); transition:filter .45s; }
+    .panel.active .m-hero img { filter:brightness(.6) saturate(1.1); }
+    .m-hero-ov { position:absolute; inset:0; padding:26px 30px; display:flex; flex-direction:column; justify-content:flex-end; background:linear-gradient(0deg,rgba(0,0,0,.78) 0%,rgba(0,0,0,.15) 55%,transparent 100%); }
+    .m-breadcrumb { font-size:.62rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:rgba(255,255,255,.4); margin-bottom:5px; }
+    .m-name { font-size:1.7rem; font-weight:900; color:#fff; font-family:'Courier New',monospace; }
+    .m-tagline { font-size:.86rem; color:rgba(255,255,255,.62); margin-top:4px; }
+
+    .m-desc { font-size:.95rem; color:var(--muted); line-height:1.75; margin-bottom:14px; }
+    .m-desc code { font-family:'Courier New',monospace; font-size:.88em; padding:1px 6px; border-radius:4px; background:rgba(255,255,255,.06); }
+
+    .demo-box { background:#060a10; border:1px solid var(--border); border-radius:14px; padding:22px 22px 18px; margin-top:20px; flex-shrink:0; display:flex; flex-direction:column; }
+    .demo-lbl { font-size:.64rem; font-weight:800; letter-spacing:.13em; text-transform:uppercase; color:var(--muted); margin-bottom:18px; display:flex; align-items:center; gap:8px; }
+    .demo-lbl::before { content:''; width:3px; height:12px; border-radius:2px; background:var(--accent); flex-shrink:0; }
+    .demo-controls { display:flex; flex-wrap:wrap; gap:18px; align-items:flex-end; margin-bottom:18px; }
+    .ctrl { display:flex; flex-direction:column; gap:5px; }
+    .ctrl label { font-size:.69rem; color:var(--muted); font-weight:600; }
+    .ctrl input[type=range] { -webkit-appearance:none; width:190px; height:4px; background:var(--border); border-radius:2px; outline:none; cursor:pointer; }
+    .ctrl input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:15px; height:15px; background:var(--accent); border-radius:50%; cursor:pointer; box-shadow:0 0 6px rgba(250,204,21,.5); }
+    .ctrl input[type=range]::-moz-range-thumb { width:15px; height:15px; background:var(--accent); border:none; border-radius:50%; cursor:pointer; }
+    .ctrl .cval { font-size:.7rem; color:var(--accent); font-family:'Courier New',monospace; font-weight:700; text-align:center; }
+    .demo-canvas-wrap { background:#020509; border-radius:10px; padding:14px; overflow:hidden; min-height:72px; order:4; }
+    canvas { display:block; margin:0 auto; }
+    .demo-out { font-family:'Courier New',monospace; font-size:.8rem; color:#10b981; line-height:1.65; margin-top:0; margin-bottom:14px; padding:11px 15px; background:rgba(16,185,129,.05); border:1px solid rgba(16,185,129,.18); border-radius:8px; white-space:pre-wrap; order:3; }
+
+    .seg { display:inline-flex; border:1px solid var(--border); border-radius:9px; overflow:hidden; }
+    .seg button { background:transparent; border:none; color:var(--muted); font-size:.72rem; font-weight:700; font-family:'Courier New',monospace; padding:7px 13px; cursor:pointer; transition:background .18s,color .18s; }
+    .seg button:hover { color:var(--text); background:rgba(255,255,255,.05); }
+    .seg button.on { background:rgba(250,204,21,.14); color:var(--accent); }
+    .play-btn { background:rgba(16,185,129,.12); border:1px solid rgba(16,185,129,.4); color:var(--green); font-family:'Courier New',monospace; font-size:.74rem; font-weight:800; padding:8px 16px; border-radius:9px; cursor:pointer; transition:background .18s,transform .12s; }
+    .play-btn:hover { background:rgba(16,185,129,.22); }
+    .play-btn:active { transform:scale(.96); }
+
+    .panel-nav { display:flex; justify-content:space-between; align-items:center; margin-top:40px; padding-top:24px; border-top:1px solid var(--border); flex-shrink:0; gap:10px; }
+    .pnav-btn { display:flex; align-items:center; gap:9px; padding:10px 20px; border-radius:10px; border:1px solid var(--border); background:transparent; color:var(--muted); font-size:.82rem; font-weight:700; cursor:pointer; transition:color .2s,border-color .2s,background .2s; }
+    .pnav-btn:hover:not(:disabled) { color:var(--text); border-color:var(--accent); background:rgba(250,204,21,.06); }
+    .pnav-btn:disabled { opacity:.28; cursor:default; }
+    .pnav-btn.next { background:rgba(250,204,21,.08); border-color:rgba(250,204,21,.35); color:var(--accent); }
+    .pnav-btn.next:hover { background:rgba(250,204,21,.16); border-color:var(--accent); }
+    .pnav-dots { display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:center; }
+    .pnav-dot { width:7px; height:7px; border-radius:50%; background:var(--border); transition:background .2s,transform .2s; cursor:pointer; border:none; padding:0; }
+    .pnav-dot.active { background:var(--accent); transform:scale(1.4); }
+
+    .overview-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:14px; margin-top:24px; }
+    .ov-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px 16px 16px; cursor:pointer; transition:border-color .2s,box-shadow .2s,transform .18s; display:flex; flex-direction:column; gap:8px; }
+    .ov-card:hover { transform:translateY(-3px); border-color:rgba(250,204,21,.4); box-shadow:0 8px 28px rgba(250,204,21,.08); }
+    .ov-card-num { font-size:.62rem; color:var(--muted); font-weight:800; letter-spacing:.1em; }
+    .ov-card-name { font-size:.9rem; font-family:'Courier New',monospace; font-weight:700; }
+    .ov-card-desc { font-size:.77rem; color:var(--muted); line-height:1.5; }
+
+    @media(max-width:700px){.sidebar{display:none}.panel{padding:20px 16px 80px}}
+
+    .katex { color: var(--text); }
+    /* No horizontal scrollbars on formulas: fitMath() in pca.js shrinks anything
+       too wide to scale, so the overflow is clipped rather than scrolled. */
+    .katex-display { margin: 6px 0; overflow-x: hidden; overflow-y: hidden; padding: 3px 0; }
+    .katex-display > .katex { max-width: none; }
+    .eq-box { background:rgba(59,130,246,.05); border:1px solid rgba(59,130,246,.2); border-radius:12px; padding:16px 20px; margin:16px 0; font-size:1.05rem; }
+    .eq-box.big { font-size:1.32rem; padding:24px 20px; }
+    .eq-box.small { font-size:.95rem; padding:14px 18px; }
+    .eq-box.gold { background:rgba(250,204,21,.05); border-color:rgba(250,204,21,.22); }
+    .eq-box.green { background:rgba(16,185,129,.05); border-color:rgba(16,185,129,.22); }
+    .eq-box.rose { background:rgba(244,63,94,.05); border-color:rgba(244,63,94,.22); }
+
+    .exercise-header{display:flex;align-items:flex-start;gap:16px;margin-bottom:24px;padding:20px;background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.2);border-radius:14px;position:relative;overflow:hidden;}
+    .exercise-header::before{content:'';position:absolute;top:-40px;right:-40px;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,rgba(251,191,36,.1) 0%,transparent 70%);pointer-events:none;}
+    .exercise-badge{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;font-size:1.8rem;font-weight:800;color:#0d1a2e;background:linear-gradient(135deg,#fbbf24,#f59e0b);box-shadow:0 6px 18px rgba(251,191,36,.35);flex-shrink:0;}
+    .ex-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px 16px;margin-bottom:14px;transition:border-color .2s;}
+    .ex-card:hover{border-color:rgba(250,204,21,.3);}
+    .ex-q-head{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+    .ex-num{font-size:.68rem;font-weight:800;letter-spacing:.1em;padding:3px 10px;border-radius:6px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--muted);font-family:'Courier New',monospace;}
+    .ex-task{font-size:.88rem;color:var(--muted);margin-bottom:10px;line-height:1.6;}
+    .ex-task code{font-family:'Courier New',monospace;font-size:.85em;padding:1px 6px;border-radius:4px;background:rgba(255,255,255,.06);}
+    details.hint{margin-top:10px;}
+    details.hint summary{cursor:pointer;font-size:.78rem;color:var(--accent);font-weight:700;}
+
+    .legend { display:flex; flex-wrap:wrap; gap:16px; justify-content:center; margin-bottom:10px; }
+    .lg { display:flex; align-items:center; gap:7px; font-size:.72rem; font-family:'Courier New',monospace; color:var(--muted); font-weight:700; }
+    .lg i { width:11px; height:11px; border-radius:50%; display:inline-block; }
+    .lg.sq i { border-radius:3px; }
+    .lg.hollow i { background:none !important; border:2px solid #e6edf3; }
+    .lg.ln i { width:20px; height:0; border-top:2px solid var(--text); border-radius:0; }
+    .lg.dash i { width:20px; height:0; border-top:2px dashed var(--muted); border-radius:0; }
+
+    .steps { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; margin:20px 0 6px; }
+    .step { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px 16px 14px; position:relative; overflow:hidden; transition:transform .2s,border-color .2s; }
+    .step:hover { transform:translateY(-3px); }
+    .step::after { content:attr(data-n); position:absolute; right:10px; bottom:-14px; font-size:3.4rem; font-weight:900; font-family:'Courier New',monospace; color:rgba(255,255,255,.04); line-height:1; }
+    .step h4 { font-size:.86rem; margin-bottom:6px; font-family:'Courier New',monospace; }
+    .step p { font-size:.78rem; color:var(--muted); line-height:1.55; }
+    .step.a { border-color:rgba(59,130,246,.32); } .step.a h4 { color:var(--blue); }
+    .step.b { border-color:rgba(250,204,21,.32); } .step.b h4 { color:var(--accent); }
+    .step.c { border-color:rgba(16,185,129,.32); } .step.c h4 { color:var(--green); }
+    .step.d { border-color:rgba(236,72,153,.32); } .step.d h4 { color:var(--pink); }
+
+    .pc-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:18px 0; }
+    @media(max-width:640px){ .pc-grid{grid-template-columns:1fr} }
+    .pc { border-radius:14px; border:1px solid var(--border); padding:18px 20px 14px; }
+    .pc h4 { font-size:.9rem; margin-bottom:12px; font-family:'Courier New',monospace; display:flex; align-items:center; gap:8px; }
+    .pc ol, .pc ul { margin:0; padding-left:20px; }
+    .pc li { font-size:.82rem; color:var(--muted); line-height:1.6; margin-bottom:7px; }
+    .pc.good { border-color:rgba(16,185,129,.3); background:rgba(16,185,129,.04); } .pc.good h4 { color:var(--green); }
+    .pc.bad  { border-color:rgba(244,63,94,.3);  background:rgba(244,63,94,.04); }  .pc.bad h4  { color:#f43f5e; }
+
+    table.dt td.A { color:#10b981; font-weight:700; }
+    table.dt td.B { color:#f97316; font-weight:700; }
+    table.dt tr.hl td { background:rgba(250,204,21,.09); }
+
+    .term-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; margin:18px 0; }
+    .term { border:1px solid var(--border); border-radius:12px; padding:14px 16px 12px; background:var(--surface); }
+    .term h5 { font-family:'Courier New',monospace; font-size:.84rem; margin-bottom:5px; }
+    .term p { font-size:.78rem; color:var(--muted); line-height:1.55; }
+
+    .out-pre { background:#010409; border:1px solid var(--border); border-radius:8px; padding:12px 14px; margin-top:10px;
+               font-family:'Courier New',monospace; font-size:.78rem; color:#10b981; overflow-x:auto; line-height:1.6; }
+    .prm { display:grid; grid-template-columns:230px 1fr; gap:14px; padding:13px 0; border-bottom:1px solid var(--border); }
+    .prm:last-child { border-bottom:none; }
+    .prm code { font-size:.8rem; }
+    .prm p { font-size:.82rem; color:var(--muted); line-height:1.6; margin:0; }
+    @media(max-width:620px){ .prm{grid-template-columns:1fr;gap:6px} }
+    .bad-code { border-color:rgba(244,63,94,.4) !important; }
+    .bad-code .code-header { background:rgba(244,63,94,.08); border-color:rgba(244,63,94,.3); }
+    .good-code { border-color:rgba(16,185,129,.4) !important; }
+    .good-code .code-header { background:rgba(16,185,129,.08); border-color:rgba(16,185,129,.3); }
+  </style>
+</head>
+
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">&larr; Python Libs</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item" href="../19_hierarchical/index.html">&larr; Deck 19 &middot; Hierarchical</a>
+    <a class="nav-item active" href="index.html">Deck 20 &middot; DBSCAN</a>
+    <a class="nav-item" href="../21_gradio/index.html">Deck 21 &middot; Gradio &rarr;</a>
+  </div>
+</nav>
+
+<div class="page-layout">
+
+  <aside class="sidebar">
+    <div class="sidebar-head">DBSCAN</div>
+    <nav class="sidebar-nav">
+      <button class="s-item active" data-panel="0" onclick="goTo(0)"><span class="s-num">00</span><span class="s-dot" style="background:#8b5cf6"></span><span class="s-label">Overview</span></button>
+      <div class="side-part">The problem</div>
+      <button class="s-item" data-panel="1" onclick="goTo(1)"><span class="s-num">01</span><span class="s-dot" style="background:#f43f5e"></span><span class="s-label">Why distance fails</span></button>
+      <div class="side-part">The idea</div>
+      <button class="s-item" data-panel="2" onclick="goTo(2)"><span class="s-num">02</span><span class="s-dot" style="background:#10b981"></span><span class="s-label">Core, border, outlier</span></button>
+      <button class="s-item" data-panel="3" onclick="goTo(3)"><span class="s-num">03</span><span class="s-dot" style="background:#06b6d4"></span><span class="s-label">Reachable and connected</span></button>
+      <button class="s-item" data-panel="4" onclick="goTo(4)"><span class="s-num">04</span><span class="s-dot" style="background:#facc15"></span><span class="s-label">The algorithm</span></button>
+      <div class="side-part">The two knobs</div>
+      <button class="s-item" data-panel="5" onclick="goTo(5)"><span class="s-num">05</span><span class="s-dot" style="background:#f97316"></span><span class="s-label">Epsilon and MinPts</span></button>
+      <button class="s-item" data-panel="6" onclick="goTo(6)"><span class="s-num">06</span><span class="s-dot" style="background:#ec4899"></span><span class="s-label">The elbow for eps</span></button>
+      <div class="side-part">In code</div>
+      <button class="s-item" data-panel="7" onclick="goTo(7)"><span class="s-num">07</span><span class="s-dot" style="background:#3b82f6"></span><span class="s-label">Blobs, moons, rings</span></button>
+      <button class="s-item" data-panel="8" onclick="goTo(8)"><span class="s-num">08</span><span class="s-dot" style="background:#a855f7"></span><span class="s-label">Three clusterers compared</span></button>
+      <hr class="side-sep">
+      <a class="s-item" style="text-decoration:none" href="../21_gradio/index.html"><span class="s-num">&rarr;</span><span class="s-dot" style="background:#f59e0b"></span><span class="s-label">Deck 21 &middot; Gradio</span></a>
+      <a class="s-item" style="text-decoration:none" href="../lessons/23_lesson/index.html"><span class="s-num">&rarr;</span><span class="s-dot" style="background:#14b8a6"></span><span class="s-label">Lesson 23 &middot; notebook</span></a>
+    </nav>
+  </aside>
+
+  <div class="panel-viewport" id="viewport">
+
+    <!-- ══ PANEL 0 ══ -->
+    <div class="panel active" id="panel-0">
+      <div class="hero" style="margin-bottom:36px;">
+        <span class="topic-label"><span class="dot"></span>Unsupervised Learning &middot; Density Clustering</span>
+        <h1>DBSCAN</h1>
+        <div class="demo-canvas-wrap" style="background:#020509;border-radius:12px;padding:14px;position:relative;z-index:1;margin:22px 0 26px"><canvas id="cv-overview" height="320"></canvas></div>
+        <p><strong>Above:</strong> the &epsilon; circle crawling along two crescents, tracing each one a single step at a time. The five points still grey at the end are the ones nothing could reach &mdash; DBSCAN labels them <code>-1</code>.</p>
+        <p><strong>D</strong>ensity-<strong>B</strong>ased <strong>S</strong>patial <strong>C</strong>lustering of <strong>A</strong>pplications with <strong>N</strong>oise. Every clustering model so far has measured the distance to a <em>centre</em> &mdash; which quietly assumes every cluster is a round blob. Give one a pair of interlocking crescents and it has no choice but to slice them in half. DBSCAN throws the centre away and follows <strong>density</strong> instead: it walks from point to point through crowded regions, so a cluster can be any shape you like. And it is the first model on this course allowed to answer <strong>"this point belongs to nothing"</strong>.</p>
+        <div class="hero-pills">
+          <span class="tag">density</span>
+          <span class="tag">eps</span>
+          <span class="tag">min_samples</span>
+          <span class="tag">core point</span>
+          <span class="tag">noise = -1</span>
+        </div>
+      </div>
+      <div class="overview-grid" style="margin-top:0;">
+        <div class="ov-card" onclick="goTo(1)"><div class="ov-card-num">01 / 08</div><div class="ov-card-name" style="color:#f43f5e">Why distance fails</div><div class="ov-card-desc">The moons that no centre-based model can separate.</div></div>
+        <div class="ov-card" onclick="goTo(2)"><div class="ov-card-num">02 / 08</div><div class="ov-card-name" style="color:#10b981">Core, border, outlier</div><div class="ov-card-desc">One radius sorts every point into three kinds.</div></div>
+        <div class="ov-card" onclick="goTo(3)"><div class="ov-card-num">03 / 08</div><div class="ov-card-name" style="color:#06b6d4">Reachable and connected</div><div class="ov-card-desc">The chain of core points that lets a cluster bend.</div></div>
+        <div class="ov-card" onclick="goTo(4)"><div class="ov-card-num">04 / 08</div><div class="ov-card-name" style="color:#facc15">The algorithm</div><div class="ov-card-desc">Seven steps, walked frame by frame.</div></div>
+        <div class="ov-card" onclick="goTo(5)"><div class="ov-card-num">05 / 08</div><div class="ov-card-name" style="color:#f97316">Epsilon and MinPts</div><div class="ov-card-desc">Two numbers, and what each one ruins if you get it wrong.</div></div>
+        <div class="ov-card" onclick="goTo(6)"><div class="ov-card-num">06 / 08</div><div class="ov-card-name" style="color:#ec4899">The elbow for eps</div><div class="ov-card-desc">Sweep it and count the outliers.</div></div>
+        <div class="ov-card" onclick="goTo(7)"><div class="ov-card-num">07 / 08</div><div class="ov-card-name" style="color:#3b82f6">Blobs, moons, rings</div><div class="ov-card-desc">The notebook, and label -1.</div></div>
+        <div class="ov-card" onclick="goTo(8)"><div class="ov-card-num">08 / 08</div><div class="ov-card-name" style="color:#a855f7">Three clusterers compared</div><div class="ov-card-desc">K-Means vs Hierarchical vs DBSCAN.</div></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" disabled>&larr; Prev</button>
+        <div class="pnav-dots" id="dots-0"></div>
+        <button class="pnav-btn next" onclick="goTo(1)">Why distance fails &rarr;</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 1 ══ -->
+    <div class="panel" id="panel-1">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=900&q=75&fit=crop&h=200" alt="A spiral galaxy" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 20 &middot; 01 / 08 &middot; The problem</div>
+          <div class="m-name">Why distance-based clustering fails</div>
+          <div class="m-tagline">Some shapes have no centre</div>
+        </div>
+      </div>
+      <p class="m-desc">Distance-based algorithms assume that every cluster is <strong>symmetric and round</strong>. It is never stated out loud &mdash; it just falls out of measuring how far each point is from a centre. When the data contains clusters shaped like crescents or rings, they fail to identify them correctly.</p>
+
+      <div class="demo-box">
+        <svg viewBox="0 0 560 275" style="display:block;width:100%;height:auto">
+          <path d="M30 150 A 70 70 0 0 1 170 150" fill="none" stroke="#3b82f6" stroke-width="14" stroke-linecap="round" opacity=".9"/>
+          <path d="M100 172 A 70 70 0 0 0 240 172" fill="none" stroke="#3b82f6" stroke-width="14" stroke-linecap="round" opacity=".9"/>
+          <text x="135" y="30" text-anchor="middle" font-size="12" font-weight="700" fill="#e6edf3" font-family="Segoe UI,sans-serif">the real shape</text>
+          <path d="M266 110 L306 110" stroke="#10b981" stroke-width="3"/>
+          <path d="M308 110 l-10 -5 v10 Z" fill="#10b981"/>
+          <path d="M330 150 A 70 70 0 0 1 400 128" fill="none" stroke="#3b82f6" stroke-width="14" stroke-linecap="round" opacity=".9"/>
+          <path d="M400 128 A 70 70 0 0 1 470 150" fill="none" stroke="#f43f5e" stroke-width="14" stroke-linecap="round" opacity=".9"/>
+          <path d="M400 172 A 70 70 0 0 0 470 150" fill="none" stroke="#3b82f6" stroke-width="14" stroke-linecap="round" opacity=".9"/>
+          <path d="M470 150 A 70 70 0 0 0 540 172" fill="none" stroke="#f43f5e" stroke-width="14" stroke-linecap="round" opacity=".9"/>
+          <text x="435" y="30" text-anchor="middle" font-size="12" font-weight="700" fill="#f43f5e" font-family="Segoe UI,sans-serif">what a distance model does</text>
+          <text x="435" y="266" text-anchor="middle" font-size="11" fill="rgba(230,237,243,.6)" font-family="Segoe UI,sans-serif">it cuts straight down the middle</text>
+        </svg>
+        <div class="demo-lbl">The two ends of one crescent are further apart than the two facing sides of different crescents — so any model judging by distance to a centre has to get this wrong.</div>
+      </div>
+
+      <div class="callout red">
+        ⚠️ Notice this is not a tuning problem. There is no K, no linkage and no scaling that rescues a centre-based model here &mdash; the assumption itself is what is broken.
+      </div>
+      <p class="m-desc">DBSCAN is a clustering algorithm based on <strong>density</strong>. Unlike K-Means or hierarchical clustering, it does not look for clusters by distance to a centre, but by <strong>how densely packed the points are</strong> in a region of space. It knows how to identify clusters of <em>any shape</em>, and it also marks unusual points as <strong>outliers</strong>.</p>
+      <div class="callout green">
+        ✅ <strong>The DBSCAN result.</strong> Run it on the same data and it separates differently-shaped clusters correctly and identifies the noise. All in all it is much more flexible and better suited to real situations.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(0)">&larr; Overview</button>
+        <div class="pnav-dots" id="dots-1"></div>
+        <button class="pnav-btn next" onclick="goTo(2)">Core, border, outlier &rarr;</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 2 ══ -->
+    <div class="panel" id="panel-2">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1509228468518-180dd4864904?w=900&q=75&fit=crop&h=200" alt="Scattered marbles" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 20 &middot; 02 / 08 &middot; The idea</div>
+          <div class="m-name">Core, border and outlier</div>
+          <div class="m-tagline">One radius, three kinds of point</div>
+        </div>
+      </div>
+      <p class="m-desc">DBSCAN sorts every point in the dataset into exactly one of three kinds. Everything the algorithm does follows from this classification.</p>
+
+      <div class="demo-box">
+        <svg viewBox="0 0 460 270" style="display:block;width:100%;height:auto">
+          <circle cx="160" cy="92" r="64" fill="rgba(244,63,94,.06)" stroke="rgba(230,237,243,.35)" stroke-width="1.6"/>
+          <circle cx="128" cy="164" r="64" fill="rgba(16,185,129,.08)" stroke="rgba(230,237,243,.35)" stroke-width="1.6"/>
+          <line x1="128" y1="164" x2="128" y2="100" stroke="#e6edf3" stroke-width="1.6"/>
+          <text x="134" y="136" font-size="13" font-weight="700" fill="#e6edf3" font-family="Segoe UI,sans-serif">ε</text>
+          <g fill="rgba(139,92,246,.85)">
+            <circle cx="128" cy="62" r="8"/><circle cx="188" cy="68" r="8"/>
+            <circle cx="102" cy="114" r="8"/><circle cx="76" cy="152" r="8"/>
+            <circle cx="98" cy="200" r="8"/><circle cx="140" cy="210" r="8"/>
+            <circle cx="44" cy="210" r="8"/><circle cx="214" cy="202" r="8"/>
+          </g>
+          <circle cx="160" cy="92" r="10" fill="#f43f5e"/>
+          <circle cx="128" cy="164" r="10" fill="#10b981"/>
+          <circle cx="406" cy="228" r="8" fill="none" stroke="rgba(230,237,243,.5)" stroke-width="2"/>
+          <g font-size="12" font-weight="700" font-family="Segoe UI,sans-serif">
+            <text x="270" y="52" fill="#f43f5e">Border Point</text>
+            <text x="282" y="142" fill="#10b981">Core Point</text>
+            <text x="282" y="178" fill="#e6edf3">Epsilon</text>
+            <text x="300" y="232" fill="rgba(230,237,243,.6)">Outlier</text>
+          </g>
+          <g stroke="rgba(230,237,243,.5)" stroke-width="1.4" fill="none">
+            <path d="M266 48 L172 86"/><path d="M278 138 L142 162"/>
+            <path d="M278 174 L136 156"/><path d="M368 228 L394 228"/>
+          </g>
+        </svg>
+        <div class="demo-lbl">The green point has enough neighbours inside ε to be a core. The red point sits inside a core's radius but has too few of its own — it joins, but cannot recruit. The grey point at the far right is reachable from nobody.</div>
+      </div>
+
+      <table class="dt">
+        <thead><tr><th class="blue">Kind</th><th class="blue">Definition</th></tr></thead>
+        <tbody>
+          <tr class="show"><td class="term" style="color:#10b981">Core Point</td><td>A point that has <strong>enough points</strong> around it within a range of ε. It <em>starts</em> the cluster and can draw other points into it.</td></tr>
+          <tr class="show"><td class="term" style="color:#f43f5e">Border Point</td><td>A point found within the range of a core point, but which does <strong>not</strong> have enough points around itself to be a core point. It <em>belongs</em> to the cluster but does not create one.</td></tr>
+          <tr class="show"><td class="term" style="color:rgba(230,237,243,.7)">Outlier Point</td><td>A point not connected to any core point and belonging to no cluster. It is considered <strong>noise</strong> &mdash; and DBSCAN knows how to identify it and leave it alone.</td></tr>
+        </tbody>
+      </table>
+      <div class="callout">
+        📌 <strong>This is the feature, not a bug.</strong> Every other clustering model on this course must assign every row to some cluster, so a single freak measurement gets forced into a group and drags its centroid with it. DBSCAN can simply decline.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(1)">&larr; Why distance fails</button>
+        <div class="pnav-dots" id="dots-2"></div>
+        <button class="pnav-btn next" onclick="goTo(3)">Reachable and connected &rarr;</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 3 ══ -->
+    <div class="panel" id="panel-3">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1518770660439-4636190af475?w=900&q=75&fit=crop&h=200" alt="Circuits and connections" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 20 &middot; 03 / 08 &middot; The idea</div>
+          <div class="m-name">Density reachability and connectivity</div>
+          <div class="m-tagline">How a cluster bends around a corner</div>
+        </div>
+      </div>
+      <div class="term-grid">
+        <div class="term"><h5 style="color:#06b6d4">Density reachable</h5><p>A point \(p\) is density-reachable from a point \(q\) if \(p\) is found within a range of ε from \(q\), <strong>and</strong> \(q\) is a core point. This is a <em>one-directional</em> relationship &mdash; \(q\) can reach \(p\), but not necessarily the other way round.</p></div>
+        <div class="term"><h5 style="color:#06b6d4">Density connected</h5><p>Two points are density-connected if there exists a <strong>chain</strong> of core points that joins them &mdash; in other words, if you can get from one to the other through a continuous path of core points.</p></div>
+      </div>
+      <div class="callout green">
+        🔗 <strong>This is the whole trick.</strong> DBSCAN never asks "is this point near the centre?" It only ever asks "can I walk to this point, one small ε step at a time, without ever leaving a crowded region?" A crescent is dense all the way along its length, so the walk succeeds &mdash; even though the two ends are nowhere near each other. A centre is never needed, so a shape is never assumed.
+      </div>
+      <div class="callout">
+        📌 Note what the one-directional part buys you: a <strong>border</strong> point can be reached but cannot reach onwards. That is exactly what stops a cluster leaking out through its own thin edges into the empty space beyond.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(2)">&larr; Core, border, outlier</button>
+        <div class="pnav-dots" id="dots-3"></div>
+        <button class="pnav-btn next" onclick="goTo(4)">The algorithm &rarr;</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 4 ══ -->
+    <div class="panel" id="panel-4">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1509228627152-72ae9ae6848d?w=900&q=75&fit=crop&h=200" alt="Steps" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 20 &middot; 04 / 08 &middot; The idea</div>
+          <div class="m-name">The DBSCAN algorithm</div>
+          <div class="m-tagline">Seven steps</div>
+        </div>
+      </div>
+      <div class="steps">
+        <div class="step"><span class="num">1</span><div>Mark all the points as <strong>unvisited</strong>.</div></div>
+        <div class="step"><span class="num">2</span><div>Choose a <strong>random</strong> point.</div></div>
+        <div class="step"><span class="num">3</span><div>If it has <strong>enough neighbours</strong> &mdash; start a cluster.</div></div>
+        <div class="step"><span class="num">4</span><div>Expand the cluster according to all the <strong>reachable</strong> points.</div></div>
+        <div class="step"><span class="num">5</span><div>If it does <strong>not</strong> have enough neighbours &mdash; mark the point as <strong>noise</strong>.</div></div>
+        <div class="step"><span class="num">6</span><div>Move on to the next point.</div></div>
+        <div class="step"><span class="num">7</span><div>Finish when you have gone over all the data.</div></div>
+      </div>
+
+      <div class="section-label" style="color:#facc15">Visual steps &mdash; ε = 1, MinPts = 3</div>
+      <div class="demo-box">
+        <svg viewBox="0 0 520 190" style="display:block;width:100%;height:auto">
+          <rect x="14" y="26" width="150" height="130" rx="4" fill="none" stroke="rgba(230,237,243,.3)"/>
+          <g fill="none" stroke="rgba(230,237,243,.55)" stroke-width="1.8">
+            <circle cx="52" cy="60" r="7"/><circle cx="104" cy="46" r="7"/>
+            <circle cx="44" cy="90" r="7"/><circle cx="36" cy="112" r="7"/>
+            <circle cx="64" cy="112" r="7"/><circle cx="46" cy="136" r="7"/>
+            <circle cx="138" cy="98" r="7"/>
+          </g>
+          <text x="89" y="176" text-anchor="middle" font-size="10.5" fill="rgba(230,237,243,.65)" font-family="Segoe UI,sans-serif">1 · all unvisited</text>
+
+          <rect x="184" y="26" width="150" height="130" rx="4" fill="none" stroke="rgba(230,237,243,.3)"/>
+          <g fill="none" stroke="rgba(230,237,243,.55)" stroke-width="1.8">
+            <circle cx="222" cy="60" r="7"/><circle cx="274" cy="46" r="7"/>
+            <circle cx="214" cy="90" r="7"/><circle cx="206" cy="112" r="7"/>
+            <circle cx="234" cy="112" r="7"/><circle cx="308" cy="98" r="7"/>
+          </g>
+          <circle cx="216" cy="136" r="7" fill="#f43f5e" opacity=".8"/>
+          <text x="259" y="176" text-anchor="middle" font-size="10.5" fill="rgba(230,237,243,.65)" font-family="Segoe UI,sans-serif">2 · pick a random start</text>
+
+          <rect x="354" y="26" width="150" height="130" rx="4" fill="none" stroke="rgba(230,237,243,.3)"/>
+          <circle cx="404" cy="112" r="34" fill="rgba(16,185,129,.1)" stroke="#10b981" stroke-width="1.8"/>
+          <g fill="none" stroke="rgba(230,237,243,.55)" stroke-width="1.8">
+            <circle cx="392" cy="60" r="7"/><circle cx="444" cy="46" r="7"/><circle cx="478" cy="98" r="7"/>
+          </g>
+          <g fill="#f43f5e" opacity=".65"><circle cx="386" cy="92" r="7"/><circle cx="418" cy="92" r="7"/></g>
+          <circle cx="404" cy="118" r="8" fill="#10b981"/>
+          <text x="429" y="176" text-anchor="middle" font-size="10.5" fill="rgba(230,237,243,.65)" font-family="Segoe UI,sans-serif">3–4 · core, and expand</text>
+        </svg>
+        <div class="demo-lbl">With MinPts = 3 the green point qualifies as core: itself plus 2 neighbours inside ε makes 3.</div>
+      </div>
+
+      <div class="callout red">
+        ⚠️ <strong>MinPts includes the point itself.</strong> With MinPts = 3, a point needs itself plus <em>two</em> neighbours inside ε to become a core point. Getting this off by one is the single most common reason a hand-worked DBSCAN disagrees with sklearn.
+      </div>
+      <div class="callout">
+        💡 <strong>Step 5 is not final.</strong> A point marked noise early on can still be picked up later as a <em>border</em> point, if some core point turns out to reach it. Only points that nobody ever reaches stay noise at the end.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(3)">&larr; Reachable</button>
+        <div class="pnav-dots" id="dots-4"></div>
+        <button class="pnav-btn next" onclick="goTo(5)">Epsilon and MinPts &rarr;</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 5 ══ -->
+    <div class="panel" id="panel-5">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1518133910546-b6c2fb7d79e3?w=900&q=75&fit=crop&h=200" alt="Dials and settings" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 20 &middot; 05 / 08 &middot; The two knobs</div>
+          <div class="m-name">Epsilon and MinPts</div>
+          <div class="m-tagline">Two numbers, and everything depends on them</div>
+        </div>
+      </div>
+      <div class="section-label" style="color:#f97316">Epsilon (ε)</div>
+      <p class="m-desc">Determines the <strong>radius</strong> around each point. It affects how many points enter that point's "neighbourhood".</p>
+      <table class="dt">
+        <tbody>
+          <tr class="show"><td class="term">Small value</td><td class="B">Many points will be classified as noise</td></tr>
+          <tr class="show"><td class="term">Large value</td><td class="B">All the points will turn into one single cluster</td></tr>
+        </tbody>
+      </table>
+
+      <div class="section-label" style="color:#f97316">MinPts</div>
+      <p class="m-desc">The <strong>minimum number of points</strong> that must be in a point's neighbourhood (radius ε) for that point to be considered a <strong>core point</strong>.</p>
+      <table class="dt">
+        <tbody>
+          <tr class="show"><td class="term">Small</td><td>Many clusters, a little noise</td></tr>
+          <tr class="show"><td class="term">Large</td><td>Few clusters, a lot of noise</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout green">
+        🎯 <strong>Finding optimal parameters.</strong> You can use the <strong>elbow method</strong> to find the optimal value of ε according to a pre-defined number of outliers &mdash; for example, "we want 3 outliers".
+        <ul style="margin:8px 0 0 18px">
+          <li>Perform several runs with different ε values and check at which value you get exactly 3 outliers.</li>
+          <li>You can go over the same idea for MinPts too.</li>
+          <li><strong>Rule of thumb: MinPts = 2 × the number of features.</strong></li>
+        </ul>
+      </div>
+      <div class="callout red">
+        ⚠️ <strong>ε is measured in the units of your columns.</strong> That makes scaling even more critical here than in K-Means: with an unscaled table, a single ε means "a huge distance" in one column and "a microscopic distance" in another, and there is no value that works for both.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(4)">&larr; The algorithm</button>
+        <div class="pnav-dots" id="dots-5"></div>
+        <button class="pnav-btn next" onclick="goTo(6)">The elbow for eps &rarr;</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 6 ══ -->
+    <div class="panel" id="panel-6">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=900&q=75&fit=crop&h=200" alt="A bend" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 20 &middot; 06 / 08 &middot; The two knobs</div>
+          <div class="m-name">The elbow for eps</div>
+          <div class="m-tagline">Sweep it, and count the outliers</div>
+        </div>
+      </div>
+      <p class="m-desc">Rather than guess ε, run DBSCAN across a range of values and record how many points come back as noise at each one:</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>eps_range = np.linspace(<span class="num">0.1</span>, <span class="num">2.0</span>, <span class="num">20</span>)
+number_of_outliers = []
+
+<span class="kw">for</span> eps <span class="kw">in</span> eps_range:
+    dbscan = DBSCAN(eps=eps, min_samples=<span class="num">5</span>)
+    labels = dbscan.fit_predict(two_blobs_outliers)
+    number_of_outliers.append(np.sum(labels == -<span class="num">1</span>))
+
+plt.figure(figsize=(<span class="num">10</span>, <span class="num">6</span>))
+plt.plot(eps_range, number_of_outliers, <span class="str">'o-'</span>, linewidth=<span class="num">2</span>)
+plt.xlabel(<span class="str">'Epsilon'</span>)
+plt.ylabel(<span class="str">'Number of outliers'</span>)
+plt.title(<span class="str">'Elbow Method: Number of Outliers vs Epsilon'</span>)
+plt.grid(<span class="kw">True</span>)
+plt.show()</pre>
+      </div>
+
+      <div class="demo-box">
+        <svg viewBox="0 0 470 240" style="display:block;width:100%;height:auto">
+          <line x1="58" y1="18" x2="58" y2="196" stroke="rgba(230,237,243,.45)" stroke-width="1.6"/>
+          <line x1="58" y1="196" x2="446" y2="196" stroke="rgba(230,237,243,.45)" stroke-width="1.6"/>
+          <polyline fill="none" stroke="#ec4899" stroke-width="2.6"
+            points="72,34 94,58 116,86 138,112 160,134 182,150 204,162 226,170 248,176 270,180 292,183 314,185 336,187 358,188 380,189 402,190 424,190"/>
+          <g fill="#ec4899">
+            <circle cx="72" cy="34" r="3.4"/><circle cx="116" cy="86" r="3.4"/>
+            <circle cx="160" cy="134" r="3.4"/><circle cx="204" cy="162" r="3.4"/>
+            <circle cx="248" cy="176" r="3.4"/><circle cx="292" cy="183" r="3.4"/>
+            <circle cx="336" cy="187" r="3.4"/><circle cx="380" cy="189" r="3.4"/>
+            <circle cx="424" cy="190" r="3.4"/>
+          </g>
+          <circle cx="182" cy="150" r="10" fill="none" stroke="#facc15" stroke-width="2.2"/>
+          <text x="198" y="141" font-size="11" font-weight="700" fill="#facc15" font-family="Segoe UI,sans-serif">the elbow</text>
+          <text x="252" y="222" text-anchor="middle" font-size="12" font-weight="700" fill="#e6edf3" font-family="Segoe UI,sans-serif">Epsilon</text>
+          <text x="22" y="112" font-size="12" font-weight="700" fill="#e6edf3" transform="rotate(-90 22 112)" font-family="Segoe UI,sans-serif">Number of outliers</text>
+        </svg>
+        <div class="demo-lbl">Outliers collapse quickly as ε grows, then flatten out. Past the bend, raising ε stops removing noise and starts gluing genuine clusters together.</div>
+      </div>
+
+      <div class="callout">
+        📊 <strong>Same shape, different question.</strong> The K-Means elbow in deck 17 plotted <strong>inertia</strong> against K. This one plots the <strong>number of outliers</strong> against ε. The reasoning is identical &mdash; find where the steep improvement stops &mdash; but you are reading a completely different quantity.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(5)">&larr; Epsilon and MinPts</button>
+        <div class="pnav-dots" id="dots-6"></div>
+        <button class="pnav-btn next" onclick="goTo(7)">Blobs, moons, rings &rarr;</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 7 ══ -->
+    <div class="panel" id="panel-7">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=900&q=75&fit=crop&h=200" alt="Charts and shapes" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 20 &middot; 07 / 08 &middot; In code</div>
+          <div class="m-name">Blobs, moons, rings</div>
+          <div class="m-tagline">The notebook, and label -1</div>
+        </div>
+      </div>
+      <p class="m-desc">Three datasets, each a different shape:</p>
+      <table class="dt">
+        <tbody>
+          <tr class="show"><td class="term">cluster_blobs.csv</td><td>Round blobs with scattered noise around them</td></tr>
+          <tr class="show"><td class="term">cluster_moons.csv</td><td>Two interlocking crescents</td></tr>
+          <tr class="show"><td class="term">cluster_circles.csv</td><td>A ring inside a ring</td></tr>
+        </tbody>
+      </table>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> numpy <span class="kw">as</span> np
+<span class="kw">import</span> pandas <span class="kw">as</span> pd
+<span class="kw">import</span> matplotlib.pyplot <span class="kw">as</span> plt
+<span class="kw">import</span> seaborn <span class="kw">as</span> sns
+<span class="kw">from</span> sklearn.cluster <span class="kw">import</span> DBSCAN
+
+plt.style.use(<span class="str">'seaborn-v0_8'</span>)
+
+two_blobs_outliers = pd.read_csv(<span class="str">'cluster_blobs.csv'</span>)
+
+<span class="cm"># Default DBSCAN parameters</span>
+<span class="cm"># Missing scale</span>
+model = DBSCAN(eps=<span class="num">0.5</span>, min_samples=<span class="num">5</span>)
+labels = model.fit_predict(two_blobs_outliers)
+
+sns.scatterplot(data=two_blobs_outliers, x=<span class="str">'X1'</span>, y=<span class="str">'X2'</span>,
+                hue=labels, palette=<span class="str">'bright'</span>)
+plt.show()
+
+print(<span class="str">f"Number of outliers: {np.sum(labels == -1)}"</span>)
+print(<span class="str">f"Percentage: {100 * np.sum(labels == -1) / len(labels):.2f}%"</span>)</pre>
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">output</span></div>
+        <pre>Default DBSCAN outliers:
+Number of outliers: 62
+Percentage of outliers: 4.13%
+
+labels [0 0 1 ... 0 0 1]</pre>
+      </div>
+
+      <div class="callout green">
+        🏷️ <strong>Read the labels array.</strong> DBSCAN does not return a cluster number for every point the way K-Means does. Cluster numbers start at <code>0</code>, and <strong><code>-1</code> means "this point is noise"</strong> &mdash; it belongs to nothing. That is why counting outliers is simply <code>np.sum(labels == -1)</code>. No other model on this course has a label for "none of the above".
+      </div>
+      <div class="callout red">
+        ⚠️ The comment <code># Missing scale</code> is deliberate &mdash; the data was <strong>not</strong> scaled before fitting. Since ε is a radius measured in the units of the columns, an unscaled table makes a single ε mean different things in different directions. It still works here because both columns happen to be on a similar scale; on a real table it would not.
+      </div>
+      <div class="callout">
+        💡 <strong>There is no <code>predict</code>.</strong> DBSCAN has <code>fit_predict</code> and nothing else &mdash; you cannot ask a fitted DBSCAN which cluster a brand new point belongs to. Density is a property of the dataset as a whole, so adding a point can change the answer for its neighbours. That is a real limitation compared with K-Means.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(6)">&larr; The elbow</button>
+        <div class="pnav-dots" id="dots-7"></div>
+        <button class="pnav-btn next" onclick="goTo(8)">Three clusterers compared &rarr;</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 8 ══ -->
+    <div class="panel" id="panel-8">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1464802686167-b939a6910659?w=900&q=75&fit=crop&h=200" alt="A balance" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">DECK 20 &middot; 08 / 08 &middot; In code</div>
+          <div class="m-name">Three clusterers compared</div>
+          <div class="m-tagline">K-Means, Hierarchical, DBSCAN</div>
+        </div>
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue"></th><th class="blue">K-Means</th><th class="blue">Hierarchical</th><th class="blue">DBSCAN</th></tr></thead>
+        <tbody>
+          <tr class="show"><td class="term">you must choose</td><td>n_clusters</td><td>where to cut</td><td>eps, min_samples</td></tr>
+          <tr class="show"><td class="term">cluster shape</td><td class="B">round only</td><td>depends on linkage</td><td class="A">any shape</td></tr>
+          <tr class="show"><td class="term">handles noise</td><td class="B">no</td><td class="B">no</td><td class="A">yes — label -1</td></tr>
+          <tr class="show"><td class="term">number of clusters</td><td>you decide</td><td>you decide</td><td class="A">it decides</td></tr>
+          <tr class="show"><td class="term">can predict new points</td><td class="A">yes</td><td class="B">no</td><td class="B">no</td></tr>
+          <tr class="show"><td class="term">is it random?</td><td class="B">yes</td><td class="A">no</td><td class="A">no</td></tr>
+          <tr class="show"><td class="term">needs scaling</td><td class="A">yes</td><td class="A">yes</td><td class="A">yes — most of all</td></tr>
+        </tbody>
+      </table>
+      <div class="callout green">
+        🧭 <strong>How to choose.</strong> Round, well-separated groups and you know roughly how many? K-Means. Want to see the structure and decide the number afterwards, on a table small enough to afford it? Hierarchical. Odd shapes, or real noise you need excluded rather than absorbed? DBSCAN.
+      </div>
+      <div class="callout">
+        📌 <strong>The trade DBSCAN makes.</strong> It stops asking you for the number of clusters &mdash; but it asks you for ε and MinPts instead, and those are harder to guess than K. It has not removed the tuning problem, it has moved it. The elbow in panel 06 is how you get it back under control.
+      </div>
+      <div class="lesson-nav">
+        <a class="nav-item" href="../19_hierarchical/index.html">&larr; Deck 19 &middot; Hierarchical</a>
+        <a class="nav-item" href="../21_gradio/index.html">Deck 21 &middot; Gradio &rarr;</a>
+        <a class="nav-item" href="../lessons/23_lesson/index.html">Lesson 23 &middot; the notebook &rarr;</a>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(7)">&larr; Blobs, moons, rings</button>
+        <div class="pnav-dots" id="dots-8"></div>
+        <button class="pnav-btn next" onclick="goTo(0)">Back to Overview &rarr;</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="deck.js"></script>
+</body>
+</html>

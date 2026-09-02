@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 23 - Hierarchical Clustering, DBSCAN &amp; Gradio</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      renderMathInElement(document.body, {
+        delimiters: [
+          { left: '$$', right: '$$', display: true },
+          { left: '\\(', right: '\\)', display: false }
+        ],
+        throwOnError: false
+      });
+    });
+  </script>
+  <style>
+    :root {
+      --bg: #f8fbff;
+      --surface: #ffffff;
+      --ink: #142033;
+      --muted: #52657d;
+      --blue: #2563eb;
+      --blue-dark: #143b73;
+      --cyan: #e7fbff;
+      --green: #0f9f6e;
+      --orange: #f97316;
+      --red: #dc2626;
+      --purple: #7c3aed;
+      --border: #bfd0ea;
+      --code-bg: #101a2c;
+      --code-text: #dceaff;
+      --soft-blue: #eef6ff;
+      --soft-green: #effbf5;
+      --soft-orange: #fff7ed;
+      --soft-red: #fef2f2;
+      --soft-purple: #f5f1ff;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Trebuchet MS", "Lucida Sans", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 10%, #e9f7ff 0%, transparent 34%),
+        radial-gradient(circle at 88% 18%, #effbf5 0%, transparent 32%),
+        linear-gradient(180deg, var(--bg) 0%, #ffffff 56%, #f1f8ff 100%);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    .wrap { max-width: 1140px; margin: 0 auto; padding: 28px 20px 60px; }
+    .layout { display: grid; grid-template-columns: 268px 1fr; gap: 22px; align-items: start; }
+
+    .side-nav {
+      position: sticky; top: 20px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 18px 14px;
+      box-shadow: 0 4px 16px rgba(37,99,235,.08);
+      max-height: calc(100vh - 40px); overflow-y: auto;
+    }
+    .side-title { font-size: .8rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--blue); margin: 0 0 10px; }
+    .part-label { display: block; padding: 8px 4px 4px; font-size: .7rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--green); }
+    .topic-link {
+      display: block; width: 100%; border: 1px solid transparent; border-radius: 9px;
+      padding: 7px 10px; background: transparent; color: var(--muted); cursor: pointer;
+      text-align: left; font: inherit; margin: 2px 0; transition: .16s ease;
+    }
+    .topic-link:hover { background: #f0f7ff; color: var(--blue-dark); border-color: var(--border); }
+    .topic-link.active { background: #e9f1ff; color: var(--blue-dark); border-color: var(--blue); font-weight: 700; }
+    .side-divider { border: none; border-top: 1px solid var(--border); margin: 12px 4px; }
+    .nav-back { display: block; padding: 7px 10px; color: var(--blue); font-weight: 700; text-decoration: none; font-size: .9rem; }
+    .nav-back:hover { text-decoration: underline; }
+
+    .hero {
+      background: linear-gradient(135deg, var(--surface) 0%, var(--soft-blue) 54%, var(--soft-green) 100%);
+      border: 1px solid var(--border); border-radius: 16px; padding: 28px;
+      box-shadow: 0 12px 30px rgba(37,99,235,.12); margin-bottom: 22px;
+    }
+    .tag { display: inline-block; padding: 5px 12px; border-radius: 999px; background: #e7fbff; color: #0f766e; font-weight: 800; font-size: .82rem; border: 1px solid #99e6ef; }
+    h1 { margin: 14px 0 10px; color: var(--blue-dark); font-size: clamp(2rem, 5vw, 3.2rem); line-height: 1.05; }
+    .hero p { max-width: 830px; color: var(--muted); font-size: 1.06rem; }
+    .hero-chips { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .hero-chip { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: .78rem; font-weight: 700; background: rgba(20,184,166,.1); color: #0f766e; border: 1px solid rgba(20,184,166,.3); }
+
+    .card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      padding: 22px; margin-bottom: 16px; box-shadow: 0 7px 22px rgba(37,99,235,.08);
+    }
+    .topic-panel { display: none; }
+    .topic-panel.active { display: block; }
+    .step-title { margin: 0 0 12px; color: var(--blue-dark); font-size: 1.25rem; }
+
+    code { font-family: Consolas, "Courier New", monospace; }
+
+    .math-card {
+      border: 1px solid #b7c8e4; border-radius: 12px;
+      background: linear-gradient(135deg, #ffffff 0%, #f1f7ff 100%);
+      padding: 18px; margin: 18px 0; text-align: center;
+    }
+    .math-caption { color: var(--muted); margin: 8px 0 0; font-size: .95rem; }
+    .katex { color: var(--blue-dark); }
+    .katex-display { margin: 6px 0; overflow-x: auto; overflow-y: hidden; padding: 3px 0; }
+    .data-table .katex, .math-caption .katex, p .katex { font-size: 1em; }
+
+    .resource-link { display: inline-block; color: var(--blue-dark); font-weight: 800; text-decoration: none; border-bottom: 2px solid rgba(37,99,235,.35); }
+    .resource-link:hover { color: var(--blue); border-bottom-color: var(--blue); }
+    .resource-links { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 4px; }
+
+    .code {
+      background: var(--code-bg); color: var(--code-text); border-radius: 10px;
+      border: 1px solid #304563; padding: 16px 18px; overflow-x: auto; margin: 12px 0;
+      font-size: .95rem; line-height: 1.5; white-space: pre;
+    }
+    .output {
+      background: #f7fbff; color: #1a2d49; border: 1px solid var(--border);
+      border-left: 5px solid var(--blue); border-radius: 10px; padding: 12px 14px;
+      overflow-x: auto; margin: 8px 0 16px; font-family: Consolas, "Courier New", monospace; white-space: pre-wrap;
+      /* the widest output here is the 76-character components_ array; at this
+         size it fits the column, so pre-wrap never has to break a row in half */
+      font-size: .82rem; line-height: 1.5;
+    }
+    .output.warn { border-left-color: var(--red); background: var(--soft-red); }
+    .out-label { display: block; font-family: "Trebuchet MS", sans-serif; font-size: .72rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+
+    .note { background: var(--soft-orange); border: 1px solid #fed7aa; border-left: 5px solid var(--orange); border-radius: 10px; padding: 12px 14px; margin: 12px 0; }
+    .note.blue { background: var(--soft-blue); border-color: #bcd4f6; border-left-color: var(--blue); }
+    .note.red { background: var(--soft-red); border-color: #fecaca; border-left-color: var(--red); }
+    .note.green { background: var(--soft-green); border-color: #b6ebd4; border-left-color: var(--green); }
+    .note.purple { background: var(--soft-purple); border-color: #ddd0fb; border-left-color: var(--purple); }
+
+    .shots { display: grid; gap: 14px; margin: 16px 0; }
+    .shots.two  { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .shots.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .shot { margin: 0; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: #fbfdff; }
+    .shot img { display: block; width: 100%; height: auto; }
+    .shot figcaption { padding: 8px 10px; font-size: .8rem; color: var(--muted); background: var(--surface); border-top: 1px solid var(--border); }
+    .shot figcaption strong { color: var(--blue-dark); }
+    @media (max-width: 900px) { .shots.four { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+    .task-box { border: 1px solid var(--border); border-left: 5px solid var(--blue); border-radius: 10px; padding: 14px 16px; margin: 12px 0; background: #fbfdff; }
+    .task-num { font-weight: 900; color: var(--blue); text-transform: uppercase; letter-spacing: .08em; font-size: .78rem; }
+
+    .data-table { width: 100%; border-collapse: collapse; margin: 16px 0; background: #fbfdff; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .data-table th { background: var(--soft-blue); color: var(--blue-dark); text-align: left; padding: 10px 14px; font-size: .9rem; border-bottom: 2px solid var(--border); }
+    .data-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); font-family: Consolas, "Courier New", monospace; }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table td.term { font-family: inherit; font-weight: 700; color: var(--blue-dark); }
+    .data-table tr.pick td { background: #fffbe8; }
+    .data-table tr.zero td { background: #f3f7ff; }
+
+    .ca { color: var(--green);  font-weight: 700; }
+    .cb { color: var(--orange); font-weight: 700; }
+
+    .steps-strip { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; margin: 16px 0; }
+    .stepbox { border: 1px solid var(--border); border-radius: 10px; padding: 14px; background: #fbfdff; }
+    .stepbox .n { display: block; font-size: .72rem; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; color: var(--blue); margin-bottom: 4px; }
+    .stepbox strong { color: var(--blue-dark); }
+
+    .term-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin: 16px 0; }
+    .term { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; background: #fbfdff; }
+    .term h5 { margin: 0 0 4px; font-size: .92rem; color: var(--blue-dark); }
+    .term p { margin: 0; font-size: .88rem; color: var(--muted); }
+
+    .footer { text-align: center; color: var(--muted); font-size: .9rem; margin-top: 18px; }
+    .task-list { margin: 6px 0 0; padding-left: 20px; }
+    .task-list li { margin: 4px 0; }
+
+    @media (max-width: 880px) {
+      .layout { grid-template-columns: 1fr; }
+      .side-nav { position: static; max-height: none; }
+      .wrap { padding: 18px 12px 44px; }
+      .steps-strip { grid-template-columns: 1fr; }
+    }
+    /* ── GitHub-dark Python syntax colours ── */
+    pre.code.py { color: #c9d1d9; }
+    pre.code.py .hl-com     { color: #8b949e; font-style: italic; }
+    pre.code.py .hl-kw      { color: #ff7b72; }
+    pre.code.py .hl-str     { color: #a5d6ff; }
+    pre.code.py .hl-num     { color: #79c0ff; }
+    pre.code.py .hl-fn      { color: #d2a8ff; }
+    pre.code.py .hl-builtin { color: #ffa657; }
+  </style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="layout">
+    <aside class="side-nav">
+      <p class="side-title">Lesson 23</p>
+      <span class="part-label">Class Code</span>
+      <button class="topic-link active" data-target="topic-github">1. GitHub Repos</button>
+      <span class="part-label">Hierarchical Clustering</span>
+      <button class="topic-link" data-target="topic-1">2. What it is</button>
+      <button class="topic-link" data-target="topic-2">3. The dendrogram</button>
+      <button class="topic-link" data-target="topic-3">4. Distance calculation</button>
+      <button class="topic-link" data-target="topic-4">5. The five linkages</button>
+      <button class="topic-link" data-target="topic-5">6. Ward, step by step</button>
+      <button class="topic-link" data-target="topic-6">7. The iris notebook</button>
+      <span class="part-label">DBSCAN</span>
+      <button class="topic-link" data-target="topic-7">8. Why distance fails</button>
+      <button class="topic-link" data-target="topic-8">9. Core, border, outlier</button>
+      <button class="topic-link" data-target="topic-9">10. The algorithm</button>
+      <button class="topic-link" data-target="topic-11">11. The notebook</button>
+      <button class="topic-link" data-target="topic-12">12. The elbow for eps</button>
+      <span class="part-label">Gradio</span>
+      <button class="topic-link" data-target="topic-13">13. Hello Gradio</button>
+      <button class="topic-link" data-target="topic-14">14. A model with a UI</button>
+      <button class="topic-link" data-target="topic-15">15. An LLM chat</button>
+      <span class="part-label">Practice</span>
+      <button class="topic-link" data-target="topic-16">16. Exercise</button>
+      <hr class="side-divider">
+      <a class="nav-back" href="../22_lesson/index.html">Previous: Lesson 22</a>
+      <a class="nav-back" href="../../19_hierarchical/index.html">Deck: Hierarchical Clustering</a>
+      <a class="nav-back" href="../../20_dbscan/index.html">Deck: DBSCAN</a>
+      <a class="nav-back" href="../../21_gradio/index.html">Deck: Gradio</a>
+      <a class="nav-back" href="../../index.html">Back to Python libs</a>
+    </aside>
+
+    <main>
+      <section class="hero">
+        <span class="tag">Lesson - September 2, 2026</span>
+        <h1>Hierarchical Clustering, DBSCAN &amp; Gradio</h1>
+        <p>K-Means made you name \(K\) before it would start, and it only ever draws round clusters. Today we met the two algorithms that fix those two problems. <strong>Hierarchical clustering</strong> builds a whole tree of groupings and lets you pick the number of clusters <em>afterwards</em>, by cutting the tree wherever you like. <strong>DBSCAN</strong> ignores centres altogether and follows <em>density</em> instead, so it can trace a crescent or a ring - and it is the first model that is allowed to answer "this point belongs to nothing". Then we put a model behind a real web page with <strong>Gradio</strong>, in about eight lines.</p>
+        <div class="hero-chips">
+          <span class="hero-chip">AgglomerativeClustering</span>
+          <span class="hero-chip">linkage</span>
+          <span class="hero-chip">dendrogram</span>
+          <span class="hero-chip">fcluster</span>
+          <span class="hero-chip">ward</span>
+          <span class="hero-chip">DBSCAN</span>
+          <span class="hero-chip">eps</span>
+          <span class="hero-chip">min_samples</span>
+          <span class="hero-chip">outliers</span>
+          <span class="hero-chip">gradio</span>
+          <span class="hero-chip">gr.Interface</span>
+        </div>
+      </section>
+
+      <!-- 1. GITHUB -->
+      <section class="card topic-panel active" id="topic-github">
+        <h2 class="step-title">Open Class Code</h2>
+        <p>Two repositories today - the hierarchical clustering material is from the previous lesson, and DBSCAN plus Gradio are from today.</p>
+        <div class="resource-links">
+          <a class="resource-link" href="https://github.com/pythonai211225-rgb/30.08.2026" target="_blank" rel="noopener">30.08.2026 &mdash; hierarchical + DBSCAN slides &rarr;</a>
+        </div>
+        <div class="resource-links">
+          <a class="resource-link" href="https://github.com/pythonai211225-rgb/02.09.2026" target="_blank" rel="noopener">02.09.2026 &mdash; DBSCAN notebook + Gradio &rarr;</a>
+        </div>
+        <table class="data-table">
+          <tr><th>File</th><th>Repo</th><th>What is in it</th></tr>
+          <tr><td class="term">hir_30_aug_2026.ipynb</td><td>30.08</td><td>The hierarchical clustering theory slides</td></tr>
+          <tr><td class="term">hir2_30_aug_2026.ipynb</td><td>30.08</td><td>The iris code - scale, linkage, dendrogram, fcluster</td></tr>
+          <tr><td class="term">iris_unlabaled.csv</td><td>30.08</td><td>150 iris flowers, four measurements, no labels</td></tr>
+          <tr><td class="term">dbscan_30_aug_2026.ipynb</td><td>30.08</td><td>The DBSCAN theory slides</td></tr>
+          <tr><td class="term">dbscan_02_09_2026.ipynb</td><td>02.09</td><td>Today's DBSCAN code</td></tr>
+          <tr><td class="term">cluster_blobs.csv</td><td>02.09</td><td>Round blobs plus scattered noise</td></tr>
+          <tr><td class="term">cluster_moons.csv</td><td>02.09</td><td>Two interlocking crescents</td></tr>
+          <tr><td class="term">cluster_circles.csv</td><td>02.09</td><td>A ring inside a ring</td></tr>
+          <tr><td class="term">00-03_gradio_*.py</td><td>02.09</td><td>Four Gradio apps, smallest first</td></tr>
+        </table>
+      </section>
+
+      <!-- 2. WHAT IT IS -->
+      <section class="card topic-panel" id="topic-1">
+        <h2 class="step-title">Hierarchical Clustering - what it is</h2>
+        <p><strong>Hierarchical clustering</strong> is unsupervised learning that splits the data into groups <em>by hierarchy</em>. Every data point starts as a cluster of its own, and step by step the algorithm merges the nearest clusters together.</p>
+        <div class="note green">
+          <strong>The difference from K-Means:</strong> you do <em>not</em> have to decide the number of clusters in advance. The algorithm builds the entire tree of merges, and only afterwards do you choose where to <strong>cut</strong> it. One run gives you every possible number of clusters.
+        </div>
+        <p>Because it merges upwards from the bottom, this version is called <strong>agglomerative</strong> - from <em>agglomerate</em>, to clump together.</p>
+        <table class="data-table">
+          <tr><th></th><th>K-Means</th><th>Hierarchical</th></tr>
+          <tr><td class="term">Number of clusters</td><td>Chosen before you start</td><td>Chosen after, by cutting the tree</td></tr>
+          <tr><td class="term">What it produces</td><td>One grouping</td><td>A tree of every grouping</td></tr>
+          <tr><td class="term">Starting point</td><td>K random centroids</td><td>Every point is its own cluster</td></tr>
+          <tr><td class="term">Repeatable</td><td>Depends on the random start</td><td>The same answer every run</td></tr>
+        </table>
+      </section>
+
+      <!-- 3. DENDROGRAM -->
+      <section class="card topic-panel" id="topic-2">
+        <h2 class="step-title">The dendrogram</h2>
+        <p>The usual way to draw a hierarchical clustering is a <strong>dendrogram</strong> - a tree that shows <em>when</em> and <em>how</em> points joined into clusters.</p>
+        <ul class="task-list">
+          <li>The <strong>x-axis</strong> holds all the data points.</li>
+          <li>The <strong>y-axis</strong> is the distance at which they merged.</li>
+          <li><strong>The higher the bar joining two points, the further apart they are.</strong></li>
+        </ul>
+
+        <figure class="shot" style="max-width:520px;margin:16px auto">
+          <svg viewBox="0 0 470 250" style="display:block;width:100%;height:auto;background:#fff">
+            <line x1="52" y1="20" x2="52" y2="205" stroke="#142033" stroke-width="1.8"/>
+            <line x1="52" y1="205" x2="440" y2="205" stroke="#142033" stroke-width="1.8"/>
+            <g stroke="#2563eb" stroke-width="2.4" fill="none">
+              <path d="M90 205 V170 H150 V205"/>
+              <path d="M210 205 V170 H270 V205"/>
+              <path d="M330 205 V150 H390 V205"/>
+              <path d="M120 170 V120 H240 V170"/>
+              <path d="M180 120 V70 H360 V150"/>
+            </g>
+            <line x1="52" y1="100" x2="440" y2="100" stroke="#dc2626" stroke-width="2" stroke-dasharray="7 5"/>
+            <text x="438" y="94" font-family="Segoe UI,sans-serif" font-size="11" fill="#dc2626" text-anchor="end">cut here = 3 clusters</text>
+            <g font-family="Segoe UI,sans-serif" font-size="11" fill="#52657d" text-anchor="middle">
+              <text x="90" y="222">N1</text><text x="150" y="222">N2</text>
+              <text x="210" y="222">N3</text><text x="270" y="222">N4</text>
+              <text x="330" y="222">N5</text><text x="390" y="222">N6</text>
+              <text x="246" y="243" font-weight="700" fill="#142033">Objects forming clusters</text>
+            </g>
+            <text x="18" y="115" font-family="Segoe UI,sans-serif" font-size="11" font-weight="700" fill="#142033" transform="rotate(-90 18 115)">Dissimilarity</text>
+          </svg>
+          <figcaption><strong>An agglomerative dendrogram of 6 data points.</strong> N1 and N2 merged low down because they are close; the last merge happens right at the top, because those two groups are far apart.</figcaption>
+        </figure>
+
+        <div class="note blue">
+          <strong>Interpreting it.</strong> You can "slice" the dendrogram at any height to fix the number of clusters. The cut drawn above crosses <strong>three</strong> vertical lines, so it gives 3 clusters instead of the 2 you would get by cutting higher. A good place to cut is just below a <em>tall</em> jump - a long vertical bar means those two groups were reluctant to merge, which is a natural place to stop.
+        </div>
+      </section>
+
+      <!-- 4. DISTANCE -->
+      <section class="card topic-panel" id="topic-3">
+        <h2 class="step-title">Distance calculation</h2>
+        <p>The first stage of the algorithm computes the distance between every point and every other point. The most common choice is <strong>Euclidean distance</strong>, which is based on Pythagoras:</p>
+        <div class="math-card">
+          $$D = \sqrt{(x_1 - y_1)^2 + (x_2 - y_2)^2 + \dots + (x_n - y_n)^2}$$
+          <p class="math-caption">The smaller the distance, the more similar the two points are.</p>
+        </div>
+        <p>For two points \(p = (p_1, p_2)\) and \(q = (q_1, q_2)\) with two features, that is simply:</p>
+        <div class="math-card">
+          $$d(p,q)^2 = (q_1 - p_1)^2 + (q_2 - p_2)^2$$
+        </div>
+        <div class="note">
+          This is the same distance KNN and K-Means used - and it carries the same warning. Squared gaps mean a column with big numbers drowns out a column with small ones, so <strong>scale before you cluster</strong>.
+        </div>
+      </section>
+
+      <!-- 5. LINKAGES -->
+      <section class="card topic-panel" id="topic-4">
+        <h2 class="step-title">Cluster distance methods - the five linkages</h2>
+        <h3 style="color:var(--blue-dark)">Comparison of all the linkage methods</h3>
+        <table class="data-table">
+          <tr><th>Method</th><th>What it measures</th><th>When it is suitable</th></tr>
+          <tr><td class="term">Single Linkage</td><td>The shortest distance between two points</td><td>Elongated clusters, or when looking for soft connections</td></tr>
+          <tr><td class="term">Complete Linkage</td><td>The longest distance between two points</td><td>Tight, homogeneous clusters</td></tr>
+          <tr><td class="term">Average Linkage</td><td>The average of all the distances between every pair of points</td><td>When there is noise and you want balance</td></tr>
+          <tr><td class="term">Centroid Linkage</td><td>The distance between the centroids of two clusters</td><td>When there is a clear, clean geometric structure</td></tr>
+          <tr><td class="term">Ward Linkage</td><td>The rise in variance resulting from merging the clusters</td><td>When you want very uniform, densely packed clusters</td></tr>
+        </table>
+        <div class="note blue">
+          <strong>Note:</strong> every method builds a <strong>different dendrogram</strong>. The right choice depends on whether you want clusters that are tight, flexible, or balanced between the two. It is best to try several methods and see which one represents the true structure of the data.
+        </div>
+
+        <h3 style="color:var(--blue-dark)">Where each one fits - real-world examples</h3>
+        <table class="data-table">
+          <tr><th>Method</th><th>Why it is the most suitable there</th></tr>
+          <tr><td class="term">Single Linkage</td><td><strong>Facebook / social networks:</strong> identifying giant communities (a friend brings a friend). <strong>Computer and internet networks:</strong> finding a minimal, optimal cable route between servers. <strong>Epidemiology:</strong> tracing a chain of viral infection between people.</td></tr>
+          <tr><td class="term">Complete Linkage</td><td><strong>Routers and Wi-Fi networks:</strong> assigning devices to routers so that all of them are within close reception range. <strong>Assembling teams:</strong> building small working groups where everybody has to suit everybody.</td></tr>
+          <tr><td class="term">Average Linkage</td><td><strong>Linguistics and language families:</strong> classifying languages by overall word similarity. <strong>Medical diagnosis:</strong> grouping patients for treatment by a combination of body measurements (pulse, blood pressure, sugar).</td></tr>
+          <tr><td class="term">Centroid Linkage</td><td><strong>Logistics and shipping:</strong> merging distribution centres or warehouses by geographic centre of gravity. <strong>GPS and navigation systems:</strong> grouping points of interest by city centre or neighbourhood.</td></tr>
+          <tr><td class="term">Ward Linkage</td><td><strong>Netflix / Spotify:</strong> segmenting customers into clear, balanced taste groups (rock fans, pop fans). <strong>Real estate:</strong> classifying residential neighbourhoods by socio-economic level and building style.</td></tr>
+        </table>
+      </section>
+
+      <!-- 6. WARD STEP BY STEP -->
+      <section class="card topic-panel" id="topic-5">
+        <h2 class="step-title">Ward Linkage - step by step</h2>
+        <p>When we use the Ward method to build hierarchical clusters, the algorithm works on the principle of merging by <strong>minimum rise in variance</strong>. Here is a detailed breakdown of every stage in the process.</p>
+
+        <div class="task-box">
+          <span class="task-num">Step 1</span>
+          <p><strong>Start - every point is a cluster of its own.</strong> The algorithm begins with every point as a separate cluster. If there are \(N\) observations, you start with \(N\) clusters.<br>
+          <em>For example: 150 flowers = 150 starting clusters.</em></p>
+        </div>
+        <div class="task-box">
+          <span class="task-num">Step 2</span>
+          <p><strong>Compute the internal variance of each cluster.</strong> At the beginning every cluster holds only one point, so its variance is 0. But as soon as we start merging clusters, we need to compute the variance of every cluster.</p>
+        </div>
+        <div class="task-box">
+          <span class="task-num">Step 3</span>
+          <p><strong>Check every possible pair of clusters.</strong> We take every pair of clusters and check:
+          <em>"if we merge A and B, by how much would the variance of the new cluster grow?"</em></p>
+        </div>
+        <div class="task-box">
+          <span class="task-num">Step 4</span>
+          <p><strong>Choose the pair with the smallest rise in variance.</strong> Out of all the possible pairs, the algorithm chooses the pair that produces the <strong>smallest</strong> rise in variance. This is the essence of Ward - preserving maximum internal uniformity.</p>
+        </div>
+        <div class="task-box">
+          <span class="task-num">Step 5</span>
+          <p><strong>Merge the two clusters.</strong> The new cluster is built - A and B are joined into one cluster - and the list of active clusters is updated.</p>
+        </div>
+        <div class="task-box">
+          <span class="task-num">Step 6</span>
+          <p><strong>Go back over the process.</strong> Steps 2&ndash;5 keep repeating until all the clusters are united into one. In parallel, the hierarchical tree is built - the <strong>dendrogram</strong> - which documents the whole merging process.</p>
+        </div>
+
+        <div class="note green">
+          <strong>Determining the number of clusters.</strong> Throughout the whole process Ward does <em>not</em> decide the number of clusters - that depends on you. At the end of the process you choose a <strong>cutting height</strong> in order to determine how many clusters you want.
+          <ul class="task-list" style="margin-top:6px">
+            <li>The lower you cut - the more clusters you get.</li>
+            <li>The higher you cut - the fewer and bigger the clusters.</li>
+          </ul>
+        </div>
+
+        <p><strong>When is it good?</strong></p>
+        <ul class="task-list">
+          <li><strong>When you want clear, round and tightly-packed clusters.</strong> Ward looks for "statistical" divisions - ones that maintain the uniformity of the clusters.</li>
+          <li><strong>When you want a result based on a mathematical approach and not a purely geometric one.</strong> It is not only a question of distance - but of how much "noise" the merge adds.</li>
+          <li><strong>When you work with numeric data and want a result similar to K-Means.</strong> Because K-Means also minimises variance, Ward is similar to it in behaviour.</li>
+        </ul>
+
+        <div class="note red">
+          <strong>Weakness:</strong> it is liable to be sensitive to normalisation - so it is important to scale the data before use.<br>
+          <strong>Example:</strong> if two clusters have very different variances, joining them will raise the variance - so Ward will avoid merging groups that are similar in average but different in spread.
+        </div>
+      </section>
+
+      <!-- 7. IRIS NOTEBOOK -->
+      <section class="card topic-panel" id="topic-6">
+        <h2 class="step-title">The iris notebook - hir2_30_aug_2026.ipynb</h2>
+        <p>The imports, and reading a table of 150 iris flowers with the labels stripped off:</p>
+        <pre class="code py"><span class="hl-kw">import</span> pandas <span class="hl-kw">as</span> pd
+<span class="hl-kw">import</span> seaborn <span class="hl-kw">as</span> sns
+<span class="hl-kw">import</span> matplotlib.pyplot <span class="hl-kw">as</span> plt
+<span class="hl-kw">from</span> sklearn.preprocessing <span class="hl-kw">import</span> MinMaxScaler
+<span class="hl-kw">from</span> sklearn.cluster <span class="hl-kw">import</span> AgglomerativeClustering
+<span class="hl-kw">from</span> scipy.cluster.hierarchy <span class="hl-kw">import</span> linkage, dendrogram, fcluster
+
+<span class="hl-com"># 1. read csv</span>
+df = pd.read_csv(<span class="hl-str">"iris_unlabaled.csv"</span>)
+
+df</pre>
+        <div class="output"><span class="out-label">output</span>   Unnamed: 0  sepal length (cm)  sepal width (cm)  petal length (cm)  ...
+0           0                5.1               3.5                1.4
+1           1                4.9               3.0                1.4
+2           2                4.7               3.2                1.3
+3           3                4.6               3.1                1.5
+                                                        [150 rows x 6 columns]</div>
+
+        <p>Then the whole pipeline in one cell - keep the numeric columns, scale them, build the linkage matrix, draw the tree, and cut it:</p>
+        <pre class="code py"><span class="hl-com"># 2. choose numeric columns</span>
+df_numeric = df.select_dtypes(include=[<span class="hl-str">'float64'</span>, <span class="hl-str">'int64'</span>])
+
+<span class="hl-com"># 3. MinMaxScaler</span>
+scaler = MinMaxScaler()
+df_scaled = pd.DataFrame(scaler.fit_transform(df_numeric), columns=df_numeric.columns)
+
+<span class="hl-com"># 4. ward</span>
+linkage_matrix = linkage(df_scaled, method=<span class="hl-str">'average'</span>)
+
+<span class="hl-com"># 5. draw</span>
+plt.figure(figsize=(<span class="hl-num">12</span>, <span class="hl-num">6</span>))
+dendrogram(linkage_matrix)
+plt.title(<span class="hl-str">"Dendrogram (average Linkage)"</span>)
+plt.xlabel(<span class="hl-str">"Data Point Index"</span>)
+plt.ylabel(<span class="hl-str">"Distance"</span>)
+plt.show()
+
+<span class="hl-com"># 6. Cut the tree into clusters and get labels</span>
+cluster_labels = fcluster(linkage_matrix, t=<span class="hl-num">6</span>, criterion=<span class="hl-str">'maxclust'</span>)
+
+<span class="hl-com"># 7. Attach labels back to the dataframe</span>
+df[<span class="hl-str">'cluster'</span>] = cluster_labels
+
+<span class="hl-com"># quick peek at counts</span>
+print(df[<span class="hl-str">'cluster'</span>].value_counts().sort_index())
+df[<span class="hl-str">'cluster'</span>]</pre>
+        <div class="output"><span class="out-label">output</span>cluster
+1    49
+2     1
+3     4
+4    46
+5    49
+6     1
+Name: count, dtype: int64</div>
+
+        <table class="data-table">
+          <tr><th>Line</th><th>What it does</th></tr>
+          <tr><td class="term">select_dtypes</td><td>Keeps only the numeric columns - clustering cannot measure a distance to a piece of text.</td></tr>
+          <tr><td class="term">MinMaxScaler</td><td>Puts every column on the same 0&ndash;1 ruler, so no one measurement dominates the distance.</td></tr>
+          <tr><td class="term">linkage(df, method=)</td><td>Does all the merging and returns the <strong>linkage matrix</strong> - the recipe for the whole tree.</td></tr>
+          <tr><td class="term">dendrogram(...)</td><td>Draws that matrix as the tree.</td></tr>
+          <tr><td class="term">fcluster(t=6, 'maxclust')</td><td><strong>Cuts</strong> the tree so that 6 clusters come out, and returns a label 1..6 for every row.</td></tr>
+        </table>
+
+        <div class="note">
+          <strong>Read the counts.</strong> Clusters 1, 4 and 5 hold 49, 46 and 49 flowers - three healthy groups. But clusters 2 and 6 hold <strong>one flower each</strong>, and cluster 3 holds four. Those tiny clusters are the give-away of <code>average</code> linkage on data with a few odd points: rather than absorb them, the tree left them hanging on their own branch until the very end. Cutting at <code>t=3</code>, or switching to <code>method='ward'</code>, gives the three balanced groups the iris data actually has.
+        </div>
+      </section>
+
+      <!-- 8. WHY DISTANCE FAILS -->
+      <section class="card topic-panel" id="topic-7">
+        <h2 class="step-title">DBSCAN - why distance-based clustering fails</h2>
+        <p><strong>DBSCAN</strong> stands for <strong>D</strong>ensity-<strong>B</strong>ased <strong>S</strong>patial <strong>C</strong>lustering of <strong>A</strong>pplications with <strong>N</strong>oise.</p>
+        <div class="math-card">
+          <p class="math-caption" style="font-size:1.05rem"><strong>Density</strong> = how tightly packed &nbsp;&middot;&nbsp; <strong>Spatial</strong> = in space</p>
+        </div>
+        <p>It is a clustering algorithm based on <strong>density</strong>. Unlike K-Means or hierarchical clustering, it does not look for clusters by distance to a centre, but by the <strong>density of the points</strong> in space. It knows how to identify clusters of <em>any shape</em>, and it also marks unusual points as <strong>outliers</strong>.</p>
+
+        <div class="note red">
+          <strong>The problem it solves.</strong> Distance-based algorithms assume that every cluster is symmetric and round. When the data contains clusters shaped like crescents or rings, they fail to identify them correctly.
+        </div>
+
+        <figure class="shot" style="max-width:620px;margin:18px auto">
+          <svg viewBox="0 0 570 275" style="display:block;width:100%;height:auto;background:#fff">
+            <path d="M30 150 A 70 70 0 0 1 170 150" fill="none" stroke="#3b82f6" stroke-width="14" stroke-linecap="round" opacity=".85"/>
+            <path d="M100 172 A 70 70 0 0 0 240 172" fill="none" stroke="#3b82f6" stroke-width="14" stroke-linecap="round" opacity=".85"/>
+            <text x="135" y="32" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="12" font-weight="700" fill="#142033">the real shape</text>
+            <path d="M268 110 L308 110" stroke="#0f9f6e" stroke-width="3"/>
+            <path d="M310 110 l-10 -5 v10 Z" fill="#0f9f6e"/>
+            <path d="M330 150 A 70 70 0 0 1 400 128" fill="none" stroke="#3b82f6" stroke-width="14" stroke-linecap="round" opacity=".85"/>
+            <path d="M400 128 A 70 70 0 0 1 470 150" fill="none" stroke="#dc2626" stroke-width="14" stroke-linecap="round" opacity=".85"/>
+            <path d="M400 172 A 70 70 0 0 0 470 150" fill="none" stroke="#3b82f6" stroke-width="14" stroke-linecap="round" opacity=".85"/>
+            <path d="M470 150 A 70 70 0 0 0 540 172" fill="none" stroke="#dc2626" stroke-width="14" stroke-linecap="round" opacity=".85"/>
+            <text x="435" y="32" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="12" font-weight="700" fill="#dc2626">what a distance model does</text>
+            <text x="435" y="266" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="11" fill="#52657d">it cuts straight down the middle</text>
+          </svg>
+          <figcaption>A distance-based model has to cut the moons in half, because the two ends of one crescent are further apart than the two facing sides of different crescents.</figcaption>
+        </figure>
+
+        <div class="note green">
+          <strong>The DBSCAN result.</strong> When we run DBSCAN on the same data, it succeeds in separating clusters of different shapes and identifies the noise. All in all it is much more flexible and better suited to real situations.
+        </div>
+      </section>
+
+      <!-- 9. CORE BORDER OUTLIER -->
+      <section class="card topic-panel" id="topic-8">
+        <h2 class="step-title">Core, border and outlier points</h2>
+        <p>DBSCAN sorts every point in the dataset into one of three kinds.</p>
+
+        <figure class="shot" style="max-width:470px;margin:16px auto">
+          <svg viewBox="0 0 430 265" style="display:block;width:100%;height:auto;background:#fff">
+            <circle cx="150" cy="90" r="62" fill="none" stroke="#52657d" stroke-width="1.6"/>
+            <circle cx="120" cy="160" r="62" fill="none" stroke="#52657d" stroke-width="1.6"/>
+            <line x1="120" y1="160" x2="120" y2="98" stroke="#142033" stroke-width="1.6"/>
+            <text x="126" y="133" font-family="Segoe UI,sans-serif" font-size="13" font-weight="700" fill="#142033">&#949;</text>
+            <g fill="#c7d7ea" stroke="#7f9ec2" stroke-width="1.2">
+              <circle cx="120" cy="60" r="9"/><circle cx="178" cy="66" r="9"/>
+              <circle cx="96" cy="112" r="9"/><circle cx="70" cy="150" r="9"/>
+              <circle cx="92" cy="196" r="9"/><circle cx="132" cy="205" r="9"/>
+              <circle cx="40" cy="205" r="9"/><circle cx="206" cy="198" r="9"/>
+            </g>
+            <circle cx="150" cy="90" r="10" fill="#dc2626"/>
+            <circle cx="120" cy="160" r="10" fill="#22c55e"/>
+            <g font-family="Segoe UI,sans-serif" font-size="12" font-weight="700">
+              <text x="252" y="52" fill="#dc2626">Border Point</text>
+              <text x="262" y="140" fill="#0f9f6e">Core Point</text>
+              <text x="262" y="176" fill="#142033">Epsilon</text>
+              <text x="262" y="212" fill="#52657d">Outlier</text>
+            </g>
+            <g stroke="#142033" stroke-width="1.4" fill="none">
+              <path d="M248 48 L162 84"/><path d="M258 136 L134 158"/>
+              <path d="M258 172 L128 152"/><path d="M258 208 L216 200"/>
+            </g>
+          </svg>
+          <figcaption>One radius, three kinds of point.</figcaption>
+        </figure>
+
+        <table class="data-table">
+          <tr><th>Kind</th><th>Definition</th></tr>
+          <tr><td class="term" style="color:#0f9f6e">Core Point</td><td>A point that has <strong>enough points</strong> around it within a range of &epsilon;. It <em>starts</em> the cluster and can draw other points into it.</td></tr>
+          <tr><td class="term" style="color:#dc2626">Border Point</td><td>A point found within the range of a core point, but which does <strong>not</strong> have enough points around it to be a core point itself. It <em>belongs</em> to the cluster but does not create one.</td></tr>
+          <tr><td class="term" style="color:#52657d">Outlier Point</td><td>A point that is not connected to any core point and belongs to no cluster. It is considered <strong>noise</strong> - and DBSCAN knows how to identify it and leave it alone.</td></tr>
+        </table>
+
+        <h3 style="color:var(--blue-dark)">Density reachability and density connectivity</h3>
+        <ul class="task-list">
+          <li><strong>Density reachable:</strong> a point \(p\) is density-reachable from a point \(q\) if \(p\) is found within a range of &epsilon; from \(q\), <em>and</em> \(q\) is a core point. This is a one-directional relationship.</li>
+          <li><strong>Density connected:</strong> two points are density-connected if there exists a <em>chain</em> of core points that joins them - in other words, if you can get from one to the other through a continuous path of core points.</li>
+        </ul>
+        <div class="note blue">
+          That chain is exactly why DBSCAN can trace a crescent. It never asks "is this point near the centre?" - it only ever asks "can I walk to this point, one small &epsilon; step at a time, without leaving a dense region?"
+        </div>
+      </section>
+
+      <!-- 10. ALGORITHM -->
+      <section class="card topic-panel" id="topic-9">
+        <h2 class="step-title">The DBSCAN algorithm</h2>
+        <ol class="task-list">
+          <li>Mark all the points as <strong>unvisited</strong>.</li>
+          <li>Choose a <strong>random</strong> point.</li>
+          <li>If it has <strong>enough neighbours</strong> - start a cluster.</li>
+          <li>Expand the cluster according to all the <strong>reachable</strong> points.</li>
+          <li>If it does <strong>not</strong> have enough neighbours - mark the point as <strong>noise</strong>.</li>
+          <li>Move on to the next point.</li>
+          <li>Finish when you have finished going over all the data.</li>
+        </ol>
+
+        <h3 style="color:var(--blue-dark)">Visual steps, with &epsilon; = 1 and MinPts = 3</h3>
+        <div class="task-box">
+          <span class="task-num">Step 1</span><p>All data points are marked as unvisited.</p>
+        </div>
+        <div class="task-box">
+          <span class="task-num">Step 2</span><p>The algorithm randomly selects a starting data point.</p>
+        </div>
+        <div class="task-box">
+          <span class="task-num">Step 3</span><p>The algorithm tries to expand the cluster by reaching all points within the &epsilon; radius.</p>
+        </div>
+        <div class="task-box">
+          <span class="task-num">Step 4</span><p>The point is considered a <strong>core point</strong> because it has enough points within the &epsilon; radius. MinPts = 3, and there are 3 points in total within the &epsilon; radius <em>including the core point itself</em>.</p>
+        </div>
+        <div class="task-box">
+          <span class="task-num">Step 5</span><p>A point that cannot be reached by any other point from any cluster will be considered an <strong>outlier</strong> point.</p>
+        </div>
+        <div class="note">
+          Note the counting rule in step 4: <strong>MinPts includes the point itself.</strong> With MinPts = 3, a point needs itself plus 2 neighbours inside &epsilon; to become a core point. Getting this off by one is the most common reason a hand-worked DBSCAN disagrees with sklearn.
+        </div>
+      </section>
+
+      <!-- 12. NOTEBOOK -->
+      <section class="card topic-panel" id="topic-11">
+        <h2 class="step-title">The DBSCAN notebook - dbscan_02_09_2026.ipynb</h2>
+        <p>An example of using DBSCAN on three files, each a different shape:</p>
+        <table class="data-table">
+          <tr><td class="term">cluster_blobs.csv</td><td>Round blobs with scattered noise around them</td></tr>
+          <tr><td class="term">cluster_moons.csv</td><td>Two interlocking crescents</td></tr>
+          <tr><td class="term">cluster_circles.csv</td><td>A ring inside a ring</td></tr>
+        </table>
+
+        <pre class="code py"><span class="hl-kw">import</span> numpy <span class="hl-kw">as</span> np
+<span class="hl-kw">import</span> pandas <span class="hl-kw">as</span> pd
+<span class="hl-kw">import</span> matplotlib.pyplot <span class="hl-kw">as</span> plt
+<span class="hl-kw">import</span> seaborn <span class="hl-kw">as</span> sns
+<span class="hl-kw">from</span> sklearn.cluster <span class="hl-kw">import</span> DBSCAN
+
+<span class="hl-com"># Set plot style</span>
+plt.style.use(<span class="hl-str">'seaborn-v0_8'</span>)
+
+<span class="hl-com"># Load dataset</span>
+two_blobs_outliers = pd.read_csv(<span class="hl-str">'cluster_blobs.csv'</span>)
+
+<span class="hl-com"># Display original dataset</span>
+plt.figure(figsize=(<span class="hl-num">10</span>, <span class="hl-num">6</span>))
+sns.scatterplot(data=two_blobs_outliers, x=<span class="hl-str">'X1'</span>, y=<span class="hl-str">'X2'</span>)
+plt.title(<span class="hl-str">'Original Dataset'</span>)
+plt.show()
+
+<span class="hl-com"># Default DBSCAN parameters</span>
+<span class="hl-com"># Missing scale</span>
+model = DBSCAN(eps=<span class="hl-num">0.5</span>, min_samples=<span class="hl-num">5</span>)
+labels = model.fit_predict(two_blobs_outliers)
+
+plt.figure(figsize=(<span class="hl-num">10</span>, <span class="hl-num">6</span>))
+sns.scatterplot(data=two_blobs_outliers, x=<span class="hl-str">'X1'</span>, y=<span class="hl-str">'X2'</span>, hue=labels, palette=<span class="hl-str">'bright'</span>)
+plt.title(<span class="hl-str">'Default DBSCAN (eps=0.5, min_samples=5)'</span>)
+plt.show()
+
+<span class="hl-com"># Count and percentage of outliers</span>
+print(<span class="hl-str">"Default DBSCAN outliers:"</span>)
+print(<span class="hl-str">f"Number of outliers: {np.sum(labels == -1)}"</span>)
+print(<span class="hl-str">f"Percentage of outliers: {100 * np.sum(labels == -1) / len(labels):.2f}%\n"</span>)
+
+display(two_blobs_outliers)
+print(<span class="hl-str">'labels'</span>, labels)</pre>
+        <div class="output"><span class="out-label">output</span>Default DBSCAN outliers:
+Number of outliers: 62
+Percentage of outliers: 4.13%
+
+labels [0 0 1 ... 0 0 1]</div>
+
+        <div class="note blue">
+          <strong>Read the labels array.</strong> DBSCAN does not return a cluster number for every point the way K-Means does. Cluster numbers start at <code>0</code>, and <strong><code>-1</code> means "this point is noise"</strong> - it belongs to nothing. That is why counting outliers is just <code>np.sum(labels == -1)</code>. No other model on this course has a label for "none of the above".
+        </div>
+        <div class="note red">
+          The comment <code># Missing scale</code> in the cell is deliberate - the data was <strong>not</strong> scaled before fitting. Since &epsilon; is a radius measured in the units of the columns, an unscaled table makes a single &epsilon; mean different things in different directions.
+        </div>
+      </section>
+
+      <!-- 13. ELBOW -->
+      <section class="card topic-panel" id="topic-12">
+        <h2 class="step-title">The elbow for choosing eps</h2>
+        <p>Rather than guess &epsilon;, sweep it and watch how many outliers come out:</p>
+        <pre class="code py">eps_range = np.linspace(<span class="hl-num">0.1</span>, <span class="hl-num">2.0</span>, <span class="hl-num">20</span>)
+number_of_outliers = []
+
+<span class="hl-kw">for</span> eps <span class="hl-kw">in</span> eps_range:
+    dbscan = DBSCAN(eps=eps, min_samples=<span class="hl-num">5</span>)
+    labels = dbscan.fit_predict(two_blobs_outliers)
+    number_of_outliers.append(np.sum(labels == -<span class="hl-num">1</span>))
+    <span class="hl-com"># number_of_outliers.append(np.sum(labels == -1) / len(labels) * 100)</span>
+
+<span class="hl-com"># Plot number of outliers vs epsilon</span>
+plt.figure(figsize=(<span class="hl-num">10</span>, <span class="hl-num">6</span>))
+plt.plot(eps_range, number_of_outliers, <span class="hl-str">'o-'</span>, linewidth=<span class="hl-num">2</span>)
+plt.xlabel(<span class="hl-str">'Epsilon'</span>, fontsize=<span class="hl-num">12</span>)
+plt.ylabel(<span class="hl-str">'Number of outliers'</span>, fontsize=<span class="hl-num">12</span>)
+plt.title(<span class="hl-str">'Elbow Method: Number of Outliers vs Epsilon'</span>, fontsize=<span class="hl-num">14</span>)
+plt.grid(<span class="hl-builtin">True</span>)
+plt.show()</pre>
+
+        <figure class="shot" style="max-width:520px;margin:16px auto">
+          <svg viewBox="0 0 460 240" style="display:block;width:100%;height:auto;background:#fff">
+            <line x1="56" y1="20" x2="56" y2="196" stroke="#142033" stroke-width="1.8"/>
+            <line x1="56" y1="196" x2="440" y2="196" stroke="#142033" stroke-width="1.8"/>
+            <polyline fill="none" stroke="#2563eb" stroke-width="2.6"
+              points="70,34 92,58 114,86 136,112 158,134 180,150 202,162 224,170 246,176 268,180 290,183 312,185 334,187 356,188 378,189 400,190 422,190"/>
+            <g fill="#2563eb">
+              <circle cx="70" cy="34" r="3.4"/><circle cx="114" cy="86" r="3.4"/>
+              <circle cx="158" cy="134" r="3.4"/><circle cx="202" cy="162" r="3.4"/>
+              <circle cx="246" cy="176" r="3.4"/><circle cx="290" cy="183" r="3.4"/>
+              <circle cx="334" cy="187" r="3.4"/><circle cx="378" cy="189" r="3.4"/>
+              <circle cx="422" cy="190" r="3.4"/>
+            </g>
+            <circle cx="180" cy="150" r="9" fill="none" stroke="#dc2626" stroke-width="2.2"/>
+            <text x="194" y="140" font-family="Segoe UI,sans-serif" font-size="11" font-weight="700" fill="#dc2626">the elbow</text>
+            <text x="248" y="222" text-anchor="middle" font-family="Segoe UI,sans-serif" font-size="12" font-weight="700" fill="#142033">Epsilon</text>
+            <text x="20" y="110" font-family="Segoe UI,sans-serif" font-size="12" font-weight="700" fill="#142033" transform="rotate(-90 20 110)">Number of outliers</text>
+          </svg>
+          <figcaption>Outliers collapse quickly as &epsilon; grows, then flatten out. Past the bend, raising &epsilon; only glues real clusters together.</figcaption>
+        </figure>
+
+        <div class="note">
+          This is the same shape of reasoning as the K-Means elbow in Lesson 21 - but look at what is on the y-axis. K-Means plotted <strong>inertia</strong>; here we plot the <strong>number of outliers</strong>. Same picture, a different question.
+        </div>
+      </section>
+
+      <!-- 14. GRADIO HELLO -->
+      <section class="card topic-panel" id="topic-13">
+        <h2 class="step-title">Gradio - hello</h2>
+        <p>Every model we have built so far has lived inside a notebook. <strong>Gradio</strong> puts a real web page in front of it - you write a Python function, and Gradio builds the inputs, the outputs and the server for you.</p>
+        <pre class="code">pip install gradio</pre>
+
+        <p><code>00_gradio_main.py</code> - the smallest possible app:</p>
+        <pre class="code py"><span class="hl-kw">import</span> gradio <span class="hl-kw">as</span> gr
+
+<span class="hl-kw">def</span> <span class="hl-fn">greet</span>(name):
+    <span class="hl-kw">return</span> <span class="hl-str">"Hello "</span> + name + <span class="hl-str">"!"</span>
+
+app = gr.Interface(
+    fn=greet, inputs=<span class="hl-str">"text"</span>, outputs=<span class="hl-str">"text"</span>
+)
+
+app.launch()</pre>
+
+        <table class="data-table">
+          <tr><th>Argument</th><th>What it does</th></tr>
+          <tr><td class="term">fn</td><td>The Python function to call. Gradio runs it every time the user submits.</td></tr>
+          <tr><td class="term">inputs</td><td>What to draw above the button. <code>"text"</code> gives a textbox.</td></tr>
+          <tr><td class="term">outputs</td><td>What to draw for the return value.</td></tr>
+          <tr><td class="term">launch()</td><td>Starts a local web server and prints the URL.</td></tr>
+        </table>
+
+        <p><code>01_gradio_hello.py</code> is exactly the same app on a chosen port:</p>
+        <pre class="code py">app.launch(server_port=<span class="hl-num">7862</span>)</pre>
+        <div class="note blue">
+          Useful when the default port is already taken - or when you want to run two apps side by side.
+        </div>
+      </section>
+
+      <!-- 15. GRADIO LINEAR -->
+      <section class="card topic-panel" id="topic-14">
+        <h2 class="step-title">A model with a UI - 02_gradio_linear.py</h2>
+        <p>Now the real thing: a trained <code>LinearRegression</code>, a slider, and a live plot. The model is trained once, when the script starts:</p>
+        <pre class="code py"><span class="hl-kw">import</span> gradio <span class="hl-kw">as</span> gr
+<span class="hl-kw">import</span> numpy <span class="hl-kw">as</span> np
+<span class="hl-kw">import</span> matplotlib.pyplot <span class="hl-kw">as</span> plt
+<span class="hl-kw">from</span> sklearn.linear_model <span class="hl-kw">import</span> LinearRegression
+
+<span class="hl-com"># Training data</span>
+X = np.array([[<span class="hl-num">1</span>], [<span class="hl-num">2</span>], [<span class="hl-num">3</span>], [<span class="hl-num">4</span>], [<span class="hl-num">5</span>],
+              [<span class="hl-num">6</span>], [<span class="hl-num">7</span>], [<span class="hl-num">8</span>], [<span class="hl-num">9</span>], [<span class="hl-num">10</span>]])
+
+y = np.array([<span class="hl-num">3200</span>, <span class="hl-num">3800</span>, <span class="hl-num">4500</span>, <span class="hl-num">5100</span>, <span class="hl-num">5900</span>,
+              <span class="hl-num">6500</span>, <span class="hl-num">7200</span>, <span class="hl-num">7900</span>, <span class="hl-num">8500</span>, <span class="hl-num">9300</span>])
+
+<span class="hl-com"># Train model</span>
+model = LinearRegression()
+
+model.fit(X, y)</pre>
+
+        <p>The function Gradio calls - it predicts <em>and</em> returns a matplotlib figure:</p>
+        <pre class="code py"><span class="hl-kw">def</span> <span class="hl-fn">predict_salary</span>(years):
+
+    prediction = model.predict([[years]])[<span class="hl-num">0</span>]
+
+    <span class="hl-com"># Create graph</span>
+    fig, ax = plt.subplots()
+
+    ax.scatter(X, y, label=<span class="hl-str">"Training data"</span>)
+
+    x_line = np.linspace(<span class="hl-num">0</span>, <span class="hl-num">12</span>, <span class="hl-num">100</span>)
+
+    y_line = model.predict(x_line.reshape(-<span class="hl-num">1</span>, <span class="hl-num">1</span>))
+
+    ax.plot(x_line, y_line, label=<span class="hl-str">"Linear Regression"</span>)
+
+    ax.scatter([years], [prediction], s=<span class="hl-num">100</span>, label=<span class="hl-str">"Prediction"</span>)
+
+    ax.set_xlabel(<span class="hl-str">"Years of experience"</span>)
+    ax.set_ylabel(<span class="hl-str">"Salary"</span>)
+    ax.set_title(<span class="hl-str">"Salary Prediction"</span>)
+    ax.legend()
+
+    <span class="hl-kw">return</span> <span class="hl-str">f"${prediction:,.0f}"</span>, fig</pre>
+
+        <p>And the UI - one slider in, two things out:</p>
+        <pre class="code py">demo = gr.Interface(
+
+    fn=predict_salary,
+
+    inputs=gr.Slider(
+        minimum=<span class="hl-num">0</span>,
+        maximum=<span class="hl-num">12</span>,
+        value=<span class="hl-num">5</span>,
+        step=<span class="hl-num">0.5</span>,
+        label=<span class="hl-str">"Years of Experience"</span>
+    ),
+
+    outputs=[
+        gr.Textbox(label=<span class="hl-str">"Predicted Salary"</span>),
+        gr.Plot(label=<span class="hl-str">"Linear Regression"</span>)
+    ],
+
+    title=<span class="hl-str">"AI Salary Predictor"</span>,
+
+    description=<span class="hl-str">"""
+Move the slider and the Linear Regression model
+will predict the expected salary.
+"""</span>
+)
+
+demo.launch()</pre>
+
+        <table class="data-table">
+          <tr><th>Piece</th><th>Why it matters</th></tr>
+          <tr><td class="term">gr.Slider</td><td>A typed input component instead of the plain <code>"text"</code> string - it constrains what the user can send.</td></tr>
+          <tr><td class="term">outputs=[ ... ]</td><td>A <strong>list</strong> of outputs, so the function returns a <strong>tuple</strong>. Order matters: text first, figure second.</td></tr>
+          <tr><td class="term">gr.Plot</td><td>Accepts a matplotlib figure object directly - no saving to disk.</td></tr>
+          <tr><td class="term">fit outside the function</td><td>Training happens <strong>once</strong> at startup, not on every click. The function only predicts.</td></tr>
+        </table>
+      </section>
+
+      <!-- 16. GRADIO CHAT -->
+      <section class="card topic-panel" id="topic-15">
+        <h2 class="step-title">An LLM chat - 03_gradio_chat.py</h2>
+        <p>The same <code>gr.Interface</code> pattern, but the function now calls a hosted language model through Hugging Face and streams the answer back piece by piece.</p>
+        <pre class="code py"><span class="hl-kw">import</span> gradio <span class="hl-kw">as</span> gr
+<span class="hl-kw">from</span> huggingface_hub <span class="hl-kw">import</span> InferenceClient
+
+HF_TOKEN = <span class="hl-str">"&lt;your-key&gt;"</span>   <span class="hl-com"># from https://huggingface.co/settings/tokens</span>
+
+client = InferenceClient(
+    api_key=HF_TOKEN
+)
+
+
+<span class="hl-kw">def</span> <span class="hl-fn">ask_llm</span>(message):
+
+    stream = client.chat.completions.create(
+        model=<span class="hl-str">"Qwen/Qwen3.8-27B"</span>,
+
+        messages=[
+            {
+                <span class="hl-str">"role"</span>: <span class="hl-str">"system"</span>,
+                <span class="hl-str">"content"</span>: <span class="hl-str">"You are a funny guy"</span>
+            },
+            {
+                <span class="hl-str">"role"</span>: <span class="hl-str">"user"</span>,
+                <span class="hl-str">"content"</span>: message
+            }
+        ],
+
+        max_tokens=<span class="hl-num">300</span>,
+        stream=<span class="hl-builtin">True</span>
+    )
+
+    answer = <span class="hl-str">""</span>
+
+    <span class="hl-kw">for</span> chunk <span class="hl-kw">in</span> stream:
+
+        <span class="hl-com"># Some chunks don't contain choices</span>
+        <span class="hl-kw">if</span> <span class="hl-kw">not</span> chunk.choices:
+            <span class="hl-kw">continue</span>
+
+        text = chunk.choices[<span class="hl-num">0</span>].delta.content
+
+        <span class="hl-kw">if</span> text:
+            answer += text
+            <span class="hl-kw">yield</span> answer</pre>
+
+        <pre class="code py">demo = gr.Interface(
+    fn=ask_llm,
+
+    inputs=gr.Textbox(
+        label=<span class="hl-str">"Ask the LLM"</span>,
+        placeholder=<span class="hl-str">"Explain recursion like I'm 10"</span>,
+        lines=<span class="hl-num">3</span>
+    ),
+
+    outputs=gr.Textbox(
+        label=<span class="hl-str">"LLM Response"</span>,
+        lines=<span class="hl-num">12</span>
+    ),
+
+    title=<span class="hl-str">"Qwen + Hugging Face + Gradio"</span>
+)
+
+demo.launch(share=<span class="hl-builtin">True</span>)</pre>
+
+        <table class="data-table">
+          <tr><th>Piece</th><th>What it does</th></tr>
+          <tr><td class="term">yield instead of return</td><td>The function is a <strong>generator</strong>. Gradio redraws the output every time it yields, so the answer appears to type itself.</td></tr>
+          <tr><td class="term">answer += text</td><td>Each yield sends the <em>whole</em> answer so far, not just the new piece.</td></tr>
+          <tr><td class="term">stream=True</td><td>Asks the API for pieces as they are generated, rather than one finished block at the end.</td></tr>
+          <tr><td class="term">if not chunk.choices</td><td>Some chunks arrive empty - skip them, or the next line crashes.</td></tr>
+          <tr><td class="term">share=True</td><td>Creates a <strong>public</strong> temporary URL, so anyone can try your app.</td></tr>
+        </table>
+
+        <div class="note red">
+          <strong>Never commit your token.</strong> The file has <code>"&lt;your-key&gt;"</code> as a placeholder for a reason. A Hugging Face token pushed to a public repository is a live key that anyone can spend.
+        </div>
+      </section>
+
+      <!-- 17. EXERCISE -->
+      <section class="card topic-panel" id="topic-16">
+        <h2 class="step-title">Exercise</h2>
+        <p>Straight from the last cell of today's notebook:</p>
+        <pre class="code py"><span class="hl-com"># use cluster_moons - draw clusters + elbow</span>
+<span class="hl-com"># Bonus: do it with cluster_circles</span></pre>
+
+        <div class="task-box">
+          <span class="task-num">Task 1</span>
+          <p>Load <code>cluster_moons.csv</code>, run DBSCAN on it, and plot the clusters coloured by <code>labels</code>.</p>
+        </div>
+        <div class="task-box">
+          <span class="task-num">Task 2</span>
+          <p>Build the elbow plot for it - sweep &epsilon; over a range, count the outliers at each value, and use the curve to pick your &epsilon;.</p>
+        </div>
+        <div class="task-box">
+          <span class="task-num">Bonus</span>
+          <p>Do the same with <code>cluster_circles.csv</code> - a ring inside a ring.</p>
+        </div>
+
+        <div class="note green">
+          Both of these are shapes where K-Means <em>cannot</em> win. If your DBSCAN separates the two moons cleanly, you have just done something no model from Lesson 21 could do.
+        </div>
+      </section>
+
+      <footer class="footer">Lesson 23 &middot; September 2, 2026 &middot; Hierarchical Clustering, DBSCAN &amp; Gradio</footer>
+    </main>
+  </div>
+</div>
+
+<script>
+  const links = document.querySelectorAll('.topic-link');
+  const panels = document.querySelectorAll('.topic-panel');
+  links.forEach(btn => {
+    btn.addEventListener('click', () => {
+      links.forEach(b => b.classList.remove('active'));
+      panels.forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(btn.dataset.target).classList.add('active');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  });
+</script>
+
+</body>
+</html>
