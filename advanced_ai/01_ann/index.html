@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Artificial Neural Networks — Neurons, Layers &amp; Backpropagation</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded',function(){
+    renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'\\(',right:'\\)',display:false}],throwOnError:false});
+    if (window.fitMath) fitMath();
+  });</script>
+  <style>
+    .page-layout { display:flex; height:calc(100vh - 54px); overflow:hidden; }
+    .sidebar { width:236px; min-width:236px; height:100%; overflow-y:auto; background:#080b16; border-right:1px solid var(--border); display:flex; flex-direction:column; scrollbar-width:thin; scrollbar-color:var(--border) transparent; flex-shrink:0; }
+    .sidebar-head { padding:20px 18px 14px; font-size:.65rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--border); }
+    .sidebar-nav { padding:8px 0; flex:1; }
+    .s-item { display:flex; align-items:center; gap:11px; padding:10px 18px; cursor:pointer; background:none; border:none; border-left:3px solid transparent; width:100%; text-align:left; transition:background .18s,border-color .18s; }
+    .s-item:hover { background:rgba(255,255,255,.04); }
+    .s-item.active { background:rgba(34,211,238,.08); border-left-color:var(--accent); }
+    .s-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; transition:transform .2s; }
+    .s-item.active .s-dot { transform:scale(1.45); box-shadow:0 0 8px currentColor; }
+    .s-num { font-size:.62rem; color:var(--border); font-family:'Courier New',monospace; font-weight:700; min-width:18px; }
+    .s-item.active .s-num { color:var(--accent); }
+    .s-label { font-size:.79rem; color:var(--muted); font-family:'Courier New',monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .s-item.active .s-label { color:var(--text); }
+    .s-item.done .s-label::after { content:' ✓'; color:var(--green); font-size:.7rem; }
+    .side-sep { border:none; border-top:1px solid var(--border); margin:14px 16px 6px; }
+    .side-part { padding:2px 18px 6px; font-size:.6rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:var(--accent); font-family:'Courier New',monospace; }
+
+    .panel-viewport { flex:1; overflow-y:auto; overflow-x:hidden; position:relative; }
+    .panel { display:none; flex-direction:column; min-height:100%; padding:40px 52px 100px; max-width:830px; margin:0 auto; animation:fadeIn .35s ease; }
+    .panel.active { display:flex; }
+    @keyframes fadeIn { from{opacity:0;transform:translateX(28px)} to{opacity:1;transform:translateX(0)} }
+    .panel.exit { display:flex; animation:fadeOut .25s ease forwards; }
+    @keyframes fadeOut { from{opacity:1;transform:translateX(0)} to{opacity:0;transform:translateX(-28px)} }
+
+    .m-hero { position:relative; height:200px; border-radius:18px; overflow:hidden; margin-bottom:26px; flex-shrink:0; }
+    .m-hero img { width:100%; height:100%; object-fit:cover; filter:brightness(.5) saturate(.8); transition:filter .45s; }
+    .panel.active .m-hero img { filter:brightness(.6) saturate(1.1); }
+    .m-hero-ov { position:absolute; inset:0; padding:26px 30px; display:flex; flex-direction:column; justify-content:flex-end; background:linear-gradient(0deg,rgba(0,0,0,.78) 0%,rgba(0,0,0,.15) 55%,transparent 100%); }
+    .m-breadcrumb { font-size:.62rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:rgba(255,255,255,.4); margin-bottom:5px; }
+    .m-name { font-size:1.7rem; font-weight:900; color:#fff; font-family:'Courier New',monospace; }
+    .m-tagline { font-size:.86rem; color:rgba(255,255,255,.62); margin-top:4px; }
+
+    .pills { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 20px; align-items:center; }
+    .pill { padding:5px 14px; border-radius:999px; font-size:.7rem; font-weight:700; letter-spacing:.06em; }
+    .pill-sig { font-family:'Courier New',monospace; font-size:.74rem; letter-spacing:0; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.12); color:var(--text); }
+    .pill-ret { background:rgba(16,185,129,.1); border:1px solid rgba(16,185,129,.3); color:var(--green); font-family:'Courier New',monospace; letter-spacing:0; }
+    .pill-note { background:rgba(249,115,22,.1); border:1px solid rgba(249,115,22,.3); color:var(--orange); font-family:'Courier New',monospace; font-size:.7rem; }
+    .pill-param { position:relative; cursor:help; transition:filter .18s; }
+    .pill-param:hover { filter:brightness(1.3); }
+    .pill-param .balloon { position:absolute; bottom:calc(100% + 14px); left:50%; transform:translateX(-50%) translateY(6px); width:240px; background:linear-gradient(155deg,#0e2845 0%,#071a2e 100%); border:1.5px solid rgba(34,211,238,.65); border-radius:14px; padding:13px 16px 11px; box-shadow:0 0 0 1px rgba(34,211,238,.1),0 18px 48px rgba(0,0,0,.72),0 0 36px rgba(34,211,238,.07); opacity:0; pointer-events:none; transition:opacity .22s ease,transform .22s ease; z-index:300; }
+    .pill-param:hover .balloon { opacity:1; transform:translateX(-50%) translateY(0); animation:balloonFloat 3s ease-in-out infinite; }
+    @keyframes balloonFloat { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(-5px)} }
+    .balloon-title { font-family:'Courier New',monospace; font-size:.7rem; font-weight:800; color:#22d3ee; letter-spacing:.04em; margin-bottom:6px; display:flex; align-items:center; gap:6px; }
+    .balloon-title::before { content:''; display:inline-block; width:7px; height:7px; border-radius:50%; background:#22d3ee; box-shadow:0 0 6px rgba(34,211,238,.7); flex-shrink:0; }
+    .balloon-body { font-size:.76rem; color:rgba(230,237,243,.78); line-height:1.6; font-family:'Segoe UI',system-ui,sans-serif; font-weight:400; }
+    .pill-param .balloon::after { content:''; position:absolute; bottom:-10px; left:50%; transform:translateX(-50%); border-left:10px solid transparent; border-right:10px solid transparent; border-top:10px solid rgba(34,211,238,.65); }
+    .pill-param .balloon::before { content:''; position:absolute; bottom:-8px; left:50%; transform:translateX(-50%); border-left:9px solid transparent; border-right:9px solid transparent; border-top:9px solid #071a2e; z-index:1; }
+
+    .m-desc { font-size:.95rem; color:var(--muted); line-height:1.75; margin-bottom:14px; }
+    .m-desc code { font-family:'Courier New',monospace; font-size:.88em; padding:1px 6px; border-radius:4px; background:rgba(255,255,255,.06); }
+
+    .demo-box { background:#040611; border:1px solid var(--border); border-radius:14px; padding:22px 22px 18px; margin-top:20px; flex-shrink:0; display:flex; flex-direction:column; }
+    .demo-lbl { font-size:.64rem; font-weight:800; letter-spacing:.13em; text-transform:uppercase; color:var(--muted); margin-bottom:18px; display:flex; align-items:center; gap:8px; }
+    .demo-lbl::before { content:''; width:3px; height:12px; border-radius:2px; background:var(--accent); flex-shrink:0; }
+    .demo-controls { display:flex; flex-wrap:wrap; gap:18px; align-items:flex-end; margin-bottom:18px; }
+    .ctrl { display:flex; flex-direction:column; gap:5px; }
+    .ctrl label { font-size:.69rem; color:var(--muted); font-weight:600; }
+    .ctrl input[type=range] { -webkit-appearance:none; width:150px; height:4px; background:var(--border); border-radius:2px; outline:none; cursor:pointer; }
+    .ctrl input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:15px; height:15px; background:var(--accent); border-radius:50%; cursor:pointer; box-shadow:0 0 6px rgba(34,211,238,.5); }
+    .ctrl input[type=range]::-moz-range-thumb { width:15px; height:15px; background:var(--accent); border:none; border-radius:50%; cursor:pointer; }
+    .ctrl .cval { font-size:.7rem; color:var(--accent); font-family:'Courier New',monospace; font-weight:700; text-align:center; }
+    .demo-canvas-wrap { background:#020509; border-radius:10px; padding:14px; overflow:hidden; min-height:72px; order:4; }
+    canvas { display:block; margin:0 auto; }
+    .demo-out { font-family:'Courier New',monospace; font-size:.8rem; color:#10b981; line-height:1.65; margin-top:0; margin-bottom:14px; padding:11px 15px; background:rgba(16,185,129,.05); border:1px solid rgba(16,185,129,.18); border-radius:8px; white-space:pre-wrap; order:3; }
+
+    .seg { display:inline-flex; border:1px solid var(--border); border-radius:9px; overflow:hidden; flex-wrap:wrap; }
+    .seg button { background:transparent; border:none; color:var(--muted); font-size:.72rem; font-weight:700; font-family:'Courier New',monospace; padding:7px 13px; cursor:pointer; transition:background .18s,color .18s; }
+    .seg button:hover { color:var(--text); background:rgba(255,255,255,.05); }
+    .seg button.on { background:rgba(34,211,238,.14); color:var(--accent); }
+    .play-btn { background:rgba(16,185,129,.12); border:1px solid rgba(16,185,129,.4); color:var(--green); font-family:'Courier New',monospace; font-size:.74rem; font-weight:800; padding:8px 16px; border-radius:9px; cursor:pointer; transition:background .18s,transform .12s; }
+    .play-btn:hover { background:rgba(16,185,129,.22); }
+    .play-btn:active { transform:scale(.96); }
+    .play-btn.alt { background:rgba(167,139,250,.12); border-color:rgba(167,139,250,.4); color:var(--purple); }
+    .play-btn.alt:hover { background:rgba(167,139,250,.22); }
+
+    .panel-nav { display:flex; justify-content:space-between; align-items:center; margin-top:40px; padding-top:24px; border-top:1px solid var(--border); flex-shrink:0; gap:10px; }
+    .pnav-btn { display:flex; align-items:center; gap:9px; padding:10px 20px; border-radius:10px; border:1px solid var(--border); background:transparent; color:var(--muted); font-size:.82rem; font-weight:700; cursor:pointer; transition:color .2s,border-color .2s,background .2s; }
+    .pnav-btn:hover:not(:disabled) { color:var(--text); border-color:var(--accent); background:rgba(34,211,238,.06); }
+    .pnav-btn:disabled { opacity:.28; cursor:default; }
+    .pnav-btn.next { background:rgba(34,211,238,.08); border-color:rgba(34,211,238,.35); color:var(--accent); }
+    .pnav-btn.next:hover { background:rgba(34,211,238,.16); border-color:var(--accent); }
+    .pnav-dots { display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:center; }
+    .pnav-dot { width:7px; height:7px; border-radius:50%; background:var(--border); transition:background .2s,transform .2s; cursor:pointer; border:none; padding:0; }
+    .pnav-dot.active { background:var(--accent); transform:scale(1.4); }
+
+    .overview-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:14px; margin-top:24px; }
+    .ov-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px 16px 16px; cursor:pointer; transition:border-color .2s,box-shadow .2s,transform .18s; display:flex; flex-direction:column; gap:8px; }
+    .ov-card:hover { transform:translateY(-3px); border-color:rgba(34,211,238,.4); box-shadow:0 8px 28px rgba(34,211,238,.08); }
+    .ov-card-num { font-size:.62rem; color:var(--muted); font-weight:800; letter-spacing:.1em; }
+    .ov-card-name { font-size:.9rem; font-family:'Courier New',monospace; font-weight:700; }
+    .ov-card-desc { font-size:.77rem; color:var(--muted); line-height:1.5; }
+
+    @media(max-width:700px){.sidebar{display:none}.panel{padding:20px 16px 80px}}
+    .katex { color: var(--text); }
+    .katex-display { margin: 6px 0; overflow-x: hidden; overflow-y: hidden; padding: 3px 0; }
+    .katex-display > .katex { max-width: none; }
+    .eq-box { background:rgba(59,130,246,.05); border:1px solid rgba(59,130,246,.2); border-radius:12px; padding:16px 20px; margin:16px 0; font-size:1.05rem; }
+    .eq-box.big { font-size:1.32rem; padding:24px 20px; }
+    .eq-box.small { font-size:.95rem; padding:14px 18px; }
+    .eq-box.gold { background:rgba(34,211,238,.05); border-color:rgba(34,211,238,.22); }
+    .eq-box.rose { background:rgba(244,63,94,.05); border-color:rgba(244,63,94,.22); }
+
+    .exercise-header{display:flex;align-items:flex-start;gap:16px;margin-bottom:24px;padding:20px;background:rgba(34,211,238,.06);border:1px solid rgba(34,211,238,.2);border-radius:14px;position:relative;overflow:hidden;}
+    .exercise-header::before{content:'';position:absolute;top:-40px;right:-40px;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,rgba(34,211,238,.1) 0%,transparent 70%);pointer-events:none;}
+    .exercise-badge{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;font-size:1.8rem;font-weight:800;color:#08101f;background:linear-gradient(135deg,#22d3ee,#3b82f6);box-shadow:0 6px 18px rgba(34,211,238,.35);flex-shrink:0;}
+    .ex-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px 16px;margin-bottom:14px;transition:border-color .2s;}
+    .ex-card:hover{border-color:rgba(34,211,238,.3);}
+    .ex-q-head{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+    .ex-num{font-size:.68rem;font-weight:800;letter-spacing:.1em;padding:3px 10px;border-radius:6px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--muted);font-family:'Courier New',monospace;}
+    .ex-task{font-size:.88rem;color:var(--muted);margin-bottom:10px;line-height:1.6;}
+    .ex-task code{font-family:'Courier New',monospace;font-size:.85em;padding:1px 6px;border-radius:4px;background:rgba(255,255,255,.06);}
+    details.hint{margin-top:10px;}
+    details.hint summary{cursor:pointer;font-size:.78rem;color:var(--accent);font-weight:700;}
+
+    .legend { display:flex; flex-wrap:wrap; gap:16px; justify-content:center; margin-bottom:10px; }
+    .lg { display:flex; align-items:center; gap:7px; font-size:.72rem; font-family:'Courier New',monospace; color:var(--muted); font-weight:700; }
+    .lg i { width:11px; height:11px; border-radius:50%; display:inline-block; }
+
+    .steps { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; margin:20px 0 6px; }
+    .step { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px 16px 14px; position:relative; overflow:hidden; transition:transform .2s,border-color .2s; }
+    .step:hover { transform:translateY(-3px); }
+    .step::after { content:attr(data-n); position:absolute; right:10px; bottom:-14px; font-size:3.4rem; font-weight:900; font-family:'Courier New',monospace; color:rgba(255,255,255,.04); line-height:1; }
+    .step h4 { font-size:.86rem; margin-bottom:6px; font-family:'Courier New',monospace; }
+    .step p { font-size:.78rem; color:var(--muted); line-height:1.55; }
+    .step.a { border-color:rgba(59,130,246,.32); } .step.a h4 { color:var(--blue); }
+    .step.b { border-color:rgba(34,211,238,.32); } .step.b h4 { color:var(--accent); }
+    .step.c { border-color:rgba(16,185,129,.32); } .step.c h4 { color:var(--green); }
+    .step.d { border-color:rgba(236,72,153,.32); } .step.d h4 { color:var(--pink); }
+    .step.e { border-color:rgba(167,139,250,.32); } .step.e h4 { color:var(--purple); }
+
+    .pc-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:18px 0; }
+    @media(max-width:640px){ .pc-grid{grid-template-columns:1fr} }
+    .pc { border-radius:14px; border:1px solid var(--border); padding:18px 20px 14px; }
+    .pc h4 { font-size:.9rem; margin-bottom:12px; font-family:'Courier New',monospace; display:flex; align-items:center; gap:8px; }
+    .pc ol,.pc ul { margin:0; padding-left:20px; }
+    .pc li { font-size:.82rem; color:var(--muted); line-height:1.6; margin-bottom:7px; }
+    .pc.good { border-color:rgba(16,185,129,.3); background:rgba(16,185,129,.04); } .pc.good h4 { color:var(--green); }
+    .pc.bad  { border-color:rgba(244,63,94,.3);  background:rgba(244,63,94,.04); }  .pc.bad h4  { color:#f43f5e; }
+
+    .kbox { border:1px solid var(--border); border-radius:14px; padding:16px 18px 14px; background:var(--surface); margin-bottom:12px; }
+    .kbox h4 { font-family:'Courier New',monospace; font-size:.92rem; margin-bottom:6px; display:flex; align-items:center; gap:9px; }
+    .kbox p.body { font-size:.82rem; color:var(--muted); line-height:1.6; margin-top:6px; }
+
+    /* pixel-grid drawing canvas for the digit demo */
+    #cv-pixels { cursor:crosshair; touch-action:none; border-radius:8px; }
+    .digit-samples { display:flex; flex-wrap:wrap; gap:6px; }
+    .digit-samples button { width:34px; height:34px; border-radius:8px; border:1px solid var(--border); background:var(--surface); color:var(--muted); font-family:'Courier New',monospace; font-weight:800; cursor:pointer; transition:.15s; }
+    .digit-samples button:hover { border-color:var(--accent); color:var(--accent); }
+  </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">← Advanced AI</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item active" href="index.html">01 · ANN</a>
+  </div>
+</nav>
+
+<div class="page-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-head">Artificial Neural Networks</div>
+    <nav class="sidebar-nav">
+      <button class="s-item active" data-panel="0" onclick="goTo(0)"><span class="s-num">00</span><span class="s-dot" style="background:#a78bfa"></span><span class="s-label">Overview</span></button>
+      <button class="s-item" data-panel="1" onclick="goTo(1)"><span class="s-num">01</span><span class="s-dot" style="background:#22d3ee"></span><span class="s-label">Deep Learning</span></button>
+      <button class="s-item" data-panel="2" onclick="goTo(2)"><span class="s-num">02</span><span class="s-dot" style="background:#f97316"></span><span class="s-label">Neuron → network</span></button>
+      <button class="s-item" data-panel="3" onclick="goTo(3)"><span class="s-num">03</span><span class="s-dot" style="background:#f43f5e"></span><span class="s-label">The artificial neuron</span></button>
+      <button class="s-item" data-panel="4" onclick="goTo(4)"><span class="s-num">04</span><span class="s-dot" style="background:#3b82f6"></span><span class="s-label">Activation functions</span></button>
+      <button class="s-item" data-panel="5" onclick="goTo(5)"><span class="s-num">05</span><span class="s-dot" style="background:#10b981"></span><span class="s-label">Weight init</span></button>
+      <button class="s-item" data-panel="6" onclick="goTo(6)"><span class="s-num">06</span><span class="s-dot" style="background:#a78bfa"></span><span class="s-label">Hidden layers</span></button>
+      <button class="s-item" data-panel="7" onclick="goTo(7)"><span class="s-num">07</span><span class="s-dot" style="background:#f43f5e"></span><span class="s-label">Cost functions</span></button>
+      <button class="s-item" data-panel="8" onclick="goTo(8)"><span class="s-num">08</span><span class="s-dot" style="background:#22d3ee"></span><span class="s-label">Backpropagation</span></button>
+      <button class="s-item" data-panel="9" onclick="goTo(9)"><span class="s-num">09</span><span class="s-dot" style="background:#f97316"></span><span class="s-label">Gradient descent</span></button>
+      <button class="s-item" data-panel="10" onclick="goTo(10)"><span class="s-num">10</span><span class="s-dot" style="background:#3b82f6"></span><span class="s-label">TensorFlow &amp; Keras</span></button>
+      <button class="s-item" data-panel="11" onclick="goTo(11)"><span class="s-num">11</span><span class="s-dot" style="background:#10b981"></span><span class="s-label">Code: 1-neuron ANN</span></button>
+      <button class="s-item" data-panel="12" onclick="goTo(12)"><span class="s-num">12</span><span class="s-dot" style="background:#22d3ee"></span><span class="s-label">Digit recognizer</span></button>
+      <button class="s-item" data-panel="13" onclick="goTo(13)"><span class="s-num">13</span><span class="s-dot" style="background:#10b981"></span><span class="s-label">Pros &amp; cons</span></button>
+      <button class="s-item" data-panel="14" onclick="goTo(14)"><span class="s-num">14</span><span class="s-dot" style="background:#fbbf24"></span><span class="s-label">Exercises</span></button>
+      <hr class="side-sep">
+      <div class="side-part">Appendix</div>
+      <button class="s-item" data-panel="15" onclick="goTo(15)"><span class="s-num">A1</span><span class="s-dot" style="background:#f43f5e"></span><span class="s-label">Why depth matters</span></button>
+      <button class="s-item" data-panel="16" onclick="goTo(16)"><span class="s-num">A2</span><span class="s-dot" style="background:#a78bfa"></span><span class="s-label">Keras cheat-sheet</span></button>
+      <hr class="side-sep">
+      <a class="s-item" style="text-decoration:none" href="../lessons/01_lesson/index.html"><span class="s-num">→</span><span class="s-dot" style="background:#22c55e"></span><span class="s-label">Lesson code</span></a>
+    </nav>
+  </aside>
+
+  <!-- PANEL VIEWPORT -->
+  <div class="panel-viewport" id="viewport">
+
+    <!-- ══ PANEL 0: Overview ══ -->
+    <div class="panel active" id="panel-0">
+      <div class="hero" style="margin-bottom:36px;">
+        <span class="topic-label"><span class="dot"></span>Advanced AI · Topic 01 · Artificial Neural Networks</span>
+        <h1>Artificial Neural Networks</h1>
+        <p>A neuron takes numbers in, multiplies each by a weight, adds a bias, and squeezes the result through a nonlinear gate. Stack enough of them in layers and the whole thing can learn to see, to speak, or to recognize a handwritten digit. Watch the signal flow through one right now:</p>
+        <div class="demo-canvas-wrap" style="background:#020509;border-radius:12px;padding:14px;position:relative;z-index:1;"><canvas id="cv-overview" height="220"></canvas></div>
+      </div>
+      <div class="overview-grid" style="margin-top:0;">
+        <div class="ov-card" onclick="goTo(1)"><div class="ov-card-num">01 / 12</div><div class="ov-card-name" style="color:#22d3ee">Deep Learning</div><div class="ov-card-desc">What it is, and where it already runs your life.</div></div>
+        <div class="ov-card" onclick="goTo(2)"><div class="ov-card-num">02 / 12</div><div class="ov-card-name" style="color:#f97316">Neuron → network</div><div class="ov-card-desc">Biological inspiration, and the 3-layer picture.</div></div>
+        <div class="ov-card" onclick="goTo(3)"><div class="ov-card-num">03 / 12</div><div class="ov-card-name" style="color:#f43f5e">The artificial neuron</div><div class="ov-card-desc">Inputs, weights, bias, activation — live and draggable.</div></div>
+        <div class="ov-card" onclick="goTo(4)"><div class="ov-card-num">04 / 12</div><div class="ov-card-name" style="color:#3b82f6">Activation functions</div><div class="ov-card-desc">Step, sigmoid, tanh, ReLU, softmax — plotted live.</div></div>
+        <div class="ov-card" onclick="goTo(6)"><div class="ov-card-num">05 / 12</div><div class="ov-card-name" style="color:#a78bfa">Hidden layers</div><div class="ov-card-desc">Why depth lets a network learn curved boundaries.</div></div>
+        <div class="ov-card" onclick="goTo(7)"><div class="ov-card-num">06 / 12</div><div class="ov-card-name" style="color:#f43f5e">Cost functions</div><div class="ov-card-desc">MSE for numbers, cross-entropy for classes.</div></div>
+        <div class="ov-card" onclick="goTo(8)"><div class="ov-card-num">07 / 12</div><div class="ov-card-name" style="color:#22d3ee">Backpropagation</div><div class="ov-card-desc">How the error teaches every weight in the net.</div></div>
+        <div class="ov-card" onclick="goTo(11)"><div class="ov-card-num">08 / 12</div><div class="ov-card-name" style="color:#10b981">Code: 1-neuron ANN</div><div class="ov-card-desc">The exact Keras model from the lesson, corrected.</div></div>
+        <div class="ov-card" onclick="goTo(12)"><div class="ov-card-num">09 / 12</div><div class="ov-card-name" style="color:#22d3ee">Digit recognizer</div><div class="ov-card-desc">A real trained network. Draw a digit. Watch it think.</div></div>
+        <div class="ov-card" onclick="goTo(14)"><div class="ov-card-num">10 / 12</div><div class="ov-card-name" style="color:#fbbf24">Exercises</div><div class="ov-card-desc">Your turn — neurons, activations, gradients.</div></div>
+        <div class="ov-card" onclick="goTo(15)"><div class="ov-card-num">APPENDIX A1</div><div class="ov-card-name" style="color:#f43f5e">Why depth matters</div><div class="ov-card-desc">XOR: the problem a single neuron can never solve.</div></div>
+        <div class="ov-card" onclick="goTo(16)"><div class="ov-card-num">APPENDIX A2</div><div class="ov-card-name" style="color:#a78bfa">Keras cheat-sheet</div><div class="ov-card-desc">Sequential, Dense, compile, fit — one page.</div></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" disabled>← Prev</button>
+        <div class="pnav-dots" id="dots-0"></div>
+        <button class="pnav-btn next" onclick="goTo(1)">Deep Learning →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 1: What is Deep Learning ══ -->
+    <div class="panel" id="panel-1">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=900&q=75&fit=crop&h=200" alt="Neural network illustration" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">ANN 01 / 12 · The Big Picture</div>
+          <div class="m-name">What is Deep Learning</div>
+          <div class="m-tagline">Layered networks that learn their own features — no hand-tuned rules</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">ANN · CNN · RNN · Transformer</span>
+        <span class="pill pill-ret">→ a family of layered models</span>
+      </div>
+      <p class="m-desc"><strong>Deep learning</strong> is the branch of machine learning built on layered neural networks — networks deep enough that each layer learns a more abstract pattern than the one before it, without anyone hand-coding what a "pattern" should look like.</p>
+      <div class="callout blue">
+        🐱 <strong>Example.</strong> To recognize a picture of a cat, nobody writes rules like "look for pointy ears." A deep network is shown thousands of labelled cat photos and <em>discovers</em> the features itself — edges in the first layers, textures and shapes in the middle, whole cat-like patterns near the output.
+      </div>
+      <p class="m-desc">In practice, this is already running quietly behind a lot of what you touch every day:</p>
+      <div class="grid-2">
+        <div class="card blue show"><div class="card-icon">🖼️</div><h4>Image recognition</h4><p><strong>CNNs</strong> (Convolutional Neural Networks) classify objects and faces at close to human accuracy.</p></div>
+        <div class="card green show"><div class="card-icon">🎙️</div><h4>Speech recognition</h4><p>Alexa, Siri and Google Assistant use deep networks to turn sound waves into words.</p></div>
+        <div class="card purple show"><div class="card-icon">📝</div><h4>Language (NLP)</h4><p>Translation, summarization and chat run on <strong>Transformers</strong> — networks that use <em>attention</em> to weigh which earlier words matter most for the next one.</p></div>
+        <div class="card orange show"><div class="card-icon">🚗</div><h4>Self-driving cars</h4><p>Deep networks read lane lines, signs and pedestrians from camera and lidar frames, frame by frame.</p></div>
+      </div>
+      <div class="callout orange">
+        📌 <strong>Where this deck fits.</strong> Everything above is built from the same tiny unit: the <strong>artificial neuron</strong>. A Transformer is not a different kind of atom — it is the same weighted-sum-then-activation idea, arranged in a much fancier pattern. Panel 03 is where that atom lives.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(0)">← Overview</button>
+        <div class="pnav-dots" id="dots-1"></div>
+        <button class="pnav-btn next" onclick="goTo(2)">Neuron → network →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 2: Neuron → network ══ -->
+    <div class="panel" id="panel-2">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1507413245164-6160d8298b31?w=900&q=75&fit=crop&h=200" alt="Brain and network" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">ANN 02 / 12 · The Idea</div>
+          <div class="m-name">From neuron to network</div>
+          <div class="m-tagline">Biology's rough sketch, rebuilt as arithmetic</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">Input Layer → Hidden Layer(s) → Output Layer</span>
+        <span class="pill pill-ret">→ a prediction</span>
+      </div>
+      <p class="m-desc">A biological neuron receives electrical/chemical signals from other neurons, and if the combined signal is strong enough, it "fires" and passes a signal onward. An <strong>Artificial Neural Network (ANN)</strong> copies the shape of that idea, not the biology: every neuron receives inputs, weighs them, adds them up, and fires through an activation function.</p>
+      <p class="m-desc">Every ANN is built from three kinds of layers:</p>
+      <table class="dt">
+        <thead><tr><th class="blue">layer</th><th class="blue">job</th></tr></thead>
+        <tbody>
+          <tr class="show"><td><strong>Input layer</strong></td><td>Receives the raw features — one neuron per feature, no computation.</td></tr>
+          <tr class="show"><td><strong>Hidden layer(s)</strong></td><td>Neurons that combine the previous layer's outputs into new, more useful features.</td></tr>
+          <tr class="show"><td><strong>Output layer</strong></td><td>Produces the final answer — one number for regression, or one score per class.</td></tr>
+        </tbody>
+      </table>
+      <p class="m-desc">A concrete example — predicting a house's price from four features:</p>
+      <div class="demo-box">
+        <div class="demo-lbl">The picture from the lesson, redrawn</div>
+        <div class="demo-canvas-wrap">
+          <svg viewBox="0 0 640 260" style="width:100%;height:auto;display:block">
+            <g font-family="Courier New,monospace" font-size="12" fill="#e7ecff">
+              <text x="10" y="30">Area (ft²)</text><text x="10" y="90">Bedrooms</text><text x="10" y="150">Distance to city</text><text x="10" y="210">Age</text>
+            </g>
+            <g stroke="rgba(139,148,215,.35)" stroke-width="1.2" fill="none">
+              <line x1="150" y1="26" x2="330" y2="55"/><line x1="150" y1="26" x2="330" y2="105"/><line x1="150" y1="26" x2="330" y2="155"/><line x1="150" y1="26" x2="330" y2="205"/>
+              <line x1="150" y1="86" x2="330" y2="55"/><line x1="150" y1="86" x2="330" y2="105"/><line x1="150" y1="86" x2="330" y2="155"/><line x1="150" y1="86" x2="330" y2="205"/>
+              <line x1="150" y1="146" x2="330" y2="55"/><line x1="150" y1="146" x2="330" y2="105"/><line x1="150" y1="146" x2="330" y2="155"/><line x1="150" y1="146" x2="330" y2="205"/>
+              <line x1="150" y1="206" x2="330" y2="55"/><line x1="150" y1="206" x2="330" y2="105"/><line x1="150" y1="206" x2="330" y2="155"/><line x1="150" y1="206" x2="330" y2="205"/>
+              <line x1="330" y1="55" x2="470" y2="130"/><line x1="330" y1="105" x2="470" y2="130"/><line x1="330" y1="155" x2="470" y2="130"/><line x1="330" y1="205" x2="470" y2="130"/>
+              <line x1="470" y1="130" x2="560" y2="130"/>
+            </g>
+            <g>
+              <circle cx="150" cy="26" r="16" fill="#f97316"/><circle cx="150" cy="86" r="16" fill="#f97316"/><circle cx="150" cy="146" r="16" fill="#f97316"/><circle cx="150" cy="206" r="16" fill="#f97316"/>
+              <circle cx="330" cy="55" r="15" fill="#22d3ee"/><circle cx="330" cy="105" r="15" fill="#22d3ee"/><circle cx="330" cy="155" r="15" fill="#22d3ee"/><circle cx="330" cy="205" r="15" fill="#22d3ee"/>
+              <circle cx="470" cy="130" r="16" fill="#a78bfa"/>
+              <circle cx="560" cy="130" r="17" fill="#f43f5e"/>
+            </g>
+            <g font-family="Courier New,monospace" font-size="11" fill="#0b0f1a" text-anchor="middle" font-weight="bold">
+              <text x="150" y="30">x1</text><text x="150" y="90">x2</text><text x="150" y="150">x3</text><text x="150" y="210">x4</text>
+              <text x="470" y="134">Σφ</text><text x="560" y="134" fill="#fff">y</text>
+            </g>
+            <text x="600" y="134" font-family="Courier New,monospace" font-size="12" fill="#e7ecff">price</text>
+            <g font-family="Courier New,monospace" font-size="10" fill="rgba(231,236,255,.5)" text-anchor="middle">
+              <text x="150" y="240">input layer</text><text x="330" y="240">hidden layer</text><text x="560" y="240">output</text>
+            </g>
+          </svg>
+        </div>
+      </div>
+      <div class="callout green">
+        💡 <strong>Read it left to right.</strong> Four raw numbers go in. Every hidden neuron sees <em>all four</em> and combines them its own way. The output neuron combines all the hidden neurons' answers into one number: the predicted price.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(1)">← Deep Learning</button>
+        <div class="pnav-dots" id="dots-2"></div>
+        <button class="pnav-btn next" onclick="goTo(3)">The artificial neuron →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 3: The artificial neuron ══ -->
+    <div class="panel" id="panel-3">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?w=900&q=75&fit=crop&h=200" alt="Circuit close-up" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">ANN 03 / 12 · The Mathematics</div>
+          <div class="m-name">The artificial neuron</div>
+          <div class="m-tagline">Weighted sum, plus a bias, through an activation function</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">y = φ(w·x + b)</span>
+        <span class="pill pill-param" style="background:rgba(16,185,129,.1);color:var(--green);border:1px solid rgba(16,185,129,.28);">weights
+          <span class="balloon"><span class="balloon-title">weights — what the model learns</span><span class="balloon-body">One weight per input. Training is nothing but nudging these numbers until the error shrinks.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(167,139,250,.1);color:var(--purple);border:1px solid rgba(167,139,250,.28);">bias
+          <span class="balloon"><span class="balloon-title">bias b</span><span class="balloon-body">A free constant added to the sum. It lets the neuron fire even when every input is 0, and shifts where it switches on.</span></span>
+        </span>
+      </div>
+      <p class="m-desc">A neuron does exactly two things, in order:</p>
+      <div class="steps">
+        <div class="step a" data-n="1"><h4>1 · Weighted sum</h4><p>Multiply every input by its own weight, add them up, and add a <strong>bias</strong>: \(z = w_1x_1+w_2x_2+\dots+w_mx_m+b\).</p></div>
+        <div class="step b" data-n="2"><h4>2 · Activation</h4><p>Pass <code>z</code> through a nonlinear function <code>φ</code>. That single squeeze is what lets a whole network describe curves, not just straight lines.</p></div>
+      </div>
+      <div class="eq-box big" style="text-align:center;">
+        $$z=\sum_{i=1}^{m}w_ix_i+b \qquad\qquad y=\phi(z)$$
+      </div>
+      <div class="callout orange">
+        ⚠️ <strong>Correcting the textbook diagram.</strong> The usual neuron picture draws \(z=\sum w_ix_i\) and leaves the bias out entirely. Every real framework — including Keras' <code>Dense</code> layer — adds a trainable bias by default (<code>use_bias=True</code>). Without it, every neuron's decision boundary would be forced through the origin, which is almost never where the data actually splits. Always assume <code>b</code> is there unless a diagram says otherwise.
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — one real neuron. Move the inputs, weights and bias.</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>x₁</label><input type="range" min="-2" max="2" value="1" step="0.1" id="nr-x1" oninput="drawNeuron()"><span class="cval" id="nr-x1v">1.0</span></div>
+          <div class="ctrl"><label>x₂</label><input type="range" min="-2" max="2" value="0.5" step="0.1" id="nr-x2" oninput="drawNeuron()"><span class="cval" id="nr-x2v">0.5</span></div>
+          <div class="ctrl"><label>x₃</label><input type="range" min="-2" max="2" value="-1" step="0.1" id="nr-x3" oninput="drawNeuron()"><span class="cval" id="nr-x3v">-1.0</span></div>
+          <div class="ctrl"><label>w₁</label><input type="range" min="-4" max="4" value="1.5" step="0.1" id="nr-w1" oninput="drawNeuron()"><span class="cval" id="nr-w1v">1.5</span></div>
+          <div class="ctrl"><label>w₂</label><input type="range" min="-4" max="4" value="-2" step="0.1" id="nr-w2" oninput="drawNeuron()"><span class="cval" id="nr-w2v">-2.0</span></div>
+          <div class="ctrl"><label>w₃</label><input type="range" min="-4" max="4" value="1" step="0.1" id="nr-w3" oninput="drawNeuron()"><span class="cval" id="nr-w3v">1.0</span></div>
+          <div class="ctrl"><label>bias b</label><input type="range" min="-4" max="4" value="0.5" step="0.1" id="nr-b" oninput="drawNeuron()"><span class="cval" id="nr-bv">0.5</span></div>
+        </div>
+        <div style="margin-bottom:14px;"><span class="seg" id="neuron-seg">
+          <button class="on" onclick="setNeuronAct('sigmoid',this)">sigmoid</button><button onclick="setNeuronAct('relu',this)">relu</button><button onclick="setNeuronAct('tanh',this)">tanh</button><button onclick="setNeuronAct('step',this)">step</button><button onclick="setNeuronAct('linear',this)">linear</button>
+        </span></div>
+        <div class="demo-out" id="out-neuron"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-neuron" height="220"></canvas></div>
+      </div>
+      <div class="callout green">
+        💡 <strong>Green lines pull the output up, red lines pull it down.</strong> Line thickness is how much that weight matters right now. This is the entire computation inside every one of the thousands of neurons in a real network — just repeated, and stacked in layers.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(2)">← Neuron → network</button>
+        <div class="pnav-dots" id="dots-3"></div>
+        <button class="pnav-btn next" onclick="goTo(4)">Activation functions →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 4: Activation functions ══ -->
+    <div class="panel" id="panel-4">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=900&q=75&fit=crop&h=200" alt="Curved light trails" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">ANN 04 / 12 · The Mathematics</div>
+          <div class="m-name">Activation functions</div>
+          <div class="m-tagline">The one ingredient that lets depth mean anything at all</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">φ(z)</span>
+        <span class="pill pill-note">without it, any depth of network collapses to one straight line</span>
+      </div>
+      <p class="m-desc">If every neuron just passed its sum straight through, stacking 100 layers would be mathematically identical to stacking <strong>one</strong> — a linear function of a linear function is still linear. The activation function is what lets a network bend, curve and separate shapes a straight line never could.</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — pick a function, drag the input</div>
+        <div class="demo-controls">
+          <span class="seg" id="act-seg">
+            <button class="on" onclick="setAct('sigmoid',this)">sigmoid</button>
+            <button onclick="setAct('relu',this)">relu</button>
+            <button onclick="setAct('tanh',this)">tanh</button>
+            <button onclick="setAct('step',this)">step</button>
+            <button onclick="setAct('linear',this)">linear</button>
+          </span>
+          <div class="ctrl"><label>input z</label><input type="range" min="-6" max="6" value="0" step="0.1" id="act-x" oninput="drawActivation()"><span class="cval" id="act-xv">0.0</span></div>
+        </div>
+        <div class="eq-box small" id="act-formula" style="text-align:center;">$$\phi(z)=\dfrac{1}{1+e^{-z}}$$</div>
+        <div class="demo-out" id="out-act"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-act" height="260"></canvas></div>
+      </div>
+      <table class="dt" style="margin-top:24px;">
+        <thead><tr><th class="blue">function</th><th class="blue">range</th><th class="blue">used for</th></tr></thead>
+        <tbody>
+          <tr class="show"><td><strong>Step</strong></td><td>{0, 1}</td><td>Historical only — not differentiable, can't be trained by gradient descent.</td></tr>
+          <tr class="show"><td><strong>Sigmoid</strong></td><td>(0, 1)</td><td>Output layer of a binary classifier — reads directly as a probability.</td></tr>
+          <tr class="show"><td><strong>Tanh</strong></td><td>(-1, 1)</td><td>Hidden layers, when a zero-centred output helps the next layer.</td></tr>
+          <tr class="show"><td><strong>ReLU</strong></td><td>[0, ∞)</td><td>The default for hidden layers in almost every modern network — cheap and trains fast.</td></tr>
+          <tr class="show"><td><strong>Linear</strong></td><td>(-∞, ∞)</td><td>Output layer of a regression model — the prediction can be any real number.</td></tr>
+        </tbody>
+      </table>
+      <div class="callout orange">
+        🚨 <strong>Correcting a common diagram — softmax is not this shape.</strong> Slides often draw "the softmax function" as a single S-curve like sigmoid. That's misleading: softmax has no meaning for one number. It takes a <strong>whole vector</strong> of scores (one per class) and turns them into probabilities that sum to 1. Try it below with three classes:
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — Softmax over 3 classes (a "cat / dog / horse" output layer)</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>logit — cat</label><input type="range" min="-3" max="3" value="2" step="0.1" id="sm-z1" oninput="drawSoftmax()"><span class="cval" id="sm-z1v">2.0</span></div>
+          <div class="ctrl"><label>logit — dog</label><input type="range" min="-3" max="3" value="0.5" step="0.1" id="sm-z2" oninput="drawSoftmax()"><span class="cval" id="sm-z2v">0.5</span></div>
+          <div class="ctrl"><label>logit — horse</label><input type="range" min="-3" max="3" value="-1" step="0.1" id="sm-z3" oninput="drawSoftmax()"><span class="cval" id="sm-z3v">-1.0</span></div>
+        </div>
+        <div class="eq-box small" style="text-align:center;">$$\text{softmax}(z)_k=\dfrac{e^{z_k}}{\sum_j e^{z_j}}$$</div>
+        <div class="demo-out" id="out-softmax"></div>
+        <div class="demo-canvas-wrap"><div id="sm-bars" style="padding:6px 10px;"></div></div>
+      </div>
+      <script>document.addEventListener('DOMContentLoaded',()=>setTimeout(drawSoftmax,80));</script>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(3)">← The artificial neuron</button>
+        <div class="pnav-dots" id="dots-4"></div>
+        <button class="pnav-btn next" onclick="goTo(5)">Weight init →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 5: Weight initialization ══ -->
+    <div class="panel" id="panel-5">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1518133910546-b6c2fb7d79e3?w=900&q=75&fit=crop&h=200" alt="Random dice / dots" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">ANN 05 / 12 · Training Setup</div>
+          <div class="m-name">Weight initialization</div>
+          <div class="m-tagline">Before the first training step, the weights have to start somewhere</div>
+        </div>
+      </div>
+      <p class="m-desc">Weights are set to small random values before training begins. Two classic distributions to draw them from:</p>
+      <div class="grid-2">
+        <div class="card blue show"><div class="card-icon">🎲</div><h4>Uniform</h4><p>Every value between two bounds (e.g. -1 to 1) is equally likely.</p></div>
+        <div class="card green show"><div class="card-icon">🎯</div><h4>Normal</h4><p>Bell-curve distributed — most values land near a mean of 0 with a small standard deviation.</p></div>
+      </div>
+      <div class="callout blue">
+        💡 <strong>Why not just zero?</strong> If every weight starts at 0, every neuron in a layer computes the exact same output and receives the exact same gradient — they'd stay identical forever. Randomness is what lets neurons specialize.
+      </div>
+      <div class="callout orange">
+        ⚠️ <strong>Correcting the "just pick -1 to 1" advice.</strong> Plain uniform or normal init with a fixed range works for a toy example, but it doesn't scale: a deep network initialized this way tends to blow up or vanish layer by layer. Real frameworks scale the random range to the layer's size:
+        <ul style="margin:10px 0 0 20px;color:var(--muted);font-size:.88rem;line-height:1.8;">
+          <li><strong>Glorot / Xavier init</strong> — the default for <code>Dense</code> layers in Keras. Scales the variance by <code>1/fan_in</code>, tuned for sigmoid/tanh.</li>
+          <li><strong>He init</strong> — the standard pairing for ReLU layers. Scales variance by <code>2/fan_in</code> to account for ReLU zeroing out half its inputs on average.</li>
+        </ul>
+        In other words: when you call <code>Dense(16, activation='relu')</code> in Keras and initialize nothing yourself, you are already using a smarter scheme than "uniform between -1 and 1" — Keras' default is <code>glorot_uniform</code>, and swapping in <code>kernel_initializer='he_normal'</code> is the textbook pairing for ReLU.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(4)">← Activation functions</button>
+        <div class="pnav-dots" id="dots-5"></div>
+        <button class="pnav-btn next" onclick="goTo(6)">Hidden layers →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 6: Hidden layers & depth ══ -->
+    <div class="panel" id="panel-6">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1655393001768-d946c97d6fd1?w=900&q=75&fit=crop&h=200" alt="Layered abstract structure" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">ANN 06 / 12 · Architecture</div>
+          <div class="m-name">Hidden layers &amp; depth</div>
+          <div class="m-tagline">Layers the world never sees directly — and why more can help</div>
+        </div>
+      </div>
+      <p class="m-desc">A layer is called <strong>hidden</strong> because it is neither the input you feed in nor the output you read out — it exists purely to reshape the data into something the next layer can use better.</p>
+      <table class="dt">
+        <thead><tr><th class="blue">inside every hidden neuron</th><th class="blue">what happens</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>receive</td><td>Every output value from the previous layer.</td></tr>
+          <tr class="show"><td>weigh</td><td>Its own learned weight per incoming connection.</td></tr>
+          <tr class="show"><td>combine</td><td>Sum the weighted inputs, add its bias.</td></tr>
+          <tr class="show"><td>activate</td><td>Squeeze through φ, and pass the result to the next layer.</td></tr>
+        </tbody>
+      </table>
+      <div class="pc-grid">
+        <div class="pc good">
+          <h4>✅ what more layers/neurons buy you</h4>
+          <ul>
+            <li>Room to represent genuinely nonlinear, curved boundaries.</li>
+            <li>Later layers can build on features earlier layers already found.</li>
+          </ul>
+        </div>
+        <div class="pc bad">
+          <h4>⚠️ the price of too many</h4>
+          <ul>
+            <li>More parameters to train — slower, more data-hungry.</li>
+            <li>A network large enough can simply memorize the training set instead of learning the pattern (overfitting).</li>
+          </ul>
+        </div>
+      </div>
+      <div class="callout green">
+        💡 The appendix (A1) makes "why hidden layers matter" concrete: a single neuron provably cannot solve the XOR problem, no matter how its weights are set — one hidden layer solves it exactly.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(5)">← Weight init</button>
+        <div class="pnav-dots" id="dots-6"></div>
+        <button class="pnav-btn next" onclick="goTo(7)">Cost functions →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 7: Cost functions ══ -->
+    <div class="panel" id="panel-7">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1543286386-713bdd548da4?w=900&q=75&fit=crop&h=200" alt="Target / precision" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">ANN 07 / 12 · Training</div>
+          <div class="m-name">Cost functions</div>
+          <div class="m-tagline">One number that says how wrong the network is, right now</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">loss='mse'</span>
+        <span class="pill pill-sig">loss='categorical_crossentropy'</span>
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue">problem type</th><th class="blue">cost function</th><th class="blue">why</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>Regression (a number)</td><td><strong>MSE</strong> — Mean Squared Error</td><td>Penalizes being far off much more than being close.</td></tr>
+          <tr class="show"><td>Classification (a category)</td><td><strong>Categorical Cross-Entropy</strong></td><td>Penalizes confident wrong answers hardest of all.</td></tr>
+        </tbody>
+      </table>
+      <div class="eq-box big" style="text-align:center;">
+        $$\text{CCE}=-\sum_{k} y_k\log(p_k)$$
+      </div>
+      <p class="m-desc">Because the true label is one-hot (exactly one <code>y_k = 1</code>, the rest 0), every term except the true class vanishes — the whole sum collapses to <code>-log(p_true)</code>. That's the version worth memorizing:</p>
+      <div class="kbox">
+        <h4>Worked example — from the lesson</h4>
+        <p class="body">True class is "cat" ([1, 0, 0]). Two models disagree on how confident to be:</p>
+        <p class="body">Model A predicts [0.8, 0.15, 0.05] → Cross-Entropy = -log(0.8) ≈ 0.223 (small loss — confident <em>and</em> correct)</p>
+        <p class="body">Model B predicts [0.3, 0.4, 0.3] → Cross-Entropy = -log(0.3) ≈ 1.204 (bigger loss — unsure, and it also ranked "cat" behind "dog")</p>
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — drag the model's confidence in the TRUE class</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>p(true class), %</label><input type="range" min="1" max="99" value="30" step="1" id="cost-p" oninput="drawCost()"><span class="cval" id="cost-pv">30%</span></div>
+        </div>
+        <div class="demo-out" id="out-cost"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-cost" height="240"></canvas></div>
+      </div>
+      <div class="callout orange">
+        📌 Cross-entropy and MSE are not interchangeable: using MSE on a softmax output makes the gradient tiny exactly when the model is confidently wrong, which is the opposite of what you want. Match the loss to the problem type.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(6)">← Hidden layers</button>
+        <div class="pnav-dots" id="dots-7"></div>
+        <button class="pnav-btn next" onclick="goTo(8)">Backpropagation →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 8: Backpropagation ══ -->
+    <div class="panel" id="panel-8">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1516110833967-0b5716ca1387?w=900&q=75&fit=crop&h=200" alt="Signal flowing backward" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">ANN 08 / 12 · Training</div>
+          <div class="m-name">Backpropagation</div>
+          <div class="m-tagline">How the error at the very end teaches every weight in the network</div>
+        </div>
+      </div>
+      <p class="m-desc">Backpropagation is not a separate algorithm bolted onto a network — it is the <strong>chain rule of calculus</strong>, applied layer by layer, to find how much each individual weight is responsible for the final error.</p>
+      <div class="steps">
+        <div class="step a" data-n="1"><h4>1 · Forward pass</h4><p>Compute the output ŷ from the current inputs and weights.</p></div>
+        <div class="step b" data-n="2"><h4>2 · Error</h4><p>Compare ŷ to the real answer y with the cost function.</p></div>
+        <div class="step c" data-n="3"><h4>3 · Gradient</h4><p>For every weight, work out which direction increases the error — the chain rule lets this be computed backward, layer by layer, reusing work.</p></div>
+        <div class="step d" data-n="4"><h4>4 · Update</h4><p>Nudge every weight a little in the direction that <em>decreases</em> the error, scaled by the learning rate.</p></div>
+        <div class="step e" data-n="5"><h4>5 · Repeat</h4><p>Do this again with the next batch of data, over and over.</p></div>
+      </div>
+      <div class="eq-box gold" style="text-align:center;">
+        $$\frac{\partial \text{Loss}}{\partial w} \;=\; \frac{\partial \text{Loss}}{\partial \hat y}\cdot\frac{\partial \hat y}{\partial z}\cdot\frac{\partial z}{\partial w}$$
+      </div>
+      <div class="callout blue">
+        💡 <strong>Read the chain rule as a relay race.</strong> "How wrong was the output" × "how much does the activation change with z" × "how much does z change with this one weight." Multiply the three, and you know exactly how to move that weight. This is exactly why an activation function needs a derivative — the step function has none, which is why it can never be trained by gradient descent.
+      </div>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — press play and watch the error travel backward</div>
+        <div class="demo-controls">
+          <button class="play-btn" onclick="playBackprop()">▶ run forward + backward pass</button>
+        </div>
+        <div class="demo-canvas-wrap">
+          <div class="legend">
+            <span class="lg"><i style="background:#f97316"></i>input</span>
+            <span class="lg"><i style="background:#22d3ee"></i>hidden</span>
+            <span class="lg"><i style="background:#f43f5e"></i>output / error</span>
+          </div>
+          <canvas id="cv-bp" height="220"></canvas>
+        </div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(7)">← Cost functions</button>
+        <div class="pnav-dots" id="dots-8"></div>
+        <button class="pnav-btn next" onclick="goTo(9)">Gradient descent →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 9: Gradient descent variants ══ -->
+    <div class="panel" id="panel-9">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1502252430442-aac78f397426?w=900&q=75&fit=crop&h=200" alt="Descending path" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">ANN 09 / 12 · Training</div>
+          <div class="m-name">Gradient descent, three ways</div>
+          <div class="m-tagline">How much data to look at before each weight update</div>
+        </div>
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue">strategy</th><th class="blue">updates weights using</th><th class="blue">trade-off</th></tr></thead>
+        <tbody>
+          <tr class="show"><td><strong>Batch Gradient Descent</strong></td><td>The <em>entire</em> training set, every step.</td><td>Smooth, stable — but one step can be slow on a big dataset.</td></tr>
+          <tr class="show"><td><strong>Stochastic (SGD)</strong></td><td>One random example at a time.</td><td>Fast, noisy steps — the noise can actually help escape bad local minima.</td></tr>
+          <tr class="show"><td><strong>Mini-Batch</strong></td><td>A small batch (e.g. 32, 64 rows) at a time.</td><td>The practical default — most of batch's stability, most of SGD's speed.</td></tr>
+        </tbody>
+      </table>
+      <div class="callout green">
+        💡 In Keras, this choice is the <code>batch_size</code> argument to <code>model.fit(...)</code>. Its default is 32 — a mini-batch, not full-batch, without you ever choosing it explicitly.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(8)">← Backpropagation</button>
+        <div class="pnav-dots" id="dots-9"></div>
+        <button class="pnav-btn next" onclick="goTo(10)">TensorFlow &amp; Keras →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 10: TensorFlow & Keras ══ -->
+    <div class="panel" id="panel-10">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1526379095098-d400fd0bf935?w=900&q=75&fit=crop&h=200" alt="Server room / compute" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">ANN 10 / 12 · The Tooling</div>
+          <div class="m-name">TensorFlow &amp; Keras</div>
+          <div class="m-tagline">The library that turns this whole deck into eight lines of Python</div>
+        </div>
+      </div>
+      <p class="m-desc"><strong>TensorFlow</strong> is Google's open-source library for building and training neural networks. <strong>Keras</strong> is the high-level API bundled inside it — the layer you actually type — which is why every example in this deck imports <code>from tensorflow.keras import ...</code>.</p>
+      <div class="grid-2">
+        <div class="card blue show"><div class="card-icon">🧱</div><h4>Build fast</h4><p><code>Sequential([...])</code> stacks layers in one readable list — no manual weight matrices.</p></div>
+        <div class="card green show"><div class="card-icon">⚡</div><h4>CPU or GPU</h4><p>The same code runs on either; TensorFlow picks the faster device it can find.</p></div>
+        <div class="card purple show"><div class="card-icon">🔗</div><h4>Plays well with NumPy</h4><p>Arrays flow in and out without conversion boilerplate.</p></div>
+        <div class="card orange show"><div class="card-icon">📦</div><h4>Ships anywhere</h4><p>The same trained model can run in a server, a browser, or a phone.</p></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(9)">← Gradient descent</button>
+        <div class="pnav-dots" id="dots-10"></div>
+        <button class="pnav-btn next" onclick="goTo(11)">Code: 1-neuron ANN →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 11: Code — the 1-neuron ANN from the lesson ══ -->
+    <div class="panel" id="panel-11">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1555949963-aa79dcee981c?w=900&q=75&fit=crop&h=200" alt="Code on screen" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">ANN 11 / 12 · The Code</div>
+          <div class="m-name">Code: a 1-neuron ANN</div>
+          <div class="m-tagline">From the lesson notebook — study hours predicting an exam score</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">Sequential([Input, Dense(1, 'linear')])</span>
+        <span class="pill pill-ret">→ a fitted model</span>
+      </div>
+      <p class="m-desc">Nine students, hours studied vs. exam score:</p>
+      <table class="dt">
+        <thead><tr><th class="blue">hours studied</th><th class="blue">exam score</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>1</td><td>60</td></tr><tr class="show"><td>2</td><td>65</td></tr><tr class="show"><td>3</td><td>70</td></tr>
+          <tr class="show"><td>4</td><td>75</td></tr><tr class="show"><td>5</td><td>80</td></tr><tr class="show"><td>6</td><td>85</td></tr>
+          <tr class="show"><td>7</td><td>90</td></tr><tr class="show"><td>8</td><td>92</td></tr><tr class="show"><td>9</td><td>95</td></tr>
+        </tbody>
+      </table>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — the exact lesson code (GPU check removed — see the callout below)</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> numpy <span class="kw">as</span> <span class="lib">np</span>
+<span class="kw">import</span> tensorflow <span class="kw">as</span> <span class="lib">tf</span>
+<span class="kw">from</span> tensorflow.keras <span class="kw">import</span> <span class="cls">Sequential</span>, <span class="cls">Input</span>
+<span class="kw">from</span> tensorflow.keras.layers <span class="kw">import</span> <span class="cls">Dense</span>
+<span class="kw">from</span> sklearn.preprocessing <span class="kw">import</span> <span class="cls">StandardScaler</span>
+
+<span class="cm"># ---------- data ----------</span>
+X = <span class="lib">np</span>.<span class="fn">array</span>([[<span class="num">1</span>],[<span class="num">2</span>],[<span class="num">3</span>],[<span class="num">4</span>],[<span class="num">5</span>],[<span class="num">6</span>],[<span class="num">7</span>],[<span class="num">8</span>],[<span class="num">9</span>]], dtype=<span class="fn">float</span>)
+y = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">60</span>,<span class="num">65</span>,<span class="num">70</span>,<span class="num">75</span>,<span class="num">80</span>,<span class="num">85</span>,<span class="num">90</span>,<span class="num">92</span>,<span class="num">95</span>], dtype=<span class="fn">float</span>).<span class="fn">reshape</span>(-<span class="num">1</span>,<span class="num">1</span>)
+
+<span class="cm"># ---------- scale X and y ----------</span>
+x_scaler = <span class="cls">StandardScaler</span>(); y_scaler = <span class="cls">StandardScaler</span>()
+X_s = x_scaler.<span class="fn">fit_transform</span>(X)
+y_s = y_scaler.<span class="fn">fit_transform</span>(y)
+
+<span class="cm"># ---------- ANN: linear regression as a tiny net ----------</span>
+tf.random.<span class="fn">set_seed</span>(<span class="num">42</span>)
+model = <span class="cls">Sequential</span>([<span class="cls">Input</span>(shape=(<span class="num">1</span>,)), <span class="cls">Dense</span>(<span class="num">1</span>, activation=<span class="str">'linear'</span>)])
+model.<span class="fn">compile</span>(optimizer=tf.keras.optimizers.<span class="cls">Adam</span>(learning_rate=<span class="num">0.05</span>), loss=<span class="str">'mse'</span>)
+model.<span class="fn">fit</span>(X_s, y_s, epochs=<span class="num">1600</span>, verbose=<span class="num">0</span>)
+
+<span class="cm"># ---------- predictions on train (sanity check) ----------</span>
+pred_s = model.<span class="fn">predict</span>(X_s, verbose=<span class="num">0</span>)
+pred = y_scaler.<span class="fn">inverse_transform</span>(pred_s)
+<span class="kw">for</span> h, p <span class="kw">in</span> <span class="fn">zip</span>(X.<span class="fn">ravel</span>(), pred.<span class="fn">ravel</span>()):
+    <span class="fn">print</span>(<span class="str">f"hours={int(h)} -&gt; predicted score≈ {p:.1f}"</span>)
+
+<span class="cm"># ---------- hours needed for score = 100 ----------</span>
+target_s = y_scaler.<span class="fn">transform</span>([[<span class="num">100.0</span>]])[<span class="num">0</span>,<span class="num">0</span>]
+w, b = model.layers[<span class="num">0</span>].<span class="fn">get_weights</span>()
+w = <span class="fn">float</span>(w[<span class="num">0</span>,<span class="num">0</span>]); b = <span class="fn">float</span>(b[<span class="num">0</span>])
+x_needed_s = (target_s - b) / w
+hours_needed = <span class="fn">float</span>(x_scaler.<span class="fn">inverse_transform</span>([[x_needed_s]])[<span class="num">0</span>,<span class="num">0</span>])
+<span class="fn">print</span>(<span class="str">f"Hours needed for score 100 ≈ {hours_needed:.2f}"</span>)</pre>
+      </div>
+      <div class="callout blue">
+        🖨️ <strong>Output (exactly as in the notebook):</strong>
+        <pre style="background:#010409;border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-top:10px;font-family:'Courier New',monospace;font-size:.8rem;color:#10b981;">hours=1 -> predicted score≈ 61.0
+hours=2 -> predicted score≈ 65.6
+hours=3 -> predicted score≈ 70.1
+hours=4 -> predicted score≈ 74.6
+hours=5 -> predicted score≈ 79.1
+hours=6 -> predicted score≈ 83.6
+hours=7 -> predicted score≈ 88.1
+hours=8 -> predicted score≈ 92.7
+hours=9 -> predicted score≈ 97.2
+
+Hours needed for score 100 ≈ 9.62</pre>
+      </div>
+      <div class="callout orange">
+        🚨 <strong>This "ANN" has zero hidden layers — so it is not really demonstrating a neural network.</strong> <code>Dense(1, activation='linear')</code> applied directly to the input is exactly <code>y = wx + b</code> — ordinary linear regression, just fitted with gradient descent instead of the closed-form normal equation. There is nothing here that a hidden layer or a nonlinear activation would add, because none is used. It's a fair first example (it proves an ANN <em>can</em> reproduce linear regression), but don't mistake it for a real demonstration of what makes ANNs powerful — that needs a hidden layer, which is exactly what the digit recognizer on the next panel uses.
+      </div>
+      <div class="callout green">
+        ✅ <strong>What the code gets right.</strong> Scaling <em>both</em> <code>X</code> <em>and</em> <code>y</code> with separate <code>StandardScaler</code>s (not just X) is good practice — it keeps the loss surface well-conditioned for Adam, and is exactly why <code>y_scaler.inverse_transform</code> is needed before the predictions are readable again.
+      </div>
+      <div class="callout red" style="border-left:4px solid #f43f5e;background:rgba(244,63,94,.07);">
+        ⚠️ <strong>1600 epochs is a lot for 9 points.</strong> The notebook's own timer reports ≈78 seconds to fit a straight line through 9 numbers — plain <code>LinearRegression().fit()</code> would solve the identical problem in well under a millisecond, exactly, with no epochs at all. That slowness isn't a sign the problem is hard; it's the overhead of gradient descent on a problem that has a closed-form answer. Use an ANN when the relationship is <em>not</em> linear — that's where it earns its keep.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(10)">← TensorFlow &amp; Keras</button>
+        <div class="pnav-dots" id="dots-11"></div>
+        <button class="pnav-btn next" onclick="goTo(12)">Digit recognizer →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 12: Digit recognizer ══ -->
+    <div class="panel" id="panel-12">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1555255707-c07966088b7b?w=900&q=75&fit=crop&h=200" alt="Glowing digital numbers" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">ANN 12 / 12 · A Real Network</div>
+          <div class="m-name">Digit recognizer</div>
+          <div class="m-tagline">A genuine 64 → 16 → 10 network, trained offline, running live in your browser</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">MLPClassifier(hidden_layer_sizes=(16,), activation='relu')</span>
+        <span class="pill pill-ret">→ 96.4% test accuracy</span>
+      </div>
+      <p class="m-desc">This is the demo the code on the previous panel was missing: a network with an actual hidden layer, doing something a straight line cannot. It was trained offline in scikit-learn on the classic 8×8 handwritten-digits dataset (1,797 images, 10 classes) — the exact weights are baked into this page, and every prediction below is a real forward pass computed in your browser, not a canned animation.</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Step 1 — pick a digit, or draw your own</div>
+        <div class="demo-controls" style="align-items:center;">
+          <div class="ctrl"><label>load a real sample</label><div class="digit-samples">
+            <button onclick="loadSample(0)">0</button><button onclick="loadSample(1)">1</button><button onclick="loadSample(2)">2</button><button onclick="loadSample(3)">3</button><button onclick="loadSample(4)">4</button>
+            <button onclick="loadSample(5)">5</button><button onclick="loadSample(6)">6</button><button onclick="loadSample(7)">7</button><button onclick="loadSample(8)">8</button><button onclick="loadSample(9)">9</button>
+          </div></div>
+          <button class="play-btn alt" onclick="clearGrid()">🧹 clear &amp; draw your own</button>
+        </div>
+        <div class="demo-canvas-wrap" style="display:flex;gap:24px;flex-wrap:wrap;justify-content:center;">
+          <div>
+            <canvas id="cv-pixels" width="176" height="176"></canvas>
+            <div style="text-align:center;font-size:.68rem;color:var(--muted);margin-top:6px;">8×8 pixels · click &amp; drag to paint</div>
+          </div>
+        </div>
+        <div class="demo-controls" style="margin-top:16px;">
+          <button class="play-btn" onclick="runDigitDemo()">▶ run forward pass</button>
+          <button class="play-btn alt" onclick="cycleDigits()">🔁 cycle through 0 → 9</button>
+        </div>
+        <div class="demo-lbl" style="margin-top:6px;">Step 2 — watch it think: input → hidden (ReLU) → output (softmax)</div>
+        <div class="demo-canvas-wrap"><canvas id="cv-digitnet" height="260"></canvas></div>
+        <div class="demo-out" id="digit-out">Draw a digit above (or load a sample), then press Run forward pass.</div>
+        <div id="digit-bars" style="padding:6px 10px;"></div>
+      </div>
+      <div class="callout green">
+        💡 <strong>Why this one is honest.</strong> Nothing here is pre-recorded: <code>W1</code>, <code>b1</code>, <code>W2</code>, <code>b2</code> are the network's real trained numbers, and <code>runDigitDemo()</code> multiplies your 64 pixel values through them exactly the way <code>model.predict()</code> would in Python. Draw a messy "7" and you may well fool it — that's a real network's real uncertainty, not a scripted result.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(11)">← Code: 1-neuron ANN</button>
+        <div class="pnav-dots" id="dots-12"></div>
+        <button class="pnav-btn next" onclick="goTo(13)">Pros &amp; cons →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 13: Pros & cons ══ -->
+    <div class="panel" id="panel-13">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=900&q=75&fit=crop&h=200" alt="Scales" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Wrapping Up</div>
+          <div class="m-name">Pros &amp; cons</div>
+          <div class="m-tagline">Where ANNs shine, and where they quietly cost you</div>
+        </div>
+      </div>
+      <div class="pc-grid">
+        <div class="pc good">
+          <h4>✅ Strengths</h4>
+          <ol>
+            <li>Learns nonlinear, curved decision boundaries no linear model can reach.</li>
+            <li>Learns its own features from raw pixels, audio or text — no manual feature engineering.</li>
+            <li>Scales up gracefully to enormous datasets and problems (images, speech, language).</li>
+            <li>One architecture family (layers of neurons) covers a huge range of tasks.</li>
+          </ol>
+        </div>
+        <div class="pc bad">
+          <h4>⚠️ Weaknesses</h4>
+          <ol>
+            <li>Needs a lot of data to avoid overfitting.</li>
+            <li>A trained network is a black box — hard to explain <em>why</em> it predicted what it did.</li>
+            <li>Slow and expensive to train compared to classical models like linear/logistic regression or trees.</li>
+            <li>Many hyperparameters (layers, neurons, learning rate, activation, batch size...) to tune by trial and error.</li>
+          </ol>
+        </div>
+      </div>
+      <div class="callout blue">
+        💡 <strong>Rule of thumb.</strong> If a simpler model (linear regression, logistic regression, a decision tree) already gets you a good score, an ANN is rarely worth its training cost and opacity. Reach for one when the relationship is genuinely nonlinear and there's enough data to learn it from.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(12)">← Digit recognizer</button>
+        <div class="pnav-dots" id="dots-13"></div>
+        <button class="pnav-btn next" onclick="goTo(14)">Exercises →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 14: Exercises ══ -->
+    <div class="panel" id="panel-14">
+      <div class="exercise-header">
+        <div class="exercise-badge">✎</div>
+        <div>
+          <div class="m-breadcrumb" style="margin-bottom:6px;">Your turn</div>
+          <h2 style="margin:0;">Exercises</h2>
+          <p style="margin:6px 0 0;color:var(--muted);font-size:.9rem;">Work these on paper first, then check with the live demos above.</p>
+        </div>
+      </div>
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">EX 1</span><strong>By hand</strong></div>
+        <p class="ex-task">A neuron has inputs <code>x = [2, -1, 3]</code>, weights <code>w = [0.5, 1.0, -0.5]</code> and bias <code>b = 0.2</code>. Compute <code>z</code>, then apply the <strong>sigmoid</strong> activation. Round to 3 decimals.</p>
+        <details class="hint"><summary>Show answer</summary><p class="body" style="margin-top:8px;">z = 2(0.5) + (-1)(1.0) + 3(-0.5) + 0.2 = 1 - 1 - 1.5 + 0.2 = -1.3. sigmoid(-1.3) = 1/(1+e^1.3) ≈ 0.214.</p></details>
+      </div>
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">EX 2</span><strong>Concept</strong></div>
+        <p class="ex-task">Why can't a network be trained if every hidden neuron uses the <strong>step</strong> activation function? (Hint: think about panel 08.)</p>
+        <details class="hint"><summary>Show answer</summary><p class="body" style="margin-top:8px;">The step function's derivative is 0 everywhere except at z=0, where it's undefined. Backpropagation needs that derivative to compute a gradient — with it always 0, gradient descent has no direction to move the weights in.</p></details>
+      </div>
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">EX 3</span><strong>Softmax</strong></div>
+        <p class="ex-task">An output layer produces logits <code>[1.0, 1.0, 1.0]</code> for three classes. Without a calculator: what does softmax output? Why?</p>
+        <details class="hint"><summary>Show answer</summary><p class="body" style="margin-top:8px;">[0.333, 0.333, 0.333]. All three logits are equal, so e^z is identical for each — they divide the total equally.</p></details>
+      </div>
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">EX 4</span><strong>Architecture</strong></div>
+        <p class="ex-task">You want a Keras model that takes 10 features and outputs a probability for one of 4 classes. What activation goes on the output layer, how many output neurons, and which loss function?</p>
+        <details class="hint"><summary>Show answer</summary><p class="body" style="margin-top:8px;">4 output neurons, <code>activation='softmax'</code>, <code>loss='categorical_crossentropy'</code> (or <code>sparse_categorical_crossentropy</code> if the labels aren't one-hot encoded).</p></details>
+      </div>
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">EX 5</span><strong>Try it live</strong></div>
+        <p class="ex-task">Go back to the digit recognizer (panel 12). Draw a "1" that's tilted or off-center. Does the network still get it right? What does that tell you about the training images it saw?</p>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(13)">← Pros &amp; cons</button>
+        <div class="pnav-dots" id="dots-14"></div>
+        <button class="pnav-btn next" onclick="goTo(15)">A1 · Why depth matters →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 15: Appendix A1 — Why depth matters (XOR) ══ -->
+    <div class="panel" id="panel-15">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1509228468518-180dd4864904?w=900&q=75&fit=crop&h=200" alt="Geometry" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Appendix A1 · The Proof</div>
+          <div class="m-name">Why depth matters — the XOR problem</div>
+          <div class="m-tagline">The classic case a single neuron can never solve</div>
+        </div>
+      </div>
+      <p class="m-desc">XOR ("exclusive or") outputs 1 when exactly one input is 1, and 0 otherwise:</p>
+      <table class="dt">
+        <thead><tr><th class="blue">x1</th><th class="blue">x2</th><th class="blue">XOR(x1,x2)</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>0</td><td>0</td><td>0</td></tr>
+          <tr class="show"><td>1</td><td>1</td><td>0</td></tr>
+          <tr class="show"><td>0</td><td>1</td><td>1</td></tr>
+          <tr class="show"><td>1</td><td>0</td><td>1</td></tr>
+        </tbody>
+      </table>
+      <p class="m-desc">Plot the four points: the two <code>1</code>s sit on opposite corners from the two <code>0</code>s. No single straight line can put both 1-points on one side and both 0-points on the other — this is provably, not just practically, impossible for one linear neuron.</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — a real linear neuron vs. a real 2-neuron hidden layer</div>
+        <div class="demo-controls">
+          <span class="seg" id="xor-seg">
+            <button class="on" onclick="setXorMode('linear',this)">single linear neuron</button>
+            <button onclick="setXorMode('mlp',this)">+ hidden layer (2 ReLU)</button>
+          </span>
+        </div>
+        <div class="demo-out" id="out-xor"></div>
+        <div class="demo-canvas-wrap">
+          <div class="legend"><span class="lg"><i style="background:#22d3ee"></i>class 1</span><span class="lg"><i style="background:#f43f5e"></i>class 0</span></div>
+          <canvas id="cv-xor" height="300"></canvas>
+        </div>
+      </div>
+      <div class="callout green">
+        💡 <strong>What just happened.</strong> <code>h1 = ReLU(x1+x2)</code> grows with how many inputs are on: 0, then 1, then 2. <code>h2 = ReLU(x1+x2-1)</code> stays at 0 until <em>both</em> are on, then it starts growing too. Subtracting <code>2·h2</code> from <code>h1</code> exactly cancels the "both on" case (2 − 2×1 = 0) while leaving "exactly one on" positive (1 − 0 = 1). Neither hidden neuron solves XOR alone; <em>combining</em> two simple ReLU neurons does. That combining step is the entire reason hidden layers exist.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(14)">← Exercises</button>
+        <div class="pnav-dots" id="dots-15"></div>
+        <button class="pnav-btn next" onclick="goTo(16)">A2 · Keras cheat-sheet →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 16: Appendix A2 — Keras cheat-sheet ══ -->
+    <div class="panel" id="panel-16">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1555949963-aa79dcee981c?w=900&q=75&fit=crop&h=200" alt="Reference sheet" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Appendix A2 · Reference</div>
+          <div class="m-name">Keras cheat-sheet</div>
+          <div class="m-tagline">The handful of calls behind every model in this deck</div>
+        </div>
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue">call</th><th class="blue">what it does</th></tr></thead>
+        <tbody>
+          <tr class="show"><td><code>Sequential([...])</code></td><td>Stack layers in order, input to output.</td></tr>
+          <tr class="show"><td><code>Input(shape=(n,))</code></td><td>Declares how many features come in, per row.</td></tr>
+          <tr class="show"><td><code>Dense(units, activation=...)</code></td><td>A fully-connected layer: <code>units</code> neurons, each seeing every input.</td></tr>
+          <tr class="show"><td><code>model.compile(optimizer, loss, metrics)</code></td><td>Chooses the optimizer (usually <code>'adam'</code>), the cost function, and what to report while training.</td></tr>
+          <tr class="show"><td><code>model.fit(X, y, epochs, batch_size)</code></td><td>Runs forward pass + backprop + weight update, repeated <code>epochs</code> times.</td></tr>
+          <tr class="show"><td><code>model.predict(X)</code></td><td>Runs the forward pass only — no training, no weight changes.</td></tr>
+          <tr class="show"><td><code>model.summary()</code></td><td>Prints every layer, its output shape, and its parameter count.</td></tr>
+          <tr class="show"><td><code>model.layers[i].get_weights()</code></td><td>Returns <code>[W, b]</code> for layer <code>i</code> — the actual learned numbers.</td></tr>
+        </tbody>
+      </table>
+      <div class="callout orange">
+        📌 <strong>Common <code>Dense</code> activations, at a glance.</strong> Hidden layers: <code>'relu'</code> (default choice), <code>'tanh'</code>. Output layer: <code>'linear'</code> for regression, <code>'sigmoid'</code> for binary classification, <code>'softmax'</code> for multi-class classification.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(15)">← A1 · Why depth matters</button>
+        <div class="pnav-dots" id="dots-16"></div>
+        <button class="pnav-btn" disabled>End →</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="digit_net.js"></script>
+<script src="ann.js"></script>
+</body>
+</html>

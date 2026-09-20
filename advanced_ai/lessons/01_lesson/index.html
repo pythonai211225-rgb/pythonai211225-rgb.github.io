@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 1 - Your First ANN: Regression with Keras</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      renderMathInElement(document.body, {
+        delimiters: [
+          { left: '$$', right: '$$', display: true },
+          { left: '\\(', right: '\\)', display: false }
+        ],
+        throwOnError: false
+      });
+    });
+  </script>
+  <style>
+    :root {
+      --bg: #f7f9ff;
+      --surface: #ffffff;
+      --ink: #131a33;
+      --muted: #57618a;
+      --cyan: #0891b2;
+      --cyan-dark: #0e3a4f;
+      --violet: #7c3aed;
+      --green: #0f9f6e;
+      --orange: #f97316;
+      --red: #dc2626;
+      --border: #c7d3ee;
+      --code-bg: #0d1224;
+      --code-text: #dceaff;
+      --soft-cyan: #e6fbff;
+      --soft-violet: #f2ecff;
+      --soft-green: #effbf5;
+      --soft-orange: #fff7ed;
+      --soft-red: #fef2f2;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Trebuchet MS", "Lucida Sans", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 10%, #e6fbff 0%, transparent 34%),
+        radial-gradient(circle at 88% 18%, #f2ecff 0%, transparent 32%),
+        linear-gradient(180deg, var(--bg) 0%, #ffffff 56%, #f1f4ff 100%);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 28px 20px 60px; }
+    .layout { display: grid; grid-template-columns: 250px 1fr; gap: 22px; align-items: start; }
+
+    .side-nav {
+      position: sticky; top: 20px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 18px 14px;
+      box-shadow: 0 4px 16px rgba(8,145,178,.08);
+      max-height: calc(100vh - 40px); overflow-y: auto;
+    }
+    .side-title { font-size: .8rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--cyan); margin: 0 0 10px; }
+    .part-label { display: block; padding: 8px 4px 4px; font-size: .7rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--violet); }
+    .topic-link {
+      display: block; width: 100%; border: 1px solid transparent; border-radius: 9px;
+      padding: 7px 10px; background: transparent; color: var(--muted); cursor: pointer;
+      text-align: left; font: inherit; margin: 2px 0; transition: .16s ease;
+    }
+    .topic-link:hover { background: #eefcff; color: var(--cyan-dark); border-color: var(--border); }
+    .topic-link.active { background: #e0f7fb; color: var(--cyan-dark); border-color: var(--cyan); font-weight: 700; }
+    .side-divider { border: none; border-top: 1px solid var(--border); margin: 12px 4px; }
+    .nav-back { display: block; padding: 7px 10px; color: var(--cyan); font-weight: 700; text-decoration: none; font-size: .9rem; }
+    .nav-back:hover { text-decoration: underline; }
+
+    .hero {
+      background: linear-gradient(135deg, var(--surface) 0%, var(--soft-cyan) 54%, var(--soft-violet) 100%);
+      border: 1px solid var(--border); border-radius: 16px; padding: 28px;
+      box-shadow: 0 12px 30px rgba(8,145,178,.12); margin-bottom: 22px;
+    }
+    .tag { display: inline-block; padding: 5px 12px; border-radius: 999px; background: #f2ecff; color: #5b21b6; font-weight: 800; font-size: .82rem; border: 1px solid #d8c8fb; }
+    h1 { margin: 14px 0 10px; color: var(--cyan-dark); font-size: clamp(2rem, 5vw, 3.2rem); line-height: 1.05; }
+    .hero p { max-width: 820px; color: var(--muted); font-size: 1.06rem; }
+    .hero-chips { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .hero-chip { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: .78rem; font-weight: 700; background: rgba(8,145,178,.1); color: var(--cyan-dark); border: 1px solid rgba(8,145,178,.3); }
+
+    .card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      padding: 22px; margin-bottom: 16px; box-shadow: 0 7px 22px rgba(8,145,178,.08);
+    }
+    .topic-panel { display: none; }
+    .topic-panel.active { display: block; }
+    .step-title { margin: 0 0 12px; color: var(--cyan-dark); font-size: 1.25rem; }
+
+    code { font-family: Consolas, "Courier New", monospace; background: #eef4ff; padding: 1px 6px; border-radius: 5px; color: var(--cyan-dark); }
+
+    .katex { color: var(--cyan-dark); }
+    .katex-display { margin: 6px 0; overflow-x: auto; overflow-y: hidden; padding: 3px 0; }
+
+    .resource-link { display: inline-block; color: var(--cyan-dark); font-weight: 800; text-decoration: none; border-bottom: 2px solid rgba(8,145,178,.35); }
+    .resource-link:hover { color: var(--cyan); border-bottom-color: var(--cyan); }
+    .resource-links { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 4px; }
+
+    .code-block .kw  { color: #c4b5fd; }
+    .code-block .fn  { color: #6ee7b7; }
+    .code-block .lib { color: #fbbf24; }
+    .code-block .num { color: #fb923c; }
+    .code-block .str { color: #86efac; }
+    .code-block .cm  { color: #7286a8; font-style: italic; }
+    .code-block .cls { color: #f9a8d4; }
+    .code-block {
+      background: var(--code-bg); color: var(--code-text); border-radius: 10px;
+      border: 1px solid #304563; padding: 16px 18px; overflow-x: auto; margin: 12px 0;
+      font-size: .92rem; line-height: 1.55; white-space: pre;
+    }
+    .output {
+      background: #f7fbff; color: #1a2d49; border: 1px solid var(--border);
+      border-left: 5px solid var(--cyan); border-radius: 10px; padding: 12px 14px;
+      overflow-x: auto; margin: 8px 0 16px; font-family: Consolas, "Courier New", monospace; white-space: pre-wrap;
+    }
+
+    .note { background: var(--soft-orange); border: 1px solid #fed7aa; border-left: 5px solid var(--orange); border-radius: 10px; padding: 12px 14px; margin: 12px 0; }
+    .note.blue { background: var(--soft-cyan); border-color: #a5e6f0; border-left-color: var(--cyan); }
+    .note.red { background: var(--soft-red); border-color: #fecaca; border-left-color: var(--red); }
+    .note.green { background: var(--soft-green); border-color: #b6ebd4; border-left-color: var(--green); }
+    .note.violet { background: var(--soft-violet); border-color: #d8c8fb; border-left-color: var(--violet); }
+
+    .task-box { border: 1px solid var(--border); border-left: 5px solid var(--cyan); border-radius: 10px; padding: 14px 16px; margin: 12px 0; background: #fbfdff; }
+    .task-num { font-weight: 900; color: var(--cyan); text-transform: uppercase; letter-spacing: .08em; font-size: .78rem; }
+
+    .data-table { width: 100%; border-collapse: collapse; margin: 16px 0; background: #fbfdff; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .data-table th { background: var(--soft-cyan); color: var(--cyan-dark); text-align: left; padding: 10px 14px; font-size: .9rem; border-bottom: 2px solid var(--border); }
+    .data-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); font-family: Consolas, "Courier New", monospace; }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table td.term { font-family: inherit; font-weight: 700; color: var(--cyan-dark); }
+
+    .math-card {
+      border: 1px solid #b7c8e4; border-radius: 12px;
+      background: linear-gradient(135deg, #ffffff 0%, #f1f7ff 100%);
+      padding: 18px; margin: 18px 0; text-align: center;
+    }
+    .math-formula { display: block; color: var(--cyan-dark); font-family: "Cambria Math", "Times New Roman", serif; font-size: clamp(1.1rem, 2.6vw, 1.7rem); line-height: 1.7; overflow-x: auto; padding: 2px 0; }
+    .math-caption { color: var(--muted); margin: 8px 0 0; font-size: .95rem; }
+
+    .footer { text-align: center; color: var(--muted); font-size: .9rem; margin-top: 18px; }
+
+    @media (max-width: 820px) {
+      .layout { grid-template-columns: 1fr; }
+      .side-nav { position: static; }
+      .wrap { padding: 18px 12px 44px; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="layout">
+    <aside class="side-nav">
+      <p class="side-title">Lesson 1 · ANN</p>
+      <span class="part-label">Class Code</span>
+      <button class="topic-link active" data-target="topic-github">1. GitHub repo</button>
+      <span class="part-label">The Problem</span>
+      <button class="topic-link" data-target="topic-1">2. The dataset</button>
+      <button class="topic-link" data-target="topic-2">3. Why scale X AND y</button>
+      <span class="part-label">Building the Model</span>
+      <button class="topic-link" data-target="topic-3">4. Sequential + Dense</button>
+      <button class="topic-link" data-target="topic-4">5. Compile &amp; fit</button>
+      <button class="topic-link" data-target="topic-5">6. Reading the predictions</button>
+      <button class="topic-link" data-target="topic-6">7. Solving for score = 100</button>
+      <span class="part-label">Thinking It Through</span>
+      <button class="topic-link" data-target="topic-7">8. Wait — is this really an ANN?</button>
+      <a class="nav-back" href="../../01_ann/index.html">← Back to the ANN deck</a>
+      <a class="nav-back" href="../../index.html">Back to Advanced AI</a>
+    </aside>
+
+    <main>
+      <section class="hero">
+        <span class="tag">Lesson 1 · Artificial Neural Networks · Sep 16, 2026</span>
+        <h1>Your First ANN — Regression with Keras</h1>
+        <p>Before building anything with hidden layers, this lesson builds the simplest possible neural network: <strong>one neuron, one input, one output</strong>. It turns out that's exactly ordinary linear regression — which makes it the perfect first Keras model, because you already know what answer to expect. We fit it on nine students' study hours vs. exam scores, read the trained weight and bias back out, and use them to answer a real question: how many hours would it take to score 100?</p>
+        <div class="hero-chips">
+          <span class="hero-chip">tensorflow.keras</span>
+          <span class="hero-chip">Sequential</span>
+          <span class="hero-chip">Dense</span>
+          <span class="hero-chip">StandardScaler</span>
+          <span class="hero-chip">Adam optimizer</span>
+          <span class="hero-chip">model.fit</span>
+        </div>
+      </section>
+
+      <!-- ═══ 1. GITHUB ═══ -->
+      <section class="card topic-panel active" id="topic-github">
+        <h2 class="step-title">Open Class Code</h2>
+        <p>Open the original notebooks from class on GitHub:</p>
+        <div class="resource-links">
+          <a class="resource-link" href="https://github.com/pythonai211225-rgb/16.09.2026/blob/main/ann_16_09_2026.ipynb" target="_blank" rel="noopener">ann_16_09_2026.ipynb — the theory slides</a>
+          <a class="resource-link" href="https://github.com/pythonai211225-rgb/16.09.2026/blob/main/ann1_16_09_2026.ipynb" target="_blank" rel="noopener">ann1_16_09_2026.ipynb — the code in this lesson</a>
+        </div>
+        <div class="note blue">The theory in <code>ann_16_09_2026.ipynb</code> (neurons, activation functions, backpropagation) is covered in full — with corrections and live demos — in the <a class="resource-link" href="../../01_ann/index.html">ANN deck</a>. This lesson page walks through the code notebook line by line.</div>
+        <p>The GPU-check cell at the end of the code notebook (<code>tf.config.list_physical_devices('GPU')</code>) is skipped here — it reported 0 GPUs in class and doesn't change anything about how the model trains.</p>
+      </section>
+
+      <!-- ═══ 2. THE DATASET ═══ -->
+      <section class="card topic-panel" id="topic-1">
+        <h2 class="step-title">The Dataset</h2>
+        <p>Nine (fictional) students, hours studied vs. score on the exam. The question the notebook asks: <em>how many hours of study would it take to score 100?</em></p>
+        <table class="data-table">
+          <thead><tr><th>hours studied</th><th>score on exam</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>60</td></tr><tr><td>2</td><td>65</td></tr><tr><td>3</td><td>70</td></tr>
+            <tr><td>4</td><td>75</td></tr><tr><td>5</td><td>80</td></tr><tr><td>6</td><td>85</td></tr>
+            <tr><td>7</td><td>90</td></tr><tr><td>8</td><td>92</td></tr><tr><td>9</td><td>95</td></tr>
+          </tbody>
+        </table>
+        <div class="note">The relationship looks close to a straight line already — score climbs roughly 5 points per hour, tapering slightly near the top. That's worth noticing now: it means an ANN is <em>not required</em> to solve this well. We use it anyway, as a first, checkable example.</div>
+        <div class="code-block"><span class="kw">import</span> numpy <span class="kw">as</span> <span class="lib">np</span>
+<span class="kw">import</span> tensorflow <span class="kw">as</span> <span class="lib">tf</span>
+<span class="kw">from</span> tensorflow.keras <span class="kw">import</span> <span class="cls">Sequential</span>, <span class="cls">Input</span>
+<span class="kw">from</span> tensorflow.keras.layers <span class="kw">import</span> <span class="cls">Dense</span>
+<span class="kw">from</span> sklearn.preprocessing <span class="kw">import</span> <span class="cls">StandardScaler</span>
+
+X = <span class="lib">np</span>.<span class="fn">array</span>([[<span class="num">1</span>],[<span class="num">2</span>],[<span class="num">3</span>],[<span class="num">4</span>],[<span class="num">5</span>],[<span class="num">6</span>],[<span class="num">7</span>],[<span class="num">8</span>],[<span class="num">9</span>]], dtype=<span class="fn">float</span>)
+y = <span class="lib">np</span>.<span class="fn">array</span>([<span class="num">60</span>,<span class="num">65</span>,<span class="num">70</span>,<span class="num">75</span>,<span class="num">80</span>,<span class="num">85</span>,<span class="num">90</span>,<span class="num">92</span>,<span class="num">95</span>], dtype=<span class="fn">float</span>).<span class="fn">reshape</span>(-<span class="num">1</span>,<span class="num">1</span>)</div>
+      </section>
+
+      <!-- ═══ 3. WHY SCALE X AND Y ═══ -->
+      <section class="card topic-panel" id="topic-2">
+        <h2 class="step-title">Why Scale Both X <em>and</em> y</h2>
+        <p>You've scaled features before. This notebook does something you may not have seen yet: it scales the <strong>target</strong> too.</p>
+        <div class="code-block">x_scaler = <span class="cls">StandardScaler</span>()
+y_scaler = <span class="cls">StandardScaler</span>()
+X_s = x_scaler.<span class="fn">fit_transform</span>(X)
+y_s = y_scaler.<span class="fn">fit_transform</span>(y)</div>
+        <div class="note green"><strong>Why this matters for an ANN specifically.</strong> Gradient descent (what <code>model.fit</code> runs under the hood) is sensitive to the scale of the numbers it's optimizing over. Raw scores in the 60-95 range and raw hours in the 1-9 range push the loss surface into an awkward shape for the optimizer. Scaling both to mean 0, standard deviation 1 keeps the gradients well-behaved so Adam converges reliably.</div>
+        <div class="note red"><strong>The catch: predictions come out scaled too.</strong> Every number <code>model.predict()</code> returns is in "z-score space," not exam-score space. You must call <code>y_scaler.inverse_transform(...)</code> before the numbers mean anything again — skip it and you'll be staring at values like <code>-1.34</code> wondering what went wrong.</div>
+      </section>
+
+      <!-- ═══ 4. SEQUENTIAL + DENSE ═══ -->
+      <section class="card topic-panel" id="topic-3">
+        <h2 class="step-title">Building the Model: Sequential + Dense</h2>
+        <div class="code-block"><span class="lib">tf</span>.random.<span class="fn">set_seed</span>(<span class="num">42</span>)
+model = <span class="cls">Sequential</span>([<span class="cls">Input</span>(shape=(<span class="num">1</span>,)), <span class="cls">Dense</span>(<span class="num">1</span>, activation=<span class="str">'linear'</span>)])</div>
+        <table class="data-table">
+          <thead><tr><th>piece</th><th>meaning</th></tr></thead>
+          <tbody>
+            <tr><td class="term">Sequential([...])</td><td>Stack layers in order — output of one feeds into the next.</td></tr>
+            <tr><td class="term">Input(shape=(1,))</td><td>Each row has exactly 1 feature (hours studied).</td></tr>
+            <tr><td class="term">Dense(1, ...)</td><td>One neuron, fully connected to every input (here, just 1 input).</td></tr>
+            <tr><td class="term">activation='linear'</td><td>φ(z) = z — no squashing. The output can be any real number.</td></tr>
+          </tbody>
+        </table>
+        <div class="math-card">
+          <span class="math-formula">$$\hat y = w \cdot x + b$$</span>
+          <p class="math-caption">One input, one weight, one bias, no activation squeeze — this <em>is</em> the equation of a line.</p>
+        </div>
+      </section>
+
+      <!-- ═══ 5. COMPILE & FIT ═══ -->
+      <section class="card topic-panel" id="topic-4">
+        <h2 class="step-title">Compile &amp; Fit</h2>
+        <div class="code-block">model.<span class="fn">compile</span>(optimizer=<span class="lib">tf</span>.keras.optimizers.<span class="cls">Adam</span>(learning_rate=<span class="num">0.05</span>), loss=<span class="str">'mse'</span>)
+model.<span class="fn">fit</span>(X_s, y_s, epochs=<span class="num">1600</span>, verbose=<span class="num">0</span>)</div>
+        <table class="data-table">
+          <thead><tr><th>argument</th><th>meaning</th></tr></thead>
+          <tbody>
+            <tr><td class="term">optimizer=Adam(lr=0.05)</td><td>The update rule for the weights each step, and how big a step to take.</td></tr>
+            <tr><td class="term">loss='mse'</td><td>Mean Squared Error — the right cost function for a regression target.</td></tr>
+            <tr><td class="term">epochs=1600</td><td>Run backpropagation over the data 1600 times.</td></tr>
+            <tr><td class="term">verbose=0</td><td>Don't print a progress line for every epoch.</td></tr>
+          </tbody>
+        </table>
+        <div class="note red"><strong>1600 epochs, ≈78 seconds, for 9 points.</strong> The notebook's own timer clocked this fit at about 78 seconds. <code>sklearn.linear_model.LinearRegression().fit(X, y)</code> would solve the exact same problem <em>exactly</em>, with no epochs and no iteration, in a fraction of a millisecond — because a straight-line fit has a closed-form solution. This isn't a mistake in the code; it's a deliberate (if slow) way to see gradient descent arrive at the same answer a formula gives instantly. See topic 8 for when an ANN's slowness is actually worth paying for.</div>
+      </section>
+
+      <!-- ═══ 6. READING THE PREDICTIONS ═══ -->
+      <section class="card topic-panel" id="topic-5">
+        <h2 class="step-title">Reading the Predictions</h2>
+        <div class="code-block">pred_s = model.<span class="fn">predict</span>(X_s, verbose=<span class="num">0</span>)
+pred = y_scaler.<span class="fn">inverse_transform</span>(pred_s)
+<span class="kw">for</span> h, p <span class="kw">in</span> <span class="fn">zip</span>(X.<span class="fn">ravel</span>(), pred.<span class="fn">ravel</span>()):
+    <span class="fn">print</span>(<span class="str">f"hours={int(h)} -> predicted score≈ {p:.1f}"</span>)</div>
+        <div class="output">hours=1 -> predicted score≈ 61.0
+hours=2 -> predicted score≈ 65.6
+hours=3 -> predicted score≈ 70.1
+hours=4 -> predicted score≈ 74.6
+hours=5 -> predicted score≈ 79.1
+hours=6 -> predicted score≈ 83.6
+hours=7 -> predicted score≈ 88.1
+hours=8 -> predicted score≈ 92.7
+hours=9 -> predicted score≈ 97.2</div>
+        <div class="note blue">Notice the model doesn't reproduce the training scores exactly (e.g. hour 8 was really 92, predicted ≈92.7) — a straight line can't pass through all nine points at once, so it settles on the line with the least total squared error. That's exactly what <code>loss='mse'</code> was optimizing for.</div>
+      </section>
+
+      <!-- ═══ 7. SOLVING FOR SCORE = 100 ═══ -->
+      <section class="card topic-panel" id="topic-6">
+        <h2 class="step-title">Solving for "Score = 100"</h2>
+        <p>The model learned <code>ŷ = w·x + b</code> in <em>scaled</em> space. To answer "how many hours for a 100," we invert the line algebraically instead of guessing-and-checking:</p>
+        <div class="code-block">target_s = y_scaler.<span class="fn">transform</span>([[<span class="num">100.0</span>]])[<span class="num">0</span>,<span class="num">0</span>]      <span class="cm"># scale the target the same way</span>
+w, b = model.layers[<span class="num">0</span>].<span class="fn">get_weights</span>()
+w = <span class="fn">float</span>(w[<span class="num">0</span>,<span class="num">0</span>]); b = <span class="fn">float</span>(b[<span class="num">0</span>])
+
+x_needed_s = (target_s - b) / w                     <span class="cm"># solve w*x + b = target for x</span>
+hours_needed = <span class="fn">float</span>(x_scaler.<span class="fn">inverse_transform</span>([[x_needed_s]])[<span class="num">0</span>,<span class="num">0</span>])
+<span class="fn">print</span>(<span class="str">f"Hours needed for score 100 ≈ {hours_needed:.2f}"</span>)</div>
+        <div class="output">Hours needed for score 100 ≈ 9.62</div>
+        <div class="math-card">
+          <span class="math-formula">$$\hat y = wx+b \;\;\Longrightarrow\;\; x = \frac{\hat y - b}{w}$$</span>
+          <p class="math-caption">Same algebra you'd use to invert <code>y = mx + c</code> — the scaling doesn't change the shape of the argument, only which units the numbers are in at each step.</p>
+        </div>
+        <div class="note orange"><strong>Sanity check the extrapolation.</strong> 9.62 hours is just past the largest data point (9 hours → 95). That's a small, reasonable extrapolation. Asking this same model for "hours needed for score 200" would be meaningless — nothing in the data says the line keeps climbing forever, and a real exam score cannot exceed 100 anyway.</div>
+      </section>
+
+      <!-- ═══ 8. IS THIS REALLY AN ANN? ═══ -->
+      <section class="card topic-panel" id="topic-7">
+        <h2 class="step-title">Wait — Is This Really an ANN?</h2>
+        <p>Fair question, and worth sitting with. <code>Dense(1, activation='linear')</code> applied directly to a single input computes exactly:</p>
+        <div class="math-card">
+          <span class="math-formula">$$\hat y = wx + b$$</span>
+          <p class="math-caption">This is not "an ANN that happens to look like linear regression." It <em>is</em> linear regression, fitted by gradient descent instead of the normal equation.</p>
+        </div>
+        <div class="note violet"><strong>What's genuinely being demonstrated here:</strong> that Keras' machinery (layers, an optimizer, a loss function, epochs) can reproduce a result you could already get with <code>sklearn.linear_model.LinearRegression</code>. That's a legitimate, checkable first step — you know the "right answer" in advance, so you can verify the plumbing works.</div>
+        <div class="note red"><strong>What it does <em>not</em> demonstrate:</strong> anything that needs a neural network specifically. There's no hidden layer, so there's no nonlinearity, so there's nothing here a straight line couldn't already do. The entire point of hidden layers plus nonlinear activations (ReLU, sigmoid, tanh) is to fit curves and boundaries linear models can't reach — and this model doesn't use either.</div>
+        <p>The <a class="resource-link" href="../../01_ann/index.html#p11">deck's code panel</a> makes this same point with a callout, and the <a class="resource-link" href="../../01_ann/index.html#p12">digit recognizer</a> right after it shows what a real hidden layer buys you: a genuine 64→16→10 network trained on handwritten digits, live in your browser. The <a class="resource-link" href="../../01_ann/index.html#p15">XOR appendix</a> goes one step further and proves, not just demonstrates, that a single linear neuron can never separate a certain kind of data — no matter how it's trained — while one hidden layer solves it exactly.</p>
+      </section>
+
+    </main>
+  </div>
+
+  <div class="footer">Lesson 1 · Artificial Neural Networks — Your First ANN: Regression with Keras</div>
+</div>
+
+<script>
+  const links = document.querySelectorAll('.topic-link');
+  const panels = document.querySelectorAll('.topic-panel');
+
+  function showTopic(id) {
+    panels.forEach(panel => panel.classList.toggle('active', panel.id === id));
+    links.forEach(link => link.classList.toggle('active', link.dataset.target === id));
+  }
+
+  links.forEach(link => {
+    if (link.dataset.target) {
+      link.addEventListener('click', () => {
+        showTopic(link.dataset.target);
+        location.hash = link.dataset.target;
+      });
+    }
+  });
+
+  const hash = location.hash.replace('#', '');
+  if (hash && document.getElementById(hash)) showTopic(hash);
+</script>
+</body>
+</html>
