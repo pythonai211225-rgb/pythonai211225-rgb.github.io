@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function () {
     renderMathInElement(document.body, {
@@ -55,6 +56,18 @@
   .btn:hover { background: var(--green-3); }
   .btn.ghost { border-color: #cfd8d2; color: var(--muted); }
   .btn.ghost:hover { background: #f2f6f3; }
+
+  .exam-timer {
+    display: flex; align-items: baseline; gap: 8px; padding: 6px 14px;
+    border: 2px solid var(--green-2); border-radius: 999px; background: var(--mint);
+  }
+  .exam-timer-label {
+    font-size: .68rem; font-weight: 900; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--green-1);
+  }
+  #exam-timer-value {
+    font-variant-numeric: tabular-nums; font-weight: 900; font-size: .95rem; color: #000;
+  }
 
   /* sheet */
   .sheet {
@@ -233,6 +246,60 @@
   .demo-wrong { border-color: #b3261e; box-shadow: 0 4px 14px rgba(179,38,30,.18); }
   .demo-wrong h3 { background: #b3261e; }
 
+  /* student details / submit */
+  .student-card, .submit-card {
+    margin: 18px 0 0; border: 2px solid var(--rule); background: #fff; padding: 18px 22px 22px;
+  }
+  .student-note, .submit-note { margin: 0 0 16px; color: var(--muted); font-size: .95rem; max-width: 70ch; }
+  .student-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px;
+    margin-bottom: 18px;
+  }
+  .student-grid label {
+    display: flex; flex-direction: column; gap: 6px; font-family: "Segoe UI", sans-serif;
+    font-size: .74rem; font-weight: 900; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--green-1);
+  }
+  .student-grid input {
+    font: inherit; font-family: Georgia, serif; font-size: 1rem; font-weight: 400;
+    text-transform: none; letter-spacing: normal; color: var(--ink);
+    padding: 9px 12px; border: 1.5px solid #b5d9c4; background: #fbfffd;
+  }
+  .student-grid input:read-only { background: #eef2f0; color: var(--muted); }
+  .student-grid input:disabled { background: #eef2f0; color: var(--muted); }
+
+  .btn-start, .btn-finish, .btn-restart {
+    font: inherit; font-family: "Segoe UI", sans-serif; font-size: .95rem; font-weight: 900;
+    letter-spacing: .04em; padding: 12px 26px; border-radius: 6px; cursor: pointer; border: none;
+    color: #fff; transition: filter .15s ease;
+  }
+  .btn-start { background: #1f8f4e; box-shadow: 0 4px 12px rgba(31,143,78,.35); }
+  .btn-start:hover { filter: brightness(1.08); }
+  .btn-start:disabled { background: #9db8a8; box-shadow: none; cursor: not-allowed; }
+  .btn-finish { background: #1e6f8b; box-shadow: 0 4px 12px rgba(30,111,139,.3); margin-right: 12px; }
+  .btn-finish:hover { filter: brightness(1.08); }
+  .btn-finish:disabled { background: #a6c3cf; box-shadow: none; cursor: not-allowed; }
+  .btn-restart { background: #b3261e; box-shadow: 0 4px 12px rgba(179,38,30,.3); }
+  .btn-restart:hover { filter: brightness(1.08); }
+  .student-status {
+    margin: 14px 0 0; font-family: "Segoe UI", sans-serif; font-size: .88rem; font-weight: 700;
+    color: var(--green-1);
+  }
+
+  .submit-email { margin: 0 0 20px; font-size: 1.05rem; font-weight: 700; }
+  .submit-email a { color: var(--green-1); }
+  .submit-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;
+    margin-bottom: 22px; border: 1.5px solid #c9dcd1; background: #fbfffd; padding: 14px 18px;
+  }
+  .submit-grid div { display: flex; flex-direction: column; gap: 3px; }
+  .submit-grid span {
+    font-family: "Segoe UI", sans-serif; font-size: .68rem; font-weight: 900; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--green-1);
+  }
+  .submit-grid b { font-size: 1rem; font-weight: 700; color: var(--ink); }
+  .submit-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+
   footer.endbar {
     margin: 40px 30px 0; border-top: 3px solid var(--rule); padding-top: 14px;
     display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
@@ -260,6 +327,10 @@
 
 <div class="toolbar">
   <span class="brand">Machine Learning &middot; Exam B</span>
+  <div class="exam-timer" id="exam-timer" hidden>
+    <span class="exam-timer-label">Time</span>
+    <span id="exam-timer-value">00:00:00</span>
+  </div>
   <a class="btn ghost" href="../../index.html">All lessons</a>
   <button class="btn ghost" id="do-print" type="button">Print</button>
 </div>
@@ -278,7 +349,10 @@
     <nav class="menu">
       <h2>Topics</h2>
       <ul>
-        <li class="active" data-menu="topic-1">
+        <li class="active" data-menu="topic-0">
+          <button type="button" data-target="topic-0"><span class="qn">00</span>Student Details</button>
+        </li>
+        <li data-menu="topic-1">
           <button type="button" data-target="topic-1"><span class="qn">01</span>Concept Questions</button>
         </li>
         <li data-menu="topic-2">
@@ -311,13 +385,47 @@
         <li data-menu="topic-11">
           <button type="button" data-target="topic-11"><span class="qn">11</span>PCA <i class="home-tag">can do it at home</i></button>
         </li>
+        <li data-menu="topic-12">
+          <button type="button" data-target="topic-12"><span class="qn">12</span>Submit</button>
+        </li>
       </ul>
     </nav>
 
     <div class="content">
 
+      <!-- ============ TOPIC 0: STUDENT DETAILS ============ -->
+      <section class="pane active" id="topic-0">
+        <section class="topic">
+          <h2><span class="tnum">00</span> Student Details</h2>
+        </section>
+
+        <div class="student-card">
+          <p class="student-note">Fill in your details, then press <strong>Start Exam</strong>. The timer keeps
+          running even if you refresh, close the tab, or come back later &mdash; it tracks real elapsed time from
+          the moment you start.</p>
+
+          <div class="student-grid">
+            <label>First name
+              <input type="text" id="sd-first" autocomplete="given-name">
+            </label>
+            <label>Last name
+              <input type="text" id="sd-last" autocomplete="family-name">
+            </label>
+            <label>ID number
+              <input type="text" id="sd-id" inputmode="numeric" autocomplete="off">
+            </label>
+            <label>Quiz number
+              <input type="text" id="sd-quiz" readonly>
+            </label>
+          </div>
+
+          <button type="button" class="btn-start" id="sd-start-btn">&#9654; Start Exam</button>
+          <p class="student-status" id="sd-status"></p>
+        </div>
+      </section>
+
       <!-- ============ TOPIC 1: CONCEPT QUESTIONS ============ -->
-      <section class="pane active" id="topic-1">
+      <section class="pane" id="topic-1">
         <section class="topic">
           <h2><span class="tnum">01</span> Concept Questions</h2>
         </section>
@@ -1107,16 +1215,40 @@ average = statistics.mean([2, 4, 6, 8])   # 5 &mdash; but no calculation shown</
         </article>
       </section>
 
+      <!-- ============ TOPIC 12: SUBMIT ============ -->
+      <section class="pane" id="topic-12">
+        <section class="topic">
+          <h2><span class="tnum">12</span> Submit</h2>
+        </section>
+
+        <div class="submit-card">
+          <p class="submit-note">When you're done, copy the answer sheet from <strong>Concept Questions</strong> and
+          your worked answers, then email everything to:</p>
+          <p class="submit-email">
+            <a href="mailto:pythonai211225+mlcalcmoeda@gmail.com">pythonai211225+mlcalcmoeda@gmail.com</a>
+          </p>
+
+          <div class="submit-grid">
+            <div><span>First name</span><b id="sub-first">&mdash;</b></div>
+            <div><span>Last name</span><b id="sub-last">&mdash;</b></div>
+            <div><span>ID number</span><b id="sub-id">&mdash;</b></div>
+            <div><span>Quiz number</span><b id="sub-quiz">&mdash;</b></div>
+          </div>
+
+          <div class="submit-actions">
+            <button type="button" class="btn-finish" id="finish-btn">Finish Exam</button>
+            <button type="button" class="btn-restart" id="restart-btn">Restart Exam</button>
+          </div>
+          <p class="student-status" id="submit-status"></p>
+        </div>
+      </section>
+
     </div>
   </div>
 
   <footer class="endbar">
     <a href="../exam_rehearsal/index.html">&larr; Exam rehearsal</a>
     <a href="../../index.html">All lessons</a>
-  </footer>
-
-  <footer class="endbar" style="margin-top:0; border-top:none; padding-top:0;">
-    <span>Submit your completed answers to: <a href="mailto:pythonai211225+mlcalcmoeda@gmail.com">pythonai211225+mlcalcmoeda@gmail.com</a></span>
   </footer>
 
 </main>
@@ -1183,6 +1315,215 @@ average = statistics.mean([2, 4, 6, 8])   # 5 &mdash; but no calculation shown</
       }
     });
   }
+
+  // ============ STUDENT DETAILS / TIMER / SUBMIT ============
+  var LS = {
+    first: 'moeda_ml_first',
+    last: 'moeda_ml_last',
+    id: 'moeda_ml_id',
+    quiz: 'moeda_ml_quiz',
+    start: 'moeda_ml_starttime',
+    finished: 'moeda_ml_finished',
+    finishedElapsed: 'moeda_ml_finished_elapsed'
+  };
+
+  var sdFirst = document.getElementById('sd-first');
+  var sdLast = document.getElementById('sd-last');
+  var sdId = document.getElementById('sd-id');
+  var sdQuiz = document.getElementById('sd-quiz');
+  var sdStartBtn = document.getElementById('sd-start-btn');
+  var sdStatus = document.getElementById('sd-status');
+
+  var subFirst = document.getElementById('sub-first');
+  var subLast = document.getElementById('sub-last');
+  var subId = document.getElementById('sub-id');
+  var subQuiz = document.getElementById('sub-quiz');
+  var finishBtn = document.getElementById('finish-btn');
+  var restartBtn = document.getElementById('restart-btn');
+  var submitStatus = document.getElementById('submit-status');
+
+  var timerEl = document.getElementById('exam-timer');
+  var timerValueEl = document.getElementById('exam-timer-value');
+  var timerInterval = null;
+
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+  function formatElapsed(ms) {
+    var totalSeconds = Math.floor(ms / 1000);
+    var h = Math.floor(totalSeconds / 3600);
+    var m = Math.floor((totalSeconds % 3600) / 60);
+    var s = totalSeconds % 60;
+    return pad(h) + ':' + pad(m) + ':' + pad(s);
+  }
+
+  function generateQuizNumber() {
+    return String(Math.floor(100000 + Math.random() * 900000));
+  }
+
+  function ensureQuizNumber() {
+    var quiz = localStorage.getItem(LS.quiz);
+    if (!quiz) {
+      quiz = generateQuizNumber();
+      localStorage.setItem(LS.quiz, quiz);
+    }
+    return quiz;
+  }
+
+  function refreshSubmitSummary() {
+    if (subFirst) subFirst.textContent = localStorage.getItem(LS.first) || '—';
+    if (subLast) subLast.textContent = localStorage.getItem(LS.last) || '—';
+    if (subId) subId.textContent = localStorage.getItem(LS.id) || '—';
+    if (subQuiz) subQuiz.textContent = localStorage.getItem(LS.quiz) || '—';
+  }
+
+  function tickTimer() {
+    var start = parseInt(localStorage.getItem(LS.start), 10);
+    if (!start) return;
+    var elapsed = Date.now() - start;
+    if (timerValueEl) timerValueEl.textContent = formatElapsed(elapsed);
+  }
+
+  function startTimerInterval() {
+    if (timerEl) timerEl.hidden = false;
+    tickTimer();
+    if (timerInterval) clearInterval(timerInterval);
+    timerInterval = setInterval(tickTimer, 1000);
+  }
+
+  function stopTimerInterval(finalMs) {
+    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+    if (timerValueEl && typeof finalMs === 'number') { timerValueEl.textContent = formatElapsed(finalMs); }
+  }
+
+  function lockStudentFields(locked) {
+    [sdFirst, sdLast, sdId].forEach(function (el) { if (el) el.disabled = locked; });
+  }
+
+  function initStudentDetails() {
+    if (sdFirst) sdFirst.value = localStorage.getItem(LS.first) || '';
+    if (sdLast) sdLast.value = localStorage.getItem(LS.last) || '';
+    if (sdId) sdId.value = localStorage.getItem(LS.id) || '';
+    if (sdQuiz) sdQuiz.value = ensureQuizNumber();
+
+    var finished = localStorage.getItem(LS.finished) === 'true';
+    var started = !!localStorage.getItem(LS.start);
+
+    if (finished) {
+      lockStudentFields(true);
+      if (sdStartBtn) sdStartBtn.disabled = true;
+      if (sdStatus) sdStatus.textContent = 'This exam has already been finished and submitted.';
+      var finalElapsed = parseInt(localStorage.getItem(LS.finishedElapsed), 10) || 0;
+      if (timerEl) timerEl.hidden = false;
+      stopTimerInterval(finalElapsed);
+    } else if (started) {
+      lockStudentFields(true);
+      if (sdStartBtn) sdStartBtn.disabled = true;
+      if (sdStatus) sdStatus.textContent = 'Exam in progress — your timer is running.';
+      startTimerInterval();
+    }
+
+    [sdFirst, sdLast, sdId].forEach(function (el, i) {
+      if (!el) return;
+      var key = [LS.first, LS.last, LS.id][i];
+      el.addEventListener('input', function () { localStorage.setItem(key, el.value); refreshSubmitSummary(); });
+    });
+
+    refreshSubmitSummary();
+  }
+
+  if (sdStartBtn) {
+    sdStartBtn.addEventListener('click', function () {
+      var first = (sdFirst.value || '').trim();
+      var last = (sdLast.value || '').trim();
+      var id = (sdId.value || '').trim();
+      if (!first || !last || !id) {
+        if (window.Swal) {
+          Swal.fire({ icon: 'warning', title: 'Missing details', text: 'Please fill in your first name, last name and ID number before starting.' });
+        } else {
+          alert('Please fill in your first name, last name and ID number before starting.');
+        }
+        return;
+      }
+      localStorage.setItem(LS.first, first);
+      localStorage.setItem(LS.last, last);
+      localStorage.setItem(LS.id, id);
+      ensureQuizNumber();
+      localStorage.setItem(LS.start, String(Date.now()));
+      lockStudentFields(true);
+      sdStartBtn.disabled = true;
+      if (sdStatus) sdStatus.textContent = 'Exam in progress — your timer is running.';
+      startTimerInterval();
+      refreshSubmitSummary();
+    });
+  }
+
+  if (finishBtn) {
+    finishBtn.addEventListener('click', function () {
+      var doFinish = function () {
+        var start = parseInt(localStorage.getItem(LS.start), 10);
+        var elapsed = start ? Date.now() - start : 0;
+        localStorage.setItem(LS.finished, 'true');
+        localStorage.setItem(LS.finishedElapsed, String(elapsed));
+        stopTimerInterval(elapsed);
+        lockStudentFields(true);
+        if (sdStartBtn) sdStartBtn.disabled = true;
+        if (sdStatus) sdStatus.textContent = 'This exam has already been finished and submitted.';
+        if (submitStatus) submitStatus.textContent = 'Finished! Your time was ' + formatElapsed(elapsed) + '.';
+        if (window.Swal) {
+          Swal.fire({ icon: 'success', title: 'Exam finished', text: 'Your final time was ' + formatElapsed(elapsed) + '. Don’t forget to email your answers.' });
+        }
+      };
+      if (window.Swal) {
+        Swal.fire({
+          icon: 'warning', title: 'Finish the exam?',
+          text: 'This stops your timer for good. Make sure you have copied your answers first.',
+          showCancelButton: true, confirmButtonText: 'Yes, finish', cancelButtonText: 'Cancel',
+          confirmButtonColor: '#b3261e'
+        }).then(function (result) { if (result.isConfirmed) doFinish(); });
+      } else if (confirm('Finish the exam? This stops your timer for good.')) {
+        doFinish();
+      }
+    });
+  }
+
+  if (restartBtn) {
+    restartBtn.addEventListener('click', function () {
+      var doRestart = function () {
+        [LS.first, LS.last, LS.id, LS.quiz, LS.start, LS.finished, LS.finishedElapsed].forEach(function (k) {
+          localStorage.removeItem(k);
+        });
+        stopTimerInterval();
+        if (timerEl) timerEl.hidden = true;
+        if (timerValueEl) timerValueEl.textContent = '00:00:00';
+        if (sdFirst) sdFirst.value = '';
+        if (sdLast) sdLast.value = '';
+        if (sdId) sdId.value = '';
+        lockStudentFields(false);
+        if (sdStartBtn) sdStartBtn.disabled = false;
+        if (sdStatus) sdStatus.textContent = '';
+        if (submitStatus) submitStatus.textContent = '';
+        if (sdQuiz) sdQuiz.value = ensureQuizNumber();
+        refreshSubmitSummary();
+        menuItems.forEach(function (other) { other.classList.remove('active'); });
+        document.querySelector('.menu li[data-menu="topic-0"]').classList.add('active');
+        document.querySelectorAll('.pane').forEach(function (p) { p.classList.remove('active'); });
+        document.getElementById('topic-0').classList.add('active');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      };
+      if (window.Swal) {
+        Swal.fire({
+          icon: 'warning', title: 'Restart the exam?',
+          text: 'This clears your name, ID, quiz number and timer. This cannot be undone.',
+          showCancelButton: true, confirmButtonText: 'Yes, restart', cancelButtonText: 'Cancel',
+          confirmButtonColor: '#b3261e'
+        }).then(function (result) { if (result.isConfirmed) doRestart(); });
+      } else if (confirm('Restart the exam? This clears your details and timer.')) {
+        doRestart();
+      }
+    });
+  }
+
+  initStudentDetails();
 </script>
 
 </body>
