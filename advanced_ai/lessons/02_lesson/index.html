@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 2 - Your First CNN: Cats vs Dogs with Keras</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      renderMathInElement(document.body, {
+        delimiters: [
+          { left: '$$', right: '$$', display: true },
+          { left: '\\(', right: '\\)', display: false }
+        ],
+        throwOnError: false
+      });
+    });
+  </script>
+  <style>
+    :root {
+      --bg: #f7f9ff;
+      --surface: #ffffff;
+      --ink: #131a33;
+      --muted: #57618a;
+      --cyan: #0891b2;
+      --cyan-dark: #0e3a4f;
+      --violet: #7c3aed;
+      --green: #0f9f6e;
+      --orange: #f97316;
+      --red: #dc2626;
+      --border: #c7d3ee;
+      --code-bg: #0d1224;
+      --code-text: #dceaff;
+      --soft-cyan: #e6fbff;
+      --soft-violet: #f2ecff;
+      --soft-green: #effbf5;
+      --soft-orange: #fff7ed;
+      --soft-red: #fef2f2;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Trebuchet MS", "Lucida Sans", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 10%, #e6fbff 0%, transparent 34%),
+        radial-gradient(circle at 88% 18%, #f2ecff 0%, transparent 32%),
+        linear-gradient(180deg, var(--bg) 0%, #ffffff 56%, #f1f4ff 100%);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 28px 20px 60px; }
+    .layout { display: grid; grid-template-columns: 250px 1fr; gap: 22px; align-items: start; }
+
+    .side-nav {
+      position: sticky; top: 20px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 18px 14px;
+      box-shadow: 0 4px 16px rgba(8,145,178,.08);
+      max-height: calc(100vh - 40px); overflow-y: auto;
+    }
+    .side-title { font-size: .8rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--cyan); margin: 0 0 10px; }
+    .part-label { display: block; padding: 8px 4px 4px; font-size: .7rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--violet); }
+    .topic-link {
+      display: block; width: 100%; border: 1px solid transparent; border-radius: 9px;
+      padding: 7px 10px; background: transparent; color: var(--muted); cursor: pointer;
+      text-align: left; font: inherit; margin: 2px 0; transition: .16s ease;
+    }
+    .topic-link:hover { background: #eefcff; color: var(--cyan-dark); border-color: var(--border); }
+    .topic-link.active { background: #e0f7fb; color: var(--cyan-dark); border-color: var(--cyan); font-weight: 700; }
+    .side-divider { border: none; border-top: 1px solid var(--border); margin: 12px 4px; }
+    .nav-back { display: block; padding: 7px 10px; color: var(--cyan); font-weight: 700; text-decoration: none; font-size: .9rem; }
+    .nav-back:hover { text-decoration: underline; }
+
+    .hero {
+      background: linear-gradient(135deg, var(--surface) 0%, var(--soft-cyan) 54%, var(--soft-violet) 100%);
+      border: 1px solid var(--border); border-radius: 16px; padding: 28px;
+      box-shadow: 0 12px 30px rgba(8,145,178,.12); margin-bottom: 22px;
+    }
+    .tag { display: inline-block; padding: 5px 12px; border-radius: 999px; background: #f2ecff; color: #5b21b6; font-weight: 800; font-size: .82rem; border: 1px solid #d8c8fb; }
+    h1 { margin: 14px 0 10px; color: var(--cyan-dark); font-size: clamp(2rem, 5vw, 3.2rem); line-height: 1.05; }
+    .hero p { max-width: 820px; color: var(--muted); font-size: 1.06rem; }
+    .hero-chips { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .hero-chip { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: .78rem; font-weight: 700; background: rgba(8,145,178,.1); color: var(--cyan-dark); border: 1px solid rgba(8,145,178,.3); }
+
+    .card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      padding: 22px; margin-bottom: 16px; box-shadow: 0 7px 22px rgba(8,145,178,.08);
+    }
+    .topic-panel { display: none; }
+    .topic-panel.active { display: block; }
+    .step-title { margin: 0 0 12px; color: var(--cyan-dark); font-size: 1.25rem; }
+
+    code { font-family: Consolas, "Courier New", monospace; background: #eef4ff; padding: 1px 6px; border-radius: 5px; color: var(--cyan-dark); }
+
+    .katex { color: var(--cyan-dark); }
+    .katex-display { margin: 6px 0; overflow-x: auto; overflow-y: hidden; padding: 3px 0; }
+
+    .resource-link { display: inline-block; color: var(--cyan-dark); font-weight: 800; text-decoration: none; border-bottom: 2px solid rgba(8,145,178,.35); }
+    .resource-link:hover { color: var(--cyan); border-bottom-color: var(--cyan); }
+    .resource-links { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 4px; }
+
+    .code-block .kw  { color: #c4b5fd; }
+    .code-block .fn  { color: #6ee7b7; }
+    .code-block .lib { color: #fbbf24; }
+    .code-block .num { color: #fb923c; }
+    .code-block .str { color: #86efac; }
+    .code-block .cm  { color: #7286a8; font-style: italic; }
+    .code-block .cls { color: #f9a8d4; }
+    .code-block {
+      background: var(--code-bg); color: var(--code-text); border-radius: 10px;
+      border: 1px solid #304563; padding: 16px 18px; overflow-x: auto; margin: 12px 0;
+      font-size: .92rem; line-height: 1.55; white-space: pre;
+    }
+    .output {
+      background: #f7fbff; color: #1a2d49; border: 1px solid var(--border);
+      border-left: 5px solid var(--cyan); border-radius: 10px; padding: 12px 14px;
+      overflow-x: auto; margin: 8px 0 16px; font-family: Consolas, "Courier New", monospace; white-space: pre-wrap;
+    }
+
+    .note { background: var(--soft-orange); border: 1px solid #fed7aa; border-left: 5px solid var(--orange); border-radius: 10px; padding: 12px 14px; margin: 12px 0; }
+    .note.blue { background: var(--soft-cyan); border-color: #a5e6f0; border-left-color: var(--cyan); }
+    .note.red { background: var(--soft-red); border-color: #fecaca; border-left-color: var(--red); }
+    .note.green { background: var(--soft-green); border-color: #b6ebd4; border-left-color: var(--green); }
+    .note.violet { background: var(--soft-violet); border-color: #d8c8fb; border-left-color: var(--violet); }
+
+    .task-box { border: 1px solid var(--border); border-left: 5px solid var(--cyan); border-radius: 10px; padding: 14px 16px; margin: 12px 0; background: #fbfdff; }
+    .task-num { font-weight: 900; color: var(--cyan); text-transform: uppercase; letter-spacing: .08em; font-size: .78rem; }
+
+    .data-table { width: 100%; border-collapse: collapse; margin: 16px 0; background: #fbfdff; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .data-table th { background: var(--soft-cyan); color: var(--cyan-dark); text-align: left; padding: 10px 14px; font-size: .9rem; border-bottom: 2px solid var(--border); }
+    .data-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); font-family: Consolas, "Courier New", monospace; }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table td.term { font-family: inherit; font-weight: 700; color: var(--cyan-dark); }
+
+    .math-card {
+      border: 1px solid #b7c8e4; border-radius: 12px;
+      background: linear-gradient(135deg, #ffffff 0%, #f1f7ff 100%);
+      padding: 18px; margin: 18px 0; text-align: center;
+    }
+    .math-formula { display: block; color: var(--cyan-dark); font-family: "Cambria Math", "Times New Roman", serif; font-size: clamp(1.1rem, 2.6vw, 1.7rem); line-height: 1.7; overflow-x: auto; padding: 2px 0; }
+    .math-caption { color: var(--muted); margin: 8px 0 0; font-size: .95rem; }
+
+    .footer { text-align: center; color: var(--muted); font-size: .9rem; margin-top: 18px; }
+
+    @media (max-width: 820px) {
+      .layout { grid-template-columns: 1fr; }
+      .side-nav { position: static; }
+      .wrap { padding: 18px 12px 44px; }
+    }
+    .shape { font-family: Consolas, "Courier New", monospace; font-weight: 700; color: var(--violet); white-space: nowrap; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="layout">
+    <aside class="side-nav">
+      <p class="side-title">Lesson 2 · CNN</p>
+      <span class="part-label">Class Code</span>
+      <button class="topic-link active" data-target="topic-github">1. GitHub repo</button>
+      <span class="part-label">The Data</span>
+      <button class="topic-link" data-target="topic-1">2. Mount Drive &amp; unzip</button>
+      <button class="topic-link" data-target="topic-2">3. ImageDataGenerator</button>
+      <button class="topic-link" data-target="topic-3">4. flow_from_directory</button>
+      <span class="part-label">Building the Model</span>
+      <button class="topic-link" data-target="topic-4">5. Conv + Pool blocks</button>
+      <button class="topic-link" data-target="topic-5">6. Flatten &amp; Dense head</button>
+      <button class="topic-link" data-target="topic-6">7. Compile &amp; fit</button>
+      <span class="part-label">Using the Model</span>
+      <button class="topic-link" data-target="topic-7">8. Save &amp; load</button>
+      <button class="topic-link" data-target="topic-8">9. Predicting one photo</button>
+      <span class="part-label">Thinking It Through</span>
+      <button class="topic-link" data-target="topic-9">10. Reading the training log</button>
+      <button class="topic-link" data-target="topic-10">11. A cleaner prediction function</button>
+      <a class="nav-back" href="../../02_cnn/index.html">← Back to the CNN deck</a>
+      <a class="nav-back" href="../../index.html">Back to Advanced AI</a>
+    </aside>
+
+    <main>
+      <section class="hero">
+        <span class="tag">Lesson 2 · Convolutional Neural Networks · Oct 14, 2026</span>
+        <h1>Your First CNN — Cats vs Dogs with Keras</h1>
+        <p>Lesson 1 fit a single neuron to nine numbers. This lesson trains a real image classifier: <strong>8,000 photos of cats and dogs</strong>, two convolution blocks, a dense head, and a single sigmoid output that says "dog" or "cat". We load the photos straight from folders, augment them on the fly, train for 25 epochs, read the training log for signs of overfitting, and finally ask the model about two photos it has never seen.</p>
+        <div class="hero-chips">
+          <span class="hero-chip">ImageDataGenerator</span>
+          <span class="hero-chip">flow_from_directory</span>
+          <span class="hero-chip">Conv2D</span>
+          <span class="hero-chip">MaxPooling2D</span>
+          <span class="hero-chip">Flatten</span>
+          <span class="hero-chip">binary_crossentropy</span>
+          <span class="hero-chip">model.save</span>
+        </div>
+      </section>
+
+      <!-- ═══ 1. GITHUB ═══ -->
+      <section class="card topic-panel active" id="topic-github">
+        <h2 class="step-title">Open Class Code</h2>
+        <p>Open the original notebook from class on GitHub:</p>
+        <div class="resource-links">
+          <a class="resource-link" href="https://github.com/pythonai211225-rgb/11.10.2026/blob/main/cnn.ipynb" target="_blank" rel="noopener">cnn.ipynb — the code in this lesson</a>
+        </div>
+        <div class="note blue">The ideas behind every layer used here (convolution, filters, ReLU on feature maps, max pooling, flatten) are explained with live, animated demos in the <a class="resource-link" href="../../02_cnn/index.html">CNN deck</a>. This lesson page walks through the notebook's code, cell by cell.</div>
+        <p>The notebook runs in <strong>Google Colab</strong> and reads the dataset from Google Drive, so you'll need <code>CNN_dog_cat_dataset.zip</code> in your own Drive (under <code>MyDrive/content/</code>) to run it as-is. A GPU runtime (<em>Runtime → Change runtime type → GPU</em>) makes the 25 epochs much faster.</p>
+      </section>
+
+      <!-- ═══ 2. MOUNT & UNZIP ═══ -->
+      <section class="card topic-panel" id="topic-1">
+        <h2 class="step-title">Mount Google Drive &amp; Unzip the Dataset</h2>
+        <p>Colab can't see your Drive until you mount it. Once mounted, Drive appears as an ordinary folder at <code>/content/drive</code>:</p>
+        <div class="code-block"><span class="kw">import</span> pandas <span class="kw">as</span> <span class="lib">pd</span>
+<span class="kw">import</span> zipfile
+<span class="kw">from</span> google.colab <span class="kw">import</span> drive
+
+drive.<span class="fn">mount</span>(<span class="str">'/content/drive'</span>)   <span class="cm"># connects Drive; it shows up at /content/drive</span></div>
+        <div class="output">Drive already mounted at /content/drive; to attempt to forcibly remount, call drive.mount("/content/drive", force_remount=True).</div>
+        <p>Then extract the zip from Drive onto the Colab machine's own disk:</p>
+        <div class="code-block"><span class="kw">import</span> zipfile
+
+zip_file = <span class="str">'/content/drive/MyDrive/content/CNN_dog_cat_dataset.zip'</span>   <span class="cm"># the zip in Drive</span>
+
+<span class="kw">with</span> zipfile.<span class="cls">ZipFile</span>(zip_file, <span class="str">'r'</span>) <span class="kw">as</span> zip_ref:
+    zip_ref.<span class="fn">extractall</span>(<span class="str">'/content/dataset'</span>)   <span class="cm"># extract into a new folder</span></div>
+        <div class="note green"><strong>Why unzip instead of reading from Drive directly?</strong> Training opens thousands of small image files, again every epoch. Reading them over the Drive connection is slow; reading from the Colab machine's local disk is fast. One unzip at the start pays for itself many times over.</div>
+        <p>After extraction the data looks like this — and the folder layout <em>is</em> the labelling:</p>
+        <div class="code-block">dataset/
+├── training_set/        <span class="cm"># 8,000 images</span>
+│   ├── cats/
+│   └── dogs/
+├── test_set/            <span class="cm"># 2,000 images</span>
+│   ├── cats/
+│   └── dogs/
+└── single_prediction/
+    ├── cat_or_dog_1.jpg
+    └── cat_or_dog_2.jpg</div>
+        <div class="note">Small clean-ups: <code>pandas</code> is imported but never used (there's no table anywhere — the labels come from folder names), and <code>zipfile</code> is imported twice. The <code>ls</code> cell is just a check that <code>drive/</code> appeared.</div>
+      </section>
+
+      <!-- ═══ 3. IMAGEDATAGENERATOR ═══ -->
+      <section class="card topic-panel" id="topic-2">
+        <h2 class="step-title">ImageDataGenerator: Rescaling &amp; Augmentation</h2>
+        <p>Two generators: one for training (scales <em>and</em> randomly alters each photo), one for testing (only scales).</p>
+        <div class="code-block"><span class="kw">from</span> tensorflow.keras.preprocessing.image <span class="kw">import</span> <span class="cls">ImageDataGenerator</span>
+
+<span class="cm"># Training data generator with augmentation</span>
+train_datagen = <span class="cls">ImageDataGenerator</span>(
+    rescale=<span class="num">1.</span>/<span class="num">255</span>,         <span class="cm"># Normalize pixel values to [0,1]</span>
+    shear_range=<span class="num">0.2</span>,        <span class="cm"># Apply a slight diagonal transformation (shear)</span>
+    zoom_range=<span class="num">0.2</span>,         <span class="cm"># Apply random zoom-in effect</span>
+    horizontal_flip=<span class="kw">True</span>    <span class="cm"># Flip images horizontally</span>
+)
+
+<span class="cm"># Testing data generator — only normalization, no augmentation</span>
+test_datagen = <span class="cls">ImageDataGenerator</span>(rescale=<span class="num">1.</span>/<span class="num">255</span>)</div>
+        <table class="data-table">
+          <thead><tr><th>argument</th><th>what it actually does</th></tr></thead>
+          <tbody>
+            <tr><td class="term">rescale=1./255</td><td>Multiplies every pixel by 1/255, so 0–255 becomes 0–1. Small inputs keep the gradients stable.</td></tr>
+            <tr><td class="term">shear_range=0.2</td><td>Random shear angle between −0.2° and +0.2° — in <strong>degrees</strong>.</td></tr>
+            <tr><td class="term">zoom_range=0.2</td><td>Random zoom factor in [0.8, 1.2], picked separately for width and height.</td></tr>
+            <tr><td class="term">horizontal_flip=True</td><td>Mirrors the photo left↔right half of the time.</td></tr>
+          </tbody>
+        </table>
+        <div class="note green"><strong>Why augment at all?</strong> 8,000 photos is not many for a network with 800,000 weights. A fresh random flip/zoom every time a photo is loaded means the model rarely sees the exact same pixels twice, so it has to learn "cat-ness" instead of memorising particular images.</div>
+        <div class="note red"><strong><code>shear_range=0.2</code> does almost nothing.</strong> Keras documents <code>shear_range</code> as an angle in <em>degrees</em>, so 0.2 tilts a 64-pixel image by about a fifth of a pixel at the edge — invisible. For a shear you can actually see, use something like <code>shear_range=10</code>. The <a class="resource-link" href="../../02_cnn/index.html#p8">augmentation demo in the deck</a> lets you compare 0.2 with 20 side by side.</div>
+        <div class="note blue"><strong>Never augment the test set.</strong> <code>test_datagen</code> only rescales. The test set should measure the model on photos exactly as they'll arrive in real use.</div>
+      </section>
+
+      <!-- ═══ 4. FLOW_FROM_DIRECTORY ═══ -->
+      <section class="card topic-panel" id="topic-3">
+        <h2 class="step-title">flow_from_directory: Folders Become Labelled Batches</h2>
+        <div class="code-block">training_set = train_datagen.<span class="fn">flow_from_directory</span>(
+    <span class="str">'/content/dataset/CNN_dog_cat_dataset/dataset/training_set'</span>,
+    target_size=(<span class="num">64</span>, <span class="num">64</span>),
+    batch_size=<span class="num">32</span>,
+    class_mode=<span class="str">'binary'</span>
+)
+
+test_set = test_datagen.<span class="fn">flow_from_directory</span>(
+    <span class="str">'/content/dataset/CNN_dog_cat_dataset/dataset/test_set'</span>,
+    target_size=(<span class="num">64</span>, <span class="num">64</span>),
+    batch_size=<span class="num">32</span>,
+    class_mode=<span class="str">'binary'</span>
+)</div>
+        <div class="output">Found 8000 images belonging to 2 classes.
+Found 2000 images belonging to 2 classes.</div>
+        <table class="data-table">
+          <thead><tr><th>argument</th><th>meaning</th></tr></thead>
+          <tbody>
+            <tr><td class="term">directory</td><td>Each sub-folder is one class. No CSV, no label column.</td></tr>
+            <tr><td class="term">target_size=(64, 64)</td><td>Every photo is resized to 64×64 on load, whatever its original size or shape.</td></tr>
+            <tr><td class="term">batch_size=32</td><td>Each step hands the model 32 photos: a tensor shaped <span class="shape">(32, 64, 64, 3)</span>.</td></tr>
+            <tr><td class="term">class_mode='binary'</td><td>One label per photo, 0 or 1 — matches a single sigmoid output.</td></tr>
+          </tbody>
+        </table>
+        <div class="note"><strong>Which class is 1?</strong> Keras numbers the folders <em>alphabetically</em>: <code>cats</code> → 0, <code>dogs</code> → 1. So the model's output is P(dog). You can confirm it in one line:</div>
+        <div class="code-block"><span class="fn">print</span>(training_set.class_indices)</div>
+        <div class="output">{'cats': 0, 'dogs': 1}</div>
+        <div class="note blue"><strong>64×64 is small on purpose.</strong> A 64×64×3 photo is 12,288 numbers; a 256×256×3 photo is 196,608. Small images train much faster on a free Colab GPU — at the cost of fine detail (whiskers, fur texture) the model can no longer see.</div>
+      </section>
+
+      <!-- ═══ 5. CONV + POOL ═══ -->
+      <section class="card topic-panel" id="topic-4">
+        <h2 class="step-title">Building the Model: Two Conv + Pool Blocks</h2>
+        <div class="code-block"><span class="kw">from</span> keras.models <span class="kw">import</span> <span class="cls">Sequential</span>
+<span class="kw">from</span> keras.layers <span class="kw">import</span> <span class="cls">Conv2D</span>, <span class="cls">MaxPooling2D</span>, <span class="cls">Flatten</span>, <span class="cls">Dense</span>
+
+cnn = <span class="cls">Sequential</span>()
+
+<span class="cm"># first convolution layer</span>
+cnn.<span class="fn">add</span>(<span class="cls">Conv2D</span>(filters=<span class="num">32</span>, kernel_size=<span class="num">3</span>, activation=<span class="str">'relu'</span>, input_shape=[<span class="num">64</span>, <span class="num">64</span>, <span class="num">3</span>]))
+cnn.<span class="fn">add</span>(<span class="cls">MaxPooling2D</span>(pool_size=<span class="num">2</span>, strides=<span class="num">2</span>))
+
+<span class="cm"># second convolution layer</span>
+cnn.<span class="fn">add</span>(<span class="cls">Conv2D</span>(filters=<span class="num">32</span>, kernel_size=<span class="num">3</span>, activation=<span class="str">'relu'</span>))
+cnn.<span class="fn">add</span>(<span class="cls">MaxPooling2D</span>(pool_size=<span class="num">2</span>, strides=<span class="num">2</span>))</div>
+        <table class="data-table">
+          <thead><tr><th>piece</th><th>meaning</th></tr></thead>
+          <tbody>
+            <tr><td class="term">Conv2D(filters=32, ...)</td><td>32 different learned filters slide over the image; each produces its own feature map.</td></tr>
+            <tr><td class="term">kernel_size=3</td><td>Each filter looks at a 3×3 patch at a time (3×3×3 on a colour image).</td></tr>
+            <tr><td class="term">activation='relu'</td><td>Every value in the feature maps goes through max(0, z) — negative responses become 0.</td></tr>
+            <tr><td class="term">input_shape=[64, 64, 3]</td><td>Only on the first layer: height, width, colour channels.</td></tr>
+            <tr><td class="term">MaxPooling2D(2, strides=2)</td><td>Keeps the largest value in each 2×2 block — halves height and width. No weights.</td></tr>
+          </tbody>
+        </table>
+        <p>Follow the shape of one photo through the two blocks:</p>
+        <table class="data-table">
+          <thead><tr><th>layer</th><th>output shape</th><th>parameters</th></tr></thead>
+          <tbody>
+            <tr><td class="term">input</td><td>(64, 64, 3)</td><td>0</td></tr>
+            <tr><td class="term">Conv2D 32 · 3×3</td><td>(62, 62, 32)</td><td>(3·3·3 + 1) · 32 = 896</td></tr>
+            <tr><td class="term">MaxPooling2D</td><td>(31, 31, 32)</td><td>0</td></tr>
+            <tr><td class="term">Conv2D 32 · 3×3</td><td>(29, 29, 32)</td><td>(3·3·32 + 1) · 32 = 9,248</td></tr>
+            <tr><td class="term">MaxPooling2D</td><td>(14, 14, 32)</td><td>0</td></tr>
+          </tbody>
+        </table>
+        <div class="math-card">
+          <span class="math-formula">$$\text{out} = n - k + 1 \qquad 64 - 3 + 1 = 62$$</span>
+          <p class="math-caption">With the default <code>padding='valid'</code>, a 3×3 filter fits 62 times across a 64-pixel row. Pooling then halves, rounding down: ⌊29/2⌋ = 14.</p>
+        </div>
+        <div class="note violet"><strong>Why two blocks?</strong> The first block's filters see 3×3 pixels — enough for edges and colour changes. After pooling, the second block's 3×3 filters cover a much wider patch of the original photo, so they can combine edges into textures and parts: fur, ears, eyes. See it happen live in the <a class="resource-link" href="../../02_cnn/index.html#p12">deck's Live CNN demo</a>.</div>
+        <div class="note">The notebook's output shows a <strong>UserWarning</strong>: <em>"Do not pass an input_shape/input_dim argument to a layer…"</em>. It still works. The current Keras style is to start with <code>cnn.add(Input(shape=(64, 64, 3)))</code> and drop <code>input_shape</code> from the <code>Conv2D</code>.</div>
+      </section>
+
+      <!-- ═══ 6. FLATTEN & DENSE ═══ -->
+      <section class="card topic-panel" id="topic-5">
+        <h2 class="step-title">Flatten &amp; the Dense Head</h2>
+        <div class="code-block"><span class="cm"># Flatten</span>
+cnn.<span class="fn">add</span>(<span class="cls">Flatten</span>())
+
+<span class="cm"># Fully Connected</span>
+cnn.<span class="fn">add</span>(<span class="cls">Dense</span>(units=<span class="num">128</span>, activation=<span class="str">'relu'</span>))
+cnn.<span class="fn">add</span>(<span class="cls">Dense</span>(units=<span class="num">1</span>, activation=<span class="str">'sigmoid'</span>))   <span class="cm"># because this is binary classification</span></div>
+        <table class="data-table">
+          <thead><tr><th>layer</th><th>output shape</th><th>parameters</th></tr></thead>
+          <tbody>
+            <tr><td class="term">Flatten</td><td>(6272,)</td><td>0 &nbsp;·&nbsp; 14·14·32 = 6,272</td></tr>
+            <tr><td class="term">Dense 128 relu</td><td>(128,)</td><td>6272·128 + 128 = 802,944</td></tr>
+            <tr><td class="term">Dense 1 sigmoid</td><td>(1,)</td><td>128 + 1 = 129</td></tr>
+            <tr><td class="term">whole model</td><td></td><td>813,217</td></tr>
+          </tbody>
+        </table>
+        <div class="note blue"><strong>From here on it's Lesson 1 again.</strong> <code>Flatten</code> unrolls the 14×14×32 block of feature maps into one row of 6,272 numbers, and the rest is an ordinary ANN. The convolution blocks are the "eyes"; the dense layers are the "brain" that decides.</div>
+        <div class="math-card">
+          <span class="math-formula">$$\hat p = \sigma(z) = \frac{1}{1+e^{-z}} \in (0, 1)$$</span>
+          <p class="math-caption">One sigmoid neuron outputs P(class 1) = P(dog). P(cat) is simply 1 − p̂, so a second output neuron would add nothing.</p>
+        </div>
+        <div class="note"><strong>Where the weights live.</strong> 802,944 of the 813,217 parameters — 98.7% — sit in the single <code>Dense(128)</code> layer. The convolution layers that actually "see" cost about 10,000. That imbalance is a big part of why this model overfits (topic 10).</div>
+      </section>
+
+      <!-- ═══ 7. COMPILE & FIT ═══ -->
+      <section class="card topic-panel" id="topic-6">
+        <h2 class="step-title">Compile &amp; Fit</h2>
+        <div class="code-block">cnn.<span class="fn">compile</span>(optimizer=<span class="str">'adam'</span>, loss=<span class="str">'binary_crossentropy'</span>, metrics=[<span class="str">'accuracy'</span>])
+
+cnn.<span class="fn">fit</span>(x=training_set, validation_data=test_set, epochs=<span class="num">25</span>)</div>
+        <table class="data-table">
+          <thead><tr><th>argument</th><th>meaning</th></tr></thead>
+          <tbody>
+            <tr><td class="term">optimizer='adam'</td><td>Adam with its default learning rate (0.001).</td></tr>
+            <tr><td class="term">loss='binary_crossentropy'</td><td>The cost function for one sigmoid output and 0/1 labels.</td></tr>
+            <tr><td class="term">metrics=['accuracy']</td><td>Also report the fraction of photos classified correctly. Not used for training.</td></tr>
+            <tr><td class="term">x=training_set</td><td>The generator: no separate <code>y</code> is needed — labels come with each batch.</td></tr>
+            <tr><td class="term">validation_data=test_set</td><td>After each epoch, measure loss and accuracy on the 2,000 test photos.</td></tr>
+            <tr><td class="term">epochs=25</td><td>25 full passes over the 8,000 training photos.</td></tr>
+          </tbody>
+        </table>
+        <div class="math-card">
+          <span class="math-formula">$$L = -\big[\,y\log\hat p + (1-y)\log(1-\hat p)\,\big]$$</span>
+          <p class="math-caption">Binary cross-entropy: tiny when a dog (y=1) gets p̂ near 1, huge when the model is confidently wrong.</p>
+        </div>
+        <div class="output">Epoch 1/25
+250/250 ━━━━━━━━━━━━━━━━━━━━ 34s 116ms/step - accuracy: 0.5533 - loss: 0.6855 - val_accuracy: 0.5960 - val_loss: 0.6747
+Epoch 2/25
+250/250 ━━━━━━━━━━━━━━━━━━━━ 28s 111ms/step - accuracy: 0.6399 - loss: 0.6449 - val_accuracy: 0.6340 - val_loss: 0.6437
+...
+Epoch 25/25
+250/250 ━━━━━━━━━━━━━━━━━━━━ - accuracy: 0.9140 - loss: 0.2143 - val_accuracy: 0.7880 - val_loss: 0.5384</div>
+        <div class="note blue"><strong>Why "250/250"?</strong> 8,000 photos ÷ 32 per batch = 250 batches. Each batch is one forward pass, one backpropagation, one Adam update — so one epoch is 250 weight updates, and the whole fit is 6,250. At ~27 seconds an epoch, training took about 11 minutes.</div>
+      </section>
+
+      <!-- ═══ 8. SAVE & LOAD ═══ -->
+      <section class="card topic-panel" id="topic-7">
+        <h2 class="step-title">Save &amp; Load the Trained Model</h2>
+        <p>Eleven minutes of training disappears when the Colab session ends — unless you save it to Drive:</p>
+        <div class="code-block"><span class="kw">from</span> tensorflow.keras.models <span class="kw">import</span> load_model
+
+<span class="cm"># 1. Save the trained model to a file</span>
+cnn.<span class="fn">save</span>(<span class="str">'/content/drive/MyDrive/cat_dog_cnn_model.keras'</span>)
+
+<span class="cm"># 2. Load the saved model</span>
+model = <span class="fn">load_model</span>(<span class="str">'/content/drive/MyDrive/cat_dog_cnn_model.keras'</span>)</div>
+        <div class="note green"><strong>What the <code>.keras</code> file holds:</strong> the architecture, all 813,217 trained weights, and the compile settings (optimizer state included). Next session you skip straight to <code>load_model(...)</code> and predict — no re-training.</div>
+        <div class="note">The notebook loads the file into <code>model</code>, but every prediction afterwards still calls <code>cnn.predict(...)</code> — the original in-memory model. To actually prove the saved file works, predict with <code>model</code>.</div>
+      </section>
+
+      <!-- ═══ 9. PREDICT ONE PHOTO ═══ -->
+      <section class="card topic-panel" id="topic-8">
+        <h2 class="step-title">Predicting One Photo</h2>
+        <p>The model was trained on batches shaped <span class="shape">(32, 64, 64, 3)</span> with pixels in 0–1. A single photo has to be prepared the same way:</p>
+        <div class="code-block"><span class="kw">import</span> numpy <span class="kw">as</span> <span class="lib">np</span>
+<span class="kw">from</span> keras.preprocessing <span class="kw">import</span> image
+
+<span class="cm"># load the image</span>
+img_path = <span class="str">'/content/dataset/CNN_dog_cat_dataset/dataset/single_prediction/cat_or_dog_1.jpg'</span>
+test_image = image.<span class="fn">load_img</span>(img_path, target_size=(<span class="num">64</span>, <span class="num">64</span>))
+
+img = image.<span class="fn">load_img</span>(img_path)          <span class="cm"># full-size copy, just for display</span>
+<span class="lib">plt</span>.<span class="fn">imshow</span>(img)
+<span class="lib">plt</span>.<span class="fn">axis</span>(<span class="str">'off'</span>)
+<span class="lib">plt</span>.<span class="fn">show</span>()
+
+test_image = image.<span class="fn">img_to_array</span>(test_image)       <span class="cm"># (64, 64, 3), values 0–255</span>
+test_image = test_image / <span class="num">255.0</span>                    <span class="cm"># same rescale as training</span>
+test_image = <span class="lib">np</span>.<span class="fn">expand_dims</span>(test_image, axis=<span class="num">0</span>)    <span class="cm"># (1, 64, 64, 3) — a batch of one</span>
+
+result = cnn.<span class="fn">predict</span>(test_image)
+<span class="fn">print</span>(result)
+
+<span class="kw">if</span> result[<span class="num">0</span>][<span class="num">0</span>] &gt; <span class="num">0.5</span>:
+    prediction = <span class="str">'dog'</span>
+<span class="kw">else</span>:
+    prediction = <span class="str">'cat'</span>
+
+<span class="fn">print</span>(prediction, <span class="str">f"{(result[0][0] * 100):.2f}%"</span>)</div>
+        <div class="output">[[0.9999995]]
+dog 100.00%</div>
+        <table class="data-table">
+          <thead><tr><th>step</th><th>shape after it</th></tr></thead>
+          <tbody>
+            <tr><td class="term">load_img(..., target_size=(64, 64))</td><td>PIL image, 64×64</td></tr>
+            <tr><td class="term">img_to_array</td><td>(64, 64, 3), 0–255</td></tr>
+            <tr><td class="term">/ 255.0</td><td>(64, 64, 3), 0–1</td></tr>
+            <tr><td class="term">np.expand_dims(axis=0)</td><td>(1, 64, 64, 3)</td></tr>
+            <tr><td class="term">predict</td><td>(1, 1) → [[p]]</td></tr>
+          </tbody>
+        </table>
+        <p>The second cell repeats the same code for <code>cat_or_dog_2.jpg</code>, with a different print line:</p>
+        <div class="code-block"><span class="fn">print</span>(prediction, <span class="str">f"{(100 - result[0][0] * 100):.2f}%"</span>)</div>
+        <div class="output">[[0.23449332]]
+cat 76.55%</div>
+        <div class="note blue"><strong>Reading the two answers.</strong> The output is always P(dog). Photo 1: 0.9999995 → dog. Photo 2: 0.234 is below 0.5 → cat, with confidence 1 − 0.234 = 76.55%. That's why the second cell prints <code>100 − p·100</code>.</div>
+        <div class="note red"><strong>Things to fix in these cells:</strong>
+          <ol style="margin:6px 0 0 18px;">
+            <li><code>plt</code> is used but never imported — add <code>import matplotlib.pyplot as plt</code>.</li>
+            <li>Each cell hard-codes its own percentage formula. The first cell's <code>p·100</code> would print "cat 23.45%" for photo 2 — the formula should depend on which side of 0.5 the answer falls.</li>
+            <li>The cells call <code>cnn</code>, not the reloaded <code>model</code> (topic 8).</li>
+          </ol>
+          Topic 11 fixes all three in one function.
+        </div>
+      </section>
+
+      <!-- ═══ 10. TRAINING LOG ═══ -->
+      <section class="card topic-panel" id="topic-9">
+        <h2 class="step-title">Reading the Training Log</h2>
+        <p>Selected epochs from the notebook's output. <strong>accuracy / loss</strong> are measured on the training photos; <strong>val_</strong> on the 2,000 test photos the model never learns from:</p>
+        <table class="data-table">
+          <thead><tr><th>epoch</th><th>accuracy</th><th>loss</th><th>val_accuracy</th><th>val_loss</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>0.5533</td><td>0.6855</td><td>0.5960</td><td>0.6747</td></tr>
+            <tr><td>5</td><td>0.7424</td><td>0.5234</td><td>0.7600</td><td>0.5082</td></tr>
+            <tr><td>10</td><td>0.7950</td><td>0.4282</td><td>0.7795</td><td>0.4674</td></tr>
+            <tr><td>14</td><td>0.8326</td><td>0.3739</td><td>0.7910</td><td><strong>0.4564</strong></td></tr>
+            <tr><td>18</td><td>0.8740</td><td>0.2948</td><td>0.7905</td><td>0.5324</td></tr>
+            <tr><td>22</td><td>0.9043</td><td>0.2412</td><td>0.7695</td><td>0.6354</td></tr>
+            <tr><td>25</td><td>0.9140</td><td>0.2143</td><td>0.7880</td><td>0.5384</td></tr>
+          </tbody>
+        </table>
+        <div class="note red"><strong>This is overfitting.</strong> Training loss falls every epoch, all the way to 0.21. Validation loss is lowest at <strong>epoch 14 (0.456)</strong> and then climbs. Validation accuracy stops improving around 79% while training accuracy keeps rising to 91%. After epoch 14 the model is getting better at the 8,000 photos it has seen, not at photos in general.</div>
+        <p>Keras can stop at the right epoch for you and keep the best weights:</p>
+        <div class="code-block"><span class="kw">from</span> keras.callbacks <span class="kw">import</span> <span class="cls">EarlyStopping</span>
+
+stop = <span class="cls">EarlyStopping</span>(monitor=<span class="str">'val_loss'</span>, patience=<span class="num">3</span>, restore_best_weights=<span class="kw">True</span>)
+cnn.<span class="fn">fit</span>(x=training_set, validation_data=test_set, epochs=<span class="num">25</span>, callbacks=[stop])</div>
+        <div class="note green"><strong>Other things worth trying:</strong> <code>Dropout(0.5)</code> right after <code>Flatten</code> (where 98.7% of the weights are), augmentation that actually changes the photo (a real shear, small rotations), or a third Conv + Pool block so less reaches the big Dense layer.</div>
+        <div class="note violet"><strong>A subtle point.</strong> The notebook uses <code>test_set</code> as <code>validation_data</code>. If you then choose the number of epochs by watching it, the test set has helped pick the model and is no longer a fully independent final exam. The clean version splits a separate validation set off the training folder.</div>
+        <p>All 25 epochs are plotted in the <a class="resource-link" href="../../02_cnn/index.html#p10">deck's training-log panel</a>.</p>
+      </section>
+
+      <!-- ═══ 11. CLEAN PREDICT FUNCTION ═══ -->
+      <section class="card topic-panel" id="topic-10">
+        <h2 class="step-title">A Cleaner Prediction Function</h2>
+        <p>The two prediction cells are the same code copied twice, each with a print line that only works for its own photo. One function replaces both, uses the reloaded <code>model</code>, and reads the class names from <code>class_indices</code> instead of assuming them:</p>
+        <div class="code-block"><span class="kw">import</span> numpy <span class="kw">as</span> <span class="lib">np</span>
+<span class="kw">import</span> matplotlib.pyplot <span class="kw">as</span> <span class="lib">plt</span>
+<span class="kw">from</span> keras.preprocessing <span class="kw">import</span> image
+
+<span class="kw">def</span> <span class="fn">predict_photo</span>(model, path, class_indices):
+    img = image.<span class="fn">load_img</span>(path, target_size=(<span class="num">64</span>, <span class="num">64</span>))
+    x = <span class="lib">np</span>.<span class="fn">expand_dims</span>(image.<span class="fn">img_to_array</span>(img) / <span class="num">255.0</span>, axis=<span class="num">0</span>)
+    p = <span class="fn">float</span>(model.<span class="fn">predict</span>(x, verbose=<span class="num">0</span>)[<span class="num">0</span>][<span class="num">0</span>])          <span class="cm"># P(class 1)</span>
+    names = {v: k <span class="kw">for</span> k, v <span class="kw">in</span> class_indices.<span class="fn">items</span>()}       <span class="cm"># {0: 'cats', 1: 'dogs'}</span>
+    label, conf = (names[<span class="num">1</span>], p) <span class="kw">if</span> p &gt; <span class="num">0.5</span> <span class="kw">else</span> (names[<span class="num">0</span>], <span class="num">1</span> - p)
+
+    <span class="lib">plt</span>.<span class="fn">imshow</span>(image.<span class="fn">load_img</span>(path)); <span class="lib">plt</span>.<span class="fn">axis</span>(<span class="str">'off'</span>); <span class="lib">plt</span>.<span class="fn">show</span>()
+    <span class="fn">print</span>(<span class="str">f"{label} {conf:.2%}"</span>)
+
+folder = <span class="str">'/content/dataset/CNN_dog_cat_dataset/dataset/single_prediction/'</span>
+<span class="kw">for</span> name <span class="kw">in</span> [<span class="str">'cat_or_dog_1.jpg'</span>, <span class="str">'cat_or_dog_2.jpg'</span>]:
+    <span class="fn">predict_photo</span>(model, folder + name, training_set.class_indices)</div>
+        <div class="output">dogs 100.00%
+cats 76.55%</div>
+        <div class="note"><strong>"100.00%" is not a guarantee.</strong> It's how sure the sigmoid is, not how often it's right. With about 79% validation accuracy, roughly one confident answer in five is still wrong. A model can be very confident and very wrong at the same time.</div>
+        <div class="note violet"><strong>Going further.</strong> With only 8,000 photos, the usual next step is <strong>transfer learning</strong>: start from a CNN already trained on millions of images (e.g. MobileNetV2), keep its convolution layers, and train only a new dense head. On cats vs dogs that typically pushes accuracy well above 90%.</div>
+      </section>
+
+    </main>
+  </div>
+
+  <div class="footer">Lesson 2 · Convolutional Neural Networks — Your First CNN: Cats vs Dogs with Keras</div>
+</div>
+
+<script>
+  const links = document.querySelectorAll('.topic-link');
+  const panels = document.querySelectorAll('.topic-panel');
+
+  function showTopic(id) {
+    panels.forEach(panel => panel.classList.toggle('active', panel.id === id));
+    links.forEach(link => link.classList.toggle('active', link.dataset.target === id));
+  }
+
+  links.forEach(link => {
+    if (link.dataset.target) {
+      link.addEventListener('click', () => {
+        showTopic(link.dataset.target);
+        location.hash = link.dataset.target;
+      });
+    }
+  });
+
+  const hash = location.hash.replace('#', '');
+  if (hash && document.getElementById(hash)) showTopic(hash);
+</script>
+</body>
+</html>

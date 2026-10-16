@@ -1,5 +1,6 @@
 const topics = [
-  {name:'Artificial Neural Networks',short:'ANN',group:'deep',level:'Beginner',color:'#8edcef',description:'Build the foundations of intelligence, one neuron at a time.',path:'01_ann/index.html',art:'network',objectives:['A neuron combines inputs with learned weights and a bias, then applies an activation function.','Layers transform those signals into increasingly useful representations.','Training uses a loss function and backpropagation to adjust weights and improve predictions.']}
+  {name:'Artificial Neural Networks',short:'ANN',group:'deep',level:'Beginner',color:'#8edcef',description:'Build the foundations of intelligence, one neuron at a time.',path:'01_ann/index.html',art:'network',objectives:['A neuron combines inputs with learned weights and a bias, then applies an activation function.','Layers transform those signals into increasingly useful representations.','Training uses a loss function and backpropagation to adjust weights and improve predictions.']},
+  {name:'Convolutional Neural Networks',short:'CNN',group:'deep',level:'Intermediate',color:'#a78bfa',description:'Master computer vision and image recognition techniques.',path:'02_cnn/index.html',fullArt:'assets/odyssey/cnn-card.jpg',objectives:['Convolution slides small learned filters across an image to detect local patterns anywhere.','Pooling shrinks feature maps and makes the network tolerant to small shifts.','Stacked conv blocks build a feature hierarchy that a dense head turns into a class.']}
 ];
 const cardTitles = [
  'Artificial Neural<br>Networks (ANN)'

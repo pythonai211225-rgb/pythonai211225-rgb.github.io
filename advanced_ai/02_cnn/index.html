@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Convolutional Neural Networks — Filters, Pooling &amp; Image Classification</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="stylesheet" href="deck.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded',function(){
+    renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'\\(',right:'\\)',display:false}],throwOnError:false});
+    if (window.fitMath) fitMath();
+  });</script>
+  <style>
+    /* CNN-specific bits on top of the shared deck styles */
+    .shape-chip { display:inline-block; font-family:'Courier New',monospace; font-size:.74rem; font-weight:700; padding:2px 9px; border-radius:6px; background:rgba(34,211,238,.08); border:1px solid rgba(34,211,238,.25); color:var(--accent); white-space:nowrap; }
+    .param-bar { display:flex; height:30px; border-radius:8px; overflow:hidden; border:1px solid var(--border); margin:10px 0 6px; }
+    .param-bar div { display:flex; align-items:center; justify-content:center; font-family:'Courier New',monospace; font-size:.66rem; font-weight:800; color:#08101f; white-space:nowrap; overflow:hidden; min-width:3px; }
+    .param-legend { display:flex; flex-wrap:wrap; gap:14px; font-size:.72rem; color:var(--muted); font-family:'Courier New',monospace; }
+    .param-legend i { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:6px; vertical-align:-1px; }
+    .pipe { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin:6px 0 4px; }
+    .pipe-step { border:1px solid var(--border); border-radius:12px; padding:12px 12px 10px; background:var(--surface); opacity:.35; transition:opacity .35s,border-color .35s,transform .35s,box-shadow .35s; }
+    .pipe-step.on { opacity:1; }
+    .pipe-step.now { border-color:var(--accent); transform:translateY(-3px); box-shadow:0 6px 22px rgba(34,211,238,.14); }
+    .pipe-step .ps-n { font-size:.6rem; font-weight:800; letter-spacing:.12em; color:var(--muted); }
+    .pipe-step code { display:block; font-family:'Courier New',monospace; font-size:.72rem; color:var(--text); margin:5px 0 7px; word-break:break-word; }
+    .bars .bar-row { display:flex; align-items:center; gap:10px; margin:3px 0; font-family:'Courier New',monospace; font-size:.76rem; }
+    .bars .bar-lbl { width:18px; text-align:right; color:var(--muted); font-weight:800; }
+    .bars .bar-track { flex:1; height:13px; background:rgba(255,255,255,.04); border-radius:4px; overflow:hidden; }
+    .bars .bar-fill { height:100%; border-radius:4px; background:rgba(139,148,215,.45); transition:width .45s ease; }
+    .bars .bar-row.top .bar-fill { background:linear-gradient(90deg,#22d3ee,#10b981); }
+    .bars .bar-row.top .bar-lbl { color:var(--accent); }
+    .bars .bar-val { width:52px; color:var(--muted); }
+    #cv-draw { cursor:crosshair; touch-action:none; border-radius:8px; background:#000; }
+    #cv-hover { cursor:crosshair; }
+    .live-grid { display:flex; gap:22px; flex-wrap:wrap; justify-content:center; align-items:flex-start; }
+    .tiny-cap { text-align:center; font-size:.68rem; color:var(--muted); margin-top:6px; }
+  </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">← Advanced AI</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item" href="../01_ann/index.html">01 · ANN</a>
+    <a class="nav-item active" href="index.html">02 · CNN</a>
+  </div>
+</nav>
+
+<div class="page-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-head">Convolutional Neural Networks</div>
+    <nav class="sidebar-nav">
+      <button class="s-item active" data-panel="0" onclick="goTo(0)"><span class="s-num">00</span><span class="s-dot" style="background:#a78bfa"></span><span class="s-label">Overview</span></button>
+      <button class="s-item" data-panel="1" onclick="goTo(1)"><span class="s-num">01</span><span class="s-dot" style="background:#f43f5e"></span><span class="s-label">Why not a plain ANN?</span></button>
+      <button class="s-item" data-panel="2" onclick="goTo(2)"><span class="s-num">02</span><span class="s-dot" style="background:#f97316"></span><span class="s-label">Images are numbers</span></button>
+      <button class="s-item" data-panel="3" onclick="goTo(3)"><span class="s-num">03</span><span class="s-dot" style="background:#22d3ee"></span><span class="s-label">Convolution</span></button>
+      <button class="s-item" data-panel="4" onclick="goTo(4)"><span class="s-num">04</span><span class="s-dot" style="background:#10b981"></span><span class="s-label">Filters &amp; feature maps</span></button>
+      <button class="s-item" data-panel="5" onclick="goTo(5)"><span class="s-num">05</span><span class="s-dot" style="background:#3b82f6"></span><span class="s-label">Max pooling</span></button>
+      <button class="s-item" data-panel="6" onclick="goTo(6)"><span class="s-num">06</span><span class="s-dot" style="background:#a78bfa"></span><span class="s-label">The full architecture</span></button>
+      <button class="s-item" data-panel="7" onclick="goTo(7)"><span class="s-num">07</span><span class="s-dot" style="background:#f97316"></span><span class="s-label">Flatten &amp; Dense head</span></button>
+      <button class="s-item" data-panel="8" onclick="goTo(8)"><span class="s-num">08</span><span class="s-dot" style="background:#ec4899"></span><span class="s-label">Data augmentation</span></button>
+      <button class="s-item" data-panel="10" onclick="goTo(10)"><span class="s-num">09</span><span class="s-dot" style="background:#f43f5e"></span><span class="s-label">Reading the training log</span></button>
+      <button class="s-item" data-panel="11" onclick="goTo(11)"><span class="s-num">10</span><span class="s-dot" style="background:#3b82f6"></span><span class="s-label">Predicting one photo</span></button>
+      <button class="s-item" data-panel="12" onclick="goTo(12)"><span class="s-num">11</span><span class="s-dot" style="background:#22d3ee"></span><span class="s-label">Live CNN</span></button>
+      <button class="s-item" data-panel="13" onclick="goTo(13)"><span class="s-num">12</span><span class="s-dot" style="background:#10b981"></span><span class="s-label">Pros &amp; cons</span></button>
+      <button class="s-item" data-panel="14" onclick="goTo(14)"><span class="s-num">13</span><span class="s-dot" style="background:#fbbf24"></span><span class="s-label">Exercises</span></button>
+      <hr class="side-sep">
+      <div class="side-part">Appendix</div>
+      <button class="s-item" data-panel="15" onclick="goTo(15)"><span class="s-num">A1</span><span class="s-dot" style="background:#f97316"></span><span class="s-label">Output-size math</span></button>
+      <button class="s-item" data-panel="16" onclick="goTo(16)"><span class="s-num">A2</span><span class="s-dot" style="background:#a78bfa"></span><span class="s-label">Keras CNN cheat-sheet</span></button>
+      <hr class="side-sep">
+      <a class="s-item" style="text-decoration:none" href="../lessons/02_lesson/index.html"><span class="s-num">→</span><span class="s-dot" style="background:#22c55e"></span><span class="s-label">Lesson code</span></a>
+    </nav>
+  </aside>
+
+  <!-- PANEL VIEWPORT -->
+  <div class="panel-viewport" id="viewport">
+
+    <!-- ══ PANEL 0: Overview ══ -->
+    <div class="panel active" id="panel-0">
+      <div class="hero" style="margin-bottom:36px;">
+        <span class="topic-label"><span class="dot"></span>Advanced AI · Topic 02 · Convolutional Neural Networks</span>
+        <h1>Convolutional Neural Networks</h1>
+        <p>A plain neural network sees a photo as one long list of numbers and forgets which pixel sat next to which. A CNN keeps the picture a picture: it slides small learned filters across it, finds edges, then textures, then shapes — and only at the very end hands a compact summary to an ordinary dense network to decide <strong>cat or dog</strong>. Watch a photo travel through the exact network from the lesson:</p>
+        <div class="demo-canvas-wrap" style="background:#020509;border-radius:12px;padding:14px;position:relative;z-index:1;"><canvas id="cv-overview" height="250"></canvas></div>
+      </div>
+      <div class="overview-grid" style="margin-top:0;">
+        <div class="ov-card" onclick="goTo(1)"><div class="ov-card-num">01 / 11</div><div class="ov-card-name" style="color:#f43f5e">Why not a plain ANN?</div><div class="ov-card-desc">Nudge a shape 2 pixels and a Dense net sees a stranger.</div></div>
+        <div class="ov-card" onclick="goTo(2)"><div class="ov-card-num">02 / 11</div><div class="ov-card-name" style="color:#f97316">Images are numbers</div><div class="ov-card-desc">Height × width × 3 colour channels. Hover the pixels.</div></div>
+        <div class="ov-card" onclick="goTo(3)"><div class="ov-card-num">03 / 11</div><div class="ov-card-name" style="color:#22d3ee">Convolution</div><div class="ov-card-desc">A 3×3 filter slides, multiplies, sums — step by step.</div></div>
+        <div class="ov-card" onclick="goTo(4)"><div class="ov-card-num">04 / 11</div><div class="ov-card-name" style="color:#10b981">Filters &amp; feature maps</div><div class="ov-card-desc">Real learned filters, and what each one lights up.</div></div>
+        <div class="ov-card" onclick="goTo(5)"><div class="ov-card-num">05 / 11</div><div class="ov-card-name" style="color:#3b82f6">Max pooling</div><div class="ov-card-desc">Keep the strongest signal, halve the size.</div></div>
+        <div class="ov-card" onclick="goTo(6)"><div class="ov-card-num">06 / 11</div><div class="ov-card-name" style="color:#a78bfa">The full architecture</div><div class="ov-card-desc">Every shape and every parameter of the lesson model.</div></div>
+        <div class="ov-card" onclick="goTo(8)"><div class="ov-card-num">07 / 11</div><div class="ov-card-name" style="color:#ec4899">Data augmentation</div><div class="ov-card-desc">Flip, zoom, shear — and one setting that does nothing.</div></div>
+        <div class="ov-card" onclick="goTo(10)"><div class="ov-card-num">08 / 11</div><div class="ov-card-name" style="color:#f43f5e">Reading the training log</div><div class="ov-card-desc">25 real epochs, and where overfitting starts.</div></div>
+        <div class="ov-card" onclick="goTo(12)"><div class="ov-card-num">09 / 11</div><div class="ov-card-name" style="color:#22d3ee">Live CNN</div><div class="ov-card-desc">A real trained CNN. Draw a digit, watch its feature maps.</div></div>
+        <div class="ov-card" onclick="goTo(15)"><div class="ov-card-num">APPENDIX A1</div><div class="ov-card-name" style="color:#f97316">Output-size math</div><div class="ov-card-desc">Kernel, stride, padding → output size, interactively.</div></div>
+        <div class="ov-card" onclick="goTo(16)"><div class="ov-card-num">APPENDIX A2</div><div class="ov-card-name" style="color:#a78bfa">Keras CNN cheat-sheet</div><div class="ov-card-desc">Conv2D, MaxPooling2D, Flatten — one page.</div></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" disabled>← Prev</button>
+        <div class="pnav-dots" id="dots-0"></div>
+        <button class="pnav-btn next" onclick="goTo(1)">Why not a plain ANN? →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 1: Why not a plain ANN ══ -->
+    <div class="panel" id="panel-1">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=900&q=75&fit=crop&h=200" alt="Neural network illustration" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">CNN 01 / 11 · The Problem</div>
+          <div class="m-name">Why not a plain ANN?</div>
+          <div class="m-tagline">Flattening a photo throws away the one thing that makes it a photo</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">Dense layer on pixels</span>
+        <span class="pill pill-note">no notion of "neighbouring pixels"</span>
+      </div>
+      <p class="m-desc">The ANN from topic 01 takes a <em>list</em> of features. To feed it an image you must <strong>flatten</strong> the grid into one long row. Below, the same little shape is drawn twice — the second copy just moved 2 pixels right and 1 down. Watch both grids flatten into rows:</p>
+      <div class="demo-box">
+        <div class="demo-lbl">The same shape, nudged — as a Dense layer sees it</div>
+        <div class="demo-controls"><button class="play-btn" onclick="drawShift(true)">▶ flatten again</button></div>
+        <div class="demo-out" id="out-shift"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-shift" height="300"></canvas></div>
+      </div>
+      <div class="callout orange">
+        🚨 <strong>To a Dense layer these are two unrelated inputs.</strong> Each input neuron is wired to one fixed pixel position. Move the cat and completely different neurons light up — the network has to learn "cat in the top-left", "cat in the middle", "cat bottom-right"… as separate facts.
+      </div>
+      <p class="m-desc">And it's expensive. The lesson resizes photos to <span class="shape-chip">64 × 64 × 3</span> = 12,288 numbers. Wire that straight into <code>Dense(128)</code>:</p>
+      <div class="eq-box gold" style="text-align:center;">$$12{,}288 \times 128 + 128 = 1{,}572{,}992 \text{ weights — in the first layer alone}$$</div>
+      <div class="grid-2">
+        <div class="card blue show"><div class="card-icon">🔍</div><h4>Idea 1 — look locally</h4><p>An edge or an eye is a <em>small</em> pattern. A neuron only needs a 3×3 patch to spot it, not the whole image.</p></div>
+        <div class="card green show"><div class="card-icon">♻️</div><h4>Idea 2 — share the weights</h4><p>An edge detector useful in the top-left is just as useful bottom-right. Use the <em>same</em> 9 weights everywhere.</p></div>
+      </div>
+      <div class="callout green">
+        💡 <strong>Those two ideas are the whole of convolution.</strong> One small filter, slid across every position, finds its pattern wherever it is — with 9 weights instead of 1.5 million.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(0)">← Overview</button>
+        <div class="pnav-dots" id="dots-1"></div>
+        <button class="pnav-btn next" onclick="goTo(2)">Images are numbers →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 2: Images are numbers ══ -->
+    <div class="panel" id="panel-2">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1555255707-c07966088b7b?w=900&q=75&fit=crop&h=200" alt="Glowing digital numbers" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">CNN 02 / 11 · The Input</div>
+          <div class="m-name">Images are numbers</div>
+          <div class="m-tagline">A colour photo is three stacked grids — red, green and blue</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">shape = (height, width, channels)</span>
+        <span class="pill pill-ret">→ (64, 64, 3) in the lesson</span>
+      </div>
+      <p class="m-desc">Every pixel stores three intensities from <code>0</code> to <code>255</code>: how much <span style="color:#f87171">red</span>, <span style="color:#4ade80">green</span> and <span style="color:#60a5fa">blue</span> light. Stack the three grids and you get a 3-D array — a <strong>tensor</strong>. Hover the picture to read its numbers, or split it into channels:</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — a 16×16 picture, pixel by pixel</div>
+        <div class="demo-controls">
+          <span class="seg" id="ch-seg">
+            <button class="on" onclick="setChannel('rgb',this)">RGB</button><button onclick="setChannel('r',this)">R only</button><button onclick="setChannel('g',this)">G only</button><button onclick="setChannel('b',this)">B only</button>
+          </span>
+        </div>
+        <div class="demo-out" id="out-pixels">Hover a pixel.</div>
+        <div class="demo-canvas-wrap"><canvas id="cv-hover" height="320"></canvas></div>
+      </div>
+      <div class="callout blue">
+        🧮 <strong>Why the lesson divides by 255.</strong> <code>ImageDataGenerator(rescale=1./255)</code> maps every value from 0–255 into 0–1. Large raw inputs make the first layer's sums huge and the gradients jumpy; small, similar-sized inputs train faster and more stably. The <em>same</em> rescale must be applied at prediction time — that's the <code>test_image / 255.0</code> line in the notebook.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(1)">← Why not a plain ANN?</button>
+        <div class="pnav-dots" id="dots-2"></div>
+        <button class="pnav-btn next" onclick="goTo(3)">Convolution →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 3: Convolution ══ -->
+    <div class="panel" id="panel-3">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1509228468518-180dd4864904?w=900&q=75&fit=crop&h=200" alt="Geometry" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">CNN 03 / 11 · The Core Operation</div>
+          <div class="m-name">Convolution</div>
+          <div class="m-tagline">Slide a small window, multiply, add up, write one number — repeat</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">Conv2D(filters, kernel_size=3)</span>
+        <span class="pill pill-param" style="background:rgba(16,185,129,.1);color:var(--green);border:1px solid rgba(16,185,129,.28);">kernel / filter
+          <span class="balloon"><span class="balloon-title">kernel = filter</span><span class="balloon-body">A small grid of weights (here 3×3). These 9 numbers are what the layer learns — exactly like the weights of a Dense neuron.</span></span>
+        </span>
+        <span class="pill pill-param" style="background:rgba(167,139,250,.1);color:var(--purple);border:1px solid rgba(167,139,250,.28);">feature map
+          <span class="balloon"><span class="balloon-title">feature map</span><span class="balloon-body">The output grid. Each cell says how strongly the filter's pattern appears at that spot of the image.</span></span>
+        </span>
+      </div>
+      <p class="m-desc">Here's an 8×8 image of the letter <strong>L</strong> (1 = ink, 0 = paper). The 3×3 filter sits on a patch, multiplies each pixel by the weight on top of it, adds the 9 products, and writes the total into the output. Then it moves one step and does it again:</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — convolution, one position at a time</div>
+        <div class="demo-controls">
+          <span class="seg" id="k-seg">
+            <button class="on" onclick="setKernel('vert',this)">vertical-edge filter</button><button onclick="setKernel('horiz',this)">horizontal-edge filter</button><button onclick="setKernel('diag',this)">diagonal filter</button>
+          </span>
+          <button class="play-btn" id="conv-play" onclick="toggleConv()">▶ play</button>
+          <button class="play-btn alt" onclick="stepConv()">step ⏭</button>
+        </div>
+        <div class="demo-out" id="out-conv"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-conv" height="330"></canvas></div>
+      </div>
+      <div class="eq-box big" style="text-align:center;">$$\text{out}[i,j]=\sum_{a=0}^{2}\sum_{b=0}^{2}\text{img}[i{+}a,\,j{+}b]\cdot K[a,b]\;+\;b$$</div>
+      <div class="callout green">
+        💡 <strong>Read the output map.</strong> With the vertical-edge filter, the L's upright stroke shows up as two columns: <span style="color:#f43f5e">−3</span> along its left edge and <span style="color:#10b981">+3</span> along its right edge. The horizontal foot only appears at its far end. Switch to the horizontal filter and it's the other way round: the foot's top and bottom edges light up and the upright stroke nearly disappears. <em>Same image, different filter, different feature.</em>
+      </div>
+      <div class="callout blue">
+        📐 <strong>Why the output is 6×6, not 8×8.</strong> A 3-wide window fits in an 8-wide image only 8 − 3 + 1 = 6 times. In the lesson: 64 − 3 + 1 = <strong>62</strong>, so the first <code>Conv2D</code> outputs 62×62. (Keras' default is <code>padding='valid'</code> — no border added. Appendix A1 shows the other options.)
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(2)">← Images are numbers</button>
+        <div class="pnav-dots" id="dots-3"></div>
+        <button class="pnav-btn next" onclick="goTo(4)">Filters &amp; feature maps →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 4: Filters & feature maps ══ -->
+    <div class="panel" id="panel-4">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=900&q=75&fit=crop&h=200" alt="Curved light trails" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">CNN 04 / 11 · Many Filters</div>
+          <div class="m-name">Filters &amp; feature maps</div>
+          <div class="m-tagline">filters=32 means 32 different detectors, each producing its own map</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">Conv2D(filters=32, kernel_size=3, activation='relu')</span>
+        <span class="pill pill-ret">→ 32 feature maps</span>
+      </div>
+      <p class="m-desc">Nobody hand-writes the filters. They start random and <strong>backpropagation tunes them</strong> exactly like Dense weights. Below are the 8 real filters from the first layer of a small CNN trained on handwritten digits (the live demo on panel 11). Pick a digit and watch every filter scan it:</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Real learned filters → their feature maps</div>
+        <div class="demo-controls" style="align-items:center;">
+          <div class="ctrl"><label>input digit</label><div class="digit-samples" id="fm-digits"></div></div>
+          <span class="seg" id="relu-seg"><button onclick="setFmRelu(false,this)">raw sums</button><button class="on" onclick="setFmRelu(true,this)">after ReLU</button></span>
+        </div>
+        <div class="demo-canvas-wrap"><canvas id="cv-fmaps" height="300"></canvas></div>
+        <div class="legend" style="margin-top:10px;"><span class="lg"><i style="background:#10b981"></i>positive weight / activation</span><span class="lg"><i style="background:#f43f5e"></i>negative</span></div>
+      </div>
+      <div class="callout green">
+        💡 <strong>ReLU on a feature map</strong> is the same <code>max(0, z)</code> from topic 01, applied to every cell: "pattern present" stays, "opposite of pattern" becomes 0. Toggle it above — the red regions vanish.
+      </div>
+      <p class="m-desc">With a colour image each filter is not 3×3 but <strong>3×3×3</strong> — one 3×3 slice per channel, all summed into a single output number. So the lesson's first layer has:</p>
+      <div class="eq-box gold" style="text-align:center;">$$(\underbrace{3\times3}_{\text{kernel}}\times\underbrace{3}_{\text{RGB}}+\underbrace{1}_{\text{bias}})\times\underbrace{32}_{\text{filters}} = 896 \text{ parameters}$$</div>
+      <div class="callout blue">
+        🔁 <strong>Compare with panel 01:</strong> 896 parameters for a layer that scans the whole 64×64 photo, versus 1.57 million for a Dense layer that sees it once. That saving is <em>weight sharing</em>.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(3)">← Convolution</button>
+        <div class="pnav-dots" id="dots-4"></div>
+        <button class="pnav-btn next" onclick="goTo(5)">Max pooling →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 5: Max pooling ══ -->
+    <div class="panel" id="panel-5">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1518133910546-b6c2fb7d79e3?w=900&q=75&fit=crop&h=200" alt="Abstract pattern" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">CNN 05 / 11 · Downsampling</div>
+          <div class="m-name">Max pooling</div>
+          <div class="m-tagline">Keep the strongest response in each 2×2 block, throw the rest away</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">MaxPooling2D(pool_size=2, strides=2)</span>
+        <span class="pill pill-ret">→ half the height, half the width</span>
+        <span class="pill pill-note">0 trainable parameters</span>
+      </div>
+      <p class="m-desc">This is the L's feature map from panel 03 after ReLU. A 2×2 window jumps two cells at a time and keeps only the biggest number. Nothing is learned here — it's a fixed rule:</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — 2×2 max pooling, stride 2</div>
+        <div class="demo-controls">
+          <button class="play-btn" onclick="playPool()">▶ play pooling</button>
+        </div>
+        <div class="demo-out" id="out-pool"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-pool" height="280"></canvas></div>
+      </div>
+      <div class="steps">
+        <div class="step a" data-n="1"><h4>Smaller</h4><p>62×62 → 31×31 is 4× fewer numbers for every later layer to process.</p></div>
+        <div class="step b" data-n="2"><h4>Shift-tolerant</h4><p>If the edge moves by one pixel inside the 2×2 block, the max is unchanged — small shifts stop mattering.</p></div>
+        <div class="step c" data-n="3"><h4>Wider view</h4><p>The next 3×3 filter now covers what used to be a 6×6 area — it can see bigger shapes.</p></div>
+      </div>
+      <div class="callout orange">
+        📌 <strong>Odd sizes round down.</strong> In the lesson the second conv layer outputs 29×29; pooling gives ⌊29 / 2⌋ = <strong>14</strong>, and the last row and column are simply dropped.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(4)">← Filters &amp; feature maps</button>
+        <div class="pnav-dots" id="dots-5"></div>
+        <button class="pnav-btn next" onclick="goTo(6)">The full architecture →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 6: Full architecture ══ -->
+    <div class="panel" id="panel-6">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?w=900&q=75&fit=crop&h=200" alt="Circuit close-up" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">CNN 06 / 11 · Putting It Together</div>
+          <div class="m-name">The full architecture</div>
+          <div class="m-tagline">Every tensor shape, every parameter, of the lesson's cat-vs-dog model</div>
+        </div>
+      </div>
+      <p class="m-desc">Two blocks of <strong>Conv → ReLU → Pool</strong> act as the "eyes": the first finds edges and colour blobs, the second combines those into textures and parts (fur, ears, noses). Then <strong>Flatten → Dense → Dense</strong> is a plain ANN — the "brain" — that decides. Click a layer:</p>
+      <div class="demo-box">
+        <div class="demo-lbl">The lesson model — click any layer</div>
+        <div class="demo-out" id="out-arch"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-arch" height="270"></canvas></div>
+      </div>
+      <table class="dt" style="margin-top:22px;">
+        <thead><tr><th class="blue">layer</th><th class="blue">output shape</th><th class="blue">parameters</th><th class="blue">how</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>input</td><td>(64, 64, 3)</td><td>0</td><td>resized photo</td></tr>
+          <tr class="show"><td>Conv2D 32 · 3×3</td><td>(62, 62, 32)</td><td>896</td><td>(3·3·3 + 1) · 32</td></tr>
+          <tr class="show"><td>MaxPooling2D 2</td><td>(31, 31, 32)</td><td>0</td><td>62 / 2</td></tr>
+          <tr class="show"><td>Conv2D 32 · 3×3</td><td>(29, 29, 32)</td><td>9,248</td><td>(3·3·32 + 1) · 32</td></tr>
+          <tr class="show"><td>MaxPooling2D 2</td><td>(14, 14, 32)</td><td>0</td><td>⌊29 / 2⌋</td></tr>
+          <tr class="show"><td>Flatten</td><td>(6272,)</td><td>0</td><td>14 · 14 · 32</td></tr>
+          <tr class="show"><td>Dense 128 relu</td><td>(128,)</td><td>802,944</td><td>6272 · 128 + 128</td></tr>
+          <tr class="show"><td>Dense 1 sigmoid</td><td>(1,)</td><td>129</td><td>128 · 1 + 1</td></tr>
+          <tr class="show"><td><strong>total</strong></td><td></td><td><strong>813,217</strong></td><td></td></tr>
+        </tbody>
+      </table>
+      <p class="m-desc" style="margin-top:18px;">Where do those 813 thousand parameters live?</p>
+      <div class="param-bar" id="param-bar"></div>
+      <div class="param-legend" id="param-legend"></div>
+      <div class="callout orange" style="margin-top:16px;">
+        🔎 <strong>The surprise: 98.7% of the weights sit in one Dense layer.</strong> The convolutions — the part that actually "sees" — cost about ten thousand parameters. Shrinking what reaches <code>Flatten</code> (more conv/pool blocks, or <code>GlobalAveragePooling2D</code>) is the usual way to make a CNN smaller and less prone to overfitting.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(5)">← Max pooling</button>
+        <div class="pnav-dots" id="dots-6"></div>
+        <button class="pnav-btn next" onclick="goTo(7)">Flatten &amp; Dense head →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 7: Flatten & Dense head ══ -->
+    <div class="panel" id="panel-7">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1507413245164-6160d8298b31?w=900&q=75&fit=crop&h=200" alt="Brain and network" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">CNN 07 / 11 · The Decision</div>
+          <div class="m-name">Flatten &amp; the Dense head</div>
+          <div class="m-tagline">From a stack of feature maps to a single probability</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">Flatten() → Dense(128, 'relu') → Dense(1, 'sigmoid')</span>
+        <span class="pill pill-ret">→ P(dog)</span>
+      </div>
+      <p class="m-desc"><code>Flatten</code> just unrolls the 3-D block into one row, reading position by position and, at each position, every channel. Here's a tiny 3×3×3 block unrolling — the lesson does the same with 14×14×32:</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Flatten — order of unrolling</div>
+        <div class="demo-controls"><button class="play-btn" onclick="drawFlatten(true)">▶ flatten</button></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-flatten" height="230"></canvas></div>
+      </div>
+      <div class="callout blue">
+        🧠 <strong>Now it's topic 01 again.</strong> Those 6,272 numbers are no longer pixels — they're "how much fur-texture here, how much pointy-ear there". From here on it's an ordinary ANN: <code>Dense(128, relu)</code> combines them, and one sigmoid neuron outputs a number between 0 and 1.
+      </div>
+      <p class="m-desc">What does that one output number mean? <code>flow_from_directory</code> numbers the class folders <strong>alphabetically</strong>:</p>
+      <table class="dt">
+        <thead><tr><th class="blue">folder</th><th class="blue">label</th><th class="blue">sigmoid output reads as…</th></tr></thead>
+        <tbody>
+          <tr class="show"><td><code>cats/</code></td><td>0</td><td>close to 0 → cat</td></tr>
+          <tr class="show"><td><code>dogs/</code></td><td>1</td><td>close to 1 → dog</td></tr>
+        </tbody>
+      </table>
+      <div class="callout orange">
+        ⚠️ <strong>Don't guess — print it.</strong> <code>training_set.class_indices</code> returns <code>{'cats': 0, 'dogs': 1}</code>. If someone renamed the folders <code>dog/</code> and <code>kitten/</code>, the meaning of "&gt; 0.5" would silently flip. The notebook hard-codes <code>'dog'</code> for &gt; 0.5 without checking.
+      </div>
+      <p class="m-desc">Why <strong>one</strong> sigmoid neuron and <code>binary_crossentropy</code>, not two softmax neurons? For exactly two classes they're equivalent: P(cat) is simply 1 − P(dog). One neuron is the leaner way to say it.</p>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(6)">← The full architecture</button>
+        <div class="pnav-dots" id="dots-7"></div>
+        <button class="pnav-btn next" onclick="goTo(8)">Data augmentation →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 8: Data augmentation ══ -->
+    <div class="panel" id="panel-8">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1543286386-713bdd548da4?w=900&q=75&fit=crop&h=200" alt="Many variations" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">CNN 08 / 11 · More Data for Free</div>
+          <div class="m-name">Data augmentation</div>
+          <div class="m-tagline">Every epoch, every photo arrives slightly flipped, zoomed or sheared</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">ImageDataGenerator(rescale, shear_range, zoom_range, horizontal_flip)</span>
+      </div>
+      <p class="m-desc">8,000 training photos is not many. Augmentation creates a slightly different version of each photo <em>every time it is loaded</em>, so the network can't memorise exact pixels — it has to learn "cat-ness". Below, one 64×64 picture passed through the lesson's generator settings, transformed the way Keras does it (including <code>fill_mode='nearest'</code>, which smears edge pixels into the gaps):</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — a fresh random batch from one image</div>
+        <div class="demo-controls">
+          <button class="play-btn" onclick="drawAug(true)">🎲 new random batch</button>
+          <span class="seg" id="shear-seg"><button class="on" onclick="setShear(0.2,this)">shear_range=0.2 (the lesson)</button><button onclick="setShear(20,this)">shear_range=20</button></span>
+        </div>
+        <div class="demo-canvas-wrap"><canvas id="cv-aug" height="330"></canvas></div>
+      </div>
+      <table class="dt" style="margin-top:20px;">
+        <thead><tr><th class="blue">argument</th><th class="blue">what Keras actually does</th></tr></thead>
+        <tbody>
+          <tr class="show"><td><code>rescale=1./255</code></td><td>Multiplies every pixel by 1/255. Not augmentation — applied to train <em>and</em> test.</td></tr>
+          <tr class="show"><td><code>zoom_range=0.2</code></td><td>Random zoom factor in [0.8, 1.2], drawn <em>separately</em> for width and height — so it also stretches.</td></tr>
+          <tr class="show"><td><code>horizontal_flip=True</code></td><td>Mirrors left↔right with probability ½. A cat facing left is still a cat.</td></tr>
+          <tr class="show"><td><code>shear_range=0.2</code></td><td>Random shear angle in [−0.2°, +0.2°] — <strong>degrees</strong>.</td></tr>
+        </tbody>
+      </table>
+      <div class="callout orange">
+        🚨 <strong>Correcting the notebook: <code>shear_range=0.2</code> is 0.2 <em>degrees</em> — effectively nothing.</strong> Keras documents it as "shear angle in degrees", so the notebook's "slight diagonal transformation" moves the corner of a 64-pixel image by about 0.2 of a pixel. Switch the toggle above to see what a visible shear (20°) looks like. The many tutorials that copy <code>0.2</code> carry the same no-op.
+      </div>
+      <div class="callout green">
+        ✅ <strong>What the notebook gets right.</strong> <code>test_datagen</code> only rescales. You never augment the test set: it should measure the model on photos exactly as they'll arrive in real use.
+      </div>
+      <div class="callout blue">
+        🔧 <strong>Modern Keras.</strong> <code>ImageDataGenerator</code> still runs but is marked "not recommended for new code". The current style puts augmentation <em>inside</em> the model as layers — see Appendix A2.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(7)">← Flatten &amp; Dense head</button>
+        <div class="pnav-dots" id="dots-8"></div>
+        <button class="pnav-btn next" onclick="goTo(10)">Reading the training log →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 10: Training log ══ -->
+    <div class="panel" id="panel-10">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1526379095098-d400fd0bf935?w=900&q=75&fit=crop&h=200" alt="Server room" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">CNN 09 / 11 · Diagnosis</div>
+          <div class="m-name">Reading the training log</div>
+          <div class="m-tagline">All 25 epochs from the notebook — and the moment the model starts memorising</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-ret">final train acc 91.4%</span>
+        <span class="pill pill-note">final val acc 78.8%</span>
+      </div>
+      <p class="m-desc">Every epoch Keras reports two pairs of numbers: <strong>accuracy / loss</strong> on the photos it trains on, and <strong>val_accuracy / val_loss</strong> on the 2,000 test photos it never learns from. These are the notebook's real values:</p>
+      <div class="demo-box">
+        <div class="demo-lbl">The notebook's 25 epochs, plotted</div>
+        <div class="demo-controls">
+          <span class="seg" id="curve-seg"><button class="on" onclick="setCurve('acc',this)">accuracy</button><button onclick="setCurve('loss',this)">loss</button></span>
+        </div>
+        <div class="demo-out" id="out-curve"></div>
+        <div class="demo-canvas-wrap">
+          <div class="legend"><span class="lg"><i style="background:#22d3ee"></i>training</span><span class="lg"><i style="background:#f97316"></i>validation (test_set)</span></div>
+          <canvas id="cv-curve" height="280"></canvas>
+        </div>
+      </div>
+      <div class="callout orange">
+        📉 <strong>Overfitting, visible in the numbers.</strong> Training loss falls every single epoch (0.69 → 0.21). Validation loss bottoms out at <strong>0.456 in epoch 14</strong> and then drifts <em>up</em> to 0.54 — while validation accuracy flattens around 78–79%. After epoch 14 the model is getting better at the 8,000 photos it has seen, not at photos in general.
+      </div>
+      <div class="pc-grid">
+        <div class="pc good">
+          <h4>✅ Fixes to try</h4>
+          <ul>
+            <li><code>EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True)</code> — stop and keep epoch 14's weights.</li>
+            <li><code>Dropout(0.5)</code> before the Dense layer — where 98.7% of the weights are.</li>
+            <li>Real augmentation (a working shear, rotation) — see panel 08.</li>
+          </ul>
+        </div>
+        <div class="pc bad">
+          <h4>⚠️ A naming trap</h4>
+          <ul>
+            <li>The notebook passes <code>test_set</code> as <code>validation_data</code>. If you then pick the epoch count or settings by watching it, the test set is no longer an unbiased final exam.</li>
+            <li>Cleaner: split a validation set off the training folder, keep <code>test_set</code> for one final <code>evaluate()</code>.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(8)">← Data augmentation</button>
+        <div class="pnav-dots" id="dots-10"></div>
+        <button class="pnav-btn next" onclick="goTo(11)">Predicting one photo →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 11: Predict one photo ══ -->
+    <div class="panel" id="panel-11">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1516110833967-0b5716ca1387?w=900&q=75&fit=crop&h=200" alt="Camera lens" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">CNN 10 / 11 · Inference</div>
+          <div class="m-name">Predicting one photo</div>
+          <div class="m-tagline">Five shape changes between a JPEG on disk and the word "dog"</div>
+        </div>
+      </div>
+      <p class="m-desc">The model was trained on batches shaped <span class="shape-chip">(32, 64, 64, 3)</span>. A single photo has to be dressed up to look the same — same size, same scaling, and a batch dimension of 1:</p>
+      <div class="demo-box">
+        <div class="demo-lbl">The prediction pipeline — step through it</div>
+        <div class="demo-controls"><button class="play-btn" onclick="playPredict()">▶ run the pipeline</button></div>
+        <div class="pipe" id="pipe">
+          <div class="pipe-step"><div class="ps-n">STEP 1</div><code>image.load_img(path, target_size=(64, 64))</code><span class="shape-chip">PIL image 64×64</span></div>
+          <div class="pipe-step"><div class="ps-n">STEP 2</div><code>image.img_to_array(img)</code><span class="shape-chip">(64, 64, 3) · 0–255</span></div>
+          <div class="pipe-step"><div class="ps-n">STEP 3</div><code>test_image / 255.0</code><span class="shape-chip">(64, 64, 3) · 0–1</span></div>
+          <div class="pipe-step"><div class="ps-n">STEP 4</div><code>np.expand_dims(x, axis=0)</code><span class="shape-chip">(1, 64, 64, 3)</span></div>
+          <div class="pipe-step"><div class="ps-n">STEP 5</div><code>cnn.predict(x)</code><span class="shape-chip">(1, 1) → [[p]]</span></div>
+        </div>
+      </div>
+      <p class="m-desc" style="margin-top:20px;">The notebook ran this on two photos. Here are the two real outputs on the probability scale:</p>
+      <div class="demo-box">
+        <div class="demo-lbl">The notebook's two predictions</div>
+        <div class="demo-canvas-wrap"><canvas id="cv-sig" height="250"></canvas></div>
+      </div>
+      <table class="dt" style="margin-top:20px;">
+        <thead><tr><th class="blue">photo</th><th class="blue">raw output</th><th class="blue">reads as</th><th class="blue">printed</th></tr></thead>
+        <tbody>
+          <tr class="show"><td>cat_or_dog_1.jpg</td><td>0.9999995</td><td>P(dog) ≈ 1</td><td>dog 100.00%</td></tr>
+          <tr class="show"><td>cat_or_dog_2.jpg</td><td>0.2344933</td><td>P(cat) = 1 − 0.234</td><td>cat 76.55%</td></tr>
+        </tbody>
+      </table>
+      <div class="callout orange">
+        ⚠️ <strong>Four things to fix in the prediction cells.</strong>
+        <ol style="margin:8px 0 0 18px;line-height:1.7;">
+          <li><code>plt.imshow</code> is used but <code>matplotlib.pyplot</code> is never imported — add <code>import matplotlib.pyplot as plt</code>.</li>
+          <li>The model is saved and reloaded into <code>model</code>, then never used — predictions still call <code>cnn</code>. Use <code>model.predict</code> to prove the saved file works.</li>
+          <li>The two cells hard-code a different percentage formula each (<code>p·100</code> vs <code>100 − p·100</code>). That only works because the author already knew the answers. A function should pick the formula from the prediction.</li>
+          <li>"100.00%" is the sigmoid's confidence, not a guarantee — with 79% validation accuracy, roughly 1 in 5 confident answers are still wrong.</li>
+        </ol>
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python — one function for any photo</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">import</span> numpy <span class="kw">as</span> <span class="lib">np</span>
+<span class="kw">import</span> matplotlib.pyplot <span class="kw">as</span> <span class="lib">plt</span>
+<span class="kw">from</span> keras.preprocessing <span class="kw">import</span> image
+
+<span class="kw">def</span> <span class="fn">predict_photo</span>(model, path, class_indices):
+    img = image.<span class="fn">load_img</span>(path, target_size=(<span class="num">64</span>, <span class="num">64</span>))
+    x = <span class="lib">np</span>.<span class="fn">expand_dims</span>(image.<span class="fn">img_to_array</span>(img) / <span class="num">255.0</span>, axis=<span class="num">0</span>)
+    p = <span class="fn">float</span>(model.<span class="fn">predict</span>(x, verbose=<span class="num">0</span>)[<span class="num">0</span>][<span class="num">0</span>])        <span class="cm"># P(class 1)</span>
+    names = {v: k <span class="kw">for</span> k, v <span class="kw">in</span> class_indices.<span class="fn">items</span>()}     <span class="cm"># {0: 'cats', 1: 'dogs'}</span>
+    label, conf = (names[<span class="num">1</span>], p) <span class="kw">if</span> p &gt; <span class="num">0.5</span> <span class="kw">else</span> (names[<span class="num">0</span>], <span class="num">1</span> - p)
+    <span class="lib">plt</span>.<span class="fn">imshow</span>(image.<span class="fn">load_img</span>(path)); <span class="lib">plt</span>.<span class="fn">axis</span>(<span class="str">'off'</span>); <span class="lib">plt</span>.<span class="fn">show</span>()
+    <span class="fn">print</span>(<span class="str">f"{label} {conf:.2%}"</span>)
+
+predict_photo(model, <span class="str">'.../single_prediction/cat_or_dog_1.jpg'</span>, training_set.class_indices)</pre>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(10)">← Reading the training log</button>
+        <div class="pnav-dots" id="dots-11"></div>
+        <button class="pnav-btn next" onclick="goTo(12)">Live CNN →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 12: Live CNN ══ -->
+    <div class="panel" id="panel-12">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1655393001768-d946c97d6fd1?w=900&q=75&fit=crop&h=200" alt="Abstract AI visual" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">CNN 11 / 11 · A Real Network</div>
+          <div class="m-name">Live CNN</div>
+          <div class="m-tagline">A genuine two-block CNN, trained offline on 60,000 handwritten digits, running in your browser</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">Conv(8) → Pool → Conv(16) → Pool → Flatten → Dense(10)</span>
+        <span class="pill pill-ret" id="live-acc">→ test accuracy</span>
+      </div>
+      <p class="m-desc">Same recipe as the lesson model — two Conv/ReLU/Pool blocks, Flatten, Dense — scaled down to 28×28 grey digits so it runs instantly in a browser. The weights are real (trained on MNIST and baked into this page). Every map below is computed live from your drawing.</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Step 1 — draw a digit (or load a real one)</div>
+        <div class="demo-controls" style="align-items:center;">
+          <div class="ctrl"><label>load a real MNIST test digit</label><div class="digit-samples" id="live-digits"></div></div>
+          <button class="play-btn alt" onclick="clearDraw()">🧹 clear &amp; draw</button>
+        </div>
+        <div class="live-grid">
+          <div><canvas id="cv-draw" width="196" height="196"></canvas><div class="tiny-cap">draw with mouse or finger</div></div>
+          <div><canvas id="cv-in28" width="112" height="112"></canvas><div class="tiny-cap">what the CNN sees: 28×28, centred</div></div>
+          <div style="flex:1;min-width:200px;"><div class="demo-out" id="live-out" style="margin-bottom:8px;">Draw a digit.</div><div class="bars" id="live-bars"></div></div>
+        </div>
+        <div class="demo-lbl" style="margin-top:20px;">Step 2 — inside the network</div>
+        <div class="demo-canvas-wrap"><canvas id="cv-live" height="400"></canvas></div>
+      </div>
+      <div class="callout green">
+        💡 <strong>What to look for.</strong> The 8 maps in block 1 are mostly <em>edges in different directions</em> — each filter lights up a different side of your strokes. Block 2's 16 maps are smaller and blobbier: each combines block-1 edges into a <em>part</em> (a loop, a corner, a stroke end). That's the hierarchy from the overview, happening for real.
+      </div>
+      <div class="callout orange">
+        🧪 <strong>Try to fool it.</strong> Draw a 4 very small in the corner. The page re-centres your drawing (as MNIST did), so position mostly doesn't matter — but a very thin, very thick or rotated digit can still break it. A real network, real limits.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(11)">← Predicting one photo</button>
+        <div class="pnav-dots" id="dots-12"></div>
+        <button class="pnav-btn next" onclick="goTo(13)">Pros &amp; cons →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 13: Pros & cons ══ -->
+    <div class="panel" id="panel-13">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=900&q=75&fit=crop&h=200" alt="Earth from space" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Wrapping Up</div>
+          <div class="m-name">Pros &amp; cons</div>
+          <div class="m-tagline">Where CNNs shine, and what they still can't do for you</div>
+        </div>
+      </div>
+      <div class="pc-grid">
+        <div class="pc good">
+          <h4>✅ Strengths</h4>
+          <ol>
+            <li>Uses the grid structure: local patterns, found anywhere in the image.</li>
+            <li>Weight sharing — far fewer parameters than a Dense net on raw pixels.</li>
+            <li>Learns its own feature hierarchy: edges → textures → parts → objects.</li>
+            <li>Pooling gives tolerance to small shifts.</li>
+            <li>Works on anything grid-shaped: photos, X-rays, spectrograms of sound, satellite tiles.</li>
+          </ol>
+        </div>
+        <div class="pc bad">
+          <h4>⚠️ Weaknesses</h4>
+          <ol>
+            <li>Needs many labelled images — 8,000 photos gave only ~79% in the lesson.</li>
+            <li>Not naturally rotation- or scale-invariant: it must see those variations (augmentation).</li>
+            <li>Expensive to train; GPUs make the difference between minutes and hours.</li>
+            <li>Still a black box — hard to say exactly <em>why</em> it said "dog".</li>
+          </ol>
+        </div>
+      </div>
+      <div class="callout blue">
+        💡 <strong>In practice.</strong> With a small dataset like the lesson's, the usual move is <strong>transfer learning</strong>: take a CNN already trained on millions of photos (e.g. MobileNet, ResNet), keep its convolution blocks, and train only a new Dense head. Accuracy on cats vs dogs typically jumps well above 90%.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(12)">← Live CNN</button>
+        <div class="pnav-dots" id="dots-13"></div>
+        <button class="pnav-btn next" onclick="goTo(14)">Exercises →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 14: Exercises ══ -->
+    <div class="panel" id="panel-14">
+      <div class="exercise-header">
+        <div class="exercise-badge">✎</div>
+        <div>
+          <div class="m-breadcrumb" style="margin-bottom:6px;">Your turn</div>
+          <h2 style="margin:0;">Exercises</h2>
+          <p style="margin:6px 0 0;color:var(--muted);font-size:.9rem;">Work these on paper first, then check with the live demos.</p>
+        </div>
+      </div>
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">EX 1</span><strong>Convolution by hand</strong></div>
+        <p class="ex-task">Patch <code>[[1,2,0],[0,1,3],[2,0,1]]</code>, kernel <code>[[1,0,-1],[1,0,-1],[1,0,-1]]</code>, bias 0. What number goes in the feature map? After ReLU?</p>
+        <details class="hint"><summary>Show answer</summary><p class="body" style="margin-top:8px;">Left column (1+0+2) = 3, middle × 0, right column −(0+3+1) = −4. Total 3 − 4 = −1. After ReLU: 0.</p></details>
+      </div>
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">EX 2</span><strong>Shapes</strong></div>
+        <p class="ex-task">Input <code>(128, 128, 3)</code> → <code>Conv2D(16, 3)</code> → <code>MaxPooling2D(2)</code> → <code>Conv2D(32, 3)</code> → <code>MaxPooling2D(2)</code> → <code>Flatten</code>. Give every output shape.</p>
+        <details class="hint"><summary>Show answer</summary><p class="body" style="margin-top:8px;">(126,126,16) → (63,63,16) → (61,61,32) → (30,30,32) → 28,800.</p></details>
+      </div>
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">EX 3</span><strong>Parameters</strong></div>
+        <p class="ex-task">How many trainable parameters does the second <code>Conv2D(32, 3)</code> in EX 2 have?</p>
+        <details class="hint"><summary>Show answer</summary><p class="body" style="margin-top:8px;">Each filter is 3×3×16 (16 input channels) + 1 bias = 145. Times 32 filters = 4,640.</p></details>
+      </div>
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">EX 4</span><strong>Reading output</strong></div>
+        <p class="ex-task"><code>class_indices = {'cats': 0, 'dogs': 1}</code> and the model returns <code>[[0.12]]</code>. What's the answer, and with what confidence?</p>
+        <details class="hint"><summary>Show answer</summary><p class="body" style="margin-top:8px;">0.12 is P(dogs). It's below 0.5, so "cat" with confidence 1 − 0.12 = 88%.</p></details>
+      </div>
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">EX 5</span><strong>Diagnose</strong></div>
+        <p class="ex-task">Training accuracy 99%, validation accuracy 70%, validation loss rising for 8 epochs. Name the problem and two fixes.</p>
+        <details class="hint"><summary>Show answer</summary><p class="body" style="margin-top:8px;">Overfitting. Fixes: EarlyStopping on val_loss, Dropout, stronger augmentation, more data, or a smaller Dense head / transfer learning.</p></details>
+      </div>
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">EX 6</span><strong>Try it live</strong></div>
+        <p class="ex-task">On panel 11, draw a 7, then the same 7 with a horizontal bar through it (European style). Which block-1 maps change most? Does the prediction change?</p>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(13)">← Pros &amp; cons</button>
+        <div class="pnav-dots" id="dots-14"></div>
+        <button class="pnav-btn next" onclick="goTo(15)">A1 · Output-size math →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 15: A1 Output-size math ══ -->
+    <div class="panel" id="panel-15">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1502252430442-aac78f397426?w=900&q=75&fit=crop&h=200" alt="Measuring" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Appendix A1 · The Arithmetic</div>
+          <div class="m-name">Output-size math</div>
+          <div class="m-tagline">Kernel size, stride and padding decide every shape in the network</div>
+        </div>
+      </div>
+      <div class="eq-box big" style="text-align:center;">$$\text{out}=\left\lfloor\frac{n+2p-k}{s}\right\rfloor+1$$</div>
+      <p class="m-desc"><code>n</code> input size · <code>k</code> kernel size · <code>s</code> stride (step) · <code>p</code> zeros added on each border. <code>padding='valid'</code> means p = 0; <code>padding='same'</code> pads just enough that, with stride 1, the output stays the size of the input. Move the sliders — each dot is one position the kernel lands on along a row:</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo — where the kernel lands</div>
+        <div class="demo-controls">
+          <div class="ctrl"><label>input n</label><input type="range" min="5" max="14" value="8" step="1" id="os-n" oninput="drawOutSize()"><span class="cval" id="os-nv">8</span></div>
+          <div class="ctrl"><label>kernel k</label><input type="range" min="1" max="5" value="3" step="1" id="os-k" oninput="drawOutSize()"><span class="cval" id="os-kv">3</span></div>
+          <div class="ctrl"><label>stride s</label><input type="range" min="1" max="3" value="1" step="1" id="os-s" oninput="drawOutSize()"><span class="cval" id="os-sv">1</span></div>
+          <span class="seg" id="pad-seg"><button class="on" onclick="setPad('valid',this)">valid</button><button onclick="setPad('same',this)">same</button></span>
+        </div>
+        <div class="demo-out" id="out-os"></div>
+        <div class="demo-canvas-wrap"><canvas id="cv-os" height="200"></canvas></div>
+      </div>
+      <div class="eq-box gold" style="text-align:center;">$$\text{params}(\text{Conv2D})=(k\cdot k\cdot C_{in}+1)\cdot F \qquad \text{params}(\text{MaxPool})=0$$</div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(14)">← Exercises</button>
+        <div class="pnav-dots" id="dots-15"></div>
+        <button class="pnav-btn next" onclick="goTo(16)">A2 · Keras CNN cheat-sheet →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 16: A2 Keras cheat-sheet ══ -->
+    <div class="panel" id="panel-16">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1526379095098-d400fd0bf935?w=900&q=75&fit=crop&h=200" alt="Reference sheet" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Appendix A2 · Reference</div>
+          <div class="m-name">Keras CNN cheat-sheet</div>
+          <div class="m-tagline">The calls behind the lesson model, plus the modern equivalents</div>
+        </div>
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue">call</th><th class="blue">what it does</th></tr></thead>
+        <tbody>
+          <tr class="show"><td><code>Input(shape=(64, 64, 3))</code></td><td>Declares the image size and channels. Goes first in a <code>Sequential</code>.</td></tr>
+          <tr class="show"><td><code>Conv2D(filters, kernel_size, strides=1, padding='valid', activation)</code></td><td>Slides <code>filters</code> learned kernels over the input; one feature map per filter.</td></tr>
+          <tr class="show"><td><code>MaxPooling2D(pool_size=2, strides=2)</code></td><td>Keeps the max of each block. No weights.</td></tr>
+          <tr class="show"><td><code>Flatten()</code></td><td>3-D block → 1-D vector for the Dense layers.</td></tr>
+          <tr class="show"><td><code>GlobalAveragePooling2D()</code></td><td>Averages each feature map to one number — a much smaller alternative to <code>Flatten</code>.</td></tr>
+          <tr class="show"><td><code>Dropout(0.5)</code></td><td>Randomly zeroes half the activations while training. Fights overfitting.</td></tr>
+          <tr class="show"><td><code>ImageDataGenerator(...).flow_from_directory(...)</code></td><td>The lesson's loader: folders → labelled batches, with augmentation. Legacy API.</td></tr>
+          <tr class="show"><td><code>image_dataset_from_directory(path, image_size, batch_size)</code></td><td>The modern loader. Labels from folder names, same as above.</td></tr>
+          <tr class="show"><td><code>RandomFlip('horizontal')</code>, <code>RandomZoom(0.2)</code>, <code>RandomRotation(0.05)</code>, <code>Rescaling(1/255)</code></td><td>Augmentation and scaling as layers inside the model — active during <code>fit</code>, switched off in <code>predict</code> (except <code>Rescaling</code>).</td></tr>
+        </tbody>
+      </table>
+      <div class="code-wrap" style="margin-top:20px;">
+        <div class="code-header"><span class="code-lang">python — the lesson model in the current Keras style</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre><span class="kw">from</span> keras <span class="kw">import</span> <span class="cls">Sequential</span>, <span class="cls">Input</span>, layers, callbacks, utils
+
+train = utils.<span class="fn">image_dataset_from_directory</span>(<span class="str">'dataset/training_set'</span>, image_size=(<span class="num">64</span>, <span class="num">64</span>),
+                                          batch_size=<span class="num">32</span>, label_mode=<span class="str">'binary'</span>)
+test  = utils.<span class="fn">image_dataset_from_directory</span>(<span class="str">'dataset/test_set'</span>, image_size=(<span class="num">64</span>, <span class="num">64</span>),
+                                          batch_size=<span class="num">32</span>, label_mode=<span class="str">'binary'</span>)
+
+cnn = <span class="cls">Sequential</span>([
+    <span class="cls">Input</span>(shape=(<span class="num">64</span>, <span class="num">64</span>, <span class="num">3</span>)),
+    layers.<span class="cls">Rescaling</span>(<span class="num">1.</span>/<span class="num">255</span>),
+    layers.<span class="cls">RandomFlip</span>(<span class="str">'horizontal'</span>), layers.<span class="cls">RandomZoom</span>(<span class="num">0.2</span>),
+    layers.<span class="cls">Conv2D</span>(<span class="num">32</span>, <span class="num">3</span>, activation=<span class="str">'relu'</span>), layers.<span class="cls">MaxPooling2D</span>(<span class="num">2</span>),
+    layers.<span class="cls">Conv2D</span>(<span class="num">32</span>, <span class="num">3</span>, activation=<span class="str">'relu'</span>), layers.<span class="cls">MaxPooling2D</span>(<span class="num">2</span>),
+    layers.<span class="cls">Flatten</span>(),
+    layers.<span class="cls">Dropout</span>(<span class="num">0.5</span>),
+    layers.<span class="cls">Dense</span>(<span class="num">128</span>, activation=<span class="str">'relu'</span>),
+    layers.<span class="cls">Dense</span>(<span class="num">1</span>, activation=<span class="str">'sigmoid'</span>),
+])
+cnn.<span class="fn">compile</span>(optimizer=<span class="str">'adam'</span>, loss=<span class="str">'binary_crossentropy'</span>, metrics=[<span class="str">'accuracy'</span>])
+cnn.<span class="fn">fit</span>(train, validation_data=test, epochs=<span class="num">25</span>,
+        callbacks=[callbacks.<span class="cls">EarlyStopping</span>(monitor=<span class="str">'val_loss'</span>, patience=<span class="num">3</span>, restore_best_weights=<span class="kw">True</span>)])</pre>
+      </div>
+      <div class="callout orange">
+        📌 <strong>Note on <code>Rescaling</code> inside the model.</strong> Because the model now divides by 255 itself, prediction code must pass <em>raw</em> 0–255 pixels — don't divide twice. That's the main trap when switching from the lesson's style.
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(15)">← A1 · Output-size math</button>
+        <div class="pnav-dots" id="dots-16"></div>
+        <button class="pnav-btn" disabled>End →</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="cnn_net.js"></script>
+<script src="cnn.js"></script>
+</body>
+</html>
