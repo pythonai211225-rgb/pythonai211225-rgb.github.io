@@ -22,6 +22,10 @@ function render(filter='all'){
  document.querySelector('#course-count').textContent=`${shown.length} mission${shown.length===1?'':'s'} to discover`;
 }
 render();
+/* shareable deep links (#projects, #lessons…): the cards above are rendered by JS and their art loads late,
+   so the browser's initial jump lands too high — re-align once the layout has settled */
+function alignToHash(){const t=location.hash&&document.getElementById(location.hash.slice(1));if(t)t.scrollIntoView({block:'start',behavior:'instant'})}
+if(location.hash){alignToHash();window.addEventListener('load',alignToHash,{once:true})}
 document.querySelectorAll('[data-filter]').forEach(button=>button.addEventListener('click',()=>{document.querySelectorAll('[data-filter]').forEach(b=>{b.classList.toggle('selected',b===button);b.setAttribute('aria-pressed',String(b===button))});render(button.dataset.filter)}));
 const menu=document.querySelector('.menu-toggle'),nav=document.querySelector('#navigation');
 function closeMenu(){nav.classList.remove('open');menu.setAttribute('aria-expanded','false')}
