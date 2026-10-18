@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>REST API — HTTP Methods, FastAPI, Uvicorn &amp; a Chat App</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="stylesheet" href="deck.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&display=swap">
+  <style>
+    /* REST-specific bits on top of the shared deck styles */
+    :root { --m-get:#61affe; --m-post:#49cc90; --m-put:#fca130; --m-patch:#50e3c2; --m-delete:#f93e3e; --m-head:#b47cff; --m-options:#3b82f6; }
+    .mth { display:inline-block; min-width:62px; text-align:center; font-family:'Courier New',monospace; font-size:.72rem; font-weight:800; padding:3px 8px; border-radius:6px; color:#08101f; letter-spacing:.02em; }
+    .mth.get{background:var(--m-get)} .mth.post{background:var(--m-post)} .mth.put{background:var(--m-put)} .mth.patch{background:var(--m-patch)}
+    .mth.delete{background:var(--m-delete);color:#fff} .mth.head{background:var(--m-head)} .mth.options{background:var(--m-options);color:#fff}
+    .svg-wrap { background:#020509; border-radius:12px; padding:14px; border:1px solid var(--border); margin:16px 0; overflow-x:auto; }
+    .svg-wrap svg { display:block; width:100%; height:auto; min-width:520px; }
+    .svg-wrap svg text { font-family:'Courier New',monospace; }
+    .cap { text-align:center; font-size:.72rem; color:var(--muted); margin-top:8px; font-family:'Courier New',monospace; }
+
+    /* methods playground */
+    .mseg button[data-m="GET"].on{background:rgba(97,175,254,.18);color:var(--m-get)}
+    .mseg button[data-m="POST"].on{background:rgba(73,204,144,.18);color:var(--m-post)}
+    .mseg button[data-m="PUT"].on{background:rgba(252,161,48,.18);color:var(--m-put)}
+    .mseg button[data-m="PATCH"].on{background:rgba(80,227,194,.18);color:var(--m-patch)}
+    .mseg button[data-m="DELETE"].on{background:rgba(249,62,62,.18);color:var(--m-delete)}
+    .mseg button[data-m="HEAD"].on{background:rgba(180,124,255,.18);color:var(--m-head)}
+    .mseg button[data-m="OPTIONS"].on{background:rgba(59,130,246,.2);color:var(--m-options)}
+    .req-line { display:flex; flex-wrap:wrap; gap:8px; align-items:center; font-family:'Courier New',monospace; font-size:.85rem; background:#0a0e1f; border:1px solid var(--border); border-radius:10px; padding:10px 12px; }
+    .req-line input, .req-line select { background:#020509; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:4px 8px; font-family:inherit; font-size:.82rem; }
+    .req-line input[type=number] { width:58px; }
+    .req-line input.body-in { flex:1; min-width:180px; }
+    .send-btn { margin-left:auto; }
+    .play-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:14px; }
+    .pane { background:#020509; border:1px solid var(--border); border-radius:10px; padding:12px 14px; font-family:'Courier New',monospace; font-size:.76rem; min-height:170px; }
+    .pane h5 { font-size:.6rem; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin-bottom:8px; }
+    .pane pre { white-space:pre-wrap; word-break:break-word; color:var(--text); line-height:1.55; }
+    .st-ok{color:#10b981;font-weight:800} .st-warn{color:#fbbf24;font-weight:800} .st-err{color:#f43f5e;font-weight:800}
+    .mini-table { width:100%; border-collapse:collapse; }
+    .mini-table th { text-align:left; color:var(--muted); font-weight:700; font-size:.66rem; padding:4px 6px; border-bottom:1px solid var(--border); }
+    .mini-table td { padding:5px 6px; border-bottom:1px dashed rgba(255,255,255,.06); color:var(--text); }
+    .mini-table tr.flash-read td { animation:fr 1.4s ease; }
+    .mini-table tr.flash-write td { animation:fw 1.4s ease; }
+    .mini-table tr.gone td { text-decoration:line-through; color:#f43f5e; opacity:.6; }
+    @keyframes fr { 0%,40%{background:rgba(97,175,254,.28)} 100%{background:transparent} }
+    @keyframes fw { 0%,40%{background:rgba(252,161,48,.3)} 100%{background:transparent} }
+    .sql-line { margin-top:10px; padding:8px 10px; border-radius:8px; background:rgba(167,139,250,.08); border:1px solid rgba(167,139,250,.25); color:#c4b5fd; font-family:'Courier New',monospace; font-size:.74rem; white-space:pre-wrap; }
+
+    /* PUT vs PATCH illustration */
+    .rec { font-family:'Courier New',monospace; font-size:.76rem; background:#020509; border:1px solid var(--border); border-radius:10px; padding:10px 12px; line-height:1.7; }
+    .rec .k { color:var(--muted); } .rec .chg { color:#fbbf24; font-weight:800; } .rec .lost { color:#f43f5e; font-weight:800; }
+    .pp-grid { display:grid; grid-template-columns:1fr auto 1fr; gap:10px; align-items:center; margin:10px 0; }
+    .pp-arrow { font-family:'Courier New',monospace; font-size:.72rem; text-align:center; color:var(--muted); }
+
+    /* status codes */
+    .codes { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; margin:16px 0; }
+    .code-fam { border:1px solid var(--border); border-radius:12px; padding:12px 14px; background:var(--surface); }
+    .code-fam h4 { font-family:'Courier New',monospace; font-size:.9rem; margin-bottom:8px; }
+    .code-fam div { font-size:.76rem; color:var(--muted); margin:5px 0; line-height:1.45; }
+    .code-fam b { font-family:'Courier New',monospace; color:var(--text); }
+
+    /* FastAPI request pipeline */
+    @media (min-width:900px) { table.dt td code { white-space:nowrap; } }
+    .pipe { display:grid; grid-template-columns:repeat(auto-fit,minmax(118px,1fr)); gap:10px; margin:6px 0 4px; }
+    .pipe-step { border:1px solid var(--border); border-radius:12px; padding:12px 12px 10px; background:var(--surface); opacity:.35; transition:opacity .35s,border-color .35s,transform .35s,box-shadow .35s; }
+    .pipe-step.on { opacity:1; }
+    .pipe-step.now { border-color:var(--accent); transform:translateY(-3px); box-shadow:0 6px 22px rgba(34,211,238,.14); }
+    .pipe-step.fail { opacity:1; border-color:#f43f5e; box-shadow:0 6px 22px rgba(244,63,94,.18); }
+    .pipe-step .ps-n { font-size:.6rem; font-weight:800; letter-spacing:.12em; color:var(--muted); }
+    .pipe-step strong { display:block; font-size:.82rem; margin:3px 0; }
+    .pipe-step code { display:block; font-family:'Courier New',monospace; font-size:.68rem; color:var(--muted); word-break:break-word; }
+
+    /* mock Swagger UI */
+    .swag { background:#fafafa; color:#3b4151; border-radius:12px; padding:16px 16px 10px; font-family:'Segoe UI',system-ui,sans-serif; margin:16px 0; }
+    .swag-top { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
+    .swag-top h3 { font-size:1.3rem; color:#3b4151; margin:0; }
+    .swag-ver { font-size:.62rem; background:#7d8492; color:#fff; border-radius:30px; padding:2px 8px; font-weight:700; }
+    .swag-ver.oas { background:#89bf04; }
+    .swag-url { font-size:.75rem; color:#4990e2; font-family:'Courier New',monospace; width:100%; }
+    .swag-tag { font-size:1.05rem; font-weight:700; border-bottom:1px solid rgba(59,65,81,.2); padding:10px 0 6px; margin-bottom:8px; }
+    .op { border-radius:4px; margin:0 0 8px; border:1px solid; }
+    .op-head { display:flex; align-items:center; gap:10px; padding:6px 8px; cursor:pointer; user-select:none; }
+    .op-head .mth { min-width:70px; font-size:.7rem; border-radius:3px; color:#fff; }
+    .op-path { font-family:'Courier New',monospace; font-weight:700; font-size:.82rem; color:#3b4151; word-break:break-all; }
+    .op-sum { font-size:.74rem; color:#3b4151; margin-left:auto; text-align:right; }
+    .op-body { display:none; padding:10px 12px; border-top:1px solid rgba(0,0,0,.08); font-size:.78rem; }
+    .op.open .op-body { display:block; }
+    .op-body h6 { font-size:.72rem; margin:8px 0 4px; color:#3b4151; }
+    .op-body pre { background:#333; color:#fff; border-radius:4px; padding:8px 10px; font-family:'Courier New',monospace; font-size:.72rem; white-space:pre-wrap; }
+    .op-try { display:inline-block; float:right; border:2px solid #7d8492; border-radius:4px; padding:2px 10px; font-size:.7rem; font-weight:700; color:#3b4151; }
+    .op.get{background:rgba(97,175,254,.1);border-color:#61affe} .op.get .mth{background:#61affe}
+    .op.post{background:rgba(73,204,144,.1);border-color:#49cc90} .op.post .mth{background:#49cc90}
+    .op.put{background:rgba(252,161,48,.1);border-color:#fca130} .op.put .mth{background:#fca130}
+    .op.patch{background:rgba(80,227,194,.1);border-color:#50e3c2} .op.patch .mth{background:#50e3c2}
+    .op.delete{background:rgba(249,62,62,.1);border-color:#f93e3e} .op.delete .mth{background:#f93e3e}
+    .op.head{background:rgba(144,18,254,.08);border-color:#9012fe} .op.head .mth{background:#9012fe}
+    .lock { font-size:.8rem; opacity:.55; }
+
+    /* mock Postman */
+    .pm { background:#1c1c1c; border:1px solid #333; border-radius:12px; overflow:hidden; margin:16px 0; font-family:'Segoe UI',system-ui,sans-serif; }
+    .pm-bar { display:flex; gap:8px; align-items:center; padding:10px 12px; background:#262626; border-bottom:1px solid #333; flex-wrap:wrap; }
+    .pm-method { font-family:'Courier New',monospace; font-weight:800; font-size:.8rem; padding:6px 10px; border:1px solid #444; border-radius:6px; background:#1c1c1c; }
+    .pm-url { flex:1; min-width:200px; font-family:'Courier New',monospace; font-size:.8rem; padding:6px 10px; border:1px solid #444; border-radius:6px; background:#1c1c1c; color:#e5e5e5; }
+    .pm-send { background:#ff6c37; color:#fff; font-weight:700; font-size:.8rem; padding:6px 16px; border-radius:6px; }
+    .pm-tabs { display:flex; gap:16px; padding:8px 14px 0; font-size:.74rem; color:#999; border-bottom:1px solid #333; }
+    .pm-tabs span { padding-bottom:6px; } .pm-tabs span.on { color:#e5e5e5; border-bottom:2px solid #ff6c37; }
+    .pm-sec { padding:10px 14px; font-family:'Courier New',monospace; font-size:.76rem; color:#e5e5e5; white-space:pre-wrap; }
+    .pm-res { border-top:1px solid #333; }
+    .pm-res-h { display:flex; justify-content:space-between; padding:8px 14px 0; font-size:.72rem; color:#999; }
+    .pm-res-h b { color:#10b981; }
+    .hl-tok { background:rgba(255,108,55,.18); color:#ffb38f; border-radius:3px; padding:0 2px; }
+
+    /* whiteboard */
+    .board { background:linear-gradient(160deg,#f7f8f3,#eceee4); color:#1d2433; border-radius:14px; padding:22px 24px 18px; margin:16px 0; border:10px solid #9a8f80; box-shadow:inset 0 0 30px rgba(0,0,0,.08), 0 10px 30px rgba(0,0,0,.4); font-family:'Caveat','Comic Sans MS',cursive; }
+    .board h4 { font-size:1.7rem; color:#1f4fa3; margin-bottom:4px; font-weight:700; }
+    .board .step-n { display:inline-block; font-size:1.25rem; color:#c0392b; font-weight:700; margin-right:6px; }
+    .board .say { font-size:1.32rem; line-height:1.35; margin:6px 0 14px; color:#1d2433; }
+    .board .why { font-size:1.12rem; color:#2c7a4b; margin:-8px 0 14px 22px; }
+    .board hr { border:none; border-top:2px dashed rgba(29,36,51,.2); margin:12px 0; }
+    .prompt-tabs { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+  </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<nav class="top-nav">
+  <a href="../index.html" class="nav-back">← Advanced AI</a>
+  <span class="nav-sep">|</span>
+  <div class="nav-items">
+    <a class="nav-item" href="../01_ann/index.html">01 · ANN</a>
+    <a class="nav-item" href="../02_cnn/index.html">02 · CNN</a>
+    <a class="nav-item active" href="index.html">03 · REST API</a>
+  </div>
+</nav>
+
+<div class="page-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-head">REST API</div>
+    <nav class="sidebar-nav">
+      <button class="s-item active" data-panel="0" onclick="goTo(0)"><span class="s-num">00</span><span class="s-dot" style="background:#22d3ee"></span><span class="s-label">Overview</span></button>
+      <button class="s-item" data-panel="1" onclick="goTo(1)"><span class="s-num">01</span><span class="s-dot" style="background:#a78bfa"></span><span class="s-label">What is a REST API?</span></button>
+      <button class="s-item" data-panel="2" onclick="goTo(2)"><span class="s-num">02</span><span class="s-dot" style="background:#61affe"></span><span class="s-label">The HTTP methods</span></button>
+      <button class="s-item" data-panel="3" onclick="goTo(3)"><span class="s-num">03</span><span class="s-dot" style="background:#10b981"></span><span class="s-label">Status codes</span></button>
+      <button class="s-item" data-panel="4" onclick="goTo(4)"><span class="s-num">04</span><span class="s-dot" style="background:#14b8a6"></span><span class="s-label">FastAPI</span></button>
+      <button class="s-item" data-panel="5" onclick="goTo(5)"><span class="s-num">05</span><span class="s-dot" style="background:#f97316"></span><span class="s-label">Uvicorn</span></button>
+      <button class="s-item" data-panel="6" onclick="goTo(6)"><span class="s-num">06</span><span class="s-dot" style="background:#89bf04"></span><span class="s-label">Swagger /docs</span></button>
+      <button class="s-item" data-panel="7" onclick="goTo(7)"><span class="s-num">07</span><span class="s-dot" style="background:#ff6c37"></span><span class="s-label">Postman</span></button>
+      <hr class="side-sep">
+      <div class="side-part">The class project</div>
+      <button class="s-item" data-panel="8" onclick="goTo(8)"><span class="s-num">08</span><span class="s-dot" style="background:#ec4899"></span><span class="s-label">The Chat API app</span></button>
+      <button class="s-item" data-panel="9" onclick="goTo(9)"><span class="s-num">09</span><span class="s-dot" style="background:#a78bfa"></span><span class="s-label">The database behind it</span></button>
+      <button class="s-item" data-panel="10" onclick="goTo(10)"><span class="s-num">10</span><span class="s-dot" style="background:#fbbf24"></span><span class="s-label">Vibe-coding the app</span></button>
+      <button class="s-item" data-panel="11" onclick="goTo(11)"><span class="s-num">11</span><span class="s-dot" style="background:#22d3ee"></span><span class="s-label">Exercises</span></button>
+      <hr class="side-sep">
+      <div class="side-part">Appendix</div>
+      <button class="s-item" data-panel="12" onclick="goTo(12)"><span class="s-num">A1</span><span class="s-dot" style="background:#14b8a6"></span><span class="s-label">FastAPI cheat-sheet</span></button>
+      <hr class="side-sep">
+      <a class="s-item" style="text-decoration:none" href="../lessons/03_lesson/index.html"><span class="s-num">→</span><span class="s-dot" style="background:#22c55e"></span><span class="s-label">Lesson code</span></a>
+    </nav>
+  </aside>
+
+  <!-- PANEL VIEWPORT -->
+  <div class="panel-viewport" id="viewport">
+
+    <!-- ══ PANEL 0: Overview ══ -->
+    <div class="panel active" id="panel-0">
+      <div class="hero" style="margin-bottom:36px;">
+        <span class="topic-label"><span class="dot"></span>Advanced AI · Topic 03 · REST API</span>
+        <h1>REST API</h1>
+        <p>A trained model, a database, a chat room: none of them is useful until other programs can talk to it. A <strong>REST API</strong> is the standard way to do that over the web. The client sends an HTTP request (a <em>method</em> plus a <em>URL</em>), the server does the work and answers with a <em>status code</em> and usually some JSON. Below is one request from the class chat app, followed through every layer and back:</p>
+        <div class="svg-wrap" style="position:relative;z-index:1;">
+          <svg id="ov-svg" viewBox="0 0 760 250" aria-label="A request travels from the browser through Uvicorn and FastAPI to SQLite, and the response travels back">
+            <defs>
+              <linearGradient id="ovg" x1="0" x2="1"><stop offset="0" stop-color="#22d3ee" stop-opacity=".5"/><stop offset="1" stop-color="#a78bfa" stop-opacity=".5"/></linearGradient>
+            </defs>
+            <line x1="150" y1="125" x2="625" y2="125" stroke="url(#ovg)" stroke-width="2" stroke-dasharray="5 6"/>
+            <g>
+              <rect x="20" y="80" width="130" height="90" rx="12" fill="#0d1530" stroke="#22d3ee"/>
+              <text x="85" y="108" text-anchor="middle" fill="#e7ecff" font-size="14" font-weight="700">Browser</text>
+              <text x="85" y="128" text-anchor="middle" fill="#8b93c4" font-size="11">Aurora Chat</text>
+              <text x="85" y="150" text-anchor="middle" fill="#22d3ee" font-size="11">fetch()</text>
+            </g>
+            <g>
+              <rect x="215" y="80" width="130" height="90" rx="12" fill="#1a1408" stroke="#f97316"/>
+              <text x="280" y="108" text-anchor="middle" fill="#e7ecff" font-size="14" font-weight="700">Uvicorn</text>
+              <text x="280" y="128" text-anchor="middle" fill="#8b93c4" font-size="11">the server</text>
+              <text x="280" y="150" text-anchor="middle" fill="#f97316" font-size="11">:8000</text>
+            </g>
+            <g>
+              <rect x="410" y="80" width="150" height="90" rx="12" fill="#06201c" stroke="#14b8a6"/>
+              <text x="485" y="108" text-anchor="middle" fill="#e7ecff" font-size="14" font-weight="700">FastAPI</text>
+              <text x="485" y="128" text-anchor="middle" fill="#8b93c4" font-size="11">route function</text>
+              <text id="ov-fn" x="485" y="150" text-anchor="middle" fill="#14b8a6" font-size="11">list_messages()</text>
+            </g>
+            <g>
+              <rect x="625" y="80" width="120" height="90" rx="12" fill="#150f2a" stroke="#a78bfa"/>
+              <text x="685" y="108" text-anchor="middle" fill="#e7ecff" font-size="14" font-weight="700">SQLite</text>
+              <text x="685" y="128" text-anchor="middle" fill="#8b93c4" font-size="11">messages.db</text>
+              <text x="685" y="150" text-anchor="middle" fill="#a78bfa" font-size="11">3 tables</text>
+            </g>
+            <text x="20" y="40" fill="#8b93c4" font-size="11">REQUEST →</text>
+            <text id="ov-req" x="20" y="60" fill="#e7ecff" font-size="13" font-weight="700">GET /messages</text>
+            <text x="740" y="40" fill="#8b93c4" font-size="11" text-anchor="end">SQL that runs</text>
+            <text id="ov-sql" x="740" y="60" fill="#c4b5fd" font-size="12" text-anchor="end">SELECT * FROM messages</text>
+            <text x="20" y="205" fill="#8b93c4" font-size="11">← RESPONSE</text>
+            <text id="ov-res" x="20" y="226" fill="#10b981" font-size="13" font-weight="700">200 OK · [ {...}, {...} ]</text>
+            <g id="ov-pkt">
+              <rect id="ov-pkt-r" x="-34" y="-13" width="68" height="26" rx="13" fill="#61affe"/>
+              <text id="ov-pkt-t" x="0" y="4" text-anchor="middle" fill="#08101f" font-size="11" font-weight="800">GET</text>
+            </g>
+          </svg>
+        </div>
+      </div>
+      <div class="overview-grid" style="margin-top:0;">
+        <div class="ov-card" onclick="goTo(1)"><div class="ov-card-num">01 / 10</div><div class="ov-card-name" style="color:#a78bfa">What is a REST API?</div><div class="ov-card-desc">Resources, URLs, JSON, and why every request stands alone.</div></div>
+        <div class="ov-card" onclick="goTo(2)"><div class="ov-card-num">02 / 10</div><div class="ov-card-name" style="color:#61affe">The HTTP methods</div><div class="ov-card-desc">GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS, all live in your browser.</div></div>
+        <div class="ov-card" onclick="goTo(3)"><div class="ov-card-num">03 / 10</div><div class="ov-card-name" style="color:#10b981">Status codes</div><div class="ov-card-desc">200, 201, 204, 401, 403, 404, 409, 422: what each one tells the client.</div></div>
+        <div class="ov-card" onclick="goTo(4)"><div class="ov-card-num">04 / 10</div><div class="ov-card-name" style="color:#14b8a6">FastAPI</div><div class="ov-card-desc">Decorators, Pydantic models, and the steps FastAPI runs on every request.</div></div>
+        <div class="ov-card" onclick="goTo(5)"><div class="ov-card-num">05 / 10</div><div class="ov-card-name" style="color:#f97316">Uvicorn</div><div class="ov-card-desc">The server that listens on port 8000 and hands requests to FastAPI.</div></div>
+        <div class="ov-card" onclick="goTo(6)"><div class="ov-card-num">06 / 10</div><div class="ov-card-name" style="color:#89bf04">Swagger /docs</div><div class="ov-card-desc">Free, interactive docs, generated from your own code.</div></div>
+        <div class="ov-card" onclick="goTo(7)"><div class="ov-card-num">07 / 10</div><div class="ov-card-name" style="color:#ff6c37">Postman</div><div class="ov-card-desc">Sign up, log in, then send a message with a Bearer token.</div></div>
+        <div class="ov-card" onclick="goTo(8)"><div class="ov-card-num">08 / 10</div><div class="ov-card-name" style="color:#ec4899">The Chat API app</div><div class="ov-card-desc">The class project at a glance: 4 files, 19 endpoints.</div></div>
+        <div class="ov-card" onclick="goTo(9)"><div class="ov-card-num">09 / 10</div><div class="ov-card-name" style="color:#a78bfa">The database behind it</div><div class="ov-card-desc">Three tables, and how each HTTP method becomes SQL.</div></div>
+        <div class="ov-card" onclick="goTo(10)"><div class="ov-card-num">10 / 10</div><div class="ov-card-name" style="color:#fbbf24">Vibe-coding the app</div><div class="ov-card-desc">What to write to Claude to build it, step by step.</div></div>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" disabled>← Prev</button>
+        <div class="pnav-dots" id="dots-0"></div>
+        <button class="pnav-btn next" onclick="goTo(1)">What is a REST API? →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 1: What is REST ══ -->
+    <div class="panel" id="panel-1">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=900&q=75&fit=crop&h=200" alt="Streaming data" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">REST 01 / 10 · The Idea</div>
+          <div class="m-name">What is a REST API?</div>
+          <div class="m-tagline">Nouns in the URL, verbs in the method, data as JSON</div>
+        </div>
+      </div>
+      <p class="m-desc">An <strong>API</strong> (Application Programming Interface) is a menu of things one program lets another program ask for. A <strong>web API</strong> serves that menu over HTTP, the same protocol your browser uses for web pages. <strong>REST</strong> (REpresentational State Transfer) is a set of conventions for designing that menu so that every API looks familiar. It works like a restaurant:</p>
+      <div class="svg-wrap">
+        <svg viewBox="0 0 760 210" aria-label="Client sends an HTTP request to the server, and the server sends back an HTTP response">
+          <rect x="20" y="40" width="170" height="130" rx="14" fill="#0d1530" stroke="#22d3ee"/>
+          <text x="105" y="72" text-anchor="middle" fill="#e7ecff" font-size="15" font-weight="700">CLIENT</text>
+          <text x="105" y="96" text-anchor="middle" fill="#8b93c4" font-size="11">browser · phone app</text>
+          <text x="105" y="114" text-anchor="middle" fill="#8b93c4" font-size="11">Postman · Python script</text>
+          <text x="105" y="148" text-anchor="middle" fill="#22d3ee" font-size="11">"the customer"</text>
+          <rect x="570" y="40" width="170" height="130" rx="14" fill="#06201c" stroke="#14b8a6"/>
+          <text x="655" y="72" text-anchor="middle" fill="#e7ecff" font-size="15" font-weight="700">SERVER</text>
+          <text x="655" y="96" text-anchor="middle" fill="#8b93c4" font-size="11">FastAPI app</text>
+          <text x="655" y="114" text-anchor="middle" fill="#8b93c4" font-size="11">+ database</text>
+          <text x="655" y="148" text-anchor="middle" fill="#14b8a6" font-size="11">"the kitchen"</text>
+          <path d="M195 78 H565" stroke="#61affe" stroke-width="2" marker-end="url(#ar1)"/>
+          <path d="M565 132 H195" stroke="#10b981" stroke-width="2" marker-end="url(#ar2)"/>
+          <defs>
+            <marker id="ar1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#61affe"/></marker>
+            <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#10b981"/></marker>
+          </defs>
+          <text x="380" y="62" text-anchor="middle" fill="#61affe" font-size="12" font-weight="700">REQUEST: POST /messages</text>
+          <text x="380" y="98" text-anchor="middle" fill="#8b93c4" font-size="11">headers: Authorization: Bearer …   body: {"content":"hi"}</text>
+          <text x="380" y="124" text-anchor="middle" fill="#10b981" font-size="12" font-weight="700">RESPONSE: 201 Created</text>
+          <text x="380" y="156" text-anchor="middle" fill="#8b93c4" font-size="11">body: {"id": 7, "sender": "itay", "content": "hi", …}</text>
+        </svg>
+      </div>
+      <div class="grid-2">
+        <div class="card blue show"><div class="card-icon">📦</div><h4>Resources are nouns</h4><p>Everything the API manages is a <em>resource</em> with its own URL. A whole collection is <code>/messages</code>. One item is <code>/messages/7</code>. One user's avatar is <code>/users/3/avatar</code>. URLs name <em>things</em>, never actions: there is no <code>/deleteMessage</code>.</p></div>
+        <div class="card green show"><div class="card-icon">⚙️</div><h4>Methods are verbs</h4><p>What to <em>do</em> with the thing goes in the HTTP method. <code>GET /messages/7</code> reads it, <code>PATCH /messages/7</code> edits it, <code>DELETE /messages/7</code> removes it. The URL stays the same and only the verb changes.</p></div>
+        <div class="card purple show"><div class="card-icon">🧾</div><h4>Data travels as JSON</h4><p>Request bodies and responses are JSON text, so a JavaScript page, a Python script and a phone app can all read them. FastAPI converts your Python objects to and from JSON automatically.</p></div>
+        <div class="card show"><div class="card-icon">🔁</div><h4>Stateless</h4><p>The server keeps no memory of earlier requests. Every request carries everything needed to answer it, so after login the client sends its token with every call (<code>Authorization: Bearer …</code>).</p></div>
+      </div>
+      <div class="callout cyan">💡 <strong>Why AI engineers care.</strong> This is how a model leaves the notebook. Project 03 wraps the CNN in a FastAPI endpoint: the phone sends <code>POST /predict</code> with a photo, and the server replies with <code>{"label": "happy", "p": 0.94}</code>. The same pattern lets your code call ChatGPT, Claude or any other model service.</div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(0)">← Overview</button>
+        <div class="pnav-dots" id="dots-1"></div>
+        <button class="pnav-btn next" onclick="goTo(2)">The HTTP methods →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 2: HTTP methods ══ -->
+    <div class="panel" id="panel-2">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1518770660439-4636190af475?w=900&q=75&fit=crop&h=200" alt="Circuits and connections" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">REST 02 / 10 · The Verbs</div>
+          <div class="m-name">The HTTP methods</div>
+          <div class="m-tagline">Seven verbs, one URL scheme: create, read, update, delete and two helpers</div>
+        </div>
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue">method</th><th class="blue">what it means</th><th class="blue">body?</th><th class="blue">safe / idempotent</th><th class="blue">in the chat app</th></tr></thead>
+        <tbody>
+          <tr class="show"><td><span class="mth get">GET</span></td><td>Read. Never changes anything.</td><td>no</td><td>✔ / ✔</td><td><code>GET /messages</code></td></tr>
+          <tr class="show"><td><span class="mth post">POST</span></td><td>Create a new item in a collection. The server picks the id.</td><td>yes</td><td>✘ / ✘</td><td><code>POST /messages</code></td></tr>
+          <tr class="show"><td><span class="mth put">PUT</span></td><td>Replace an item <em>completely</em> with the body you send.</td><td>yes</td><td>✘ / ✔</td><td><code>PUT /users/3</code></td></tr>
+          <tr class="show"><td><span class="mth patch">PATCH</span></td><td>Change <em>only</em> the fields you send.</td><td>yes</td><td>✘ / ✘*</td><td><code>PATCH /messages/7</code></td></tr>
+          <tr class="show"><td><span class="mth delete">DELETE</span></td><td>Remove the item.</td><td>no</td><td>✘ / ✔</td><td><code>DELETE /messages/7</code></td></tr>
+          <tr class="show"><td><span class="mth head">HEAD</span></td><td>Same as GET, but returns only the status and headers. "Does it exist?"</td><td>no</td><td>✔ / ✔</td><td><code>HEAD /users/3</code></td></tr>
+          <tr class="show"><td><span class="mth options">OPTIONS</span></td><td>"Which methods may I use here?" Browsers send it automatically before cross-site calls (CORS preflight).</td><td>no</td><td>✔ / ✔</td><td>not routed (see note)</td></tr>
+        </tbody>
+      </table>
+      <p class="m-desc"><strong>Safe</strong> means it changes nothing on the server. <strong>Idempotent</strong> means sending it once or ten times leaves the server in the same state. That's why a browser can retry a failed GET freely but warns you before re-sending a form (a POST): a second POST creates a second message. <small>*PATCH <em>can</em> be idempotent ("set content to X" is), but HTTP doesn't promise it.</small></p>
+
+      <p class="m-desc"><strong>PUT vs PATCH, using the real <code>/users</code> code.</strong> A user has a name, a password and an avatar. Watch what happens to the avatar:</p>
+      <div class="pp-grid">
+        <div class="rec"><span class="k">name:</span> "Liran"<br><span class="k">password:</span> ••••<br><span class="k">avatar:</span> 🧑 face #2</div>
+        <div class="pp-arrow"><span class="mth put">PUT</span><br>{"name":"Lir",<br>"password":"abcd"}</div>
+        <div class="rec"><span class="k">name:</span> <span class="chg">"Lir"</span><br><span class="k">password:</span> <span class="chg">••••</span><br><span class="k">avatar:</span> <span class="lost">null ← gone!</span></div>
+      </div>
+      <div class="pp-grid">
+        <div class="rec"><span class="k">name:</span> "Liran"<br><span class="k">password:</span> ••••<br><span class="k">avatar:</span> 🧑 face #2</div>
+        <div class="pp-arrow"><span class="mth patch">PATCH</span><br>{"name":"Lir"}</div>
+        <div class="rec"><span class="k">name:</span> <span class="chg">"Lir"</span><br><span class="k">password:</span> •••• <span class="k">(kept)</span><br><span class="k">avatar:</span> 🧑 face #2 <span class="k">(kept)</span></div>
+      </div>
+      <p class="m-desc">PUT sends the <em>whole</em> new record, so anything you leave out is reset. <code>replace_user</code> in <code>users.py</code> really does clear the avatar first. PATCH sends a <em>change</em>, and <code>update_user</code> touches only the fields that are present. The frontend's "change avatar" button uses PATCH for exactly this reason.</p>
+
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo: a toy /messages API running in this page (you are logged in as itay, user 1)</div>
+        <div class="demo-controls">
+          <span class="seg mseg" id="m-seg">
+            <button data-m="GET" class="on">GET</button><button data-m="POST">POST</button><button data-m="PUT">PUT</button><button data-m="PATCH">PATCH</button><button data-m="DELETE">DELETE</button><button data-m="HEAD">HEAD</button><button data-m="OPTIONS">OPTIONS</button>
+          </span>
+          <button class="play-btn" onclick="resetToy()">↺ reset data</button>
+        </div>
+        <div class="req-line" id="req-line"></div>
+        <div class="play-grid">
+          <div class="pane"><h5>Response</h5><pre id="toy-res">Pick a method and press Send.</pre></div>
+          <div class="pane"><h5>Table: messages</h5><div id="toy-db"></div><div class="sql-line" id="toy-sql">-- the SQL the server runs appears here</div></div>
+        </div>
+      </div>
+      <div class="callout orange">🧪 <strong>Try these:</strong> GET the same message twice (nothing changes). DELETE message 2 twice (the first returns <code>204</code>, the second <code>404</code>, and the table looks the same either way). PATCH message 3, which belongs to Liran: <code>403</code>. HEAD returns the status and headers but no body.</div>
+      <div class="callout blue">🔎 <strong>OPTIONS in the real app.</strong> The class app defines no OPTIONS routes, so FastAPI answers <code>405 Method Not Allowed</code>. That's fine because the page and the API share one origin (<code>localhost:8000</code>), so the browser never needs a preflight. If a page on another origin had to call the API, you would add <code>CORSMiddleware</code>, and FastAPI would answer OPTIONS the way the toy above does.</div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(1)">← What is a REST API?</button>
+        <div class="pnav-dots" id="dots-2"></div>
+        <button class="pnav-btn next" onclick="goTo(3)">Status codes →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 3: Status codes ══ -->
+    <div class="panel" id="panel-3">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=900&q=75&fit=crop&h=200" alt="A dashboard" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">REST 03 / 10 · The Answer</div>
+          <div class="m-name">Status codes</div>
+          <div class="m-tagline">Three digits that tell the client what happened, before it reads the body</div>
+        </div>
+      </div>
+      <p class="m-desc">Every response begins with a number. The <strong>first digit</strong> is the family. The client can branch on it without understanding the body at all. The frontend's <code>api()</code> helper does exactly that: <code>if (!res.ok)</code> means "not 2xx".</p>
+      <div class="codes">
+        <div class="code-fam" style="border-color:rgba(16,185,129,.45)"><h4 style="color:#10b981">2xx · success</h4>
+          <div><b>200 OK</b>: here's what you asked for</div>
+          <div><b>201 Created</b>: <code>POST /users</code>, <code>POST /messages</code></div>
+          <div><b>204 No Content</b>: done, nothing to return (DELETE, logout)</div></div>
+        <div class="code-fam" style="border-color:rgba(59,130,246,.45)"><h4 style="color:#61affe">3xx · look elsewhere</h4>
+          <div><b>307 Redirect</b>: a preset avatar redirects to its Unsplash photo</div>
+          <div><b>304 Not Modified</b>: "your cached avatar is still good" (via ETag)</div></div>
+        <div class="code-fam" style="border-color:rgba(251,191,36,.45)"><h4 style="color:#fbbf24">4xx · your fault</h4>
+          <div><b>401</b>: no token / wrong password</div>
+          <div><b>403</b>: logged in, but not yours</div>
+          <div><b>404</b>: no such message / user</div>
+          <div><b>409 Conflict</b>: that name is taken</div>
+          <div><b>413</b>: avatar over 500 KB</div>
+          <div><b>422</b>: body failed validation</div></div>
+        <div class="code-fam" style="border-color:rgba(244,63,94,.45)"><h4 style="color:#f43f5e">5xx · server's fault</h4>
+          <div><b>500</b>: an unhandled exception in your code</div>
+          <div>You never return this on purpose. If a client sees it, there is a bug to fix.</div></div>
+      </div>
+      <div class="callout purple">🔐 <strong>401 vs 403</strong> is the pair students mix up. <strong>401 Unauthorized</strong> really means <em>unauthenticated</em>: "I don't know who you are" (missing or expired token). <strong>403 Forbidden</strong> means "I know exactly who you are, and you can't do that", for example editing someone else's message.</div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python: how the app sends an error</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre data-hl>if msg.user_id != me["id"]:
+    raise HTTPException(status_code=403, detail="You can only change your own messages")</pre>
+      </div>
+      <p class="m-desc">FastAPI turns that exception into the response <code>403</code> with body <code>{"detail": "You can only change your own messages"}</code>. The frontend shows <code>detail</code> in a SweetAlert popup.</p>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(2)">← The HTTP methods</button>
+        <div class="pnav-dots" id="dots-3"></div>
+        <button class="pnav-btn next" onclick="goTo(4)">FastAPI →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 4: FastAPI ══ -->
+    <div class="panel" id="panel-4">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1555949963-aa79dcee981c?w=900&q=75&fit=crop&h=200" alt="Code on screen" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">REST 04 / 10 · The Framework</div>
+          <div class="m-name">FastAPI</div>
+          <div class="m-tagline">Write a typed Python function; FastAPI does the HTTP plumbing around it</div>
+        </div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-sig">pip install fastapi uvicorn</span>
+        <span class="pill pill-ret">Python type hints → validation + docs</span>
+      </div>
+      <p class="m-desc"><strong>FastAPI</strong> is a Python framework for building APIs. You write ordinary functions and put a decorator above each one that says which <em>method + path</em> it answers. Here is a complete, runnable API:</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">python: main.py, the smallest useful FastAPI app</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre data-hl>from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
+
+app = FastAPI(title="Messages API")          # the application object
+db = {}                                      # stand-in for a real database
+
+class MessageCreate(BaseModel):              # the shape of the request body
+    content: str = Field(..., min_length=1, max_length=2000)
+
+@app.get("/messages")                        # GET /messages
+def list_messages():
+    return list(db.values())                 # list/dict → JSON automatically
+
+@app.get("/messages/{message_id}")           # {message_id} is a path parameter
+def get_message(message_id: int):            # "7" in the URL → int 7
+    if message_id not in db:
+        raise HTTPException(status_code=404, detail="Message not found")
+    return db[message_id]
+
+@app.post("/messages", status_code=201)
+def create_message(msg: MessageCreate):      # a BaseModel param = the JSON body
+    new_id = len(db) + 1
+    db[new_id] = {"id": new_id, "content": msg.content}
+    return db[new_id]</pre>
+      </div>
+      <p class="m-desc">Each type hint does real work. <code>message_id: int</code> converts and checks the URL piece. <code>msg: MessageCreate</code> tells FastAPI to read the JSON body and validate it with <strong>Pydantic</strong>. A query parameter is any other plain argument, such as <code>limit: int = 100</code> → <code>/messages?limit=20</code>. Below are the steps FastAPI runs for <code>POST /messages</code> in the class app:</p>
+      <div class="demo-box">
+        <div class="demo-lbl">Live Demo: what FastAPI does before and after your function</div>
+        <div class="demo-controls">
+          <span class="seg" id="fa-seg">
+            <button class="on" onclick="runPipe('ok',this)">valid request</button><button onclick="runPipe('notoken',this)">no token</button><button onclick="runPipe('empty',this)">empty content</button><button onclick="runPipe('nojson',this)">"content" missing</button>
+          </span>
+        </div>
+        <div class="demo-out" id="fa-req"></div>
+        <div class="pipe" id="fa-pipe">
+          <div class="pipe-step"><span class="ps-n">STEP 1</span><strong>Match the route</strong><code>POST + /messages → create_message</code></div>
+          <div class="pipe-step"><span class="ps-n">STEP 2</span><strong>Run dependencies</strong><code>Depends(current_user) reads Authorization</code></div>
+          <div class="pipe-step"><span class="ps-n">STEP 3</span><strong>Validate the body</strong><code>JSON → MessageCreate (Pydantic)</code></div>
+          <div class="pipe-step"><span class="ps-n">STEP 4</span><strong>Call your function</strong><code>INSERT INTO messages …</code></div>
+          <div class="pipe-step"><span class="ps-n">STEP 5</span><strong>Serialize the result</strong><code>response_model=Message → JSON</code></div>
+        </div>
+        <div class="demo-canvas-wrap" style="order:5;margin-top:12px;"><pre id="fa-res" style="font-family:'Courier New',monospace;font-size:.78rem;white-space:pre-wrap;color:#e7ecff;"></pre></div>
+      </div>
+      <div class="callout green">✅ <strong>You wrote none of the error handling for steps 1–3.</strong> The 422 message, with the exact field and rule that failed, is generated by FastAPI from <code>Field(..., min_length=1)</code>. Your function only runs once the input is known to be correct.</div>
+      <div class="callout blue">🧩 <strong><code>Depends</code></strong> is FastAPI's way to say "run this first and give me the result". <code>me: dict = Depends(current_user)</code> on an endpoint means "this endpoint needs a logged-in user". If <code>current_user</code> raises 401, your function never runs.</div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(3)">← Status codes</button>
+        <div class="pnav-dots" id="dots-4"></div>
+        <button class="pnav-btn next" onclick="goTo(5)">Uvicorn →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 5: Uvicorn ══ -->
+    <div class="panel" id="panel-5">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1526379095098-d400fd0bf935?w=900&q=75&fit=crop&h=200" alt="Server room" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">REST 05 / 10 · The Server</div>
+          <div class="m-name">Uvicorn</div>
+          <div class="m-tagline">FastAPI is the kitchen. Uvicorn is the front door that is always open.</div>
+        </div>
+      </div>
+      <p class="m-desc">A FastAPI <code>app</code> is just a Python object, and it can't listen to the network by itself. <strong>Uvicorn</strong> is an <strong>ASGI server</strong>. It opens a port, accepts TCP connections, parses the raw HTTP text into a request object, calls your <code>app</code>, and writes the response back onto the wire. One command starts it:</p>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">terminal, in the project folder</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre>uvicorn main:app --reload</pre>
+      </div>
+      <div class="svg-wrap">
+        <svg viewBox="0 0 760 120" aria-label="Breakdown of the uvicorn command">
+          <text x="40" y="44" fill="#f97316" font-size="22" font-weight="700">uvicorn</text>
+          <text x="170" y="44" fill="#22d3ee" font-size="22" font-weight="700">main</text>
+          <text x="232" y="44" fill="#e7ecff" font-size="22">:</text>
+          <text x="248" y="44" fill="#a78bfa" font-size="22" font-weight="700">app</text>
+          <text x="320" y="44" fill="#10b981" font-size="22" font-weight="700">--reload</text>
+          <path d="M80 54 V74" stroke="#f97316"/><text x="80" y="92" text-anchor="middle" fill="#8b93c4" font-size="11">the server</text>
+          <path d="M195 54 V74" stroke="#22d3ee"/><text x="195" y="92" text-anchor="middle" fill="#8b93c4" font-size="11">file main.py</text>
+          <path d="M268 54 V74" stroke="#a78bfa"/><text x="268" y="92" text-anchor="middle" fill="#8b93c4" font-size="11">variable app</text><text x="268" y="106" text-anchor="middle" fill="#8b93c4" font-size="10">= FastAPI(...)</text>
+          <path d="M375 54 V74" stroke="#10b981"/><text x="375" y="92" text-anchor="middle" fill="#8b93c4" font-size="11">restart on file save</text><text x="375" y="106" text-anchor="middle" fill="#8b93c4" font-size="10">(development only)</text>
+          <text x="500" y="44" fill="#8b93c4" font-size="13">optional:</text>
+          <text x="500" y="70" fill="#e7ecff" font-size="13">--port 8000</text>
+          <text x="500" y="92" fill="#e7ecff" font-size="13">--host 0.0.0.0</text>
+          <text x="625" y="92" fill="#8b93c4" font-size="10">← reachable from</text>
+          <text x="625" y="106" fill="#8b93c4" font-size="10">your phone on Wi-Fi</text>
+        </svg>
+      </div>
+      <div class="svg-wrap">
+        <svg viewBox="0 0 760 170" aria-label="Layers: browser, HTTP over port 8000, Uvicorn, ASGI call, FastAPI, your function">
+          <defs><marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#8b93c4"/></marker></defs>
+          <rect x="10" y="50" width="120" height="70" rx="12" fill="#0d1530" stroke="#22d3ee"/><text x="70" y="82" text-anchor="middle" fill="#e7ecff" font-size="13" font-weight="700">Browser</text><text x="70" y="102" text-anchor="middle" fill="#8b93c4" font-size="10">or Postman</text>
+          <path d="M134 85 H206" stroke="#8b93c4" stroke-width="1.5" marker-start="url(#ar3)" marker-end="url(#ar3)"/>
+          <text x="170" y="74" text-anchor="middle" fill="#8b93c4" font-size="10">HTTP text</text><text x="170" y="104" text-anchor="middle" fill="#8b93c4" font-size="10">port 8000</text>
+          <rect x="210" y="40" width="160" height="90" rx="12" fill="#1a1408" stroke="#f97316"/><text x="290" y="70" text-anchor="middle" fill="#e7ecff" font-size="13" font-weight="700">Uvicorn</text><text x="290" y="90" text-anchor="middle" fill="#8b93c4" font-size="10">sockets · parse HTTP</text><text x="290" y="106" text-anchor="middle" fill="#8b93c4" font-size="10">async event loop</text>
+          <path d="M374 85 H446" stroke="#8b93c4" stroke-width="1.5" marker-start="url(#ar3)" marker-end="url(#ar3)"/>
+          <text x="410" y="74" text-anchor="middle" fill="#8b93c4" font-size="10">ASGI</text><text x="410" y="104" text-anchor="middle" fill="#8b93c4" font-size="10">call(app)</text>
+          <rect x="450" y="40" width="160" height="90" rx="12" fill="#06201c" stroke="#14b8a6"/><text x="530" y="70" text-anchor="middle" fill="#e7ecff" font-size="13" font-weight="700">FastAPI app</text><text x="530" y="90" text-anchor="middle" fill="#8b93c4" font-size="10">routing · validation</text><text x="530" y="106" text-anchor="middle" fill="#8b93c4" font-size="10">JSON · /docs</text>
+          <path d="M614 85 H646" stroke="#8b93c4" stroke-width="1.5" marker-start="url(#ar3)" marker-end="url(#ar3)"/>
+          <rect x="650" y="50" width="100" height="70" rx="12" fill="#150f2a" stroke="#a78bfa"/><text x="700" y="82" text-anchor="middle" fill="#e7ecff" font-size="12" font-weight="700">your code</text><text x="700" y="102" text-anchor="middle" fill="#8b93c4" font-size="10">def …()</text>
+          <text x="380" y="160" text-anchor="middle" fill="#8b93c4" font-size="11">swap Uvicorn for another ASGI server (Hypercorn, Gunicorn+Uvicorn workers) and the app does not change</text>
+        </svg>
+      </div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">what you see when it starts</span></div>
+        <pre><span class="cm">INFO:     Will watch for changes in these directories: ['…/18.10.2026']</span>
+<span class="str">INFO:     Uvicorn running on http://127.0.0.1:8000</span> (Press CTRL+C to quit)
+INFO:     Started reloader process [12345] using StatReload
+INFO:     Application startup complete.
+INFO:     127.0.0.1:52341 - "GET /messages?limit=200 HTTP/1.1" <span class="num">200 OK</span></pre>
+      </div>
+      <div class="callout orange">⚠️ <strong><code>Error loading ASGI app. Could not import module "main"</code></strong> means you ran the command from the wrong folder. Uvicorn looks for <code>main.py</code> in the current directory. <code>--reload</code> is for development only; a production server runs without it.</div>
+      <div class="callout blue">🔤 <strong>WSGI vs ASGI.</strong> Older Python servers (WSGI, used by Flask and classic Django) handle one request per worker at a time. ASGI is the <em>async</em> successor: one Uvicorn process can wait on many slow clients at once. That's the "Fast" in FastAPI.</div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(4)">← FastAPI</button>
+        <div class="pnav-dots" id="dots-5"></div>
+        <button class="pnav-btn next" onclick="goTo(6)">Swagger /docs →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 6: Swagger ══ -->
+    <div class="panel" id="panel-6">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=900&q=75&fit=crop&h=200" alt="Dashboard" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">REST 06 / 10 · Free Documentation</div>
+          <div class="m-name">Swagger /docs</div>
+          <div class="m-tagline">FastAPI reads your code and builds an interactive manual for it</div>
+        </div>
+      </div>
+      <p class="m-desc">FastAPI collects every route, parameter, Pydantic model and status code into an <strong>OpenAPI</strong> description, a machine-readable JSON file at <code>/openapi.json</code>. Two web pages are generated from it automatically:</p>
+      <div class="grid-2">
+        <div class="card green show"><div class="card-icon">🧪</div><h4>http://127.0.0.1:8000/docs</h4><p><strong>Swagger UI.</strong> Every endpoint as a coloured bar. Expand one, press <em>Try it out</em>, fill the fields, press <em>Execute</em>, and it sends a real request to your server and shows the real response.</p></div>
+        <div class="card purple show"><div class="card-icon">📖</div><h4>http://127.0.0.1:8000/redoc</h4><p><strong>ReDoc.</strong> The same information as a clean read-only manual. Useful to send to whoever will build a frontend against your API.</p></div>
+      </div>
+      <p class="m-desc">This is roughly what the class app's <code>/docs</code> looks like. Click a bar to open it:</p>
+      <div class="swag" id="swag"></div>
+      <div class="callout blue">🔑 <strong>Calling protected endpoints from /docs.</strong> The app reads the token with <code>authorization: Optional[str] = Header(None)</code>, so each protected endpoint shows an <code>authorization</code> header field. Run <code>POST /login</code> first, copy the <code>token</code>, and paste <code>Bearer &lt;token&gt;</code> into that field. (Declaring the token with FastAPI's <code>HTTPBearer</code> security class would add a single green <em>Authorize</em> button instead.)</div>
+      <div class="callout green">💡 <code>title="Messages API", version="1.5"</code> in <code>main.py</code> is what appears at the top of the page. The <code>tags=["users"]</code> on each router creates the section headings.</div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(5)">← Uvicorn</button>
+        <div class="pnav-dots" id="dots-6"></div>
+        <button class="pnav-btn next" onclick="goTo(7)">Postman →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 7: Postman ══ -->
+    <div class="panel" id="panel-7">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1542831371-29b0f74f9713?w=900&q=75&fit=crop&h=200" alt="Code on a screen" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">REST 07 / 10 · Testing by Hand</div>
+          <div class="m-name">Postman</div>
+          <div class="m-tagline">A client for any API, not just yours: save requests, reuse tokens, share collections</div>
+        </div>
+      </div>
+      <p class="m-desc"><strong>Postman</strong> is a desktop app for sending HTTP requests by hand. Swagger only knows <em>your</em> FastAPI app. Postman can call any API, keeps a history, groups requests into <strong>collections</strong>, and stores values such as a token in <strong>variables</strong>. Step through the three requests every chat user makes:</p>
+      <div class="demo-controls" style="margin-bottom:0;">
+        <span class="seg" id="pm-seg"><button class="on" onclick="pmStep(0,this)">① sign up</button><button onclick="pmStep(1,this)">② log in</button><button onclick="pmStep(2,this)">③ send a message</button><button onclick="pmStep(3,this)">④ forget the token</button></span>
+      </div>
+      <div class="pm" id="pm"></div>
+      <div class="demo-out" id="pm-note" style="margin-bottom:6px;"></div>
+      <div class="callout purple">🧷 <strong>Postman tip.</strong> In the login request's <em>Scripts → Post-response</em> tab write <code>pm.collectionVariables.set("token", pm.response.json().token)</code>. Then set <em>Authorization → Bearer Token</em> to <code>{{token}}</code> on the collection, and every request is authenticated automatically after you log in.</div>
+      <div class="code-wrap">
+        <div class="code-header"><span class="code-lang">the same three calls with curl (or Python requests)</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre data-hl>curl -X POST localhost:8000/users -H "Content-Type: application/json" -d '{"name":"dana","password":"1234"}'
+curl -X POST localhost:8000/login -H "Content-Type: application/json" -d '{"name":"dana","password":"1234"}'
+curl -X POST localhost:8000/messages -H "Authorization: Bearer PASTE_TOKEN" -H "Content-Type: application/json" -d '{"content":"hello from curl"}'</pre>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(6)">← Swagger /docs</button>
+        <div class="pnav-dots" id="dots-7"></div>
+        <button class="pnav-btn next" onclick="goTo(8)">The Chat API app →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 8: Chat app ══ -->
+    <div class="panel" id="panel-8">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=900&q=75&fit=crop&h=200" alt="Tech pattern" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">REST 08 / 10 · The Class Project</div>
+          <div class="m-name">The Chat API app</div>
+          <div class="m-tagline">"Aurora Chat": a group chat with accounts, avatars and editable messages</div>
+        </div>
+      </div>
+      <p class="m-desc">Everything so far comes together in the class project (<a href="https://github.com/pythonai211225-rgb/18.10.2026" target="_blank" rel="noopener" style="color:var(--accent)">github.com/pythonai211225-rgb/18.10.2026</a>). You sign up with a name, a password and a face, log in, and chat. Other people's messages appear within a second. Under the hood it is <strong>four small Python files and one HTML page</strong>:</p>
+      <div class="svg-wrap">
+        <svg viewBox="0 0 760 330" aria-label="Architecture of the chat app">
+          <defs><marker id="ar4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#8b93c4"/></marker></defs>
+          <rect x="10" y="20" width="200" height="290" rx="14" fill="#0d1530" stroke="#22d3ee"/>
+          <text x="110" y="46" text-anchor="middle" fill="#e7ecff" font-size="13" font-weight="700">static/index.html</text>
+          <text x="110" y="64" text-anchor="middle" fill="#8b93c4" font-size="10">the frontend (one file)</text>
+          <text x="26" y="96" fill="#22d3ee" font-size="11">• sign-up / login dialogs</text>
+          <text x="26" y="118" fill="#22d3ee" font-size="11">• token in localStorage</text>
+          <text x="26" y="140" fill="#22d3ee" font-size="11">• api(path, {method, body})</text>
+          <text x="26" y="162" fill="#22d3ee" font-size="11">• poll every 1 s:</text>
+          <text x="38" y="180" fill="#8b93c4" font-size="10">GET /messages?limit=200</text>
+          <text x="26" y="202" fill="#22d3ee" font-size="11">• send / edit / delete</text>
+          <text x="26" y="224" fill="#22d3ee" font-size="11">• avatar picker</text>
+          <text x="110" y="290" text-anchor="middle" fill="#8b93c4" font-size="10">no framework: fetch() + DOM</text>
+          <path d="M214 165 H276" stroke="#8b93c4" stroke-width="1.5" marker-start="url(#ar4)" marker-end="url(#ar4)"/>
+          <text x="245" y="155" text-anchor="middle" fill="#8b93c4" font-size="10">JSON</text>
+          <rect x="280" y="20" width="250" height="290" rx="14" fill="#06201c" stroke="#14b8a6"/>
+          <text x="405" y="46" text-anchor="middle" fill="#e7ecff" font-size="13" font-weight="700">main.py</text>
+          <text x="405" y="64" text-anchor="middle" fill="#8b93c4" font-size="10">app = FastAPI(...) · run by uvicorn</text>
+          <rect x="296" y="78" width="218" height="34" rx="8" fill="rgba(255,255,255,.03)" stroke="#262c4a"/>
+          <text x="405" y="99" text-anchor="middle" fill="#14b8a6" font-size="10">startup → init_db() · no-cache middleware</text>
+          <rect x="296" y="122" width="105" height="120" rx="8" fill="rgba(97,175,254,.06)" stroke="#61affe"/>
+          <text x="348" y="142" text-anchor="middle" fill="#e7ecff" font-size="11" font-weight="700">users.py</text>
+          <text x="348" y="162" text-anchor="middle" fill="#8b93c4" font-size="9">/users  /users/{id}</text>
+          <text x="348" y="176" text-anchor="middle" fill="#8b93c4" font-size="9">/users/me  /avatar</text>
+          <text x="348" y="190" text-anchor="middle" fill="#8b93c4" font-size="9">/avatars</text>
+          <text x="348" y="204" text-anchor="middle" fill="#8b93c4" font-size="9">/login  /logout</text>
+          <text x="348" y="226" text-anchor="middle" fill="#61affe" font-size="9">current_user()</text>
+          <rect x="409" y="122" width="105" height="120" rx="8" fill="rgba(73,204,144,.06)" stroke="#49cc90"/>
+          <text x="461" y="142" text-anchor="middle" fill="#e7ecff" font-size="11" font-weight="700">messages.py</text>
+          <text x="461" y="162" text-anchor="middle" fill="#8b93c4" font-size="9">/messages</text>
+          <text x="461" y="176" text-anchor="middle" fill="#8b93c4" font-size="9">/messages/{id}</text>
+          <text x="461" y="204" text-anchor="middle" fill="#8b93c4" font-size="9">only the author may</text>
+          <text x="461" y="218" text-anchor="middle" fill="#8b93c4" font-size="9">edit or delete</text>
+          <rect x="296" y="252" width="218" height="40" rx="8" fill="rgba(255,255,255,.03)" stroke="#262c4a"/>
+          <text x="405" y="270" text-anchor="middle" fill="#8b93c4" font-size="10">mount("/", StaticFiles) → serves</text>
+          <text x="405" y="284" text-anchor="middle" fill="#8b93c4" font-size="10">static/index.html at http://…:8000/</text>
+          <path d="M534 165 H596" stroke="#8b93c4" stroke-width="1.5" marker-start="url(#ar4)" marker-end="url(#ar4)"/>
+          <text x="565" y="155" text-anchor="middle" fill="#8b93c4" font-size="10">SQL</text>
+          <rect x="600" y="20" width="150" height="290" rx="14" fill="#150f2a" stroke="#a78bfa"/>
+          <text x="675" y="46" text-anchor="middle" fill="#e7ecff" font-size="13" font-weight="700">database.py</text>
+          <text x="675" y="64" text-anchor="middle" fill="#8b93c4" font-size="10">get_db() · init_db()</text>
+          <path d="M630 90 v24 a45 10 0 0 0 90 0 v-24" fill="#1d1640" stroke="#a78bfa"/>
+          <ellipse cx="675" cy="90" rx="45" ry="10" fill="#2a2058" stroke="#a78bfa"/>
+          <text x="675" y="140" text-anchor="middle" fill="#c4b5fd" font-size="11">messages.db</text>
+          <text x="675" y="172" text-anchor="middle" fill="#e7ecff" font-size="11">users</text>
+          <text x="675" y="194" text-anchor="middle" fill="#e7ecff" font-size="11">sessions</text>
+          <text x="675" y="216" text-anchor="middle" fill="#e7ecff" font-size="11">messages</text>
+          <text x="675" y="290" text-anchor="middle" fill="#8b93c4" font-size="10">SQLite: one file</text>
+        </svg>
+      </div>
+      <p class="m-desc">The whole API: <strong>19 endpoints</strong>, 12 under <code>users</code> (including login, logout and avatars) and 7 under <code>messages</code>. The same URL shape repeats: a collection, then one item by id.</p>
+      <table class="dt">
+        <thead><tr><th class="blue">endpoint</th><th class="blue">does</th><th class="blue">🔒</th></tr></thead>
+        <tbody>
+          <tr class="show"><td><span class="mth post">POST</span> <code>/users</code></td><td>sign up → <code>201</code> (or <code>409</code> if the name is taken)</td><td></td></tr>
+          <tr class="show"><td><span class="mth post">POST</span> <code>/login</code></td><td>name + password → <code>{token, user}</code></td><td></td></tr>
+          <tr class="show"><td><span class="mth post">POST</span> <code>/logout</code></td><td>delete this session → <code>204</code></td><td>🔒</td></tr>
+          <tr class="show"><td><span class="mth get">GET</span> <code>/users</code> · <code>/users/{id}</code> · <code>/users/me</code></td><td>list users / one user / "who am I"</td><td>me 🔒</td></tr>
+          <tr class="show"><td><span class="mth put">PUT</span> · <span class="mth patch">PATCH</span> · <span class="mth delete">DELETE</span> <code>/users/{id}</code></td><td>replace / edit / delete <em>your own</em> account</td><td>🔒</td></tr>
+          <tr class="show"><td><span class="mth head">HEAD</span> <code>/users/{id}</code></td><td>does this user exist? (200 / 404, no body)</td><td></td></tr>
+          <tr class="show"><td><span class="mth get">GET</span> <code>/users/{id}/avatar</code> · <code>/avatars</code></td><td>the picture itself / the ready-made faces</td><td></td></tr>
+          <tr class="show"><td><span class="mth get">GET</span> <code>/messages?sender=&amp;limit=&amp;offset=</code></td><td>newest first, filterable, paginated</td><td></td></tr>
+          <tr class="show"><td><span class="mth get">GET</span> · <span class="mth head">HEAD</span> <code>/messages/{id}</code></td><td>one message / does it exist?</td><td></td></tr>
+          <tr class="show"><td><span class="mth post">POST</span> <code>/messages</code></td><td>send → <code>201</code></td><td>🔒</td></tr>
+          <tr class="show"><td><span class="mth put">PUT</span> · <span class="mth patch">PATCH</span> · <span class="mth delete">DELETE</span> <code>/messages/{id}</code></td><td>edit / delete <em>your own</em> message (else <code>403</code>)</td><td>🔒</td></tr>
+        </tbody>
+      </table>
+      <div class="callout cyan">🔁 <strong>How does the chat feel live?</strong> There are no WebSockets here. The page simply calls <code>GET /messages?limit=200</code> <strong>every second</strong> (polling) and redraws what changed. It's simple and works everywhere, but it costs one request per second per open tab. A WebSocket endpoint, which FastAPI also supports, would push new messages instead.</div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(7)">← Postman</button>
+        <div class="pnav-dots" id="dots-8"></div>
+        <button class="pnav-btn next" onclick="goTo(9)">The database behind it →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 9: Database ══ -->
+    <div class="panel" id="panel-9">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1518186285589-2f7649de83e0?w=900&q=75&fit=crop&h=200" alt="Rows of data" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">REST 09 / 10 · Storage</div>
+          <div class="m-name">The database behind it</div>
+          <div class="m-tagline">Each resource is a table, each request is one or two SQL statements</div>
+        </div>
+      </div>
+      <p class="m-desc">The app stores everything in <strong>SQLite</strong>: a whole database in one file (<code>messages.db</code>), built into Python as <code>import sqlite3</code>, with no server to install. When Uvicorn starts, <code>init_db()</code> runs <code>CREATE TABLE IF NOT EXISTS</code> for three tables:</p>
+      <div class="svg-wrap">
+        <svg viewBox="0 0 760 250" aria-label="The three tables and how they connect">
+          <defs><marker id="ar5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#fbbf24"/></marker></defs>
+          <g>
+            <rect x="275" y="20" width="210" height="190" rx="10" fill="#0d1530" stroke="#61affe"/>
+            <rect x="275" y="20" width="210" height="30" rx="10" fill="#61affe"/><text x="380" y="40" text-anchor="middle" fill="#08101f" font-size="13" font-weight="800">users</text>
+            <text x="288" y="72" fill="#fbbf24" font-size="11">🔑 id</text><text x="472" y="72" text-anchor="end" fill="#8b93c4" font-size="10">INTEGER AUTOINC</text>
+            <text x="288" y="94" fill="#e7ecff" font-size="11">name</text><text x="472" y="94" text-anchor="end" fill="#8b93c4" font-size="10">UNIQUE NOCASE</text>
+            <text x="288" y="116" fill="#e7ecff" font-size="11">password_hash</text><text x="472" y="116" text-anchor="end" fill="#8b93c4" font-size="10">salt$pbkdf2</text>
+            <text x="288" y="138" fill="#e7ecff" font-size="11">created_at</text><text x="472" y="138" text-anchor="end" fill="#8b93c4" font-size="10">ISO text</text>
+            <text x="288" y="160" fill="#e7ecff" font-size="11">avatar</text><text x="472" y="160" text-anchor="end" fill="#8b93c4" font-size="10">BLOB (image bytes)</text>
+            <text x="288" y="182" fill="#e7ecff" font-size="11">avatar_type, avatar_preset</text>
+          </g>
+          <g>
+            <rect x="15" y="60" width="200" height="120" rx="10" fill="#1a1408" stroke="#f97316"/>
+            <rect x="15" y="60" width="200" height="30" rx="10" fill="#f97316"/><text x="115" y="80" text-anchor="middle" fill="#08101f" font-size="13" font-weight="800">sessions</text>
+            <text x="28" y="112" fill="#fbbf24" font-size="11">🔑 token</text><text x="202" y="112" text-anchor="end" fill="#8b93c4" font-size="10">random 32 bytes</text>
+            <text x="28" y="134" fill="#e7ecff" font-size="11">user_id →</text><text x="202" y="134" text-anchor="end" fill="#8b93c4" font-size="10">users.id</text>
+            <text x="28" y="156" fill="#e7ecff" font-size="11">created_at</text>
+          </g>
+          <g>
+            <rect x="545" y="40" width="200" height="170" rx="10" fill="#06201c" stroke="#49cc90"/>
+            <rect x="545" y="40" width="200" height="30" rx="10" fill="#49cc90"/><text x="645" y="60" text-anchor="middle" fill="#08101f" font-size="13" font-weight="800">messages</text>
+            <text x="558" y="92" fill="#fbbf24" font-size="11">🔑 id</text>
+            <text x="558" y="114" fill="#e7ecff" font-size="11">user_id →</text><text x="732" y="114" text-anchor="end" fill="#8b93c4" font-size="10">users.id</text>
+            <text x="558" y="136" fill="#e7ecff" font-size="11">sender</text><text x="732" y="136" text-anchor="end" fill="#8b93c4" font-size="10">name copy</text>
+            <text x="558" y="158" fill="#e7ecff" font-size="11">content</text>
+            <text x="558" y="180" fill="#e7ecff" font-size="11">created_at, updated_at</text>
+          </g>
+          <path d="M215 130 H272" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#ar5)"/>
+          <path d="M545 110 H488" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#ar5)"/>
+          <text x="245" y="122" text-anchor="middle" fill="#fbbf24" font-size="10">many → 1</text>
+          <text x="516" y="102" text-anchor="middle" fill="#fbbf24" font-size="10">many → 1</text>
+          <text x="380" y="238" text-anchor="middle" fill="#8b93c4" font-size="11">one user has many sessions (one per login) and many messages</text>
+        </svg>
+      </div>
+      <p class="m-desc">The REST layer is a thin translation. Each method on a resource becomes one SQL statement on its table:</p>
+      <table class="dt">
+        <thead><tr><th class="blue">HTTP</th><th class="blue">SQL</th><th class="blue">CRUD</th></tr></thead>
+        <tbody>
+          <tr class="show"><td><span class="mth post">POST</span> <code>/messages</code></td><td><code>INSERT INTO messages (user_id, sender, content, …) VALUES (?, ?, ?, …)</code></td><td>Create</td></tr>
+          <tr class="show"><td><span class="mth get">GET</span> <code>/messages</code></td><td><code>SELECT * FROM messages ORDER BY id DESC LIMIT ? OFFSET ?</code></td><td>Read</td></tr>
+          <tr class="show"><td><span class="mth get">GET</span> <code>/messages/7</code></td><td><code>SELECT * FROM messages WHERE id = ?</code></td><td>Read</td></tr>
+          <tr class="show"><td><span class="mth patch">PATCH</span> <code>/messages/7</code></td><td><code>UPDATE messages SET content = ?, updated_at = ? WHERE id = ?</code></td><td>Update</td></tr>
+          <tr class="show"><td><span class="mth delete">DELETE</span> <code>/messages/7</code></td><td><code>DELETE FROM messages WHERE id = ?</code></td><td>Delete</td></tr>
+        </tbody>
+      </table>
+      <p class="m-desc"><strong>How login works</strong>, using the <code>sessions</code> table:</p>
+      <div class="steps">
+        <div class="step"><strong>1 · POST /login</strong><p style="font-size:.8rem;color:var(--muted)">Find the user by name. Hash the typed password with the stored salt and compare it to <code>password_hash</code>. The plain password is never stored.</p></div>
+        <div class="step"><strong>2 · new session row</strong><p style="font-size:.8rem;color:var(--muted)"><code>token = secrets.token_urlsafe(32)</code> → <code>INSERT INTO sessions</code>. The token goes back to the browser.</p></div>
+        <div class="step"><strong>3 · every later request</strong><p style="font-size:.8rem;color:var(--muted)"><code>Authorization: Bearer &lt;token&gt;</code> → <code>current_user</code> runs <code>sessions JOIN users</code> to find who you are.</p></div>
+        <div class="step"><strong>4 · POST /logout</strong><p style="font-size:.8rem;color:var(--muted)"><code>DELETE FROM sessions WHERE token = ?</code>. From then on that token gets a 401.</p></div>
+      </div>
+      <div class="callout orange">🛡️ <strong>Always <code>?</code>, never f-strings with user input.</strong> Every query passes values as parameters: <code>execute("… WHERE id = ?", (message_id,))</code>. SQLite inserts them safely, so a message containing <code>'; DROP TABLE users; --</code> is stored as harmless text. Building SQL with <code>f"... {name}"</code> would be an <strong>SQL injection</strong> hole.</div>
+      <div class="callout purple">🧬 <strong>The schema grew while the app was being written.</strong> <code>messages</code> first had only a <code>sender</code> name. Accounts came later, so <code>init_db()</code> checks <code>PRAGMA table_info</code> and runs <code>ALTER TABLE … ADD COLUMN user_id</code> on old databases. You can still see this in the class database: message #3 has <code>user_id = NULL</code> because it was posted before users existed.</div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(8)">← The Chat API app</button>
+        <div class="pnav-dots" id="dots-9"></div>
+        <button class="pnav-btn next" onclick="goTo(10)">Vibe-coding the app →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 10: Vibe coding ══ -->
+    <div class="panel" id="panel-10">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=900&q=75&fit=crop&h=200" alt="Code binary" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">REST 10 / 10 · Building It with AI</div>
+          <div class="m-name">Vibe-coding the app</div>
+          <div class="m-tagline">You design the API. Claude types the code. You test every step.</div>
+        </div>
+      </div>
+      <p class="m-desc">The class app was built by <strong>vibe coding</strong>: describing what you want to an AI coding assistant (Claude) in plain English, running what it writes, and asking for the next piece. The skill that matters is no longer typing Python. It is knowing <strong>what to ask for</strong>: resources, methods, status codes, tables. That's the vocabulary from panels 1–9. This is the whiteboard from class, one prompt per step:</p>
+      <div class="board">
+        <h4>Building "Messages API" with Claude ✍️</h4>
+        <div class="say"><span class="step-n">①</span>"Create a <u>FastAPI</u> project with a <u>REST</u> resource <b>/messages</b>. A message has id, sender, content, created_at, updated_at. Support <b>GET</b> list and one, <b>POST</b>, <b>PUT</b>, <b>PATCH</b>, <b>DELETE</b> and <b>HEAD</b>. Store data in <u>SQLite</u> (messages.db) using plain sqlite3 with <u>? parameters</u>. Use Pydantic models and correct status codes (201, 204, 404)."</div>
+        <div class="why">→ run <code>uvicorn main:app --reload</code>, open <b>/docs</b>, try every endpoint</div>
+        <hr>
+        <div class="say"><span class="step-n">②</span>"Split it into files: <b>database.py</b> (connection + init_db), <b>messages.py</b> (an APIRouter), <b>main.py</b> (just the app). Add <b>?sender=</b>, <b>?limit=</b> and <b>?offset=</b> to GET /messages, newest first."</div>
+        <div class="why">→ same /docs, same behaviour: a refactor shouldn't change the API</div>
+        <hr>
+        <div class="say"><span class="step-n">③</span>"Add <b>users</b>: POST /users to sign up (name unique, case-insensitive), POST /login that returns a <b>Bearer token</b>, POST /logout. Hash passwords with a salt (pbkdf2). Keep tokens in a <b>sessions</b> table. Only a logged-in user can post. Only the author can edit or delete a message (<b>403</b> otherwise). Don't lose the existing messages.db: migrate it."</div>
+        <div class="why">→ test in Postman: sign up → log in → copy the token → POST /messages</div>
+        <hr>
+        <div class="say"><span class="step-n">④</span>"Add avatars: upload a photo (as a data URL, max 500 KB) or pick one of 10 ready-made faces from GET /avatars. Serve it at GET /users/{id}/avatar."</div>
+        <hr>
+        <div class="say"><span class="step-n">⑤</span>"Build a <b>single-page frontend</b> in static/index.html, served by FastAPI at /. Dark 'aurora' theme. Sign-up/login dialogs with SweetAlert, chat bubbles with avatars, edit/delete on my own messages, poll every second for new messages."</div>
+        <div class="why">→ open http://127.0.0.1:8000 in two browsers, chat with yourself</div>
+      </div>
+      <div class="grid-2">
+        <div class="card green show"><div class="card-icon">✅</div><h4>What makes a prompt work</h4><p><strong>Name the tools</strong> (FastAPI, SQLite, Pydantic). <strong>Name the resource and its fields.</strong> <strong>List the methods and the status codes.</strong> State the <strong>rules</strong> ("only the author can edit"). Ask for <strong>one step at a time</strong> and test it before the next.</p></div>
+        <div class="card show" style="border-color:rgba(244,63,94,.35)"><div class="card-icon">🚫</div><h4>What makes it fail</h4><p>"Make me a chat app" in one go. You get a pile of code you can't test in pieces, can't explain, and can't fix when step 3 breaks step 1. Vibe coding still needs you to <strong>read the code</strong>, which is what Lesson 03 is for.</p></div>
+      </div>
+      <div class="callout orange">🔍 <strong>Always verify.</strong> After each step, ask Claude "what endpoints exist now and what does each return?", then check the answer against <code>/docs</code>. If something breaks, paste the <em>exact</em> error and the request that caused it ("POST /messages returns 422: …"). Don't just say "it doesn't work".</div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(9)">← The database behind it</button>
+        <div class="pnav-dots" id="dots-10"></div>
+        <button class="pnav-btn next" onclick="goTo(11)">Exercises →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 11: Exercises ══ -->
+    <div class="panel" id="panel-11">
+      <div class="exercise-header">
+        <div class="exercise-badge">✎</div>
+        <div>
+          <div class="m-breadcrumb" style="margin-bottom:6px;">Your turn</div>
+          <h2 style="margin:0;">Exercises</h2>
+          <p style="margin:6px 0 0;color:var(--muted);font-size:.9rem;">Answer on paper first, then check against the running app's /docs.</p>
+        </div>
+      </div>
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">EX 1</span><strong>Pick the method</strong></div>
+        <p class="ex-task">Give the method and URL for: (a) read user 4, (b) change only my avatar, (c) check whether message 90 exists without downloading it, (d) send a new message.</p>
+        <details class="hint"><summary>Show answer</summary><p class="body" style="margin-top:8px;">(a) GET /users/4 · (b) PATCH /users/{my id} with {"avatar_preset": …} · (c) HEAD /messages/90 · (d) POST /messages.</p></details>
+      </div>
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">EX 2</span><strong>Which status?</strong></div>
+        <p class="ex-task">What does the app return for: (a) sign up as "ITAY" when "itay" exists, (b) POST /messages without a token, (c) DELETE someone else's message, (d) POST /messages with <code>{"content": ""}</code>, (e) a successful DELETE?</p>
+        <details class="hint"><summary>Show answer</summary><p class="body" style="margin-top:8px;">(a) 409 (the name column is COLLATE NOCASE) · (b) 401 · (c) 403 · (d) 422 (min_length=1) · (e) 204.</p></details>
+      </div>
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">EX 3</span><strong>PUT vs PATCH</strong></div>
+        <p class="ex-task">A user has an uploaded avatar. They send <code>PUT /users/5</code> with only <code>{"name": "dan", "password": "abcd"}</code>. What happens to the avatar, and why is that correct REST behaviour?</p>
+        <details class="hint"><summary>Show answer</summary><p class="body" style="margin-top:8px;">It is removed. PUT replaces the whole resource with what you sent, and the body had no avatar. replace_user explicitly sets avatar, avatar_type and avatar_preset to NULL before saving.</p></details>
+      </div>
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">EX 4</span><strong>Uvicorn</strong></div>
+        <p class="ex-task">Your API is in <code>server.py</code> and the object is called <code>api = FastAPI()</code>. Write the command that starts it so a phone on the same Wi-Fi can reach it on port 9000.</p>
+        <details class="hint"><summary>Show answer</summary><p class="body" style="margin-top:8px;"><code>uvicorn server:api --host 0.0.0.0 --port 9000</code></p></details>
+      </div>
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">EX 5</span><strong>Design an endpoint</strong></div>
+        <p class="ex-task">Add "likes" to messages. Design the REST endpoints (method + URL + status codes) and the table. Then write the prompt you would give Claude.</p>
+        <details class="hint"><summary>Show answer</summary><p class="body" style="margin-top:8px;">Table <code>likes(user_id, message_id, created_at, PRIMARY KEY(user_id, message_id))</code>. <code>PUT /messages/{id}/like</code> → 204 (idempotent: liking twice is still one like), <code>DELETE /messages/{id}/like</code> → 204, <code>GET /messages/{id}/likes</code> → 200 list, 404 if no such message, 401 without a token. Add a <code>likes</code> count to the Message model.</p></details>
+      </div>
+      <div class="ex-card">
+        <div class="ex-q-head"><span class="ex-num">EX 6</span><strong>Connect it to the course</strong></div>
+        <p class="ex-task">Sketch a FastAPI endpoint that serves the CNN from Lesson 02: which method, which URL, what goes in the request and what comes back?</p>
+        <details class="hint"><summary>Show answer</summary><p class="body" style="margin-top:8px;"><code>POST /predict</code> with the image as <code>UploadFile</code> (multipart form). Load the .keras model once at startup, resize the image to 64×64, divide by 255, call predict, and return <code>{"label": "dog", "p": 0.93}</code>. Return 422 if the file isn't an image. This is Project 03.</p></details>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(10)">← Vibe-coding the app</button>
+        <div class="pnav-dots" id="dots-11"></div>
+        <button class="pnav-btn next" onclick="goTo(12)">A1 · FastAPI cheat-sheet →</button>
+      </div>
+    </div>
+
+    <!-- ══ PANEL 12: A1 cheat sheet ══ -->
+    <div class="panel" id="panel-12">
+      <div class="m-hero">
+        <img src="https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?w=900&q=75&fit=crop&h=200" alt="Code on a laptop screen" loading="lazy"/>
+        <div class="m-hero-ov">
+          <div class="m-breadcrumb">Appendix A1 · Reference</div>
+          <div class="m-name">FastAPI cheat-sheet</div>
+          <div class="m-tagline">Every building block the chat app uses, on one page</div>
+        </div>
+      </div>
+      <table class="dt">
+        <thead><tr><th class="blue">write this</th><th class="blue">to get</th></tr></thead>
+        <tbody>
+          <tr class="show"><td><code>app = FastAPI(title=…, version=…)</code></td><td>the application. Title and version show in /docs.</td></tr>
+          <tr class="show"><td><code>@app.get / .post / .put / .patch / .delete / .head("/path")</code></td><td>a route for that method + path</td></tr>
+          <tr class="show"><td><code>def f(item_id: int)</code> with <code>"/items/{item_id}"</code></td><td>a path parameter, converted and validated</td></tr>
+          <tr class="show"><td><code>def f(limit: int = Query(100, ge=1, le=1000))</code></td><td>a query parameter <code>?limit=</code> with bounds</td></tr>
+          <tr class="show"><td><code>def f(body: MyModel)</code></td><td>the JSON body, validated by Pydantic</td></tr>
+          <tr class="show"><td><code>Field(..., min_length=1)</code> · <code>Field(None)</code></td><td>required with a rule · optional</td></tr>
+          <tr class="show"><td><code>authorization: str = Header(None)</code></td><td>read a request header</td></tr>
+          <tr class="show"><td><code>me = Depends(current_user)</code></td><td>run a function first (auth, DB…) and inject its result</td></tr>
+          <tr class="show"><td><code>response_model=Message</code></td><td>filter + document the output shape</td></tr>
+          <tr class="show"><td><code>status_code=201</code> · <code>Response(status_code=204)</code></td><td>the success code</td></tr>
+          <tr class="show"><td><code>raise HTTPException(404, detail="…")</code></td><td>an error response <code>{"detail": "…"}</code></td></tr>
+          <tr class="show"><td><code>router = APIRouter(tags=["x"])</code> + <code>app.include_router(router)</code></td><td>split routes across files</td></tr>
+          <tr class="show"><td><code>app.mount("/", StaticFiles(directory="static", html=True))</code></td><td>serve a frontend from the same server</td></tr>
+          <tr class="show"><td><code>model.model_dump(exclude_unset=True)</code></td><td>only the fields the client actually sent (PATCH)</td></tr>
+        </tbody>
+      </table>
+      <div class="code-wrap" style="margin-top:20px;">
+        <div class="code-header"><span class="code-lang">python: calling the API from a script</span><button class="copy-btn" onclick="cp(this)">copy</button></div>
+        <pre data-hl>import requests
+
+BASE = "http://127.0.0.1:8000"
+token = requests.post(f"{BASE}/login", json={"name": "dana", "password": "1234"}).json()["token"]
+auth = {"Authorization": f"Bearer {token}"}
+
+r = requests.post(f"{BASE}/messages", json={"content": "sent from Python"}, headers=auth)
+print(r.status_code, r.json())                      # 201 {'id': 33, 'sender': 'dana', ...}
+
+for m in requests.get(f"{BASE}/messages", params={"limit": 5}).json():
+    print(m["sender"], ":", m["content"])</pre>
+      </div>
+      <div class="panel-nav">
+        <button class="pnav-btn" onclick="goTo(11)">← Exercises</button>
+        <div class="pnav-dots" id="dots-12"></div>
+        <a class="pnav-btn next" href="../lessons/03_lesson/index.html" style="text-decoration:none">Lesson 03 code →</a>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="rest.js"></script>
+</body>
+</html>

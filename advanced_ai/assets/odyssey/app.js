@@ -1,12 +1,17 @@
 const topics = [
   {name:'Artificial Neural Networks',short:'ANN',group:'deep',level:'Beginner',color:'#8edcef',description:'Build the foundations of intelligence, one neuron at a time.',path:'01_ann/index.html',art:'network',objectives:['A neuron combines inputs with learned weights and a bias, then applies an activation function.','Layers transform those signals into increasingly useful representations.','Training uses a loss function and backpropagation to adjust weights and improve predictions.']},
-  {name:'Convolutional Neural Networks',short:'CNN',group:'deep',level:'Intermediate',color:'#a78bfa',description:'Master computer vision and image recognition techniques.',path:'02_cnn/index.html',fullArt:'assets/odyssey/cnn-card.jpg',objectives:['Convolution slides small learned filters across an image to detect local patterns anywhere.','Pooling shrinks feature maps and makes the network tolerant to small shifts.','Stacked conv blocks build a feature hierarchy that a dense head turns into a class.']}
+  {name:'Convolutional Neural Networks',short:'CNN',group:'deep',level:'Intermediate',color:'#a78bfa',description:'Master computer vision and image recognition techniques.',path:'02_cnn/index.html',fullArt:'assets/odyssey/cnn-card.jpg',objectives:['Convolution slides small learned filters across an image to detect local patterns anywhere.','Pooling shrinks feature maps and makes the network tolerant to small shifts.','Stacked conv blocks build a feature hierarchy that a dense head turns into a class.']},
+  {name:'REST API',short:'REST',group:'foundations',level:'Intermediate',color:'#61affe',description:'Serve data and models over HTTP with FastAPI.',path:'03_rest_api/index.html',cardArt:'assets/odyssey/rest-card.svg',objectives:['Resources live at URLs; the HTTP method (GET, POST, PUT, PATCH, DELETE) says what to do with them.','FastAPI turns typed Python functions into validated, self-documenting endpoints, served by Uvicorn.','Status codes, Swagger /docs and Postman make an API testable before any frontend exists.']}
 ];
 const cardTitles = [
- 'Artificial Neural<br>Networks (ANN)'
+ 'Artificial Neural<br>Networks (ANN)',
+ '',
+ 'REST API<br><small>FastAPI · Uvicorn</small>'
 ];
 const cardDescriptions = [
- 'Build and train foundational deep learning models.'
+ 'Build and train foundational deep learning models.',
+ '',
+ 'Serve data and models over HTTP with FastAPI.'
 ];
 const grid=document.querySelector('#course-grid');
 function render(filter='all'){
@@ -17,7 +22,7 @@ function render(filter='all'){
   if(t.fullArt){
    return `<a class="course-card full-art" href="${href}" aria-label="Open ${t.name}"><img class="full-art-img" src="${t.fullArt}" alt="${t.name} — ${t.description} Level: ${t.level}." loading="lazy"></a>`;
   }
-  return `<a class="course-card" href="${href}" aria-label="Open ${t.name}" style="--art-x:${(index%3)*50}%;--art-y:${Math.floor(index/3)*50}%"><div class="badge-frame"><div class="badge-rim"><div class="card-inner"><div class="card-art" aria-hidden="true"></div><h3>${cardTitles[index]}</h3><p>${cardDescriptions[index]}</p><div class="card-bottom"><span class="level">${t.level}</span><span class="explore">EXPLORE COURSE</span></div></div></div></div></a>`;
+  return `<a class="course-card" href="${href}" aria-label="Open ${t.name}" style="--art-x:${(index%3)*50}%;--art-y:${Math.floor(index/3)*50}%"><div class="badge-frame"><div class="badge-rim"><div class="card-inner"><div class="card-art" aria-hidden="true"${t.cardArt?` style="background-image:url('${t.cardArt}');background-size:cover;background-position:center"`:''}></div><h3>${cardTitles[index]}</h3><p>${cardDescriptions[index]}</p><div class="card-bottom"><span class="level">${t.level}</span><span class="explore">EXPLORE COURSE</span></div></div></div></div></a>`;
  }).join('');
  document.querySelector('#course-count').textContent=`${shown.length} mission${shown.length===1?'':'s'} to discover`;
 }

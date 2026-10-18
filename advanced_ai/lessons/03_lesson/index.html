@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 3 - A REST Chat API with FastAPI &amp; SQLite</title>
+  <style>
+    :root {
+      --bg: #f7f9ff;
+      --surface: #ffffff;
+      --ink: #131a33;
+      --muted: #57618a;
+      --cyan: #0891b2;
+      --cyan-dark: #0e3a4f;
+      --violet: #7c3aed;
+      --green: #0f9f6e;
+      --orange: #f97316;
+      --red: #dc2626;
+      --border: #c7d3ee;
+      --code-bg: #0d1224;
+      --code-text: #dceaff;
+      --soft-cyan: #e6fbff;
+      --soft-violet: #f2ecff;
+      --soft-green: #effbf5;
+      --soft-orange: #fff7ed;
+      --soft-red: #fef2f2;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Trebuchet MS", "Lucida Sans", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 10%, #e6fbff 0%, transparent 34%),
+        radial-gradient(circle at 88% 18%, #f2ecff 0%, transparent 32%),
+        linear-gradient(180deg, var(--bg) 0%, #ffffff 56%, #f1f4ff 100%);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 28px 20px 60px; }
+    .layout { display: grid; grid-template-columns: 250px 1fr; gap: 22px; align-items: start; }
+    main { min-width: 0; }
+
+    .side-nav {
+      position: sticky; top: 20px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 18px 14px;
+      box-shadow: 0 4px 16px rgba(8,145,178,.08);
+      max-height: calc(100vh - 40px); overflow-y: auto;
+    }
+    .side-title { font-size: .8rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--cyan); margin: 0 0 10px; }
+    .part-label { display: block; padding: 8px 4px 4px; font-size: .7rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--violet); }
+    .topic-link {
+      display: block; width: 100%; border: 1px solid transparent; border-radius: 9px;
+      padding: 7px 10px; background: transparent; color: var(--muted); cursor: pointer;
+      text-align: left; font: inherit; margin: 2px 0; transition: .16s ease;
+    }
+    .topic-link:hover { background: #eefcff; color: var(--cyan-dark); border-color: var(--border); }
+    .topic-link.active { background: #e0f7fb; color: var(--cyan-dark); border-color: var(--cyan); font-weight: 700; }
+    .side-divider { border: none; border-top: 1px solid var(--border); margin: 12px 4px; }
+    .nav-back { display: block; padding: 7px 10px; color: var(--cyan); font-weight: 700; text-decoration: none; font-size: .9rem; }
+    .nav-back:hover { text-decoration: underline; }
+
+    .hero {
+      background: linear-gradient(135deg, var(--surface) 0%, var(--soft-cyan) 54%, var(--soft-violet) 100%);
+      border: 1px solid var(--border); border-radius: 16px; padding: 28px;
+      box-shadow: 0 12px 30px rgba(8,145,178,.12); margin-bottom: 22px;
+    }
+    .tag { display: inline-block; padding: 5px 12px; border-radius: 999px; background: #f2ecff; color: #5b21b6; font-weight: 800; font-size: .82rem; border: 1px solid #d8c8fb; }
+    h1 { margin: 14px 0 10px; color: var(--cyan-dark); font-size: clamp(2rem, 5vw, 3.2rem); line-height: 1.05; }
+    .hero p { max-width: 820px; color: var(--muted); font-size: 1.06rem; }
+    .hero-chips { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .hero-chip { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: .78rem; font-weight: 700; background: rgba(8,145,178,.1); color: var(--cyan-dark); border: 1px solid rgba(8,145,178,.3); }
+
+    .card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      padding: 22px; margin-bottom: 16px; box-shadow: 0 7px 22px rgba(8,145,178,.08);
+    }
+    .topic-panel { display: none; }
+    .topic-panel.active { display: block; }
+    .step-title { margin: 0 0 12px; color: var(--cyan-dark); font-size: 1.25rem; }
+    h3.sub { color: var(--cyan-dark); font-size: 1.02rem; margin: 22px 0 6px; }
+
+    code { font-family: Consolas, "Courier New", monospace; background: #eef4ff; padding: 1px 6px; border-radius: 5px; color: var(--cyan-dark); }
+
+    .resource-link { display: inline-block; color: var(--cyan-dark); font-weight: 800; text-decoration: none; border-bottom: 2px solid rgba(8,145,178,.35); }
+    .resource-link:hover { color: var(--cyan); border-bottom-color: var(--cyan); }
+    .resource-links { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 4px; }
+
+    .code-block .kw  { color: #c4b5fd; }
+    .code-block .fn  { color: #6ee7b7; }
+    .code-block .lib { color: #fbbf24; }
+    .code-block .num { color: #fb923c; }
+    .code-block .str { color: #86efac; }
+    .code-block .cm  { color: #7286a8; font-style: italic; }
+    .code-block .cls { color: #f9a8d4; }
+    .code-block {
+      background: var(--code-bg); color: var(--code-text); border-radius: 10px;
+      border: 1px solid #304563; padding: 16px 18px; overflow-x: auto; margin: 12px 0;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: .9rem; line-height: 1.55; white-space: pre;
+    }
+    .code-file { display: inline-block; margin: 10px 0 -6px; padding: 3px 10px; border-radius: 8px 8px 0 0; background: #1b2440; color: #9fb4d8; font-family: Consolas, "Courier New", monospace; font-size: .78rem; }
+    .output {
+      background: #f7fbff; color: #1a2d49; border: 1px solid var(--border);
+      border-left: 5px solid var(--cyan); border-radius: 10px; padding: 12px 14px;
+      overflow-x: auto; margin: 8px 0 16px; font-family: Consolas, "Courier New", monospace; white-space: pre-wrap;
+    }
+
+    .note { background: var(--soft-orange); border: 1px solid #fed7aa; border-left: 5px solid var(--orange); border-radius: 10px; padding: 12px 14px; margin: 12px 0; }
+    .note.blue { background: var(--soft-cyan); border-color: #a5e6f0; border-left-color: var(--cyan); }
+    .note.red { background: var(--soft-red); border-color: #fecaca; border-left-color: var(--red); }
+    .note.green { background: var(--soft-green); border-color: #b6ebd4; border-left-color: var(--green); }
+    .note.violet { background: var(--soft-violet); border-color: #d8c8fb; border-left-color: var(--violet); }
+
+    .data-table { width: 100%; border-collapse: collapse; margin: 16px 0; background: #fbfdff; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .data-table th { background: var(--soft-cyan); color: var(--cyan-dark); text-align: left; padding: 10px 14px; font-size: .9rem; border-bottom: 2px solid var(--border); }
+    .data-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table td.term { font-family: Consolas, "Courier New", monospace; font-weight: 700; color: var(--cyan-dark); white-space: nowrap; }
+    .table-scroll { overflow-x: auto; }
+
+    .mth { display:inline-block; min-width:58px; text-align:center; font-family:Consolas,"Courier New",monospace; font-size:.74rem; font-weight:800; padding:2px 7px; border-radius:5px; color:#fff; }
+    .mth.get{background:#3d8fe0} .mth.post{background:#2fa56f} .mth.put{background:#e08a14} .mth.patch{background:#1fb193} .mth.delete{background:#e03131} .mth.head{background:#8a3ffc}
+
+    .footer { text-align: center; color: var(--muted); font-size: .9rem; margin-top: 18px; }
+
+    /* light-blue scrollbars (page + sidebar) */
+    html, .side-nav, .code-block, .output { scrollbar-width: thin; scrollbar-color: #7dd3fc #e6f6ff; }
+    ::-webkit-scrollbar { width: 12px; height: 12px; }
+    ::-webkit-scrollbar-track { background: #e6f6ff; }
+    ::-webkit-scrollbar-thumb { background: #7dd3fc; border-radius: 8px; border: 3px solid #e6f6ff; }
+    ::-webkit-scrollbar-thumb:hover { background: #38bdf8; }
+
+    @media (max-width: 820px) {
+      .layout { grid-template-columns: 1fr; }
+      .side-nav { position: static; }
+      .wrap { padding: 18px 12px 44px; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="layout">
+    <aside class="side-nav">
+      <p class="side-title">Lesson 3 · REST API</p>
+      <span class="part-label">Class Code</span>
+      <button class="topic-link active" data-target="topic-github">1. GitHub repo &amp; running it</button>
+      <span class="part-label">The Backend</span>
+      <button class="topic-link" data-target="topic-1">2. main.py: the app</button>
+      <button class="topic-link" data-target="topic-2">3. database.py</button>
+      <button class="topic-link" data-target="topic-3">4. Passwords &amp; current_user</button>
+      <button class="topic-link" data-target="topic-4">5. Pydantic models</button>
+      <button class="topic-link" data-target="topic-5">6. The /users endpoints</button>
+      <button class="topic-link" data-target="topic-6">7. Avatars</button>
+      <button class="topic-link" data-target="topic-7">8. Login &amp; logout</button>
+      <button class="topic-link" data-target="topic-8">9. messages.py</button>
+      <span class="part-label">The Frontend</span>
+      <button class="topic-link" data-target="topic-9">10. api() &amp; polling</button>
+      <span class="part-label">Thinking It Through</span>
+      <button class="topic-link" data-target="topic-10">11. One request, end to end</button>
+      <button class="topic-link" data-target="topic-11">12. What to improve next</button>
+      <a class="nav-back" href="../../03_rest_api/index.html">← Back to the REST API deck</a>
+      <a class="nav-back" href="../../index.html">Back to Advanced AI</a>
+    </aside>
+
+    <main>
+      <section class="hero">
+        <span class="tag">Lesson 3 · REST API · Oct 18, 2026</span>
+        <h1>A REST Chat API with FastAPI &amp; SQLite</h1>
+        <p>The class built <strong>Aurora Chat</strong>, a group chat with sign-up, login, avatars and editable messages, by vibe-coding it with Claude. This page reads the result file by file: how <code>main.py</code> assembles the app, how <code>database.py</code> creates and migrates three SQLite tables, how <code>users.py</code> hashes passwords and issues tokens, how <code>messages.py</code> enforces "only the author can edit", and how the single-page frontend talks to it all through one small <code>api()</code> function.</p>
+        <div class="hero-chips">
+          <span class="hero-chip">FastAPI</span>
+          <span class="hero-chip">APIRouter</span>
+          <span class="hero-chip">Pydantic</span>
+          <span class="hero-chip">Depends</span>
+          <span class="hero-chip">HTTPException</span>
+          <span class="hero-chip">sqlite3</span>
+          <span class="hero-chip">Bearer token</span>
+          <span class="hero-chip">uvicorn</span>
+        </div>
+      </section>
+
+      <!-- ═══ 1. GITHUB ═══ -->
+      <section class="card topic-panel active" id="topic-github">
+        <h2 class="step-title">Open Class Code</h2>
+        <p>The full project from class is on GitHub:</p>
+        <div class="resource-links">
+          <a class="resource-link" href="https://github.com/pythonai211225-rgb/18.10.2026" target="_blank" rel="noopener">pythonai211225-rgb/18.10.2026: the code in this lesson</a>
+        </div>
+        <div class="note blue">The ideas behind the code (HTTP methods, status codes, FastAPI, Uvicorn, Swagger, Postman) are explained with live demos in the <a class="resource-link" href="../../03_rest_api/index.html">REST API deck</a>. This page walks through the project's code.</div>
+        <h3 class="sub">What's in the repo</h3>
+        <div class="code-block">18.10.2026/
+├── main.py            <span class="cm"># creates the FastAPI app, plugs in the routers, serves the frontend</span>
+├── database.py        <span class="cm"># SQLite connection helper + CREATE TABLE / migrations</span>
+├── users.py           <span class="cm"># /users, /avatars, /login, /logout + password hashing + current_user</span>
+├── messages.py        <span class="cm"># /messages CRUD, author-only edits</span>
+├── static/
+│   └── index.html     <span class="cm"># the whole frontend: HTML + CSS + JS in one file</span>
+├── messages.db        <span class="cm"># the SQLite database (created automatically if missing)</span>
+└── requirements.txt   <span class="cm"># fastapi, uvicorn</span></div>
+        <h3 class="sub">Run it</h3>
+        <div class="code-block">git clone https://github.com/pythonai211225-rgb/18.10.2026.git
+cd 18.10.2026
+pip install -r requirements.txt
+uvicorn main:app --reload</div>
+        <div class="output">INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Application startup complete.</div>
+        <table class="data-table">
+          <tr><th>Open</th><th>You get</th></tr>
+          <tr><td class="term">http://127.0.0.1:8000/</td><td>the chat app (static/index.html)</td></tr>
+          <tr><td class="term">http://127.0.0.1:8000/docs</td><td>Swagger UI: every endpoint, runnable</td></tr>
+          <tr><td class="term">http://127.0.0.1:8000/redoc</td><td>the same docs as a read-only manual</td></tr>
+          <tr><td class="term">http://127.0.0.1:8000/openapi.json</td><td>the machine-readable API description both pages are built from</td></tr>
+        </table>
+        <div class="note">The repo ships with a <code>messages.db</code> that already holds the users and messages typed in class. Delete it to start empty. <code>init_db()</code> recreates the tables on the next start.</div>
+      </section>
+
+      <!-- ═══ 2. MAIN.PY ═══ -->
+      <section class="card topic-panel" id="topic-1">
+        <h2 class="step-title">main.py: Assembling the App</h2>
+        <p><code>main.py</code> contains no endpoints at all. It creates the app object and connects the pieces:</p>
+        <span class="code-file">main.py</span>
+        <div class="code-block" data-hl>from pathlib import Path
+
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+
+import messages
+import users
+from database import init_db
+
+STATIC_DIR = Path(__file__).parent / "static"
+
+app = FastAPI(title="Messages API", version="1.5")
+
+
+@app.on_event("startup")
+def startup():
+    init_db()
+
+
+@app.middleware("http")
+async def no_cache_frontend(request, call_next):
+    response = await call_next(request)
+    if request.url.path == "/" or request.url.path.endswith(".html"):
+        response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
+app.include_router(users.router)
+app.include_router(messages.router)
+
+# Frontend (mounted last so API routes take priority)
+app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")</div>
+        <table class="data-table">
+          <tr><th>Line</th><th>What it does</th></tr>
+          <tr><td class="term">STATIC_DIR = Path(__file__).parent / "static"</td><td>An absolute path to <code>static/</code>, built from this file's own location. The app works no matter which folder you start Uvicorn from (as long as Uvicorn can import <code>main</code>).</td></tr>
+          <tr><td class="term">FastAPI(title=…, version=…)</td><td>The application. The title and version appear at the top of <code>/docs</code>. "1.5" hints at how many rounds of vibe-coding it took.</td></tr>
+          <tr><td class="term">@app.on_event("startup")</td><td>Runs <code>init_db()</code> once, when Uvicorn starts and before the first request, so the tables always exist.</td></tr>
+          <tr><td class="term">@app.middleware("http")</td><td>A <strong>middleware</strong> wraps <em>every</em> request. <code>call_next(request)</code> runs the normal route, then this code edits the response on its way out.</td></tr>
+          <tr><td class="term">include_router(...)</td><td>Plugs in the endpoints defined in <code>users.py</code> and <code>messages.py</code>.</td></tr>
+          <tr><td class="term">app.mount("/", StaticFiles(..., html=True))</td><td>Serves files from <code>static/</code>. <code>html=True</code> means a request for <code>/</code> returns <code>index.html</code>.</td></tr>
+        </table>
+        <div class="note green"><strong>Why the mount comes last.</strong> FastAPI checks routes in the order they were added. A mount at <code>/</code> matches <em>every</em> path. If it came first, <code>GET /messages</code> would look for a file called <code>static/messages</code>, find none, and return 404. Routers first, catch-all last.</div>
+        <div class="note blue"><strong>Why the no-cache middleware?</strong> While vibe-coding you edit <code>index.html</code> constantly. Browsers cache HTML, so a refresh could show the <em>old</em> page. <code>Cache-Control: no-cache</code> tells the browser to check with the server every time. API responses are left alone.</div>
+        <div class="note">Newer FastAPI versions mark <code>on_event</code> as deprecated (it still works). The modern form is a <code>lifespan</code> function. See topic 12.</div>
+      </section>
+
+      <!-- ═══ 3. DATABASE.PY ═══ -->
+      <section class="card topic-panel" id="topic-2">
+        <h2 class="step-title">database.py: Connection &amp; Tables</h2>
+        <h3 class="sub">A connection per request</h3>
+        <span class="code-file">database.py</span>
+        <div class="code-block" data-hl>import sqlite3
+from contextlib import contextmanager
+from datetime import datetime, timezone
+
+DB_PATH = "messages.db"
+
+
+@contextmanager
+def get_db():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        yield conn
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def now() -&gt; str:
+    return datetime.now(timezone.utc).isoformat()</div>
+        <p>Every endpoint uses it the same way: <code>with get_db() as db: db.execute(...)</code>.</p>
+        <ul>
+          <li><code>@contextmanager</code> turns the function into something you can use in a <code>with</code> block. The code before <code>yield</code> runs on entry, and the code after it runs on exit.</li>
+          <li><code>row_factory = sqlite3.Row</code> lets rows be read by column name: <code>row["name"]</code>, and <code>dict(row)</code> gives a dictionary. That's what makes <code>User(**dict(row))</code> work later.</li>
+          <li><code>conn.commit()</code> runs <strong>only if the block finished without an exception</strong>. If an endpoint raises <code>HTTPException</code> halfway through, the commit is skipped and <code>close()</code> discards the half-done changes. Each request is all-or-nothing.</li>
+          <li><code>now()</code> stores time as an ISO-8601 string in UTC, e.g. <code>2026-10-18T17:37:05.239049+00:00</code>. SQLite has no real date type, and this format sorts correctly as text.</li>
+        </ul>
+        <h3 class="sub">Creating the tables</h3>
+        <div class="code-block" data-hl>def init_db():
+    with get_db() as db:
+        db.execute(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+                password_hash TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+        db.execute(
+            """
+            CREATE TABLE IF NOT EXISTS sessions (
+                token TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+        db.execute(
+            """
+            CREATE TABLE IF NOT EXISTS messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sender TEXT NOT NULL,
+                content TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )</div>
+        <table class="data-table">
+          <tr><th>SQL</th><th>Meaning</th></tr>
+          <tr><td class="term">IF NOT EXISTS</td><td>Safe to run on every start: an existing table is left alone, data included.</td></tr>
+          <tr><td class="term">INTEGER PRIMARY KEY AUTOINCREMENT</td><td>SQLite chooses the id (1, 2, 3…) and never reuses a deleted one. That's why <code>POST</code> doesn't send an id.</td></tr>
+          <tr><td class="term">UNIQUE COLLATE NOCASE</td><td>No two users may share a name, and "Itay" and "itay" count as the same name, both for the constraint and for <code>WHERE name = ?</code>.</td></tr>
+          <tr><td class="term">REFERENCES users(id)</td><td>A <strong>foreign key</strong>: each session belongs to a user.</td></tr>
+        </table>
+        <h3 class="sub">Migrations: changing tables that already have data</h3>
+        <div class="code-block" data-hl>        columns = [r["name"] for r in db.execute("PRAGMA table_info(messages)")]
+        if "user_id" not in columns:
+            db.execute("ALTER TABLE messages ADD COLUMN user_id INTEGER REFERENCES users(id)")
+        user_columns = [r["name"] for r in db.execute("PRAGMA table_info(users)")]
+        for column, kind in (("avatar", "BLOB"), ("avatar_type", "TEXT"), ("avatar_preset", "TEXT")):
+            if column not in user_columns:
+                db.execute(f"ALTER TABLE users ADD COLUMN {column} {kind}")</div>
+        <p>This is the history of the vibe-coding session, preserved in code. The first version had only messages with a free-text <code>sender</code>. Users came later, then avatars. <code>CREATE TABLE IF NOT EXISTS</code> never changes an <em>existing</em> table, so for databases created by older versions the code asks SQLite which columns exist (<code>PRAGMA table_info</code>) and adds the missing ones with <code>ALTER TABLE … ADD COLUMN</code>.</p>
+        <div class="output">sqlite&gt; SELECT id, user_id, sender, content FROM messages LIMIT 3;
+3|NULL|itay|hello        <span style="color:#57618a">← posted before accounts existed</span>
+4|1|itay|hi
+5|1|itay|how are you ?</div>
+        <div class="note">The f-string in the last <code>ALTER TABLE</code> is safe only because <code>column</code> and <code>kind</code> come from a fixed tuple in the code. Table and column names can't be <code>?</code> parameters. Never build SQL this way from user input.</div>
+      </section>
+
+      <!-- ═══ 4. PASSWORDS & CURRENT USER ═══ -->
+      <section class="card topic-panel" id="topic-3">
+        <h2 class="step-title">users.py: Passwords &amp; the Logged-in User</h2>
+        <h3 class="sub">Never store the password, only a salted hash</h3>
+        <span class="code-file">users.py</span>
+        <div class="code-block" data-hl>def hash_password(password: str) -&gt; str:
+    salt = secrets.token_hex(16)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 200_000).hex()
+    return f"{salt}${digest}"
+
+
+def verify_password(password: str, stored: str) -&gt; bool:
+    salt, digest = stored.split("$", 1)
+    candidate = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 200_000).hex()
+    return hmac.compare_digest(candidate, digest)</div>
+        <ul>
+          <li><strong>Hash</strong>: a one-way function. You can turn "1234" into the digest, but you can't turn the digest back into "1234". If the database leaks, the passwords don't.</li>
+          <li><strong>Salt</strong>: 16 random bytes, different per user. Two users with password "1234" get completely different hashes, so precomputed "rainbow tables" are useless.</li>
+          <li><strong>200,000 rounds</strong> of PBKDF2 make each guess deliberately slow, around 0.1 s. That's nothing for one login, but a disaster for an attacker trying billions of guesses.</li>
+          <li>The stored value is <code>salt$digest</code> in one column. <code>verify_password</code> splits it, re-hashes the typed password with the same salt, and compares.</li>
+          <li><code>hmac.compare_digest</code> takes the same time whether the first character or the last one differs, so response timing reveals nothing.</li>
+        </ul>
+        <h3 class="sub">Who is calling? <code>current_user</code></h3>
+        <div class="code-block" data-hl>def current_user(authorization: Optional[str] = Header(None)) -&gt; dict:
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Not logged in")
+    token = authorization[7:].strip()
+    with get_db() as db:
+        row = db.execute(
+            "SELECT u.id, u.name, u.created_at FROM sessions s JOIN users u ON u.id = s.user_id "
+            "WHERE s.token = ?",
+            (token,),
+        ).fetchone()
+    if row is None:
+        raise HTTPException(status_code=401, detail="Invalid or expired session")
+    return {**dict(row), "token": token}</div>
+        <ul>
+          <li><code>Header(None)</code>: the parameter name <code>authorization</code> is matched to the HTTP header <code>Authorization</code> (headers are case-insensitive, and underscores become dashes).</li>
+          <li>The header must look like <code>Bearer Xq3vN8…</code>. <code>[7:]</code> cuts off the 7 characters of <code>"Bearer "</code>.</li>
+          <li>One SQL <code>JOIN</code> goes from token → session row → user row. No matching session means 401.</li>
+          <li>The token is returned too, because <code>/logout</code> needs to know <em>which</em> session to delete.</li>
+        </ul>
+        <p>This function is not an endpoint. Endpoints <em>ask for it</em>:</p>
+        <div class="code-block" data-hl>@router.post("/messages", ...)
+def create_message(msg: MessageCreate, me: dict = Depends(current_user)):
+    ...   # only runs if current_user() returned a user</div>
+        <div class="note green"><strong>One function guards 9 endpoints.</strong> Every endpoint with <code>Depends(current_user)</code> is protected. The token check is written once, and FastAPI runs it before the endpoint body. It also shows up in <code>/docs</code> as an <code>authorization</code> header field.</div>
+      </section>
+
+      <!-- ═══ 5. PYDANTIC MODELS ═══ -->
+      <section class="card topic-panel" id="topic-4">
+        <h2 class="step-title">users.py: Pydantic Models (the API's Contract)</h2>
+        <p>Each model is a class describing the shape of some JSON. FastAPI uses models in two directions: to <strong>validate what comes in</strong> and to <strong>shape what goes out</strong>.</p>
+        <span class="code-file">users.py</span>
+        <div class="code-block" data-hl>AvatarField = Field(None, max_length=700_000, description="Uploaded image as a data URL (data:image/...;base64,...)")
+PresetField = Field(None, description="Id of a ready-made face from GET /avatars")
+
+
+class Credentials(BaseModel):
+    name: str = Field(..., min_length=2, max_length=30)
+    password: str = Field(..., min_length=4, max_length=128)
+
+
+class UserCreate(Credentials):
+    avatar: Optional[str] = AvatarField
+    avatar_preset: Optional[str] = PresetField
+
+
+class UserPatch(BaseModel):
+    name: Optional[str] = Field(None, min_length=2, max_length=30)
+    password: Optional[str] = Field(None, min_length=4, max_length=128)
+    avatar: Optional[str] = AvatarField
+    avatar_preset: Optional[str] = PresetField
+
+
+class AvatarPreset(BaseModel):
+    id: str
+    url: str
+
+
+class User(BaseModel):
+    id: int
+    name: str
+    created_at: str
+    has_avatar: bool
+
+
+class LoginResult(BaseModel):
+    token: str
+    user: User</div>
+        <div class="table-scroll"><table class="data-table">
+          <tr><th>Model</th><th>Direction</th><th>Used by</th></tr>
+          <tr><td class="term">Credentials</td><td>in</td><td><code>POST /login</code>: name + password, both required (<code>...</code> means required).</td></tr>
+          <tr><td class="term">UserCreate</td><td>in</td><td><code>POST /users</code>, <code>PUT /users/{id}</code>. <strong>Inherits</strong> name + password and adds two optional avatar fields.</td></tr>
+          <tr><td class="term">UserPatch</td><td>in</td><td><code>PATCH /users/{id}</code>. <em>Everything</em> optional, because a PATCH sends only what changes.</td></tr>
+          <tr><td class="term">User</td><td>out</td><td>Every response that returns a user.</td></tr>
+          <tr><td class="term">LoginResult</td><td>out</td><td><code>POST /login</code>: a token plus a nested <code>User</code>.</td></tr>
+        </table></div>
+        <div class="note red"><strong>Look at what <code>User</code> does <em>not</em> have:</strong> <code>password_hash</code> and the avatar bytes. The response model is a whitelist. Even if a query returned the hash, <code>response_model=User</code> would drop it before the JSON leaves the server. Separate in/out models are how an API avoids leaking data.</div>
+        <div class="note blue"><strong>Why <code>max_length=700_000</code> for a 500 KB image?</strong> The avatar arrives as base64 text, which is about 4/3 the size of the raw bytes: 500 KB × 4/3 ≈ 667 K characters, plus the <code>data:image/png;base64,</code> prefix. Pydantic rejects anything far too large (422) before it is even decoded. The exact 500 KB check happens after decoding (topic 7).</div>
+      </section>
+
+      <!-- ═══ 6. /USERS ENDPOINTS ═══ -->
+      <section class="card topic-panel" id="topic-5">
+        <h2 class="step-title">users.py: The /users Endpoints</h2>
+        <h3 class="sub">Three helpers the endpoints share</h3>
+        <span class="code-file">users.py</span>
+        <div class="code-block" data-hl>USER_COLUMNS = "id, name, created_at, (avatar IS NOT NULL OR avatar_preset IS NOT NULL) AS has_avatar"
+
+
+def fetch_user(db, user_id: int) -&gt; User:
+    row = db.execute(f"SELECT {USER_COLUMNS} FROM users WHERE id = ?", (user_id,)).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return User(**dict(row))
+
+
+def require_self(me: dict, user_id: int):
+    if me["id"] != user_id:
+        raise HTTPException(status_code=403, detail="You can only modify your own account")</div>
+        <p><code>USER_COLUMNS</code> selects exactly the four fields of the <code>User</code> model. <code>has_avatar</code> is computed by SQL (a 0/1 that Pydantic turns into <code>false</code>/<code>true</code>), so the image bytes are never loaded just to list users. <code>fetch_user</code> turns "not found" into a 404 in one place. <code>require_self</code> turns "not you" into a 403.</p>
+        <h3 class="sub">Read</h3>
+        <div class="code-block" data-hl>@router.get("/users", response_model=List[User])
+def list_users():
+    with get_db() as db:
+        rows = db.execute(f"SELECT {USER_COLUMNS} FROM users ORDER BY id").fetchall()
+        return [User(**dict(r)) for r in rows]
+
+
+@router.get("/users/me", response_model=User)
+def get_me(me: dict = Depends(current_user)):
+    with get_db() as db:
+        return fetch_user(db, me["id"])
+
+# ... /users/{user_id}/avatar (topic 7) ...
+
+@router.get("/users/{user_id}", response_model=User)
+def get_user(user_id: int):
+    with get_db() as db:
+        return fetch_user(db, user_id)</div>
+        <div class="note"><strong>Order matters: <code>/users/me</code> is declared before <code>/users/{user_id}</code>.</strong> Routes are tried top to bottom. If <code>{user_id}</code> came first, <code>GET /users/me</code> would match it with <code>user_id = "me"</code>, fail the <code>int</code> conversion, and return 422. Put fixed paths before parameterised ones.</div>
+        <p>The frontend calls <code>GET /users/me</code> when the page loads. If a token in <code>localStorage</code> still works, you're logged straight back in.</p>
+        <h3 class="sub">Create: <span class="mth post">POST</span> /users</h3>
+        <div class="code-block" data-hl>@router.post("/users", response_model=User, status_code=status.HTTP_201_CREATED)
+def create_user(user: UserCreate):
+    name = user.name.strip()
+    mime, data = decode_avatar(user.avatar) if user.avatar else (None, None)
+    preset = check_preset(user.avatar_preset) if user.avatar_preset and not data else None
+    with get_db() as db:
+        if db.execute("SELECT 1 FROM users WHERE name = ?", (name,)).fetchone():
+            raise HTTPException(status_code=409, detail="That name is already taken")
+        cur = db.execute(
+            "INSERT INTO users (name, password_hash, created_at, avatar, avatar_type, avatar_preset) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (name, hash_password(user.password), now(), data, mime, preset),
+        )
+        return fetch_user(db, cur.lastrowid)</div>
+        <ol>
+          <li>Validate everything <em>before</em> touching the database: decode the uploaded avatar (or check the preset id). An uploaded photo wins over a preset.</li>
+          <li><code>SELECT 1 … WHERE name = ?</code>: is the name taken? Thanks to <code>COLLATE NOCASE</code> this also catches "ITAY" vs "itay". If so, <strong>409 Conflict</strong>.</li>
+          <li><code>INSERT</code> with the <em>hashed</em> password. <code>?</code> placeholders, never f-strings, keep it safe from SQL injection.</li>
+          <li><code>cur.lastrowid</code> is the id SQLite just generated. Read the row back and return it with <strong>201 Created</strong>.</li>
+        </ol>
+        <h3 class="sub">Change: <span class="mth put">PUT</span> vs <span class="mth patch">PATCH</span></h3>
+        <div class="code-block" data-hl>@router.put("/users/{user_id}", response_model=User)
+def replace_user(user_id: int, user: UserCreate, me: dict = Depends(current_user)):
+    require_self(me, user_id)
+    with get_db() as db:
+        save_user(db, user_id, {"name": user.name.strip(), "password": user.password})
+        db.execute(
+            "UPDATE users SET avatar = NULL, avatar_type = NULL, avatar_preset = NULL WHERE id = ?",
+            (user_id,),
+        )
+        save_user(db, user_id, {"avatar": user.avatar, "avatar_preset": user.avatar_preset})
+        return fetch_user(db, user_id)
+
+
+@router.patch("/users/{user_id}", response_model=User)
+def update_user(user_id: int, user: UserPatch, me: dict = Depends(current_user)):
+    require_self(me, user_id)
+    fields = user.model_dump(exclude_unset=True, exclude_none=True)
+    if "name" in fields:
+        fields["name"] = fields["name"].strip()
+    with get_db() as db:
+        save_user(db, user_id, fields)
+        return fetch_user(db, user_id)</div>
+        <p>This is the PUT/PATCH difference from the deck, in real code:</p>
+        <ul>
+          <li><strong>PUT</strong> takes a full <code>UserCreate</code> (name and password required), wipes the avatar, then sets whatever avatar was sent. If none was sent, the user ends up with none: the resource is <em>replaced</em>.</li>
+          <li><strong>PATCH</strong> takes a <code>UserPatch</code>. <code>model_dump(exclude_unset=True, exclude_none=True)</code> returns <strong>only the fields the client actually sent</strong>. <code>{"avatar_preset": "15006…"}</code> becomes a one-key dict, so only the avatar changes.</li>
+        </ul>
+        <div class="code-block" data-hl>def save_user(db, user_id: int, fields: dict):
+    if "name" in fields:
+        taken = db.execute(
+            "SELECT 1 FROM users WHERE name = ? AND id != ?", (fields["name"], user_id)
+        ).fetchone()
+        if taken:
+            raise HTTPException(status_code=409, detail="That name is already taken")
+        db.execute("UPDATE users SET name = ? WHERE id = ?", (fields["name"], user_id))
+        db.execute("UPDATE messages SET sender = ? WHERE user_id = ?", (fields["name"], user_id))
+    if "password" in fields:
+        db.execute(
+            "UPDATE users SET password_hash = ? WHERE id = ?",
+            (hash_password(fields["password"]), user_id),
+        )
+    if fields.get("avatar"):
+        mime, data = decode_avatar(fields["avatar"])
+        db.execute(
+            "UPDATE users SET avatar = ?, avatar_type = ?, avatar_preset = NULL WHERE id = ?",
+            (data, mime, user_id),
+        )
+    elif fields.get("avatar_preset"):
+        db.execute(
+            "UPDATE users SET avatar = NULL, avatar_type = NULL, avatar_preset = ? WHERE id = ?",
+            (check_preset(fields["avatar_preset"]), user_id),
+        )</div>
+        <p>One helper serves both PUT and PATCH: it updates only the keys present in <code>fields</code>. Note <code>AND id != ?</code>: renaming yourself to your own name is not a conflict. Renaming also rewrites <code>sender</code> on all your old messages, because the name is stored twice (see topic 12).</p>
+        <h3 class="sub">Delete &amp; check: <span class="mth delete">DELETE</span> <span class="mth head">HEAD</span></h3>
+        <div class="code-block" data-hl>@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_user(user_id: int, me: dict = Depends(current_user)):
+    require_self(me, user_id)
+    with get_db() as db:
+        db.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+        db.execute("DELETE FROM users WHERE id = ?", (user_id,))
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.head("/users/{user_id}")
+def head_user(user_id: int):
+    with get_db() as db:
+        fetch_user(db, user_id)
+    return Response(status_code=status.HTTP_200_OK)</div>
+        <div class="note violet"><strong>Why delete sessions by hand when the table says <code>ON DELETE CASCADE</code>?</strong> SQLite <em>ignores</em> foreign keys unless each connection runs <code>PRAGMA foreign_keys = ON</code>, and <code>get_db()</code> never does. The explicit <code>DELETE FROM sessions</code> makes sure the deleted user's tokens stop working.</div>
+        <p><code>HEAD</code> returns 200 or 404 (from <code>fetch_user</code>) with no body. FastAPI doesn't create HEAD routes automatically, which is why they are written out.</p>
+      </section>
+
+      <!-- ═══ 7. AVATARS ═══ -->
+      <section class="card topic-panel" id="topic-6">
+        <h2 class="step-title">users.py: Avatars (Upload or Pick a Face)</h2>
+        <h3 class="sub">Uploaded photos arrive as data URLs</h3>
+        <span class="code-file">users.py</span>
+        <div class="code-block" data-hl>MAX_AVATAR_BYTES = 500_000
+DATA_URL_RE = re.compile(r"^data:(image/(?:png|jpeg|webp|gif));base64,(.+)$", re.S)
+
+
+def decode_avatar(data_url: str):
+    match = DATA_URL_RE.match(data_url)
+    if not match:
+        raise HTTPException(status_code=422, detail="Avatar must be a PNG, JPEG, WebP or GIF image")
+    try:
+        data = base64.b64decode(match.group(2), validate=True)
+    except (binascii.Error, ValueError):
+        raise HTTPException(status_code=422, detail="Avatar image data is corrupted")
+    if len(data) &gt; MAX_AVATAR_BYTES:
+        raise HTTPException(status_code=413, detail="Avatar image is too large (max 500 KB)")
+    return match.group(1), data</div>
+        <p>A JSON body can only carry text, so the browser crops the photo to 256×256 on a canvas and sends it as a <strong>data URL</strong>: <code>data:image/jpeg;base64,/9j/4AAQ…</code>. The regex checks the type and captures the MIME type (group 1) and the base64 text (group 2). <code>b64decode(validate=True)</code> turns it back into bytes and rejects junk. The bytes go into a <code>BLOB</code> column. Three different failures, three precise status codes: wrong type 422, corrupted 422, too big <strong>413 Payload Too Large</strong>.</p>
+        <h3 class="sub">Ready-made faces</h3>
+        <div class="code-block" data-hl>AVATAR_PRESETS = [
+    "1534528741775-53994a69daeb", "1500648767791-00dcc994a43e", "1494790108377-be9c29b29330",
+    # ... 10 Unsplash photo ids ...
+]
+
+
+def preset_url(preset: str, size: int = 256) -&gt; str:
+    return f"https://images.unsplash.com/photo-{preset}?w={size}&amp;h={size}&amp;fit=crop&amp;crop=faces&amp;q=80"
+
+
+def check_preset(preset: str) -&gt; str:
+    if preset not in AVATAR_PRESETS:
+        raise HTTPException(status_code=422, detail="Unknown avatar preset")
+    return preset
+
+
+@router.get("/avatars", response_model=List[AvatarPreset])
+def list_avatar_presets():
+    return [AvatarPreset(id=p, url=preset_url(p)) for p in AVATAR_PRESETS]</div>
+        <p>A preset is stored as just its id (<code>avatar_preset</code> column). <code>check_preset</code> makes sure the id is on the list, so a client can't point your app at an arbitrary URL.</p>
+        <h3 class="sub">Serving the picture: three possible answers</h3>
+        <div class="code-block" data-hl>@router.get("/users/{user_id}/avatar")
+def get_avatar(user_id: int, if_none_match: Optional[str] = Header(None)):
+    with get_db() as db:
+        row = db.execute(
+            "SELECT avatar, avatar_type, avatar_preset FROM users WHERE id = ?", (user_id,)
+        ).fetchone()
+    if row is not None and row["avatar"] is None and row["avatar_preset"]:
+        return RedirectResponse(preset_url(row["avatar_preset"]), headers={"Cache-Control": "no-cache"})
+    if row is None or row["avatar"] is None:
+        raise HTTPException(status_code=404, detail="No avatar")
+    etag = '"' + hashlib.sha1(row["avatar"]).hexdigest() + '"'
+    headers = {"ETag": etag, "Cache-Control": "no-cache"}
+    if if_none_match == etag:
+        return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=headers)
+    return Response(content=row["avatar"], media_type=row["avatar_type"], headers=headers)</div>
+        <table class="data-table">
+          <tr><th>Situation</th><th>Response</th></tr>
+          <tr><td>user picked a preset</td><td><strong>307 redirect</strong> to the Unsplash URL. The browser follows it on its own, so <code>&lt;img src="/users/2/avatar"&gt;</code> just works.</td></tr>
+          <tr><td>no such user / no avatar</td><td><strong>404</strong>. The frontend falls back to a coloured initial.</td></tr>
+          <tr><td>uploaded photo, first time</td><td><strong>200</strong> with the raw image bytes and <code>media_type</code> (e.g. <code>image/jpeg</code>). Not JSON: an endpoint can return any content type.</td></tr>
+          <tr><td>uploaded photo, browser already has it</td><td><strong>304 Not Modified</strong>, empty body. The ETag is a fingerprint (SHA-1) of the bytes. The browser sends it back as <code>If-None-Match</code>, and if it still matches there's nothing to download.</td></tr>
+        </table>
+        <div class="note blue">The chat page polls every second and redraws avatars. ETag + 304 means each repeat costs a few header bytes instead of a full image download.</div>
+      </section>
+
+      <!-- ═══ 8. LOGIN & LOGOUT ═══ -->
+      <section class="card topic-panel" id="topic-7">
+        <h2 class="step-title">users.py: Login &amp; Logout</h2>
+        <span class="code-file">users.py</span>
+        <div class="code-block" data-hl>@router.post("/login", response_model=LoginResult)
+def login(credentials: Credentials):
+    with get_db() as db:
+        row = db.execute(
+            "SELECT * FROM users WHERE name = ?", (credentials.name.strip(),)
+        ).fetchone()
+        if row is None or not verify_password(credentials.password, row["password_hash"]):
+            raise HTTPException(status_code=401, detail="Wrong name or password")
+        token = secrets.token_urlsafe(32)
+        db.execute(
+            "INSERT INTO sessions (token, user_id, created_at) VALUES (?, ?, ?)",
+            (token, row["id"], now()),
+        )
+        return LoginResult(token=token, user=fetch_user(db, row["id"]))
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+def logout(me: dict = Depends(current_user)):
+    with get_db() as db:
+        db.execute("DELETE FROM sessions WHERE token = ?", (me["token"],))
+    return Response(status_code=status.HTTP_204_NO_CONTENT)</div>
+        <ul>
+          <li><strong>One message for both failures.</strong> "Wrong name or password", whether the name doesn't exist or the password is wrong. A message saying "no such user" would let anyone discover which names are registered.</li>
+          <li><code>secrets.token_urlsafe(32)</code>: 32 cryptographically random bytes, about 43 URL-safe characters. Unguessable, unlike <code>random</code> or a counter.</li>
+          <li>Every login <strong>adds</strong> a session row, so you can be logged in on your laptop and your phone at once. Logout deletes only <em>this</em> token. The other device stays logged in.</li>
+          <li>Login and logout use <span class="mth post">POST</span>, not GET. They change server state (create or delete a session), and passwords must never appear in a URL, where they would end up in browser history and server logs.</li>
+        </ul>
+        <div class="output">POST /login   {"name": "itay", "password": "1234"}
+→ 200 {"token": "Xq3vN8bQ0pJ…r2Lw", "user": {"id": 1, "name": "itay", "created_at": "…", "has_avatar": false}}</div>
+        <div class="note">Is <code>/login</code> RESTful? Not strictly, because it's a verb in the URL. A purist would write <code>POST /sessions</code> (create a session) and <code>DELETE /sessions/current</code>. <code>/login</code> and <code>/logout</code> are a very common, readable compromise.</div>
+      </section>
+
+      <!-- ═══ 9. MESSAGES ═══ -->
+      <section class="card topic-panel" id="topic-8">
+        <h2 class="step-title">messages.py: The /messages Resource</h2>
+        <p>The second router follows exactly the same pattern as <code>/users</code>, and it is short enough to read in one go.</p>
+        <h3 class="sub">Models &amp; helpers</h3>
+        <span class="code-file">messages.py</span>
+        <div class="code-block" data-hl>router = APIRouter(tags=["messages"])
+
+
+class MessageCreate(BaseModel):
+    content: str = Field(..., min_length=1, max_length=2000)
+
+
+class MessagePatch(BaseModel):
+    content: Optional[str] = Field(None, min_length=1, max_length=2000)
+
+
+class Message(BaseModel):
+    id: int
+    user_id: Optional[int]
+    sender: str
+    content: str
+    created_at: str
+    updated_at: str
+
+
+def fetch_message(db, message_id: int) -&gt; Message:
+    row = db.execute("SELECT * FROM messages WHERE id = ?", (message_id,)).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Message not found")
+    return Message(**dict(row))
+
+
+def fetch_own_message(db, message_id: int, me: dict) -&gt; Message:
+    msg = fetch_message(db, message_id)
+    if msg.user_id != me["id"]:
+        raise HTTPException(status_code=403, detail="You can only change your own messages")
+    return msg</div>
+        <p><code>user_id: Optional[int]</code> is needed for the old messages from before accounts existed (they have <code>NULL</code>). <code>fetch_own_message</code> is the ownership rule in four lines: 404 if the message doesn't exist, 403 if it isn't yours.</p>
+        <h3 class="sub"><span class="mth get">GET</span> /messages: filter, limit, offset</h3>
+        <div class="code-block" data-hl>@router.get("/messages", response_model=List[Message])
+def list_messages(
+    sender: Optional[str] = None,
+    limit: int = Query(100, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+):
+    sql, params = "SELECT * FROM messages", []
+    if sender:
+        sql += " WHERE sender = ?"
+        params.append(sender)
+    sql += " ORDER BY id DESC LIMIT ? OFFSET ?"
+    params += [limit, offset]
+    with get_db() as db:
+        return [Message(**dict(r)) for r in db.execute(sql, params).fetchall()]</div>
+        <ul>
+          <li>Arguments that aren't in the path and aren't models are <strong>query parameters</strong>: <code>/messages?sender=itay&amp;limit=20&amp;offset=40</code>.</li>
+          <li><code>Query(100, ge=1, le=1000)</code>: default 100, must be 1…1000. <code>?limit=5000</code> gets a 422, so nobody can ask for the whole table in one call.</li>
+          <li>The SQL is built up step by step, but the <em>values</em> still go in through <code>params</code>. Only fixed SQL text is concatenated.</li>
+          <li><code>ORDER BY id DESC</code>: newest first. <code>LIMIT/OFFSET</code> is <strong>pagination</strong>: page 3 of 20 is <code>limit=20&amp;offset=40</code>.</li>
+        </ul>
+        <h3 class="sub"><span class="mth get">GET</span> one · <span class="mth post">POST</span> create</h3>
+        <div class="code-block" data-hl>@router.get("/messages/{message_id}", response_model=Message)
+def get_message(message_id: int):
+    with get_db() as db:
+        return fetch_message(db, message_id)
+
+
+@router.post("/messages", response_model=Message, status_code=status.HTTP_201_CREATED)
+def create_message(msg: MessageCreate, me: dict = Depends(current_user)):
+    ts = now()
+    with get_db() as db:
+        cur = db.execute(
+            "INSERT INTO messages (user_id, sender, content, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (me["id"], me["name"], msg.content, ts, ts),
+        )
+        return fetch_message(db, cur.lastrowid)</div>
+        <div class="note green"><strong>The client never says who it is.</strong> The request body is only <code>{"content": "…"}</code>. <code>user_id</code> and <code>sender</code> come from <code>me</code>, which the server derived from the token. There is no field you could fake to post as someone else.</div>
+        <h3 class="sub"><span class="mth put">PUT</span> · <span class="mth patch">PATCH</span> · <span class="mth delete">DELETE</span> · <span class="mth head">HEAD</span></h3>
+        <div class="code-block" data-hl>@router.put("/messages/{message_id}", response_model=Message)
+def replace_message(message_id: int, msg: MessageCreate, me: dict = Depends(current_user)):
+    with get_db() as db:
+        fetch_own_message(db, message_id, me)
+        db.execute(
+            "UPDATE messages SET content = ?, updated_at = ? WHERE id = ?",
+            (msg.content, now(), message_id),
+        )
+        return fetch_message(db, message_id)
+
+
+@router.patch("/messages/{message_id}", response_model=Message)
+def update_message(message_id: int, msg: MessagePatch, me: dict = Depends(current_user)):
+    fields = msg.model_dump(exclude_unset=True, exclude_none=True)
+    with get_db() as db:
+        fetch_own_message(db, message_id, me)
+        if fields:
+            db.execute(
+                "UPDATE messages SET content = ?, updated_at = ? WHERE id = ?",
+                (fields["content"], now(), message_id),
+            )
+        return fetch_message(db, message_id)
+
+
+@router.delete("/messages/{message_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_message(message_id: int, me: dict = Depends(current_user)):
+    with get_db() as db:
+        fetch_own_message(db, message_id, me)
+        db.execute("DELETE FROM messages WHERE id = ?", (message_id,))
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.head("/messages/{message_id}")
+def head_message(message_id: int):
+    with get_db() as db:
+        fetch_message(db, message_id)
+    return Response(status_code=status.HTTP_200_OK)</div>
+        <p>All three write endpoints start with <code>fetch_own_message</code>, so the ownership check can't be forgotten. Each edit sets <code>updated_at</code>. The frontend compares it to spot edited messages and makes the bubble flash. A message has only one editable field, so PUT and PATCH behave alike here. The difference is that PATCH accepts <code>{}</code> (no change), while PUT requires <code>content</code>.</p>
+      </section>
+
+      <!-- ═══ 10. FRONTEND ═══ -->
+      <section class="card topic-panel" id="topic-9">
+        <h2 class="step-title">static/index.html: api() &amp; Polling</h2>
+        <p>The frontend is about 1,000 lines of HTML, CSS and JavaScript in one file, with no framework. Most of it is looks: the aurora theme, SweetAlert dialogs, the avatar picker. Every conversation with the server goes through one function:</p>
+        <span class="code-file">static/index.html: the only place that calls fetch()</span>
+        <div class="code-block" data-hl>let token = null, me = null, pollTimer = null, polling = false;
+try { token = localStorage.getItem("aurora_token"); } catch (e) {}
+
+async function api(path, { method = "GET", body } = {}) {
+  const headers = { "Content-Type": "application/json" };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(path, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  if (res.status === 204) return null;
+  const data = await res.json().catch(() =&gt; ({}));
+  if (!res.ok) {
+    const err = new Error(typeof data.detail === "string" ? data.detail
+      : Array.isArray(data.detail) ? data.detail.map(d =&gt; d.msg).join(", ") : `Request failed (${res.status})`);
+    err.status = res.status;
+    throw err;
+  }
+  return data;
+}</div>
+        <ul>
+          <li><strong>Relative paths</strong> (<code>"/messages"</code>): the page was served by the same Uvicorn, so requests go to the same host and port. No CORS needed.</li>
+          <li>The token from login lives in <code>localStorage</code> and is attached to <em>every</em> request. The server is stateless, so the client has to keep proving who it is.</li>
+          <li><code>204</code> has no body, so there's nothing to parse.</li>
+          <li><strong>Errors in one place:</strong> any non-2xx becomes a thrown <code>Error</code> carrying the server's <code>detail</code>. A plain <code>HTTPException</code> gives a string. A 422 from Pydantic gives a list, whose <code>msg</code>s are joined. The dialogs just show <code>e.message</code>.</li>
+        </ul>
+        <h3 class="sub">Each button is one REST call</h3>
+        <table class="data-table">
+          <tr><th>User action</th><th>Request</th></tr>
+          <tr><td>Sign up</td><td><span class="mth post">POST</span> <code>/users</code>, then immediately <span class="mth post">POST</span> <code>/login</code></td></tr>
+          <tr><td>Page load with a saved token</td><td><span class="mth get">GET</span> <code>/users/me</code> (works → straight into the chat; 401 → token cleared)</td></tr>
+          <tr><td>Send</td><td><span class="mth post">POST</span> <code>/messages</code> {content}</td></tr>
+          <tr><td>✏️ Edit</td><td><span class="mth patch">PATCH</span> <code>/messages/{id}</code> {content}</td></tr>
+          <tr><td>🗑️ Delete</td><td><span class="mth delete">DELETE</span> <code>/messages/{id}</code></td></tr>
+          <tr><td>Change my photo</td><td><span class="mth patch">PATCH</span> <code>/users/{me.id}</code> {avatar | avatar_preset}</td></tr>
+          <tr><td>Log out</td><td><span class="mth post">POST</span> <code>/logout</code></td></tr>
+        </table>
+        <h3 class="sub">"Live" chat by polling</h3>
+        <div class="code-block" data-hl>const POLL_MS = 1000;
+
+function startPolling() {
+  stopPolling();
+  let tick = 0;
+  const run = () =&gt; { poll(); if (tick++ % 5 === 0) refreshMembers(); };
+  run();
+  pollTimer = setInterval(run, POLL_MS);
+}
+
+async function poll() {
+  if (polling) return;
+  polling = true;
+  try {
+    render(await api("/messages?limit=200"));
+  } catch (e) {
+    console.warn("poll failed", e);
+  } finally {
+    polling = false;
+  }
+}</div>
+        <p>Every second the page asks for the latest 200 messages, and every fifth tick it also refreshes the member list (<code>GET /users</code>). The <code>polling</code> flag stops requests from piling up if the server is slow. <code>render()</code> compares the result with what's on screen, keyed by message <code>id</code>: new ids slide in, missing ids fade out, and a changed <code>updated_at</code> flashes the bubble. After you send, edit or delete, the page calls <code>poll()</code> at once instead of waiting for the next tick.</p>
+      </section>
+
+      <!-- ═══ 11. END TO END ═══ -->
+      <section class="card topic-panel" id="topic-10">
+        <h2 class="step-title">One Request, End to End</h2>
+        <p>Putting all the files together: what happens when you press <strong>Send</strong> with "hello"?</p>
+        <table class="data-table">
+          <tr><th>#</th><th>Where</th><th>What happens</th></tr>
+          <tr><td>1</td><td class="term">index.html</td><td><code>api("/messages", {method: "POST", body: {content: "hello"}})</code> adds <code>Authorization: Bearer Xq3v…</code> and calls <code>fetch</code>.</td></tr>
+          <tr><td>2</td><td class="term">Uvicorn</td><td>Receives the HTTP text on port 8000, parses it, and hands it to <code>app</code>.</td></tr>
+          <tr><td>3</td><td class="term">main.py</td><td>The middleware starts and calls <code>call_next</code>. The router finds <code>POST /messages</code> → <code>create_message</code>. The static mount is never reached.</td></tr>
+          <tr><td>4</td><td class="term">users.py</td><td><code>Depends(current_user)</code>: <code>sessions JOIN users</code> on the token → <code>me = {id: 1, name: "itay", …}</code>. A bad token stops here with 401.</td></tr>
+          <tr><td>5</td><td class="term">Pydantic</td><td>The body is validated against <code>MessageCreate</code>: 1–2000 characters. <code>""</code> stops here with 422.</td></tr>
+          <tr><td>6</td><td class="term">messages.py</td><td><code>INSERT INTO messages …</code> with <code>me</code>'s id and name, then <code>fetch_message(cur.lastrowid)</code>.</td></tr>
+          <tr><td>7</td><td class="term">database.py</td><td>The <code>with get_db()</code> block ends without errors, so it <strong>commits</strong> and closes the connection.</td></tr>
+          <tr><td>8</td><td class="term">FastAPI</td><td><code>response_model=Message</code> turns the result into JSON with status <strong>201</strong>. The middleware leaves it alone (not HTML).</td></tr>
+          <tr><td>9</td><td class="term">index.html</td><td><code>api()</code> returns the new message. The page clears the input and calls <code>poll()</code>. <code>render()</code> sees a new id and the bubble slides in. Within a second, every other open tab picks it up on its own poll.</td></tr>
+        </table>
+        <div class="output">INFO:     127.0.0.1:52341 - "POST /messages HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52341 - "GET /messages?limit=200 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52388 - "GET /messages?limit=200 HTTP/1.1" 200 OK      <span style="color:#57618a">← another user's tab</span></div>
+        <div class="note blue">Try it with two browsers (or one normal and one private window) logged in as two different users. Watch the Uvicorn terminal: every line is one REST call from this table.</div>
+      </section>
+
+      <!-- ═══ 12. IMPROVEMENTS ═══ -->
+      <section class="card topic-panel" id="topic-11">
+        <h2 class="step-title">What to Improve Next</h2>
+        <p>The app works, and it was built quickly. Reading it carefully shows what a second round of vibe-coding could ask for. Each item is a good exercise and a good prompt for Claude:</p>
+        <div class="note red"><strong>1. Sessions never expire.</strong> A token is valid until logout, forever. <code>sessions.created_at</code> is stored but never checked. Fix: in <code>current_user</code>, reject tokens older than, say, 7 days (<code>AND s.created_at &gt; ?</code>).</div>
+        <div class="note red"><strong>2. Unlimited login attempts.</strong> Nothing stops a script from trying thousands of passwords on <code>/login</code>. Fix: count failures per name/IP and answer <code>429 Too Many Requests</code> for a while.</div>
+        <div class="note"><strong>3. Foreign keys are switched off.</strong> Add <code>conn.execute("PRAGMA foreign_keys = ON")</code> in <code>get_db()</code> so <code>ON DELETE CASCADE</code> actually works. Then decide what happens to a deleted user's <em>messages</em>: right now they stay, pointing at a <code>user_id</code> that no longer exists.</div>
+        <div class="note"><strong>4. The name is stored twice.</strong> <code>messages.sender</code> copies <code>users.name</code>, which is why renaming must also run <code>UPDATE messages SET sender = …</code>. A <code>JOIN</code> in <code>list_messages</code> would make the copy unnecessary (the column is left over from version 1, before accounts existed).</div>
+        <div class="note"><strong>5. Polling re-downloads everything.</strong> Each open tab fetches 200 messages every second, even when nothing changed. Cheaper: <code>GET /messages?after_id=532</code> to fetch only new ones. Best: a FastAPI <strong>WebSocket</strong> that pushes new messages the moment they're posted.</div>
+        <div class="note"><strong>6. Legacy messages can't be edited by anyone.</strong> Rows with <code>user_id = NULL</code> fail <code>msg.user_id != me["id"]</code> for every user. Fine for a demo, but a migration could match them to users by <code>sender</code>.</div>
+        <div class="note violet"><strong>7. <code>on_event("startup")</code> → <code>lifespan</code>.</strong> The current FastAPI style:</div>
+        <div class="code-block" data-hl>from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()          # runs on startup
+    yield
+                       # anything after yield runs on shutdown
+
+app = FastAPI(title="Messages API", version="1.6", lifespan=lifespan)</div>
+        <div class="note green"><strong>Your turn.</strong> Pick one item, write the prompt you'd give Claude (name the file, the endpoint, the status code, the rule), apply it, and prove it works in <code>/docs</code> or Postman. That loop (design → prompt → read → test) is the real skill this lesson is about.</div>
+      </section>
+
+    </main>
+  </div>
+
+  <div class="footer">Lesson 3 · REST API: A REST Chat API with FastAPI &amp; SQLite</div>
+</div>
+
+<script>
+  const links = document.querySelectorAll('.topic-link');
+  const panels = document.querySelectorAll('.topic-panel');
+
+  function showTopic(id) {
+    panels.forEach(panel => panel.classList.toggle('active', panel.id === id));
+    links.forEach(link => link.classList.toggle('active', link.dataset.target === id));
+  }
+
+  links.forEach(link => {
+    if (link.dataset.target) {
+      link.addEventListener('click', () => {
+        showTopic(link.dataset.target);
+        location.hash = link.dataset.target;
+      });
+    }
+  });
+
+  const hash = location.hash.replace('#', '');
+  if (hash && document.getElementById(hash)) showTopic(hash);
+
+  /* colour the code blocks (Python and the frontend's JavaScript) */
+  const KW = new Set(['from','import','as','def','class','return','if','elif','else','for','in','not','and','or','is','with',
+    'try','except','finally','raise','None','True','False','async','await','yield','lambda','pass','while',
+    'const','let','var','function','new','throw','typeof','catch','null','undefined','true','false']);
+  const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  function highlight(src) {
+    const re = /("""[\s\S]*?"""|[rfb]?"(?:[^"\\\n]|\\.)*"|[rfb]?'(?:[^'\\\n]|\\.)*'|`[^`]*`)|((?:#|\/\/)[^\n]*)|(@[\w.]+)|\b(\d[\d_]*(?:\.\d+)?)\b|\b([A-Za-z_]\w*)\b(?=\s*\()|\b([A-Za-z_]\w*)\b/g;
+    let out = '', last = 0, m;
+    while ((m = re.exec(src))) {
+      out += esc(src.slice(last, m.index));
+      const t = esc(m[0]);
+      if (m[1]) out += `<span class="str">${t}</span>`;
+      else if (m[2]) out += `<span class="cm">${t}</span>`;
+      else if (m[3]) out += `<span class="fn">${t}</span>`;
+      else if (m[4]) out += `<span class="num">${t}</span>`;
+      else if (m[5]) out += KW.has(m[5]) ? `<span class="kw">${t}</span>` : /^[A-Z]/.test(m[5]) ? `<span class="cls">${t}</span>` : `<span class="fn">${t}</span>`;
+      else if (m[6]) out += KW.has(m[6]) ? `<span class="kw">${t}</span>` : /^[A-Z][a-z]/.test(m[6]) ? `<span class="cls">${t}</span>` : t;
+      last = re.lastIndex;
+    }
+    return out + esc(src.slice(last));
+  }
+  document.querySelectorAll('.code-block[data-hl]').forEach(b => { b.innerHTML = highlight(b.textContent); });
+</script>
+</body>
+</html>
