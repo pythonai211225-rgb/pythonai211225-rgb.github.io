@@ -1,17 +1,20 @@
 const topics = [
   {name:'Artificial Neural Networks',short:'ANN',group:'deep',level:'Beginner',color:'#8edcef',description:'Build the foundations of intelligence, one neuron at a time.',path:'01_ann/index.html',art:'network',objectives:['A neuron combines inputs with learned weights and a bias, then applies an activation function.','Layers transform those signals into increasingly useful representations.','Training uses a loss function and backpropagation to adjust weights and improve predictions.']},
   {name:'Convolutional Neural Networks',short:'CNN',group:'deep',level:'Intermediate',color:'#a78bfa',description:'Master computer vision and image recognition techniques.',path:'02_cnn/index.html',fullArt:'assets/odyssey/cnn-card.jpg',objectives:['Convolution slides small learned filters across an image to detect local patterns anywhere.','Pooling shrinks feature maps and makes the network tolerant to small shifts.','Stacked conv blocks build a feature hierarchy that a dense head turns into a class.']},
-  {name:'REST API',short:'REST',group:'foundations',level:'Intermediate',color:'#61affe',description:'Serve data and models over HTTP with FastAPI.',path:'03_rest_api/index.html',cardArt:'assets/odyssey/rest-card.svg',objectives:['Resources live at URLs; the HTTP method (GET, POST, PUT, PATCH, DELETE) says what to do with them.','FastAPI turns typed Python functions into validated, self-documenting endpoints, served by Uvicorn.','Status codes, Swagger /docs and Postman make an API testable before any frontend exists.']}
+  {name:'REST API',short:'REST',group:'foundations',level:'Intermediate',color:'#61affe',description:'Serve data and models over HTTP with FastAPI.',path:'03_rest_api/index.html',cardArt:'assets/odyssey/rest-card.svg',objectives:['Resources live at URLs; the HTTP method (GET, POST, PUT, PATCH, DELETE) says what to do with them.','FastAPI turns typed Python functions into validated, self-documenting endpoints, served by Uvicorn.','Status codes, Swagger /docs and Postman make an API testable before any frontend exists.']},
+  {name:'Object-Oriented Programming',short:'OOP',group:'oop',level:'Beginner',color:'#fbbf24',description:'Classes, objects and the MobilePhone example.',path:'oop/index.html',cardArt:'assets/odyssey/oop-card.svg',objectives:['A class is a blueprint; an object is one thing built from it, with its own attribute values.','__init__ sets the attributes of each new object through self; __str__ decides what print shows.','OOP fits many stateful things and big programs; small scripts and number crunching are better without it.']}
 ];
 const cardTitles = [
  'Artificial Neural<br>Networks (ANN)',
  '',
- 'REST API<br><small>FastAPI · Uvicorn</small>'
+ 'REST API<br><small>FastAPI · Uvicorn</small>',
+ 'Object-Oriented<br>Programming (OOP)'
 ];
 const cardDescriptions = [
  'Build and train foundational deep learning models.',
  '',
- 'Serve data and models over HTTP with FastAPI.'
+ 'Serve data and models over HTTP with FastAPI.',
+ 'Classes, objects and a mobile phone in Python.'
 ];
 const grid=document.querySelector('#course-grid');
 function render(filter='all'){

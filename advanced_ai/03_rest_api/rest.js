@@ -9,11 +9,11 @@
 
 const $ = id => document.getElementById(id);
 
-const TOTAL = 13;
+const TOTAL = 17;
 const LABELS = ['Overview','What is a REST API?','The HTTP methods','Status codes','FastAPI','Uvicorn',
                 'Swagger /docs','Postman','The Chat API app','The database behind it','Vibe-coding the app',
-                'Exercises','A1 · FastAPI cheat-sheet'];
-const CURRICULUM_ORDER = [0,1,2,3,4,5,6,7,8,9,10,11,12];
+                'Exercises','A1 · FastAPI cheat-sheet','Base64','JWT anatomy','Sign & verify','JWT vs sessions'];
+const CURRICULUM_ORDER = [0,1,2,3,4,5,6,7,8,9,10,13,14,15,16,11,12];
 
 let current = 0;
 let ovRaf = null, pipeTimer = null;
@@ -21,6 +21,7 @@ let ovRaf = null, pipeTimer = null;
 function stopTimers() {
   if (ovRaf) { cancelAnimationFrame(ovRaf); ovRaf = null; }
   if (pipeTimer) { clearInterval(pipeTimer); pipeTimer = null; }
+  if (typeof tokensStop === 'function') tokensStop();
 }
 
 function goTo(idx) {
@@ -39,7 +40,8 @@ function goTo(idx) {
   document.querySelectorAll('.s-item').forEach(b => b.classList.toggle('active', +b.dataset.panel === idx));
   updateDots();
   history.replaceState(null, '', '#p' + idx);
-  const enters = [startOverview, null, null, null, () => runPipe(pipeMode), null, null, null, null, null, null, null, null];
+  const enters = [startOverview, null, null, null, () => runPipe(pipeMode), null, null, null, null, null, null, null, null,
+                  () => b64Play(), () => jwtShow(jwtPart), () => svStep(0, document.querySelector('#sv-seg button')), null];
   if (enters[idx]) setTimeout(enters[idx], 60);
 }
 
