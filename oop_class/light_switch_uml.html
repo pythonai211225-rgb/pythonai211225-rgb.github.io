@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Light Switch UML</title>
+<style>
+  :root {
+    --bg: #eef1f6;
+    --card: #ffffff;
+    --ink: #1c2330;
+    --muted: #5d6879;
+    --line: #2b3648;
+    --head-ctx: #fbe8c4;
+    --head-abs: #e4dcf5;
+    --head-off: #dfe3ea;
+    --head-on: #fff1a8;
+    --head-broken: #f6cfcb;
+    --abs: #6b3fb0;
+    --ov: #b4571b;
+    --ov-bg: #fdeede;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12161d;
+      --card: #1b212b;
+      --ink: #e6eaf1;
+      --muted: #9aa5b6;
+      --line: #8a97ad;
+      --head-ctx: #4a3a1a;
+      --head-abs: #35295a;
+      --head-off: #2c3340;
+      --head-on: #5a4d12;
+      --head-broken: #5a2a2a;
+      --abs: #c39bf0;
+      --ov: #f0a468;
+      --ov-bg: #3a2a1b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 36px 16px 60px;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Segoe UI", system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 { margin: 0 0 4px; font-size: 1.5rem; }
+  .sub { margin: 0 0 20px; color: var(--muted); font-size: .95rem; text-align: center; }
+
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 8px 18px; justify-content: center;
+    font-size: .85rem; color: var(--muted); margin-bottom: 24px;
+  }
+  .legend b { font-family: Consolas, monospace; color: var(--ink); }
+
+  .scroller { width: 100%; overflow-x: auto; padding-bottom: 8px; }
+  .diagram { position: relative; width: 1100px; margin: 0 auto; padding-bottom: 6px; }
+  svg.links { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; overflow: visible; }
+  svg.links path { fill: none; stroke: var(--line); stroke-width: 2; }
+  svg.links polygon { fill: var(--card); stroke: var(--line); stroke-width: 2; stroke-linejoin: round; }
+  svg.links text { fill: var(--muted); font-size: 12px; font-family: "Segoe UI", sans-serif; }
+
+  .grid3 { display: grid; grid-template-columns: repeat(3, 300px); justify-content: space-between; align-items: start; position: relative; z-index: 1; }
+  .grid3.first { margin-bottom: 72px; }
+
+  .cls {
+    background: var(--card);
+    border: 2px solid var(--line);
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,.12);
+    width: 300px;
+    font-size: .84rem;
+  }
+  .cls .name {
+    padding: 9px 12px; text-align: center; font-size: 1.1rem; font-weight: 700;
+    border-bottom: 2px solid var(--line);
+  }
+  .cls .name small { display: block; font-size: .68rem; font-weight: 500; font-style: normal; color: var(--muted); letter-spacing: .05em; }
+  .ctx .name { background: var(--head-ctx); }
+  .abstract .name { background: var(--head-abs); font-style: italic; }
+  .abstract .name small { color: var(--abs); }
+  .off .name { background: var(--head-off); }
+  .on .name { background: var(--head-on); }
+  .broken .name { background: var(--head-broken); }
+
+  .sec { padding: 6px 12px; border-bottom: 2px solid var(--line); }
+  .sec:last-child { border-bottom: none; }
+  .row { padding: 3px 0; font-family: Consolas, "Courier New", monospace; font-size: .84rem; word-break: break-word; }
+  .row .d { display: block; font-family: "Segoe UI", sans-serif; font-size: .75rem; color: var(--muted); margin-left: 14px; }
+  .row.abs { font-style: italic; color: var(--abs); }
+
+  .tag {
+    display: inline-block; margin-left: 5px; padding: 0 6px; border-radius: 9px;
+    font-family: "Segoe UI", sans-serif; font-size: .64rem; font-weight: 600; font-style: normal; vertical-align: middle;
+  }
+  .tag.ov  { background: var(--ov-bg); color: var(--ov); border: 1px solid var(--ov); }
+  .tag.ab  { color: var(--abs); border: 1px solid var(--abs); }
+  .tag.ro  { color: var(--muted); border: 1px solid var(--muted); }
+
+  .extra { display: flex; flex-wrap: wrap; gap: 24px; justify-content: center; margin-top: 36px; width: 1100px; }
+  .panel {
+    background: var(--card); border: 2px solid var(--line); border-radius: 6px;
+    padding: 12px 16px; box-shadow: 0 4px 12px rgba(0,0,0,.12);
+  }
+  .panel h2 { margin: 0 0 8px; font-size: .8rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .panel .note { margin: 8px 0 0; font-size: .78rem; color: var(--muted); max-width: 480px; }
+  table { border-collapse: collapse; font-size: .82rem; }
+  th, td { border: 1px solid var(--line); padding: 6px 10px; text-align: left; }
+  th { background: var(--head-abs); }
+  td.s { font-family: Consolas, monospace; font-weight: 700; }
+  td.on { background: var(--head-on); }
+  td.off { background: var(--head-off); }
+  td.broken { background: var(--head-broken); }
+
+  .machine svg { display: block; }
+  .machine text { font-family: "Segoe UI", sans-serif; font-size: 13px; fill: var(--ink); }
+  .machine .st { stroke: var(--line); stroke-width: 2; }
+  .machine .st.on { fill: var(--head-on); }
+  .machine .st.off { fill: var(--head-off); }
+  .machine .st.broken { fill: var(--head-broken); }
+  .machine .tr { fill: none; stroke: var(--line); stroke-width: 2; }
+  .machine .dot { fill: var(--line); }
+  .machine .head { fill: var(--line); }
+  .machine .lbl { font-family: Consolas, monospace; font-size: 12px; fill: var(--muted); }
+</style>
+</head>
+<body>
+
+  <h1>Light switch &mdash; State pattern</h1>
+  <p class="sub">LightSwitch holds a State object and passes every action to it; OnState, OffState and BrokenState decide what happens.</p>
+
+  <div class="legend">
+    <span><b>+</b> public</span>
+    <span><b>#</b> protected</span>
+    <span><b><i>italic</i></b> abstract</span>
+    <span><span class="tag ro">get</span> read-only property</span>
+    <span><span class="tag ov">override</span> implements the parent's method</span>
+    <span>hollow arrow = inherits from</span>
+    <span>open arrow = has a</span>
+  </div>
+
+  <div class="scroller">
+  <div class="diagram" id="diagram">
+    <svg class="links" id="links" aria-hidden="true"></svg>
+
+    <div class="grid3 first">
+      <!-- context -->
+      <div class="cls ctx" id="LightSwitch" data-assoc="State" data-label="_state">
+        <div class="name">LightSwitch<small>CONTEXT</small></div>
+        <div class="sec">
+          <div class="row"># _state : State</div>
+        </div>
+        <div class="sec">
+          <div class="row">+ LightSwitch(state: State = None)<span class="d">Creates the switch; with no state given it starts in OffState.</span></div>
+          <div class="row">+ state : State <span class="tag ro">get</span><span class="d">Returns the current state object, which prints as on, off or broken.</span></div>
+          <div class="row">+ set_state(state: State) : None<span class="d">Replaces the current state; the states call it to move the switch on.</span></div>
+          <div class="row">+ light_on() : None<span class="d">Passes the light-on action to the current state.</span></div>
+          <div class="row">+ light_off() : None<span class="d">Passes the light-off action to the current state.</span></div>
+          <div class="row">+ light_fix() : None<span class="d">Passes the repair action to the current state.</span></div>
+        </div>
+      </div>
+
+      <!-- abstract state -->
+      <div class="cls abstract" id="State">
+        <div class="name">State<small>&laquo;abstract&raquo;</small></div>
+        <div class="sec">
+          <div class="row abs">+ name : str <span class="tag ab">abstract get</span><span class="d">The label of the state: "on", "off" or "broken".</span></div>
+          <div class="row abs">+ light_on(switch: LightSwitch) : None <span class="tag ab">abstract</span><span class="d">Handles the light-on action for this state.</span></div>
+          <div class="row abs">+ light_off(switch: LightSwitch) : None <span class="tag ab">abstract</span><span class="d">Handles the light-off action for this state.</span></div>
+          <div class="row abs">+ light_fix(switch: LightSwitch) : None <span class="tag ab">abstract</span><span class="d">Handles the repair action for this state.</span></div>
+          <div class="row">+ __str__() : str<span class="d">Returns the state's name, so print(switch.state) shows it.</span></div>
+        </div>
+      </div>
+
+      <div></div>
+    </div>
+
+    <div class="grid3">
+      <div class="cls on" id="OnState" data-parent="State">
+        <div class="name">OnState<small>CONCRETE STATE</small></div>
+        <div class="sec">
+          <div class="row">+ name : str <span class="tag ov">override</span><span class="d">Returns "on".</span></div>
+          <div class="row">+ light_on(switch: LightSwitch) : None <span class="tag ov">override</span><span class="d">Prints "Switch is already on..." and stays on.</span></div>
+          <div class="row">+ light_off(switch: LightSwitch) : None <span class="tag ov">override</span><span class="d">Moves the switch to OffState and prints "Switch On".</span></div>
+          <div class="row">+ light_fix(switch: LightSwitch) : None <span class="tag ov">override</span><span class="d">Prints "Switch is already fixed!" and stays on.</span></div>
+        </div>
+      </div>
+
+      <div class="cls off" id="OffState" data-parent="State">
+        <div class="name">OffState<small>CONCRETE STATE</small></div>
+        <div class="sec">
+          <div class="row">+ name : str <span class="tag ov">override</span><span class="d">Returns "off".</span></div>
+          <div class="row">+ light_on(switch: LightSwitch) : None <span class="tag ov">override</span><span class="d">Moves the switch to OnState and prints "Switch On".</span></div>
+          <div class="row">+ light_off(switch: LightSwitch) : None <span class="tag ov">override</span><span class="d">Moves the switch to BrokenState and prints "Switch is now broken".</span></div>
+          <div class="row">+ light_fix(switch: LightSwitch) : None <span class="tag ov">override</span><span class="d">Prints "Switch is already fixed!" and stays off.</span></div>
+        </div>
+      </div>
+
+      <div class="cls broken" id="BrokenState" data-parent="State">
+        <div class="name">BrokenState<small>CONCRETE STATE</small></div>
+        <div class="sec">
+          <div class="row">+ name : str <span class="tag ov">override</span><span class="d">Returns "broken".</span></div>
+          <div class="row">+ light_on(switch: LightSwitch) : None <span class="tag ov">override</span><span class="d">Prints "Switch already broken" and stays broken.</span></div>
+          <div class="row">+ light_off(switch: LightSwitch) : None <span class="tag ov">override</span><span class="d">Prints "Switch already broken" and stays broken.</span></div>
+          <div class="row">+ light_fix(switch: LightSwitch) : None <span class="tag ov">override</span><span class="d">Moves the switch to OffState and prints "Switch fix, now off".</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
+
+  <div class="extra">
+    <div class="panel">
+      <h2>What each action does</h2>
+      <table>
+        <tr><th>Current state</th><th>light_on()</th><th>light_off()</th><th>light_fix()</th></tr>
+        <tr><td class="s on">on</td><td>message only</td><td>becomes off</td><td>message only</td></tr>
+        <tr><td class="s off">off</td><td>becomes on</td><td>becomes broken</td><td>message only</td></tr>
+        <tr><td class="s broken">broken</td><td>message only</td><td>message only</td><td>becomes off</td></tr>
+      </table>
+    </div>
+
+    <div class="panel machine">
+      <h2>State machine</h2>
+      <svg width="480" height="175" viewBox="0 0 480 175" role="img" aria-label="State machine of the light switch">
+        <defs>
+          <marker id="ar" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+            <path class="head" d="M0,0 L9,4.5 L0,9 z"/>
+          </marker>
+        </defs>
+
+        <circle class="dot" cx="250" cy="14" r="6"/>
+        <path class="tr" d="M250,20 V44" marker-end="url(#ar)"/>
+
+        <circle class="st broken" cx="70" cy="82" r="34"/>
+        <text x="70" y="87" text-anchor="middle">broken</text>
+        <circle class="st off" cx="250" cy="82" r="34"/>
+        <text x="250" y="87" text-anchor="middle">off</text>
+        <circle class="st on" cx="420" cy="82" r="34"/>
+        <text x="420" y="87" text-anchor="middle">on</text>
+
+        <path class="tr" d="M218,68 Q160,38 102,68" marker-end="url(#ar)"/>
+        <text class="lbl" x="160" y="42" text-anchor="middle">light_off</text>
+
+        <path class="tr" d="M102,98 Q160,128 218,98" marker-end="url(#ar)"/>
+        <text class="lbl" x="160" y="132" text-anchor="middle">light_fix</text>
+
+        <path class="tr" d="M278,62 Q335,14 392,62" marker-end="url(#ar)"/>
+        <text class="lbl" x="335" y="28" text-anchor="middle">light_on</text>
+
+        <path class="tr" d="M392,102 Q335,152 278,102" marker-end="url(#ar)"/>
+        <text class="lbl" x="335" y="160" text-anchor="middle">light_off</text>
+      </svg>
+      <p class="note">Only the actions that change the state are drawn; every other action just prints a message.</p>
+    </div>
+  </div>
+
+<script>
+  // Draw the connectors from the real box positions.
+  function draw() {
+    const diagram = document.getElementById('diagram');
+    const svg = document.getElementById('links');
+    const box = diagram.getBoundingClientRect();
+    svg.setAttribute('viewBox', `0 0 ${box.width} ${box.height}`);
+    let out = '';
+    const drawnHeads = new Set();
+
+    // inheritance: hollow triangle on the parent, elbow lines from each child
+    document.querySelectorAll('[data-parent]').forEach(child => {
+      const parent = document.getElementById(child.dataset.parent);
+      const c = child.getBoundingClientRect();
+      const p = parent.getBoundingClientRect();
+      const cx = c.left + c.width / 2 - box.left;
+      const ct = c.top - box.top;
+      const px = p.left + p.width / 2 - box.left;
+      const pb = p.bottom - box.top;
+      const head = 22;
+      const midY = pb + head + (ct - pb - head) / 2;
+      out += `<path d="M${cx},${ct} V${midY} H${px} V${pb + head}"/>`;
+      if (!drawnHeads.has(parent.id)) {
+        drawnHeads.add(parent.id);
+        out += `<polygon points="${px},${pb} ${px - 9},${pb + head} ${px + 9},${pb + head}"/>`;
+      }
+    });
+
+    // association: LightSwitch --> State, with an open arrowhead
+    document.querySelectorAll('[data-assoc]').forEach(from => {
+      const to = document.getElementById(from.dataset.assoc);
+      const f = from.getBoundingClientRect();
+      const t = to.getBoundingClientRect();
+      const x1 = f.right - box.left;
+      const x2 = t.left - box.left;
+      const y = t.top + t.height / 2 - box.top;
+      out += `<path d="M${x1},${y} H${x2}"/>`;
+      out += `<path d="M${x2 - 11},${y - 6} L${x2},${y} L${x2 - 11},${y + 6}"/>`;
+      out += `<text x="${(x1 + x2) / 2}" y="${y - 8}" text-anchor="middle">${from.dataset.label}</text>`;
+      out += `<text x="${x2 - 8}" y="${y + 18}" text-anchor="end">1</text>`;
+    });
+
+    svg.innerHTML = out;
+  }
+  window.addEventListener('load', draw);
+  window.addEventListener('resize', draw);
+</script>
+</body>
+</html>
